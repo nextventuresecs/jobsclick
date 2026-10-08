@@ -57,3 +57,17 @@ RLS policies, auth/OTP flow, migrations touching existing data, anything with pa
 - superpowers: brainstorming → writing-plans → TDD → verification-before-completion, per issue.
 - gstack: plan review before slice, QA before merge.
 - mattpocock: TS/zod typing discipline for validation + API types.
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs for this repo live as GitHub issues. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Canonical triage roles mapped to repo label strings. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout (one `GLOSSARY.md` + `docs/adr/`). See `docs/agents/domain.md`.
