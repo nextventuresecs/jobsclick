@@ -6,5 +6,10 @@ export default defineConfig({
     environment: 'node',
     include: ['**/*.{test,spec,e2e-spec}.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/.next/**'],
+    server: {
+      deps: {
+        inline: ['qrcode'],
+      },
+    },
   },
 });
