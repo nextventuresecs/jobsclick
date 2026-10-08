@@ -5,6 +5,7 @@ export const envSchema = z.object({
   PORT: z.coerce.number().default(3001),
   DATABASE_URL: z.string().default('postgresql://postgres:postgres@localhost:5432/indian_job_portal'),
   REDIS_URL: z.string().default('redis://localhost:6379'),
+  SENTRY_DSN: z.string().optional(),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

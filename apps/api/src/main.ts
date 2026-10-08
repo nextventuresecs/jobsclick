@@ -3,9 +3,11 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import multipart from '@fastify/multipart';
 import { AppModule } from './app.module.js';
 import { validateEnv } from './config/env.js';
+import { initSentry } from './config/sentry.js';
 
 async function bootstrap() {
   const env = validateEnv();
+  initSentry(env.SENTRY_DSN);
   
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,

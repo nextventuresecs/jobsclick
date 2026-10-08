@@ -1,4 +1,4 @@
-name: CI Pipeline
+name: CI/CD Pipeline
 
 on:
   push:
@@ -8,6 +8,7 @@ on:
 
 jobs:
   verify:
+    name: Lint, Typecheck, Test & Build
     runs-on: ubuntu-latest
 
     steps:
@@ -51,3 +52,60 @@ jobs:
 
       - name: Build All Workspaces
         run: pnpm build
+
+  container-build:
+    name: Build Container Images
+    needs: verify
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build API Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          push: false
+          tags: indian-job-portal-api:latest
+
+      - name: Build Worker Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/worker/Dockerfile
+          push: false
+          tags: indian-job-portal-worker:latest
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: [verify, container-build]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to Staging Environment
+        run: |
+          echo "Deploying container build to Staging environment..."
+
+  deploy-production:
+    name: Deploy to Production
+    needs: [deploy-staging]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to Production Environment
+        run: |
+          echo "Deploying container build to Production environment..."
