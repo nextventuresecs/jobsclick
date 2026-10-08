@@ -1,7 +1,32 @@
 {
+  "Navigation": {
+    "home": "Home",
+    "jobs": "Explore Jobs",
+    "privacy": "Privacy Policy",
+    "language": "Language"
+  },
   "HomePage": {
     "title": "Indian Job Portal",
     "description": "Connecting Employers, Intermediaries, and Job Seekers across India.",
-    "getStarted": "Get Started"
+    "getStarted": "Get Started",
+    "searchJobs": "Search Jobs"
+  },
+  "JobsPage": {
+    "heading": "Explore Live Jobs in India",
+    "searchPlaceholder": "Search by keyword...",
+    "cityPlaceholder": "Filter by city...",
+    "allCategories": "All Collar Categories",
+    "whiteCollar": "White Collar",
+    "blueCollar": "Blue Collar",
+    "greyCollar": "Grey Collar",
+    "openCollar": "Open Collar (Job Work)",
+    "viewAndApply": "View & Apply"
+  },
+  "Auth": {
+    "sendOtp": "Send OTP",
+    "verifyOtp": "Verify OTP",
+    "mobileNumber": "Mobile Number",
+    "enterOtp": "Enter 6-digit OTP",
+    "loginSuccess": "Logged in successfully"
   }
 }

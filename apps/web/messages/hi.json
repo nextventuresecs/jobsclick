@@ -1,7 +1,32 @@
 {
+  "Navigation": {
+    "home": "मुख्य पृष्ठ",
+    "jobs": "नौकरियां देखें",
+    "privacy": "गोपनीयता नीति",
+    "language": "भाषा"
+  },
   "HomePage": {
     "title": "भारतीय जॉब पोर्टल",
     "description": "भारत भर में नियोक्ताओं, मध्यस्थों और नौकरी चाहने वालों को जोड़ना।",
-    "getStarted": "शुरू करें"
+    "getStarted": "शुरू करें",
+    "searchJobs": "नौकरी खोजें"
+  },
+  "JobsPage": {
+    "heading": "भारत में उपलब्ध नौकरियां देखें",
+    "searchPlaceholder": "कीवर्ड द्वारा खोजें...",
+    "cityPlaceholder": "शहर चुनें...",
+    "allCategories": "सभी नौकरी श्रेणियां",
+    "whiteCollar": "व्हाइट कॉलर (कार्यालयीन)",
+    "blueCollar": "ब्लू कॉलर (तकनीकी/श्रम)",
+    "greyCollar": "ग्रे कॉलर (सेवा क्षेत्र)",
+    "openCollar": "ओपन कॉलर (जॉब वर्क)",
+    "viewAndApply": "देखें और आवेदन करें"
+  },
+  "Auth": {
+    "sendOtp": "ओटीपी भेजें",
+    "verifyOtp": "ओटीपी सत्यापित करें",
+    "mobileNumber": "मोबाइल नंबर",
+    "enterOtp": "6-अंकों का ओटीपी दर्ज करें",
+    "loginSuccess": "सफलतापूर्वक लॉगिन किया गया"
   }
 }
