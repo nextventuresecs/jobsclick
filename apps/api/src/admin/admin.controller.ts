@@ -5,11 +5,13 @@ import {
   adminUserStatusSchema,
   auditLogSchema,
   privacyRequestSchema,
+  generateResumeSchema,
 } from '@indian-job-portal/validation';
 
 export class AdminUserStatusDto extends createZodDto(adminUserStatusSchema) {}
 export class AuditLogDto extends createZodDto(auditLogSchema) {}
 export class PrivacyRequestDto extends createZodDto(privacyRequestSchema) {}
+export class GenerateResumeDto extends createZodDto(generateResumeSchema) {}
 
 @Controller()
 @UsePipes(ZodValidationPipe)
@@ -48,5 +50,17 @@ export class AdminController {
   @Post('privacy/request-deletion')
   async requestAccountDeletion(@Headers('x-user-id') userId: string, @Body() body: PrivacyRequestDto) {
     return this.adminService.requestAccountDeletion(userId || 'usr_seeker_1', body.reason);
+  }
+
+  // Issue #30: Resume Builder (JS-04)
+  @Post('resume/generate')
+  async generateResume(@Body() body: GenerateResumeDto) {
+    return this.adminService.generateResume(body);
+  }
+
+  // Issue #32: ADM-02 Full Admin Reports & Analytics
+  @Get('admin/reports/analytics')
+  async getAnalyticsReports() {
+    return this.adminService.getAnalyticsReports();
   }
 }
