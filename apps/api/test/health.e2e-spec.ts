@@ -34,4 +34,28 @@ describe('HealthController (e2e)', () => {
     expect(payload.status).toBe('ok');
     expect(payload.timestamp).toBeDefined();
   });
+
+  it('/health/uptime (GET)', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/health/uptime',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = JSON.parse(response.payload);
+    expect(payload.status).toBe('healthy');
+    expect(payload.uptimeSeconds).toBeGreaterThanOrEqual(0);
+  });
+
+  it('/health/test-error (GET) - triggers test error for Sentry observability', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/health/test-error',
+    });
+
+    expect(response.statusCode).toBe(200);
+    const payload = JSON.parse(response.payload);
+    expect(payload.message).toContain('Sentry verification');
+    expect(payload.sentryEventId).toBeDefined();
+  });
 });

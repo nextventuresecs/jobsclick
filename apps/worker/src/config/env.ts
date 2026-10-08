@@ -3,6 +3,7 @@ import { z } from 'zod';
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   REDIS_URL: z.string().default('redis://localhost:6379'),
+  SENTRY_DSN: z.string().optional(),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
