@@ -8,7 +8,7 @@ export default defineConfig({
     exclude: ['**/node_modules/**', '**/dist/**', '**/.next/**'],
     server: {
       deps: {
-        inline: ['qrcode', 'react', 'react-dom', '@react-pdf/renderer'],
+        inline: ['qrcode', 'react', 'react-dom', '@react-pdf/renderer', 'csv-parse', 'csv-parse/sync'],
       },
     },
   },
