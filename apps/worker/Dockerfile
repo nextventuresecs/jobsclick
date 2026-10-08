@@ -7,7 +7,7 @@ RUN corepack enable
 FROM base AS builder
 WORKDIR /app
 COPY . .
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 RUN pnpm --filter @indian-job-portal/worker build
 
 FROM base AS runner
