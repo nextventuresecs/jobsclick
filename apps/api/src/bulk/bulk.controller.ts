@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Put, Body, Param, Header, Inject, UsePipes } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Header, Inject, UsePipes, UseGuards } from '@nestjs/common';
 import { ZodValidationPipe, createZodDto } from 'nestjs-zod';
 import { BulkService } from './bulk.service.js';
+import { QstashSignatureGuard } from '../qstash/qstash-signature.guard.js';
 import {
   bulkUploadSchema,
   inviteWaveSchema,
@@ -16,11 +17,29 @@ export class UpdateWaveStatusDto extends createZodDto(updateWaveStatusSchema) {}
 export class BulkController {
   constructor(@Inject(BulkService) private readonly bulkService: BulkService) {}
 
-  // BULK-01, BULK-06: CSV Upload
+  // BULK-01, BULK-06: CSV Upload (dispatches to QStash queue)
   @Post('bulk/batches')
   async uploadCsv(@Body() body: BulkUploadDto) {
     const csvContent = body.csvContent || 'name,phone\nAnita,9876543210';
     return this.bulkService.processBulkImport(body, csvContent);
+  }
+
+  // QStash Webhook Ingestion endpoint for Bulk Import
+  @Post('webhooks/qstash/import-batch')
+  @UseGuards(QstashSignatureGuard)
+  async handleImportBatchWebhook(@Body() payload: { batchId: string; source: string; entityType?: 'student' | 'employer'; csvContent: string }) {
+    return this.bulkService.executeImportBatchJob(
+      payload.batchId,
+      { source: payload.source, entityType: payload.entityType || 'student' },
+      payload.csvContent,
+    );
+  }
+
+  // QStash Webhook Ingestion endpoint for Invite Wave (Ticket 3)
+  @Post('webhooks/qstash/send-invite-wave')
+  @UseGuards(QstashSignatureGuard)
+  async handleSendInviteWaveWebhook(@Body() payload: { waveId: string }) {
+    return this.bulkService.executeInviteWaveJob(payload.waveId);
   }
 
   // BULK-04: Batch status & progress
@@ -42,7 +61,7 @@ export class BulkController {
     return this.bulkService.previewInviteWave(body);
   }
 
-  // BULK-03 & Issue #38: Schedule Wave
+  // BULK-03 & Issue #38: Schedule Wave via QStash delayed delivery
   @Post('bulk/invites/schedule')
   async scheduleInviteWave(@Body() body: InviteWaveDto) {
     return this.bulkService.scheduleInviteWave(body);
@@ -60,7 +79,7 @@ export class BulkController {
     return this.bulkService.getLaunchMetrics();
   }
 
-  // Issue #19: bull-board queue status
+  // Issue #19: Queue status
   @Get('admin/queues')
   async getQueueStatus() {
     return this.bulkService.getQueueStatus();

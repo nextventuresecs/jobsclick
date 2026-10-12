@@ -17,18 +17,6 @@ services:
       timeout: 5s
       retries: 5
 
-  redis:
-    image: redis:7-alpine
-    container_name: indian_job_portal_redis
-    restart: always
-    ports:
-      - '6379:6379'
-    healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   api:
     build:
       context: .
@@ -41,11 +29,9 @@ services:
       NODE_ENV: production
       PORT: 3001
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/indian_job_portal
-      REDIS_URL: redis://redis:6379
+      QSTASH_TOKEN: qstash_dummy_token
     depends_on:
       postgres:
-        condition: service_healthy
-      redis:
         condition: service_healthy
 
   worker:
@@ -56,10 +42,7 @@ services:
     restart: always
     environment:
       NODE_ENV: production
-      REDIS_URL: redis://redis:6379
-    depends_on:
-      redis:
-        condition: service_healthy
+      QSTASH_TOKEN: qstash_dummy_token
 
 volumes:
   postgres_data:
