@@ -24,7 +24,7 @@ export class BulkController {
     return this.bulkService.processBulkImport(body, csvContent);
   }
 
-  // QStash Webhook Ingestion endpoint
+  // QStash Webhook Ingestion endpoint for Bulk Import
   @Post('webhooks/qstash/import-batch')
   @UseGuards(QstashSignatureGuard)
   async handleImportBatchWebhook(@Body() payload: { batchId: string; source: string; entityType?: 'student' | 'employer'; csvContent: string }) {
@@ -33,6 +33,13 @@ export class BulkController {
       { source: payload.source, entityType: payload.entityType || 'student' },
       payload.csvContent,
     );
+  }
+
+  // QStash Webhook Ingestion endpoint for Invite Wave (Ticket 3)
+  @Post('webhooks/qstash/send-invite-wave')
+  @UseGuards(QstashSignatureGuard)
+  async handleSendInviteWaveWebhook(@Body() payload: { waveId: string }) {
+    return this.bulkService.executeInviteWaveJob(payload.waveId);
   }
 
   // BULK-04: Batch status & progress
@@ -54,7 +61,7 @@ export class BulkController {
     return this.bulkService.previewInviteWave(body);
   }
 
-  // BULK-03 & Issue #38: Schedule Wave
+  // BULK-03 & Issue #38: Schedule Wave via QStash delayed delivery
   @Post('bulk/invites/schedule')
   async scheduleInviteWave(@Body() body: InviteWaveDto) {
     return this.bulkService.scheduleInviteWave(body);

@@ -165,10 +165,23 @@ export class BulkService {
     };
   }
 
-  // BULK-03 & Issue #38: Schedule Wave
-  async scheduleInviteWave(input: InviteWaveInput): Promise<InviteWaveRecord> {
+  // BULK-03 & Issue #38: Schedule Wave using QStash delayed message delivery
+  async scheduleInviteWave(input: InviteWaveInput, delaySeconds = 0): Promise<InviteWaveRecord> {
     const waveId = `wave_${Date.now()}`;
     const preview = await this.previewInviteWave(input);
+
+    const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
+    await this.qstashService.publishTask({
+      url: `${apiUrl}/webhooks/qstash/send-invite-wave`,
+      body: {
+        waveId,
+        batchId: input.batchId,
+        waveSize: input.waveSize,
+      },
+      delaySeconds,
+      deduplicationId: `wave_${waveId}`,
+    });
+
     const waveRecord: InviteWaveRecord = {
       id: waveId,
       batchId: input.batchId,
@@ -181,6 +194,24 @@ export class BulkService {
     };
     this.waves.set(waveId, waveRecord);
     return waveRecord;
+  }
+
+  // QStash Webhook Execution for Invite Wave
+  async executeInviteWaveJob(waveId: string): Promise<InviteWaveRecord> {
+    const wave = this.waves.get(waveId);
+    if (!wave) {
+      throw new NotFoundException('Invite wave not found');
+    }
+
+    if (wave.status === 'paused') {
+      console.log(`[QStash Webhook] Wave ${waveId} is paused. Skipping execution.`);
+      return wave;
+    }
+
+    wave.status = 'completed';
+    wave.sentCount = wave.waveSize;
+    console.log(`[QStash Webhook] Successfully executed invite wave ${waveId} for ${wave.sentCount} recipients.`);
+    return wave;
   }
 
   async updateWaveStatus(waveId: string, action: 'pause' | 'resume' | 'cancel'): Promise<InviteWaveRecord> {

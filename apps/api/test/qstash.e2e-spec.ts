@@ -4,7 +4,7 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { AppModule } from '../src/app.module.js';
 import { QstashService } from '../src/qstash/qstash.service.js';
 
-describe('QStash Service & Webhooks - Tickets 1 & 2', () => {
+describe('QStash Service & Webhooks - Tickets 1, 2, 3', () => {
   let app: NestFastifyApplication;
   let qstashService: QstashService;
 
@@ -89,5 +89,32 @@ describe('QStash Service & Webhooks - Tickets 1 & 2', () => {
     expect(result.totalRows).toBe(2);
     expect(result.validRows).toBe(2);
     expect(result.status).toBe('completed');
+  });
+
+  it('POST /webhooks/qstash/send-invite-wave processes delayed invite wave via QStash webhook (Ticket 3)', async () => {
+    // 1. Schedule wave through API
+    const scheduleRes = await app.inject({
+      method: 'POST',
+      url: '/bulk/invites/schedule',
+      payload: { batchId: 'batch_qstash_test_1', waveSize: 100, costPerSmsInr: 0.2 },
+    });
+    expect(scheduleRes.statusCode).toBe(201);
+    const wave = JSON.parse(scheduleRes.payload);
+
+    // 2. Dispatch simulated QStash webhook delivery
+    const webhookRes = await app.inject({
+      method: 'POST',
+      url: '/webhooks/qstash/send-invite-wave',
+      headers: {
+        'upstash-signature': 'test_valid_signature_jwt',
+      },
+      payload: { waveId: wave.id },
+    });
+
+    expect(webhookRes.statusCode).toBe(201);
+    const executedWave = JSON.parse(webhookRes.payload);
+    expect(executedWave.id).toBe(wave.id);
+    expect(executedWave.status).toBe('completed');
+    expect(executedWave.sentCount).toBe(100);
   });
 });
