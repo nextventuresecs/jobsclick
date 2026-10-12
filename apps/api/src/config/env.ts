@@ -6,6 +6,10 @@ export const envSchema = z.object({
   DATABASE_URL: z.string().default('postgresql://postgres:postgres@localhost:5432/indian_job_portal'),
   REDIS_URL: z.string().default('redis://localhost:6379'),
   SENTRY_DSN: z.string().optional(),
+  QSTASH_TOKEN: z.string().optional(),
+  QSTASH_CURRENT_SIGNING_KEY: z.string().optional(),
+  QSTASH_NEXT_SIGNING_KEY: z.string().optional(),
+  QSTASH_URL: z.string().optional(),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
