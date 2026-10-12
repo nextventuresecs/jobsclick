@@ -3,10 +3,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
 import { QstashService } from '../src/qstash/qstash.service.js';
+import { PdfTaskService } from '../src/qstash/pdf-task.service.js';
 
-describe('QStash Service & Webhooks - Tickets 1, 2, 3', () => {
+describe('QStash Service & Webhooks - Tickets 1, 2, 3, 4', () => {
   let app: NestFastifyApplication;
   let qstashService: QstashService;
+  let pdfTaskService: PdfTaskService;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -20,6 +22,7 @@ describe('QStash Service & Webhooks - Tickets 1, 2, 3', () => {
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
     qstashService = app.get<QstashService>(QstashService);
+    pdfTaskService = app.get<PdfTaskService>(PdfTaskService);
   });
 
   afterAll(async () => {
@@ -92,7 +95,6 @@ describe('QStash Service & Webhooks - Tickets 1, 2, 3', () => {
   });
 
   it('POST /webhooks/qstash/send-invite-wave processes delayed invite wave via QStash webhook (Ticket 3)', async () => {
-    // 1. Schedule wave through API
     const scheduleRes = await app.inject({
       method: 'POST',
       url: '/bulk/invites/schedule',
@@ -101,7 +103,6 @@ describe('QStash Service & Webhooks - Tickets 1, 2, 3', () => {
     expect(scheduleRes.statusCode).toBe(201);
     const wave = JSON.parse(scheduleRes.payload);
 
-    // 2. Dispatch simulated QStash webhook delivery
     const webhookRes = await app.inject({
       method: 'POST',
       url: '/webhooks/qstash/send-invite-wave',
@@ -116,5 +117,40 @@ describe('QStash Service & Webhooks - Tickets 1, 2, 3', () => {
     expect(executedWave.id).toBe(wave.id);
     expect(executedWave.status).toBe('completed');
     expect(executedWave.sentCount).toBe(100);
+  });
+
+  it('POST /webhooks/qstash/generate-pdf renders and caches PDF asynchronously (Ticket 4)', async () => {
+    const payload = {
+      seekerId: 'seeker_async_99',
+      fullName: 'Vikas Sharma',
+      seekerType: 'individual',
+      city: 'Indore',
+      skills: ['Tally', 'Accounting'],
+    };
+
+    // 1. Dispatch task via service
+    const dispatch = await pdfTaskService.dispatchPdfGeneration(payload);
+    expect(dispatch.dispatched).toBe(true);
+    expect(dispatch.taskId).toBeDefined();
+
+    // 2. Process via QStash Webhook
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/qstash/generate-pdf',
+      headers: {
+        'upstash-signature': 'test_valid_signature_jwt',
+      },
+      payload,
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = JSON.parse(res.payload);
+    expect(body.cached).toBe(true);
+    expect(body.seekerId).toBe('seeker_async_99');
+
+    // 3. Verify cached PDF buffer exists
+    const pdf = pdfTaskService.getPdf('seeker_async_99');
+    expect(pdf).toBeDefined();
+    expect(pdf!.length).toBeGreaterThan(0);
   });
 });
