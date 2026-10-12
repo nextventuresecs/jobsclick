@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
 import { BulkUploadInput, InviteWaveInput } from '@indian-job-portal/validation';
+import { QstashService } from '../qstash/qstash.service.js';
 
 export interface BulkBatchRecord {
   id: string;
@@ -55,11 +56,29 @@ export class BulkService {
   private waves = new Map<string, InviteWaveRecord>();
   private importedUsers: UserImportRecord[] = [];
 
-  // BULK-01, BULK-02, BULK-04, BULK-05: Process CSV upload
+  constructor(@Inject(QstashService) private readonly qstashService: QstashService) {}
+
+  // BULK-01, BULK-02: Process CSV upload via QStash task queue dispatch
   async processBulkImport(input: BulkUploadInput, csvContent: string): Promise<BulkBatchRecord> {
     const batchId = `batch_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-    const now = new Date().toISOString();
 
+    const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
+    await this.qstashService.publishTask({
+      url: `${apiUrl}/webhooks/qstash/import-batch`,
+      body: {
+        batchId,
+        source: input.source,
+        entityType: input.entityType,
+        csvContent,
+      },
+      deduplicationId: `import_${batchId}`,
+    });
+
+    return this.executeImportBatchJob(batchId, input, csvContent);
+  }
+
+  async executeImportBatchJob(batchId: string, input: BulkUploadInput, csvContent: string): Promise<BulkBatchRecord> {
+    const now = new Date().toISOString();
     let records: Array<Record<string, string>> = [];
     try {
       records = parseCsv(csvContent);
@@ -210,7 +229,7 @@ export class BulkService {
     };
   }
 
-  // Issue #19: bull-board Queue Status Dashboard
+  // Issue #19: Queue Status Dashboard
   async getQueueStatus(): Promise<{ queues: Array<{ name: string; waiting: number; active: number; completed: number; failed: number }> }> {
     return {
       queues: [
