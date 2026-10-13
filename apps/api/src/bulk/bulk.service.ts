@@ -4,6 +4,17 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { QstashService } from '../qstash/qstash.service.js';
 import type { TaskStatus } from '@indian-job-portal/database';
 
+if (typeof globalThis.WebSocket === 'undefined') {
+  // @ts-expect-error polyfill for Node 20 runtime compatibility with Supabase realtime-js
+  globalThis.WebSocket = class MockWebSocket {
+    constructor() {}
+    send() {}
+    close() {}
+    addEventListener() {}
+    removeEventListener() {}
+  };
+}
+
 export interface BulkBatchRecord {
   id: string;
   source: string;
@@ -147,10 +158,23 @@ export class BulkService {
 
     const dbBatchId = batch.id as string;
     const storagePath = `bulk-imports/${dbBatchId}.csv`;
-    await this.supabase.storage.from('private').upload(storagePath, csvContent, {
-      contentType: 'text/csv',
-      upsert: false,
-    });
+    const { error: uploadError } = await this.supabase.storage
+      .from('private')
+      .upload(storagePath, csvContent, {
+        contentType: 'text/csv',
+        upsert: false,
+      });
+
+    if (uploadError) {
+      await this.supabase
+        .from('bulk_import_batches')
+        .update({
+          status: 'failed' as TaskStatus,
+          failure_reason: `Storage upload failed: ${uploadError.message}`,
+        })
+        .eq('id', dbBatchId);
+      throw new BadRequestException(`Failed to upload CSV: ${uploadError.message}`);
+    }
 
     await this.supabase
       .from('bulk_import_batches')
