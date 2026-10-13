@@ -16,10 +16,6 @@
           "env": "API_URL"
         }
       ]
-    },
-    "worker": {
-      "root": ".",
-      "runtime": "container"
     }
   },
   "rewrites": [
