@@ -50,6 +50,20 @@ export class QstashService {
     };
   }
 
+  async cancelMessage(messageId: string): Promise<boolean> {
+    if (this.isTestMode || !this.client) {
+      console.log(`[QStash Service (Mock)] Cancelled message ${messageId}`);
+      return true;
+    }
+
+    try {
+      await this.client.messages.delete(messageId);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   getClient(): Client | null {
     return this.client;
   }
