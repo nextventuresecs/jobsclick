@@ -2,6 +2,11 @@ import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from
 import { Receiver } from '@upstash/qstash';
 import { FastifyRequest } from 'fastify';
 
+/** Fastify request augmented with rawBody from our custom content-type parser. */
+interface FastifyRequestWithRawBody extends FastifyRequest {
+  rawBody?: string;
+}
+
 @Injectable()
 export class QstashSignatureGuard implements CanActivate {
   private receiver: Receiver | null = null;
@@ -23,7 +28,7 @@ export class QstashSignatureGuard implements CanActivate {
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<FastifyRequest>();
+    const request = context.switchToHttp().getRequest<FastifyRequestWithRawBody>();
     const signature = request.headers['upstash-signature'] as string | undefined;
 
     // Test bypass / mock verification
@@ -43,17 +48,23 @@ export class QstashSignatureGuard implements CanActivate {
     }
 
     try {
-      const rawBody = typeof request.body === 'string' ? request.body : JSON.stringify(request.body || {});
-      const isValid = await this.receiver.verify({
-        signature,
-        body: rawBody,
-      });
+      // Use the raw body captured by the custom content-type parser in main.ts.
+      // QStash signs the exact bytes it sends. JSON.stringify(request.body)
+      // can produce different bytes (key order, whitespace, Unicode escaping)
+      // and would cause signature verification to fail.
+      const body = request.rawBody;
+      if (!body) {
+        throw new UnauthorizedException('Raw body unavailable for signature verification');
+      }
+
+      const isValid = await this.receiver.verify({ signature, body });
 
       if (!isValid) {
         throw new UnauthorizedException('Invalid QStash signature');
       }
       return true;
     } catch (err: unknown) {
+      if (err instanceof UnauthorizedException) throw err;
       const errorMsg = err instanceof Error ? err.message : 'Signature verification failed';
       throw new UnauthorizedException(`QStash signature verification failed: ${errorMsg}`);
     }
