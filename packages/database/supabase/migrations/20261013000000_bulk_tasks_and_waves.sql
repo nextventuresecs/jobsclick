@@ -3,7 +3,11 @@
 -- PostgreSQL is the source of truth; QStash only carries safe IDs.
 
 -- Task status enum shared by imports and waves
-CREATE TYPE task_status AS ENUM ('queued', 'dispatched', 'processing', 'completed', 'failed');
+DO $$ BEGIN
+  CREATE TYPE task_status AS ENUM ('queued', 'dispatched', 'processing', 'completed', 'failed');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
 
 -- Extend bulk_import_batches with lifecycle + QStash metadata
 ALTER TABLE bulk_import_batches
