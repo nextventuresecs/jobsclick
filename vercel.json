@@ -18,8 +18,7 @@
       ]
     },
     "worker": {
-      "root": ".",
-      "dockerfile": "apps/worker/Dockerfile",
+      "root": "apps/worker",
       "runtime": "container"
     }
   },
