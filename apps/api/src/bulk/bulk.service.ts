@@ -427,6 +427,9 @@ export class BulkService {
         };
         this.memWaves.set(waveId, wave);
       }
+      if (wave.status === 'queued') {
+        return wave;
+      }
       wave.status = 'completed';
       wave.sentCount = wave.waveSize;
       this.memWaves.set(waveId, wave);
@@ -443,7 +446,8 @@ export class BulkService {
       throw new NotFoundException('Invite wave not found');
     }
 
-    if (wave.status === 'completed') {
+    if (wave.status === 'completed' || wave.status === 'queued') {
+      console.log(`[QStash Webhook] Wave ${waveId} is completed or paused (status: ${wave.status}). Skipping execution.`);
       return this.toWaveRecord(wave);
     }
 
