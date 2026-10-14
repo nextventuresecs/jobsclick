@@ -84,7 +84,7 @@ Duplicate Person,9876543210`;
     expect(scheduleRes.statusCode).toBe(201);
     const wave = JSON.parse(scheduleRes.payload);
     expect(wave.id).toBeDefined();
-    expect(wave.status).toBe('scheduled');
+    expect(wave.status).toBe('dispatched');
     waveId = wave.id;
   });
 
@@ -97,7 +97,7 @@ Duplicate Person,9876543210`;
 
     expect(pauseRes.statusCode).toBe(200);
     const paused = JSON.parse(pauseRes.payload);
-    expect(paused.status).toBe('paused');
+    expect(paused.status).toBe('queued');
 
     const resumeRes = await app.inject({
       method: 'PUT',
@@ -107,7 +107,7 @@ Duplicate Person,9876543210`;
 
     expect(resumeRes.statusCode).toBe(200);
     const resumed = JSON.parse(resumeRes.payload);
-    expect(resumed.status).toBe('sending');
+    expect(resumed.status).toBe('dispatched');
   });
 
   it('GET /admin/metrics - returns launch metrics split by source (Issue #39)', async () => {

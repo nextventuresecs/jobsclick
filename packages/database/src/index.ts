@@ -106,6 +106,47 @@ export interface Database {
           created_at: string;
         };
       };
+      bulk_import_batches: {
+        Row: {
+          id: string;
+          source: string;
+          entity_type: 'student' | 'employer';
+          total_rows: number;
+          processed_rows: number;
+          valid_rows: number;
+          error_rows: number;
+          status: TaskStatus;
+          csv_storage_path: string | null;
+          error_csv_storage_path: string | null;
+          qstash_message_id: string | null;
+          failure_reason: string | null;
+          retry_count: number;
+          created_by: string | null;
+          created_at: string;
+          started_at: string | null;
+          completed_at: string | null;
+        };
+      };
+      invite_waves: {
+        Row: {
+          id: string;
+          batch_id: string;
+          wave_size: number;
+          cost_per_sms_inr: number;
+          total_cost_inr: number;
+          status: TaskStatus;
+          sent_count: number;
+          failed_count: number;
+          qstash_message_id: string | null;
+          failure_reason: string | null;
+          created_by: string | null;
+          created_at: string;
+          started_at: string | null;
+          completed_at: string | null;
+        };
+      };
     };
   };
 }
+
+export type TaskStatus = 'queued' | 'dispatched' | 'processing' | 'completed' | 'failed';
