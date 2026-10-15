@@ -5,6 +5,8 @@ import { getMessages, getLocale } from 'next-intl/server';
 
 import { ClientProviders } from '../components/ClientProviders';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'JobsClick — National Job Portal for MSMEs & Skilled Workforce',
   description: 'Connecting India’s Skilled Workforce with Verified Opportunities across MSMEs and Enterprises.',

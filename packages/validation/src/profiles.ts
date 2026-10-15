@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { jobCategorySchema } from './jobs.js';
+import { jobCategorySchema } from './jobs';
 
 export const seekerTypeSchema = z.enum(['student', 'individual']);
 
