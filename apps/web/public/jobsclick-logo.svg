@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 140" fill="none">
+  <defs>
+    <linearGradient id="logoJGrad" x1="30" y1="20" x2="100" y2="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FB923C" />
+      <stop offset="50%" stop-color="#F97316" />
+      <stop offset="100%" stop-color="#EA580C" />
+    </linearGradient>
+    <linearGradient id="logoFoldGrad" x1="50" y1="50" x2="90" y2="110" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F97316" />
+      <stop offset="100%" stop-color="#C2410C" />
+    </linearGradient>
+  </defs>
+
+  <!-- J Ribbon Mark -->
+  <g transform="translate(10, 0)">
+    <path d="M78 32 C78 26 73 22 68 25 L45 37 C40 40 37 45 37 51 L37 84 C37 99 26 106 17 106 C11 106 5 101 5 110 C5 118 15 125 28 125 C48 125 64 110 64 90 L64 36 Z" fill="url(#logoJGrad)"/>
+    <path d="M88 32 L88 88 C88 112 68 132 40 132 C18 132 5 118 5 108 C5 99 13 93 21 93 C29 93 34 97 40 97 C49 97 56 90 56 80 L56 56 L88 32 Z" fill="url(#logoJGrad)"/>
+    <path d="M56 56 L88 32 L88 88 C88 98 83 107 74 114 C83 107 88 97 88 88 L88 32 Z" fill="url(#logoFoldGrad)" opacity="0.4"/>
+    <!-- Yellow Arrow -->
+    <path d="M102 30 C102 24 109 20 114 23 L142 42 C147 45 147 53 142 56 L114 75 C109 78 102 74 102 68 Z" fill="#FBBF24"/>
+  </g>
+
+  <!-- Text: Jobs (Charcoal) and Click (Orange) -->
+  <text x="175" y="94" font-family="'Plus Jakarta Sans', system-ui, -apple-system, sans-serif" font-size="76" font-weight="800" letter-spacing="-1.5">
+    <tspan fill="#1F2937">Jobs</tspan><tspan fill="#F97316">Click</tspan>
+  </text>
+</svg>
