@@ -37,12 +37,33 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
     id: jobId,
   };
 
+interface JobDetailApiResponse {
+  readonly id: string;
+  readonly title: string;
+  readonly companyName?: string;
+  readonly companyId?: string;
+  readonly city?: string;
+  readonly district?: string;
+  readonly state?: string;
+  readonly category?: IndustryCategory;
+  readonly employmentType?: JobItem['employmentType'];
+  readonly minPay?: number;
+  readonly maxPay?: number;
+  readonly openings?: number;
+  readonly experienceLevel?: JobItem['experienceLevel'];
+  readonly skills?: readonly string[];
+  readonly description?: string;
+  readonly requirements?: readonly string[];
+  readonly createdAt?: string;
+  readonly expiryDate?: string;
+}
+
   try {
     const res = await fetch(`${apiUrl}/jobs/${jobId}`, {
       next: { revalidate: 60 },
     });
     if (res.ok) {
-      const data = await res.json();
+      const data = (await res.json()) as JobDetailApiResponse | null;
       if (data && data.id) {
         job = {
           id: data.id,
@@ -52,12 +73,12 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
           location: data.city || 'India',
           district: data.district || data.city || 'National',
           state: data.state || 'India',
-          category: (data.category as IndustryCategory) || 'manufacturing',
-          employmentType: (data.employmentType as any) || 'Full-time',
+          category: data.category || 'manufacturing',
+          employmentType: data.employmentType || 'Full-time',
           salaryMin: data.minPay || 18000,
           salaryMax: data.maxPay || 30000,
           openings: data.openings || 1,
-          experienceLevel: (data.experienceLevel as any) || 'Fresher',
+          experienceLevel: data.experienceLevel || 'Fresher',
           skills: Array.isArray(data.skills) ? data.skills : [],
           description: data.description || '',
           requirements: Array.isArray(data.requirements) ? data.requirements : [],

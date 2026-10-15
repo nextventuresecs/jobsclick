@@ -27,6 +27,24 @@ export default async function CompaniesDirectoryPage({ searchParams }: CompanyPa
 
   let companies: CompanyItem[] = [...SAMPLE_COMPANIES];
 
+interface RawBusinessRecord {
+  readonly id: string;
+  readonly name?: string;
+  readonly companyName?: string;
+  readonly sector?: string;
+  readonly companySize?: CompanyItem['enterpriseSize'];
+  readonly enterpriseSize?: CompanyItem['enterpriseSize'];
+  readonly ownershipType?: CompanyItem['ownershipType'];
+  readonly address?: string;
+  readonly city?: string;
+  readonly district?: string;
+  readonly state?: string;
+  readonly description?: string;
+  readonly udyamNumber?: string;
+  readonly verified?: boolean;
+  readonly activeJobsCount?: number;
+}
+
   try {
     const res = await fetch(`${apiUrl}/profiles/business`, {
       next: { revalidate: 60 },
@@ -34,7 +52,7 @@ export default async function CompaniesDirectoryPage({ searchParams }: CompanyPa
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
-        companies = data.map((b: any) => ({
+        companies = (data as readonly RawBusinessRecord[]).map((b) => ({
           id: b.id,
           name: b.name || b.companyName || 'Verified Enterprise',
           sector: b.sector || 'Manufacturing',

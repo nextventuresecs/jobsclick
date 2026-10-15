@@ -168,20 +168,20 @@ export function EmployerWorkspace() {
 
       {/* Tabs */}
       <div className="flex border-b border-gray-200 overflow-x-auto gap-2">
-        {[
+        {([
           { id: 'overview', label: 'Recruitment Overview', icon: Briefcase },
           { id: 'manage-jobs', label: `Active Jobs (${companyJobs.length})`, icon: Eye },
           { id: 'post-job', label: 'Post a Vacancy', icon: PlusCircle },
           { id: 'applicants', label: `Applicant Pipeline (${applicants.length})`, icon: Users },
           { id: 'qr-code', label: 'Walk-in QR Poster', icon: QrCode },
-        ].map((tab) => {
+        ] as const).map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 py-3 px-4 border-b-2 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                 isActive
                   ? 'border-[#F97316] text-[#EA580C] bg-[#FFF0E5]/30'
@@ -399,7 +399,11 @@ export function EmployerWorkspace() {
                 </label>
                 <select
                   value={experienceLevel}
-                  onChange={(e) => setExperienceLevel(e.target.value as any)}
+                  onChange={(e) =>
+                    setExperienceLevel(
+                      e.target.value as 'Fresher' | '1-2 Years' | '3-5 Years' | '5+ Years'
+                    )
+                  }
                   className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#F97316] focus:outline-hidden bg-white"
                 >
                   <option value="Fresher">Fresher / Trainee</option>

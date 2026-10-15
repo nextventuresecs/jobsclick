@@ -151,19 +151,19 @@ Rajendra Bheel,0801CS221120,9300188223,Computer Science (B.Tech),2026`;
 
       {/* Tabs */}
       <div className="flex border-b border-gray-200 overflow-x-auto gap-2">
-        {[
+        {([
           { id: 'overview', label: 'Placement Cell Overview', icon: GraduationCap },
           { id: 'students', label: `Student Roster (${students.length})`, icon: Users },
           { id: 'bulk-import', label: 'Bulk CSV Import (BULK-01 to 03)', icon: FileSpreadsheet },
           { id: 'invitations', label: 'Invite Batches & Costs', icon: Send },
-        ].map((tab) => {
+        ] as const).map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 py-3 px-4 border-b-2 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                 isActive
                   ? 'border-[#F97316] text-[#EA580C] bg-[#FFF0E5]/30'

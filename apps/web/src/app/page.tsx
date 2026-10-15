@@ -281,12 +281,12 @@ export default function HomePage() {
                       {catT(key)}
                     </h4>
                     <p className="text-xs text-gray-600 leading-relaxed mt-2">
-                      {catT(`${key}Desc` as any)}
+                      {catT(`${key}Desc` as `${IndustryCategory}Desc`)}
                     </p>
                   </div>
 
                   <div className="mt-6 pt-4 border-t border-gray-100 flex items-center justify-between text-xs font-medium text-gray-500">
-                    <span className="truncate">{catT(`${key}Examples` as any)}</span>
+                    <span className="truncate">{catT(`${key}Examples` as `${IndustryCategory}Examples`)}</span>
                     <ArrowRight className="w-4 h-4 text-brand-orange group-hover:translate-x-1 transition-transform shrink-0 ml-2" />
                   </div>
                 </Link>

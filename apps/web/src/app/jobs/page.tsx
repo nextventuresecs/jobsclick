@@ -51,6 +51,29 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
 
   let liveJobs: JobItem[] = [...SAMPLE_JOBS];
 
+interface RawJobsListResponse {
+  readonly jobs?: readonly {
+    readonly id: string;
+    readonly title: string;
+    readonly companyName?: string;
+    readonly companyId?: string;
+    readonly city?: string;
+    readonly district?: string;
+    readonly state?: string;
+    readonly category?: IndustryCategory;
+    readonly employmentType?: JobItem['employmentType'];
+    readonly minPay?: number;
+    readonly maxPay?: number;
+    readonly openings?: number;
+    readonly experienceLevel?: JobItem['experienceLevel'];
+    readonly skills?: readonly string[];
+    readonly description?: string;
+    readonly requirements?: readonly string[];
+    readonly createdAt?: string;
+    readonly expiryDate?: string;
+  }[];
+}
+
   try {
     const queryParams = new URLSearchParams();
     if (keyword) queryParams.set('keyword', keyword);
@@ -61,9 +84,9 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
       next: { revalidate: 30 },
     });
     if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data.jobs) && data.jobs.length > 0) {
-        liveJobs = data.jobs.map((j: any) => ({
+      const data = (await res.json()) as RawJobsListResponse | null;
+      if (data && Array.isArray(data.jobs) && data.jobs.length > 0) {
+        liveJobs = data.jobs.map((j) => ({
           id: j.id,
           title: j.title,
           companyName: j.companyName || 'Verified Enterprise',
@@ -71,12 +94,12 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
           location: j.city || 'India',
           district: j.district || j.city || 'National',
           state: j.state || 'India',
-          category: (j.category as IndustryCategory) || 'manufacturing',
-          employmentType: (j.employmentType as any) || 'Full-time',
+          category: j.category || 'manufacturing',
+          employmentType: j.employmentType || 'Full-time',
           salaryMin: j.minPay || 18000,
           salaryMax: j.maxPay || 30000,
           openings: j.openings || 1,
-          experienceLevel: (j.experienceLevel as any) || 'Fresher',
+          experienceLevel: j.experienceLevel || 'Fresher',
           skills: Array.isArray(j.skills) ? j.skills : [],
           description: j.description || '',
           requirements: Array.isArray(j.requirements) ? j.requirements : [],

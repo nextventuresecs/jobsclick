@@ -35,19 +35,34 @@ export default async function PublicCompanyPage({ params }: CompanyPageProps) {
     id: companyId,
   };
 
+interface BusinessProfileApiResponse {
+  readonly companyName?: string;
+  readonly sector?: string;
+  readonly companySize?: CompanyItem['enterpriseSize'];
+  readonly ownershipType?: CompanyItem['ownershipType'];
+  readonly address?: string;
+  readonly city?: string;
+  readonly district?: string;
+  readonly state?: string;
+  readonly description?: string;
+  readonly udyamNumber?: string;
+  readonly verified?: boolean;
+  readonly activeJobsCount?: number;
+}
+
   try {
     const res = await fetch(`${apiUrl}/profiles/business/${companyId}`, {
       next: { revalidate: 60 },
     });
     if (res.ok) {
-      const data = await res.json();
+      const data = (await res.json()) as BusinessProfileApiResponse | null;
       if (data && data.companyName) {
         company = {
           id: companyId,
           name: data.companyName,
           sector: data.sector || 'Manufacturing',
-          enterpriseSize: (data.companySize as any) || 'Small',
-          ownershipType: (data.ownershipType as any) || 'Private Limited',
+          enterpriseSize: data.companySize || 'Small',
+          ownershipType: data.ownershipType || 'Private Limited',
           address: data.address || 'Industrial Zone',
           city: data.city || 'India',
           district: data.district || 'National',
@@ -192,7 +207,6 @@ export default async function PublicCompanyPage({ params }: CompanyPageProps) {
                 </div>
 
                 <div className="flex flex-col items-center gap-2 shrink-0 bg-white p-4 rounded-xl border border-gray-200 shadow-xs">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={`${apiUrl}/profiles/business/${company.id}/qr`}
                     alt={`QR Code for ${company.name}`}
