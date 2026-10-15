@@ -12,6 +12,27 @@ export interface CompanyItem {
   readonly udyamNumber: string;
   readonly verified: boolean;
   readonly activeJobsCount: number;
+  readonly phone?: string;
+  readonly email?: string;
+  readonly website?: string;
+  readonly yearOfRegistration?: string;
+  readonly commencementYear?: string;
+  readonly founderOrDirector?: string;
+  readonly directorPhotoUrl?: string;
+  readonly designation?: string;
+  readonly knowMyBusiness?: string;
+  readonly productsBrief?: string;
+  readonly servicesBrief?: string;
+  readonly socialMedia?: {
+    readonly instagram?: string;
+    readonly facebook?: string;
+    readonly youtube?: string;
+    readonly other?: string;
+  };
+  readonly isMsme?: boolean;
+  readonly isDpiitStartup?: boolean;
+  readonly dpiitNumber?: string;
+  readonly logoUrl?: string;
 }
 
 export const SAMPLE_COMPANIES: readonly CompanyItem[] = [
@@ -30,6 +51,24 @@ export const SAMPLE_COMPANIES: readonly CompanyItem[] = [
     udyamNumber: 'UDYAM-MH-26-0019482',
     verified: true,
     activeJobsCount: 6,
+    phone: '9876543210',
+    email: 'contact@aaryaprecision.in',
+    website: 'www.aaryaprecision.in',
+    yearOfRegistration: '2019',
+    commencementYear: '2018',
+    founderOrDirector: 'Adhyant Patil',
+    designation: 'Founder & Managing Director',
+    knowMyBusiness: 'We are a Pune based precision tooling engineering enterprise providing CNC machining solutions and automotive assemblies.',
+    productsBrief: 'CNC Transmission Gears, Shaft Couplings, Hydraulic Valves',
+    servicesBrief: 'Precision 5-Axis VMC Milling, Dimensional CMM Inspection, Heat Treatment',
+    socialMedia: {
+      instagram: 'https://instagram.com/aaryaprecision',
+      facebook: 'https://facebook.com/aaryaprecision',
+      youtube: 'https://youtube.com/@aaryaprecision',
+    },
+    isMsme: true,
+    isDpiitStartup: true,
+    dpiitNumber: 'DIPP-89102-MH',
   },
   {
     id: 'comp-02',

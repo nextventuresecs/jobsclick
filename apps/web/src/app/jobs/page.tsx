@@ -46,6 +46,7 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
   const keyword = searchParams?.keyword?.trim() || '';
   const city = searchParams?.city?.trim() || '';
   const category = searchParams?.category?.trim() || '';
+  const employmentType = searchParams?.employmentType?.trim() || '';
   const minPay = searchParams?.minPay ? Number(searchParams.minPay) : 0;
   const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
 
@@ -130,6 +131,9 @@ interface RawJobsListResponse {
     if (category && category !== 'all') {
       if (job.category !== category) return false;
     }
+    if (employmentType && employmentType !== 'all') {
+      if (job.employmentType !== employmentType) return false;
+    }
     if (minPay > 0) {
       if (job.salaryMax < minPay) return false;
     }
@@ -180,12 +184,14 @@ interface RawJobsListResponse {
             </div>
 
             {category && <input type="hidden" name="category" value={category} />}
+            {employmentType && <input type="hidden" name="employmentType" value={employmentType} />}
+            {minPay > 0 && <input type="hidden" name="minPay" value={minPay} />}
 
             <div className="sm:col-span-3 flex items-center gap-2">
               <Button type="submit" variant="primary" size="md" className="flex-1 font-semibold">
                 Search Jobs
               </Button>
-              {(keyword || city || category) && (
+              {(keyword || city || category || employmentType || minPay > 0) && (
                 <Link
                   href="/jobs"
                   className="p-2.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 transition-colors"
@@ -209,6 +215,8 @@ interface RawJobsListResponse {
               if (keyword) nextQuery.set('keyword', keyword);
               if (city) nextQuery.set('city', city);
               if (tab.key) nextQuery.set('category', tab.key);
+              if (employmentType) nextQuery.set('employmentType', employmentType);
+              if (minPay > 0) nextQuery.set('minPay', String(minPay));
 
               return (
                 <Link
@@ -225,18 +233,56 @@ interface RawJobsListResponse {
               );
             })}
           </div>
+
+          {/* Employment Type Quick Filters */}
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100">
+            <span className="text-xs font-semibold text-gray-500 mr-1 flex items-center gap-1">
+              <Briefcase className="w-3.5 h-3.5" />
+              Job Type:
+            </span>
+            {['', 'Full-time', 'Apprenticeship', 'Contract', 'Shift-based'].map((type) => {
+              const isSelected = employmentType === type;
+              const nextQuery = new URLSearchParams();
+              if (keyword) nextQuery.set('keyword', keyword);
+              if (city) nextQuery.set('city', city);
+              if (category) nextQuery.set('category', category);
+              if (type) nextQuery.set('employmentType', type);
+              if (minPay > 0) nextQuery.set('minPay', String(minPay));
+
+              return (
+                <Link
+                  key={type || 'all'}
+                  href={`/jobs?${nextQuery.toString()}`}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
+                    isSelected
+                      ? 'bg-gray-900 text-white shadow-xs font-semibold'
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
+                  }`}
+                >
+                  {type || 'All Types'}
+                </Link>
+              );
+            })}
+          </div>
         </div>
 
         {/* Results Header */}
-        <div className="flex items-center justify-between text-xs text-gray-500 px-1">
+        <div className="flex flex-wrap items-center justify-between text-xs text-gray-500 px-1 gap-2">
           <span>
             Showing <strong className="text-gray-900">{filteredJobs.length}</strong> verified opportunities
           </span>
-          {category && (
-            <span className="font-medium text-brand-orange">
-              Filtered by: {category.replace('_', ' ')}
-            </span>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {category && (
+              <span className="font-medium text-brand-orange bg-orange-50 px-2 py-0.5 rounded border border-orange-200">
+                Sector: {category.replace('_', ' ')}
+              </span>
+            )}
+            {employmentType && (
+              <span className="font-medium text-gray-800 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
+                Type: {employmentType}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Job Listings Grid */}

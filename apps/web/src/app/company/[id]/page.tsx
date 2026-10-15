@@ -10,6 +10,7 @@ import {
   Button,
 } from '@indian-job-portal/ui';
 import type { JobCategory } from '@indian-job-portal/validation';
+import { ProfileQrShareCard } from '../../../components/common/ProfileQrShareCard';
 import {
   ArrowLeft,
   MapPin,
@@ -191,30 +192,18 @@ interface BusinessProfileApiResponse {
             </div>
 
             {/* EMP-03 Dynamic Company QR Code Section */}
-            <div id="qr-section" className="pt-6 border-t border-gray-100 bg-gray-50 rounded-2xl p-6 border border-gray-200">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-                <div className="space-y-2 text-center sm:text-left">
-                  <div className="inline-flex items-center gap-1 text-xs font-bold text-brand-orange">
-                    <QrCode className="w-4 h-4" />
-                    <span>EMP-03 Instant Verification QR</span>
-                  </div>
-                  <h3 className="text-lg font-bold text-gray-900">
-                    Storefront & Factory Gate Digital QR Code
-                  </h3>
-                  <p className="text-xs text-gray-600 max-w-md">
-                    Print or display this QR code at your industrial facility or recruitment booth. Job seekers scan with any smartphone camera to view open vacancies and apply instantly.
-                  </p>
-                </div>
-
-                <div className="flex flex-col items-center gap-2 shrink-0 bg-white p-4 rounded-xl border border-gray-200 shadow-xs">
-                  <img
-                    src={`${apiUrl}/profiles/business/${company.id}/qr`}
-                    alt={`QR Code for ${company.name}`}
-                    className="w-36 h-36 border border-gray-200 rounded p-1 bg-white"
-                  />
-                  <span className="text-[10px] text-gray-400 font-mono">Scan to Apply</span>
-                </div>
-              </div>
+            <div id="qr-section" className="pt-2">
+              <ProfileQrShareCard
+                title={company.name}
+                subtitle={`${company.sector} • ${company.enterpriseSize} Enterprise`}
+                path={`/company/${company.id}`}
+                badgeText="Storefront & Factory Gate Digital QR"
+                description="Print or display this official QR code at your industrial facility entrance, reception, or recruitment kiosk. Candidates can scan with any smartphone camera to view verified company credentials and apply directly."
+                downloadFileName={`${company.name}-recruitment-qr`}
+                isMsme={company.isMsme ?? true}
+                udyamOrAffiliation={company.udyamNumber}
+                locationText={`${company.city}, ${company.district}`}
+              />
             </div>
           </div>
         </div>

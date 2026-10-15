@@ -7,7 +7,6 @@ export interface JobsClickLogoProps {
   readonly variant?: LogoVariant;
   readonly className?: string;
   readonly size?: LogoSize;
-  readonly showTagline?: boolean;
 }
 
 const HEIGHT_CLASSES: Record<LogoSize, string> = {
@@ -21,7 +20,6 @@ export const JobsClickLogo: React.FC<JobsClickLogoProps> = ({
   variant = 'full',
   className = '',
   size = 'md',
-  showTagline = false,
 }) => {
   const isDark = variant === 'dark';
   const isMono = variant === 'monochrome';
@@ -110,11 +108,6 @@ export const JobsClickLogo: React.FC<JobsClickLogoProps> = ({
           <tspan fill={isMono ? '#4B5563' : '#F97316'}>Click</tspan>
         </text>
       </svg>
-      {showTagline && (
-        <span className="hidden sm:inline-block border-l border-gray-300 pl-2 text-xs font-medium text-gray-500">
-          Jobs & MSME Portal
-        </span>
-      )}
     </div>
   );
 };

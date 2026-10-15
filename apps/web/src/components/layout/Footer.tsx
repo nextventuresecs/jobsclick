@@ -23,7 +23,7 @@ export const Footer: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
           {/* Brand & Mission */}
           <div className="lg:col-span-2 space-y-4">
-            <JobsClickLogo variant="full" size="md" showTagline />
+            <JobsClickLogo variant="full" size="md" />
             <p className="text-sm text-gray-600 max-w-sm leading-relaxed">
               {t('tagline')}
             </p>

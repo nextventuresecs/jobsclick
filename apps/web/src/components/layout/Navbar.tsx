@@ -12,20 +12,18 @@ import type { ClientRole } from '@indian-job-portal/validation';
 
 interface NavbarProps {
   readonly onOpenAuth?: (role?: string) => void;
-  readonly onOpenRoleSwitcher?: () => void;
 }
 
 const ROLE_SHORT_LABELS: Record<ClientRole, string> = {
   jobseeker: 'Job Seeker',
-  employer: 'MSME Employer',
-  institution: 'Placement Cell',
+  employer: 'Employer',
+  institution: 'Institution',
   msme_dept: 'MSME Dept',
   platform_admin: 'Central Ops',
 };
 
 export const Navbar: React.FC<NavbarProps> = ({
   onOpenAuth,
-  onOpenRoleSwitcher,
 }) => {
   const t = useTranslations('Navigation');
   const pathname = usePathname();
@@ -48,13 +46,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
   };
 
-  const handleOpenRoleSwitcher = () => {
-    if (onOpenRoleSwitcher) {
-      onOpenRoleSwitcher();
-    } else if (app) {
-      app.openRoleSwitcher();
-    }
-  };
 
   const isActive = (path: string) => {
     return pathname === path || pathname.startsWith(`${path}/`);
@@ -70,7 +61,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="flex items-center text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange rounded-md shrink-0"
             aria-label="JobsClick Home"
           >
-            <JobsClickLogo variant="full" size="md" showTagline />
+            <JobsClickLogo variant="full" size="md" />
           </Link>
 
           {/* Zone 2: Navigation Links */}
@@ -122,24 +113,16 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* Language Switcher */}
             <LanguageSwitcher />
 
-            {/* Quick Demo Role Tester Pill */}
-            <button
-              type="button"
-              onClick={handleOpenRoleSwitcher}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${
-                app?.isAuthenticated
-                  ? 'bg-orange-50 text-orange-950 border-orange-200 hover:bg-orange-100'
-                  : 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
-              }`}
-              title="Switch demo workspace role"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-brand-orange" />
-              <span>
-                {app?.currentUserRole
-                  ? `Role: ${ROLE_SHORT_LABELS[app.currentUserRole]}`
-                  : t('roleSwitcher')}
-              </span>
-            </button>
+            {/* Active User Role Badge (only when authenticated) */}
+            {app?.isAuthenticated && app?.currentUserRole && (
+              <div
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-orange-50 text-orange-950 border border-orange-200"
+                title="Current active workspace role"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-brand-orange" />
+                <span>Role: {ROLE_SHORT_LABELS[app.currentUserRole]}</span>
+              </div>
+            )}
 
             {app?.isAuthenticated ? (
               <div className="flex items-center gap-2">
@@ -233,18 +216,11 @@ export const Navbar: React.FC<NavbarProps> = ({
           </Link>
 
           <div className="pt-3 border-t border-gray-100 flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                handleOpenRoleSwitcher();
-              }}
-              className="w-full text-center px-3 py-2 text-xs font-semibold text-orange-950 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100"
-            >
-              {app?.currentUserRole
-                ? `Role: ${ROLE_SHORT_LABELS[app.currentUserRole]}`
-                : t('roleSwitcher')}
-            </button>
+            {app?.isAuthenticated && app?.currentUserRole && (
+              <div className="w-full text-center px-3 py-2 text-xs font-semibold text-orange-950 bg-orange-50 border border-orange-200 rounded-lg">
+                Role: {ROLE_SHORT_LABELS[app.currentUserRole]}
+              </div>
+            )}
 
             {app?.isAuthenticated ? (
               <div className="grid grid-cols-2 gap-2">

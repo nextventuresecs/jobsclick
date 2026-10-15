@@ -6,8 +6,10 @@ export interface SeekerProfileData {
   readonly phone: string; // Stored securely; masked for employers
   readonly email: string; // Stored securely; masked for employers
   readonly avatar?: string;
+  readonly seekerType: 'student' | 'individual';
   readonly gender: 'Male' | 'Female' | 'Other';
   readonly dob: string;
+  readonly address?: string;
   readonly city: string;
   readonly district: string;
   readonly state: string;
@@ -24,6 +26,12 @@ export interface SeekerProfileData {
   readonly willingToRelocate: boolean;
   readonly completionPercentage: number;
   readonly bio: string;
+  readonly apaarId?: string;
+  readonly aadhaarLastFour?: string;
+  readonly aadhaarVerified?: boolean;
+  readonly dpdpConsentGiven: boolean;
+  readonly isOnboardingComplete: boolean;
+  readonly enrolledViaInstitution?: string;
 }
 
 export interface ApplicationData {
@@ -57,6 +65,101 @@ export interface StudentRecordData {
   readonly state?: 'invited' | 'active';
 }
 
+export interface InstitutionProfileData {
+  readonly id: string;
+  readonly institutionName: string;
+  readonly institutionType: 'iti' | 'polytechnic' | 'engineering' | 'vocational_training' | 'degree_college' | 'other';
+  readonly affiliation: string;
+  readonly affiliationCode: string;
+  readonly establishmentYear: number;
+  readonly principalName: string;
+  readonly contactPerson: string;
+  readonly contactDesignation: string;
+  readonly contactEmail: string;
+  readonly contactPhone: string;
+  readonly website: string;
+  readonly address: string;
+  readonly city: string;
+  readonly district: string;
+  readonly state: string;
+  readonly pincode: string;
+  readonly tradesOffered: readonly string[];
+  readonly annualCapacity: number;
+  readonly placementBrochureUrl?: string;
+  readonly about: string;
+  readonly isVerified: boolean;
+  readonly isOnboardingComplete: boolean;
+}
+
+export const INITIAL_INSTITUTION_PROFILE: InstitutionProfileData = {
+  id: 'inst-01',
+  institutionName: 'Government Industrial Training Institute (ITI) & Polytechnic',
+  institutionType: 'iti',
+  affiliation: 'DGT / NCVT (National Council for Vocational Training)',
+  affiliationCode: 'ITI-MP-08012',
+  establishmentYear: 1984,
+  principalName: 'Dr. Suresh Chandra Malviya',
+  contactPerson: 'Er. Rajesh K. Sharma',
+  contactDesignation: 'Head of Training & Placement Cell (TPO)',
+  contactEmail: 'tpo.iti.indore@mp.gov.in',
+  contactPhone: '+91 94250 88210',
+  website: 'https://iti.mp.gov.in/indore',
+  address: 'Sanwer Road Industrial Area, Sector D',
+  city: 'Indore',
+  district: 'Indore',
+  state: 'Madhya Pradesh',
+  pincode: '452015',
+  tradesOffered: [
+    'CNC Machinist',
+    'Fitter & Turner',
+    'Electrician & Wireman',
+    'Industrial Automation',
+    'Tool & Die Maker',
+    'Welder (TIG/MIG)',
+    'Computer Operator & Programming (COPA)',
+  ],
+  annualCapacity: 480,
+  placementBrochureUrl: 'https://example.com/brochures/iti-placement-2026.pdf',
+  about: 'Premier state technical institute dedicated to blue and grey collar vocational excellence, hands-on shop-floor training, and industry-partnered apprenticeships across manufacturing clusters.',
+  isVerified: true,
+  isOnboardingComplete: true,
+};
+
+export const SAMPLE_INSTITUTIONS: readonly InstitutionProfileData[] = [
+  INITIAL_INSTITUTION_PROFILE,
+  {
+    id: 'inst-02',
+    institutionName: 'Pimpri Chinchwad Government Polytechnic & Technical Institute',
+    institutionType: 'polytechnic',
+    affiliation: 'MSBTE / AICTE Approved',
+    affiliationCode: 'POLY-MH-40192',
+    establishmentYear: 1991,
+    principalName: 'Prof. Anant R. Joshi',
+    contactPerson: 'Prof. Sunita S. Deshmukh',
+    contactDesignation: 'Head of Industry Liaison & Placement',
+    contactEmail: 'placements@pcpolytechnic.edu.in',
+    contactPhone: '+91 98220 54120',
+    website: 'https://pcpolytechnic.edu.in',
+    address: 'Sector 26, Pradhikaran, Nigdi',
+    city: 'Pune',
+    district: 'Pune',
+    state: 'Maharashtra',
+    pincode: '411044',
+    tradesOffered: [
+      'Mechanical Engineering (Manufacturing)',
+      'Automobile Engineering',
+      'Electrical & Electronics',
+      'Mechatronics & Robotics',
+      'Computer Technology',
+    ],
+    annualCapacity: 600,
+    placementBrochureUrl: 'https://example.com/brochures/pc-placement-2026.pdf',
+    about: 'Autonomous state technical polytechnic recognized for close ties with the Pune auto and engineering cluster, state-of-the-art labs, and high campus recruitment records.',
+    isVerified: true,
+    isOnboardingComplete: true,
+  },
+];
+
 export interface AuditLogEntryData {
   readonly id: string;
   readonly timestamp: string;
@@ -89,8 +192,10 @@ export const INITIAL_SEEKER_PROFILE: SeekerProfileData = {
   phone: '+91 98260 14829',
   email: 'rahul.sharma@example.com',
   avatar: '/images/jobseeker_avatar_rahul_1792057154543.jpg',
+  seekerType: 'student',
   gender: 'Male',
   dob: '2001-08-14',
+  address: 'Plot 42, MIDC Bhosari Industrial Area',
   city: 'Pune',
   district: 'Pune',
   state: 'Maharashtra',
@@ -107,12 +212,18 @@ export const INITIAL_SEEKER_PROFILE: SeekerProfileData = {
     'Vernier & Micrometer Inspection',
     '5S Workplace Safety',
   ],
-  languages: ['Hindi (Native)', 'English (Working)'],
+  languages: ['Hindi (Native)', 'English (Working)', 'Marathi (Conversational)'],
   preferredCategories: ['manufacturing', 'logistics_supply'],
   preferredLocations: ['Pune', 'Bengaluru', 'Delhi NCR', 'Ahmedabad'],
   willingToRelocate: true,
   completionPercentage: 90,
   bio: 'Skilled precision machinist with hands-on industrial training in CNC setup, component gauging, and lean production. Seeking machine operator or maintenance role with growth opportunities in premier MSME manufacturing hubs.',
+  apaarId: '2024-EDU-99214',
+  aadhaarLastFour: '4829',
+  aadhaarVerified: true,
+  dpdpConsentGiven: true,
+  isOnboardingComplete: true,
+  enrolledViaInstitution: 'Government Industrial Training Institute (ITI)',
 };
 
 export const INITIAL_APPLICATIONS: readonly ApplicationData[] = [

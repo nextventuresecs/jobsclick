@@ -9,6 +9,7 @@ import type { JobCategory, IndustryCategory } from '@indian-job-portal/validatio
 import { Navbar } from '../../../components/layout/Navbar';
 import { Footer } from '../../../components/layout/Footer';
 import { SAMPLE_JOBS, JobItem } from '../../../data/sampleJobs';
+import { JobApplyButton } from '../../../components/jobs/JobApplyButton';
 import {
   ArrowLeft,
   MapPin,
@@ -97,9 +98,15 @@ interface JobDetailApiResponse {
     '@type': 'JobPosting',
     title: job.title,
     description: job.description,
+    identifier: {
+      '@type': 'PropertyValue',
+      name: job.companyName,
+      value: job.id,
+    },
     datePosted: job.postedDate,
     validThrough: job.expiryDate,
     employmentType: job.employmentType.toUpperCase().replace('-', '_'),
+    directApply: true,
     hiringOrganization: {
       '@type': 'Organization',
       name: job.companyName,
@@ -112,6 +119,10 @@ interface JobDetailApiResponse {
         addressRegion: job.district,
         addressCountry: 'IN',
       },
+    },
+    applicantLocationRequirements: {
+      '@type': 'Country',
+      name: 'IN',
     },
     baseSalary: {
       '@type': 'MonetaryAmount',
@@ -175,10 +186,12 @@ interface JobDetailApiResponse {
 
               {/* Action Apply Button */}
               <div className="shrink-0 flex sm:flex-col items-center sm:items-end gap-2">
-                <Button variant="primary" size="lg" className="w-full sm:w-auto font-bold shadow-sm">
-                  Apply Now
-                </Button>
-                <span className="text-[11px] text-gray-400">Direct Application</span>
+                <JobApplyButton
+                  jobId={job.id}
+                  jobTitle={job.title}
+                  companyName={job.companyName}
+                  companyId={job.companyId}
+                />
               </div>
             </div>
 
@@ -299,9 +312,12 @@ interface JobDetailApiResponse {
                 <Lock className="w-4 h-4 text-gray-400" />
                 <span>One-click apply with your verified digital profile</span>
               </div>
-              <Button variant="primary" size="lg" className="w-full sm:w-auto font-bold shadow-sm">
-                Apply for this Position
-              </Button>
+              <JobApplyButton
+                jobId={job.id}
+                jobTitle={job.title}
+                companyName={job.companyName}
+                companyId={job.companyId}
+              />
             </div>
           </div>
         </div>

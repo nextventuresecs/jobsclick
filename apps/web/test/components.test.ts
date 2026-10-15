@@ -124,6 +124,35 @@ describe('Authentication Modal, Role Switcher & Workspaces - Feature 6', async (
     expect(INITIAL_AUDIT_LOGS[0]!.action).toBe('Enterprise Verification');
     expect(INITIAL_AUDIT_LOGS[0]!.status).toBe('success');
   });
+
+  it('exports EmployerBulkOnboardPage component for enterprise cluster onboarding', async () => {
+    const { default: EmployerBulkOnboardPage } = await import('../src/app/company/bulk-onboard/page.jsx');
+    expect(EmployerBulkOnboardPage).toBeDefined();
+    expect(typeof EmployerBulkOnboardPage).toBe('function');
+  });
+
+  it('exports ProfileQrShareCard and public profile pages for companies and institutions', async () => {
+    const { ProfileQrShareCard } = await import('../src/components/common/ProfileQrShareCard.jsx');
+    const { default: PublicCompanyPage } = await import('../src/app/company/[id]/page.jsx');
+    const { default: PublicInstitutionPage } = await import('../src/app/institution/[id]/page.jsx');
+
+    expect(ProfileQrShareCard).toBeDefined();
+    expect(typeof ProfileQrShareCard).toBe('function');
+    expect(PublicCompanyPage).toBeDefined();
+    expect(typeof PublicCompanyPage).toBe('function');
+    expect(PublicInstitutionPage).toBeDefined();
+    expect(typeof PublicInstitutionPage).toBe('function');
+  });
+
+  it('generates valid QR code data URLs for public employer and institution profiles', async () => {
+    const QRCode = (await import('qrcode')).default;
+    const companyQr = await QRCode.toDataURL('https://jobsclick.in/company/comp-01', { width: 300 });
+    const instQr = await QRCode.toDataURL('https://jobsclick.in/institution/inst-01', { width: 300 });
+
+    expect(companyQr).toContain('data:image/png;base64,');
+    expect(instQr).toContain('data:image/png;base64,');
+  });
 });
+
 
 
