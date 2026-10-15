@@ -164,6 +164,7 @@ export class ProfilesService {
         id: `inst_${userId}`,
         userId,
         institutionName: 'State Institute of Technology',
+        institutionType: 'iti',
         affiliation: 'State Board',
         address: 'Campus Grounds',
         contactPerson: 'Placement Head',
