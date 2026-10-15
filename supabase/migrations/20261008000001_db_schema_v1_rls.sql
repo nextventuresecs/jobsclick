@@ -67,11 +67,15 @@ CREATE POLICY applications_applicant_policy ON applications
 
 -- Audit log is append-only (No UPDATE or DELETE allowed by anyone)
 CREATE OR REPLACE FUNCTION prevent_audit_log_modification()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path = ''
+AS $$
 BEGIN
     RAISE EXCEPTION 'Audit log entries are immutable and cannot be updated or deleted.';
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 CREATE TRIGGER audit_log_immutable_update_trigger
     BEFORE UPDATE ON audit_logs

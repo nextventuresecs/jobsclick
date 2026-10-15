@@ -27,6 +27,5 @@ yarn-error.log*
 .vscode/
 .idea/
 *.suo
-*.ntvs*
-*.njsproj
-*.sln
+# Supabase
+supabase/.temp/
