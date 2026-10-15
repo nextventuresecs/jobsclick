@@ -6,7 +6,7 @@ export function middleware(request: NextRequest) {
 
   // If someone visits /en, /hi, or /en/... /hi/..., redirect cleanly to the root path and record their locale preference
   const match = pathname.match(/^\/(en|hi)(\/.*)?$/);
-  if (match) {
+  if (match && match[1]) {
     const locale = match[1];
     const rest = match[2] || '/';
     const response = NextResponse.redirect(new URL(rest, request.url));
