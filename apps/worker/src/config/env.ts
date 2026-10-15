@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import fs from 'node:fs';
 
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -13,6 +14,20 @@ export const envSchema = z.object({
 export type EnvConfig = z.infer<typeof envSchema>;
 
 export function validateEnv(): EnvConfig {
+  if (typeof process.loadEnvFile === 'function') {
+    const candidates = ['.env.local', '../../.env.local', '.env', '../../.env'];
+    for (const file of candidates) {
+      if (fs.existsSync(file)) {
+        try {
+          process.loadEnvFile(file);
+          break;
+        } catch {
+          // Ignore formatting errors
+        }
+      }
+    }
+  }
+
   const result = envSchema.safeParse(process.env);
   if (!result.success) {
     console.error('Invalid Worker Environment Variables:', result.error.format());
