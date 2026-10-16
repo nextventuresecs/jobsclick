@@ -132,4 +132,39 @@ Duplicate Person,9876543210`;
     const queueData = JSON.parse(res.payload);
     expect(queueData.queues.length).toBeGreaterThan(0);
   });
+
+  it('POST /bulk/signed-url - generates secure signed upload URL for direct storage upload (Ticket T-08)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/bulk/signed-url',
+      payload: {
+        fileName: 'students_50000_roster.csv',
+        contentType: 'text/csv',
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const data = JSON.parse(res.payload);
+    expect(data.signedUrl).toBeDefined();
+    expect(data.storagePath).toContain('bulk-imports/');
+    expect(data.token).toBeDefined();
+  });
+
+  it('POST /bulk/batches - accepts storagePath and creates queued batch asynchronously (Ticket T-08)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/bulk/batches',
+      payload: {
+        source: 'Indore Institute of Science & Tech',
+        entityType: 'student',
+        storagePath: 'bulk-imports/mock_50k_batch.csv',
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const batch = JSON.parse(res.payload);
+    expect(batch.id).toBeDefined();
+    expect(batch.status).toBe('queued');
+    expect(batch.source).toBe('Indore Institute of Science & Tech');
+  });
 });

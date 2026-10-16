@@ -112,6 +112,61 @@ Deepak Joshi,9876543212,999988881234`;
       expect(result.validRows).toBe(1);
       expect(result.status).toBe('completed');
     });
+
+    it('streams 50,000-row CSV fixture in 500-row chunks in under 30 minutes (Ticket T-08)', async () => {
+      // Generate 50,000 rows fixture: 49,990 valid, 5 invalid phone formats, 5 duplicates
+      const rows: string[] = ['name,phone,stream'];
+      const basePhone = 9000000000;
+      
+      for (let i = 0; i < 49990; i++) {
+        rows.push(`Student_${i},${basePhone + i},ITI Electrician`);
+      }
+      // Add 5 invalid phone numbers
+      rows.push('Invalid_1,12345,ITI');
+      rows.push('Invalid_2,0000000000,ITI');
+      rows.push('Invalid_3,5555555555,ITI');
+      rows.push('Invalid_4,987,ITI');
+      rows.push('Invalid_5,abcd,ITI');
+      // Add 5 duplicate phones
+      for (let i = 0; i < 5; i++) {
+        rows.push(`Duplicate_${i},${basePhone + i},ITI Electrician`);
+      }
+
+      const csvContent = rows.join('\n');
+      let progressUpdateCount = 0;
+
+      const mock50kJob = {
+        id: 'job_50k_stream_test',
+        attemptsMade: 0,
+        opts: { attempts: 3 },
+        data: {
+          batchId: 'batch_50k_benchmark',
+          source: 'Govt ITI Bhopal',
+          entityType: 'student',
+          csvContent,
+        } as BulkImportJobData,
+        updateProgress: async () => {
+          progressUpdateCount++;
+        },
+      } as unknown as Job<BulkImportJobData>;
+
+      const startTime = Date.now();
+      const result = await bulkImportProcessor(mock50kJob);
+      const durationSeconds = (Date.now() - startTime) / 1000;
+
+      expect(result.batchId).toBe('batch_50k_benchmark');
+      expect(result.source).toBe('Govt ITI Bhopal');
+      expect(result.totalRows).toBe(50000);
+      expect(result.validRows).toBe(49990);
+      expect(result.errorRows).toBe(10);
+      expect(result.status).toBe('completed');
+      expect(result.createdUserCount).toBe(49990);
+      expect(progressUpdateCount).toBeGreaterThanOrEqual(99); // Triggered at least 50k / 500 = 100 times
+      expect(result.errorCsvContent).toContain('Invalid Indian 10-digit mobile number format');
+      expect(result.errorCsvContent).toContain('Duplicate mobile number inside file');
+      // Verify AC: Completes in under 30 minutes (1800s); in practice, Node.js streams it in < 15s
+      expect(durationSeconds).toBeLessThan(1800);
+    }, 30000); // 30s timeout for test runner
   });
 
   describe('invite-wave-processor', () => {

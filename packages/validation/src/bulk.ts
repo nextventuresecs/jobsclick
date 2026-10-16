@@ -6,6 +6,13 @@ export const bulkUploadSchema = z.object({
   source: z.string().min(2, 'Source is required (e.g. MSME Department or College Name)'),
   entityType: entityTypeSchema.default('student'),
   csvContent: z.string().optional(),
+  storagePath: z.string().optional(),
+  fileName: z.string().optional(),
+});
+
+export const signedUrlSchema = z.object({
+  fileName: z.string().min(1, 'File name is required'),
+  contentType: z.string().optional().default('text/csv'),
 });
 
 export const inviteWaveSchema = z.object({
@@ -19,5 +26,7 @@ export const updateWaveStatusSchema = z.object({
 });
 
 export type BulkUploadInput = z.infer<typeof bulkUploadSchema>;
+export type SignedUrlInput = z.infer<typeof signedUrlSchema>;
 export type InviteWaveInput = z.infer<typeof inviteWaveSchema>;
 export type UpdateWaveStatusInput = z.infer<typeof updateWaveStatusSchema>;
+

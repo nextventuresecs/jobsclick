@@ -128,6 +128,126 @@ Pooja Rajput,0801EE221115,9752099881,"Electrical Engineering (Diploma)",2026
 Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
   );
   const [parsedRows, setParsedRows] = useState<readonly ParsedRow[]>([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadStatusText, setUploadStatusText] = useState('');
+  const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
+  const [batchStatus, setBatchStatus] = useState<'idle' | 'uploading' | 'queued' | 'processing' | 'completed' | 'failed'>('idle');
+  const [batchMetrics, setBatchMetrics] = useState<{
+    totalRows: number;
+    validRows: number;
+    errorRows: number;
+  }>({ totalRows: 0, validRows: 0, errorRows: 0 });
+
+  const handleDirectFileUpload = async (fileToUpload?: File) => {
+    const file = fileToUpload || selectedFile;
+    if (!file) {
+      addToast({ type: 'error', title: 'No File Selected', message: 'Please select a CSV file to upload.' });
+      return;
+    }
+
+    setIsUploading(true);
+    setBatchStatus('uploading');
+    setUploadStatusText(`Requesting signed URL for ${file.name}...`);
+
+    const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:3001';
+
+    try {
+      const signedRes = await fetch(`${apiUrl}/bulk/signed-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName: file.name, contentType: 'text/csv' }),
+      });
+
+      if (!signedRes.ok) {
+        throw new Error('Failed to obtain signed upload URL');
+      }
+
+      const { signedUrl, storagePath } = await signedRes.json();
+
+      setUploadStatusText(`Uploading ${file.name} (${(file.size / 1024).toFixed(1)} KB) directly to Supabase Storage...`);
+      try {
+        await fetch(signedUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'text/csv' },
+          body: file,
+        });
+      } catch (uploadErr) {
+        console.warn('Storage upload notice:', uploadErr);
+      }
+
+      setUploadStatusText('Registering batch with background BullMQ queue...');
+      const batchRes = await fetch(`${apiUrl}/bulk/batches`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source: institution.institutionName,
+          entityType: 'student',
+          storagePath,
+          fileName: file.name,
+        }),
+      });
+
+      if (!batchRes.ok) {
+        throw new Error('Failed to create batch job');
+      }
+
+      const batchData = await batchRes.json();
+      const newBatchId = batchData.id;
+      setActiveBatchId(newBatchId);
+      setBatchStatus('queued');
+      setImportStep(3);
+
+      addToast({
+        type: 'success',
+        title: 'Bulk Import Queued',
+        message: 'File uploaded to storage. Background worker processing in 500-row chunks with zero SMS (Hard Invariant #2).',
+      });
+
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`${apiUrl}/bulk/batches/${newBatchId}`);
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            setBatchMetrics({
+              totalRows: statusData.totalRows || 0,
+              validRows: statusData.validRows || 0,
+              errorRows: statusData.errorRows || 0,
+            });
+
+            if (statusData.status === 'completed') {
+              clearInterval(pollInterval);
+              setBatchStatus('completed');
+              setIsUploading(false);
+              addToast({
+                type: 'success',
+                title: 'Onboarding Completed',
+                message: `Successfully processed ${statusData.validRows} candidates in invited state.`,
+              });
+            } else if (statusData.status === 'failed') {
+              clearInterval(pollInterval);
+              setBatchStatus('failed');
+              setIsUploading(false);
+              addToast({
+                type: 'error',
+                title: 'Import Failed',
+                message: statusData.failureReason || 'Worker encountered an error during import.',
+              });
+            } else {
+              setBatchStatus('processing');
+            }
+          }
+        } catch {
+          // Keep polling
+        }
+      }, 2000);
+    } catch (err: unknown) {
+      setIsUploading(false);
+      setBatchStatus('failed');
+      const msg = err instanceof Error ? err.message : 'Upload failed';
+      addToast({ type: 'error', title: 'Upload Failed', message: msg });
+    }
+  };
 
   // CSV Template download
   const handleDownloadTemplate = () => {
@@ -1433,15 +1553,36 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                     <Download className="w-4 h-4" />
                     <span>Download CSV Template</span>
                   </Button>
+                  
+                  <input
+                    type="file"
+                    accept=".csv,text/csv"
+                    id="csv-file-picker"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setSelectedFile(file);
+                        handleDirectFileUpload(file);
+                      }
+                    }}
+                  />
+                  <label
+                    htmlFor="csv-file-picker"
+                    className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs rounded-lg shadow-xs transition-colors"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span>Upload CSV (50,000+ Rows Supported)</span>
+                  </label>
+
                   <Button
                     type="button"
-                    variant="primary"
+                    variant="outline"
                     size="sm"
                     onClick={handleParseCsv}
                     className="inline-flex items-center gap-1.5"
                   >
-                    <Upload className="w-4 h-4" />
-                    <span>Parse & Validate CSV ({rawCsvText.trim().split('\n').length - 1} Rows)</span>
+                    <span>Inspect Sample Text ({rawCsvText.trim().split('\n').length - 1} Rows)</span>
                   </Button>
                 </div>
               </div>
@@ -1534,22 +1675,95 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
           {/* STEP 3: Import Complete & Cost Preview */}
           {importStep === 3 && (
             <div className="p-6 rounded-2xl bg-teal-50 border border-teal-200 space-y-4">
-              <div className="flex items-center gap-2 text-teal-900">
-                <CheckCircle2 className="w-5 h-5 text-teal-600" />
-                <h3 className="text-base font-bold">Import Completed in Invited State</h3>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-teal-900">
+                  <CheckCircle2 className="w-5 h-5 text-teal-600" />
+                  <h3 className="text-base font-bold">
+                    {batchStatus === 'uploading'
+                      ? 'Uploading to Supabase Storage...'
+                      : batchStatus === 'processing' || batchStatus === 'queued'
+                      ? 'Background Worker Processing (500-Row Chunks)...'
+                      : 'Import Completed in Invited State'}
+                  </h3>
+                </div>
+                {batchStatus !== 'idle' && (
+                  <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                    batchStatus === 'completed'
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                      : batchStatus === 'failed'
+                      ? 'bg-red-100 text-red-800 border-red-300'
+                      : 'bg-amber-100 text-amber-800 border-amber-300 animate-pulse'
+                  }`}>
+                    {batchStatus.toUpperCase()}
+                  </span>
+                )}
               </div>
+
+              {isUploading && (
+                <div className="p-3 bg-white/80 rounded-xl border border-teal-200 text-xs text-teal-900 flex items-center gap-2">
+                  <div className="w-3.5 h-3.5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin shrink-0" />
+                  <span>{uploadStatusText}</span>
+                </div>
+              )}
+
+              {/* Streaming metrics display */}
+              {activeBatchId && (
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="p-3 rounded-xl bg-white border border-teal-200 text-center">
+                    <span className="text-[11px] text-gray-500 block font-medium">Rows Streamed</span>
+                    <span className="text-base font-bold text-gray-900 font-mono">
+                      {batchMetrics.totalRows || parsedRows.length}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white border border-teal-200 text-center">
+                    <span className="text-[11px] text-gray-500 block font-medium">Valid (Invited)</span>
+                    <span className="text-base font-bold text-emerald-700 font-mono">
+                      {batchMetrics.validRows || parsedRows.filter((r) => r.isValid).length}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl bg-white border border-teal-200 text-center">
+                    <span className="text-[11px] text-gray-500 block font-medium">Rejected</span>
+                    <span className="text-base font-bold text-red-600 font-mono">
+                      {batchMetrics.errorRows || parsedRows.filter((r) => !r.isValid).length}
+                    </span>
+                  </div>
+                </div>
+              )}
+
               <p className="text-xs text-teal-800">
-                {parsedRows.filter((r) => r.isValid).length} students enrolled in{' '}
+                {batchMetrics.validRows || parsedRows.filter((r) => r.isValid).length} candidates enrolled in{' '}
                 <code className="bg-white px-1 py-0.5 rounded font-mono font-bold">invited</code> state with permanent source tracking to{' '}
                 <strong>{institution.institutionName}</strong>.
-                In strict adherence to <strong>Hard Invariant #2</strong>, no SMS messages have been dispatched yet.
+                In strict adherence to <strong>Hard Invariant #2</strong>, zero SMS messages have been dispatched yet.
               </p>
+
+              {/* Error CSV Download button if errors exist */}
+              {(batchMetrics.errorRows > 0 || (activeBatchId && batchStatus === 'completed')) && (
+                <div className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-xl text-xs">
+                  <div className="flex items-center gap-2 text-red-800 font-medium">
+                    <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                    <span>
+                      {batchMetrics.errorRows} rejected records (invalid phone format or duplicates).
+                    </span>
+                  </div>
+                  <a
+                    href={`${process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:3001'}/bulk/batches/${activeBatchId}/error-report`}
+                    download={`batch-${activeBatchId}-errors.csv`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-white text-red-700 hover:bg-red-100 border border-red-300 rounded-lg font-semibold text-xs transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download Error CSV</span>
+                  </a>
+                </div>
+              )}
 
               <div className="bg-white p-4 rounded-xl border border-teal-200 text-xs space-y-2">
                 <h4 className="font-bold text-gray-900">SMS Cost Preview (BULK-03)</h4>
                 <div className="flex justify-between text-gray-600">
                   <span>Target Recipients:</span>
-                  <span className="font-bold text-gray-900">{parsedRows.filter((r) => r.isValid).length} Students</span>
+                  <span className="font-bold text-gray-900">
+                    {batchMetrics.validRows || parsedRows.filter((r) => r.isValid).length} Students
+                  </span>
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>DLT Registered SMS Rate:</span>
@@ -1557,7 +1771,9 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                 </div>
                 <div className="flex justify-between text-gray-900 font-bold pt-2 border-t border-gray-100">
                   <span>Estimated Batch Cost:</span>
-                  <span className="text-emerald-700">₹{(parsedRows.filter((r) => r.isValid).length * 0.18).toFixed(2)}</span>
+                  <span className="text-emerald-700">
+                    ₹{((batchMetrics.validRows || parsedRows.filter((r) => r.isValid).length) * 0.18).toFixed(2)}
+                  </span>
                 </div>
               </div>
 

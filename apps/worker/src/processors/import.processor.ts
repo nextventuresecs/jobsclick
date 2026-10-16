@@ -67,7 +67,13 @@ export class ImportProcessor {
 
     const errors: ImportErrorRecord[] = [];
     const seenPhones = new Set<string>();
-    const validUsersToCreate: Array<{
+    let rowNumber = 1; // Row 1 is header
+    let totalRows = 0;
+    let validCount = 0;
+
+    const CHUNK_SIZE = 500;
+    let currentChunk: Array<{
+      row: number;
       name: string;
       phone: string;
       source: string;
@@ -77,8 +83,65 @@ export class ImportProcessor {
       aadhaar_verified: boolean;
     }> = [];
 
-    let rowNumber = 1; // Row 1 is header
-    let totalRows = 0;
+    // Helper to flush current 500-row chunk to database
+    const flushChunk = async () => {
+      if (currentChunk.length === 0) return;
+
+      const chunkToProcess = [...currentChunk];
+      currentChunk = [];
+
+      let deduplicatedChunk = chunkToProcess;
+
+      // Deduplicate against platform database if Supabase DB is connected
+      if (this.supabase) {
+        const chunkPhones = chunkToProcess.map((u) => u.phone);
+        const { data: existingInDb, error: dbError } = await this.supabase
+          .from('users')
+          .select('mobile_number')
+          .in('mobile_number', chunkPhones);
+
+        if (!dbError && existingInDb && existingInDb.length > 0) {
+          const dbSet = new Set(existingInDb.map((u: { mobile_number: string }) => u.mobile_number));
+          deduplicatedChunk = [];
+          for (const item of chunkToProcess) {
+            if (dbSet.has(item.phone)) {
+              errors.push({
+                row: item.row,
+                phone: item.phone,
+                reason: 'Mobile number already exists in database',
+              });
+            } else {
+              deduplicatedChunk.push(item);
+            }
+          }
+        }
+
+        // Batch insert valid users in 'invited' state with ZERO SMS (Hard Invariant #2 & #3)
+        if (deduplicatedChunk.length > 0) {
+          await this.supabase.from('users').upsert(
+            deduplicatedChunk.map((u) => ({
+              mobile_number: u.phone,
+              role: u.role,
+              status: u.status,
+              source: u.source,
+              created_at: new Date().toISOString(),
+            })),
+            { onConflict: 'mobile_number' },
+          );
+        }
+      }
+
+      validCount += deduplicatedChunk.length;
+
+      // Update BullMQ job progress
+      if (typeof job.updateProgress === 'function') {
+        await job.updateProgress({
+          processed: totalRows,
+          valid: validCount,
+          errors: errors.length,
+        });
+      }
+    };
 
     // Streaming CSV Parser
     const parser = Readable.from(rawCsvText).pipe(
@@ -93,11 +156,11 @@ export class ImportProcessor {
       rowNumber++;
       totalRows++;
 
-      const rawName = (record['name'] || record['full_name'] || record['Name'] || '').trim();
+      const rawName = (record['name'] || record['full_name'] || record['Name'] || record['Student Name'] || '').trim();
       const rawPhone = (record['phone'] || record['mobile'] || record['Phone'] || record['Mobile'] || '').replace(/\s+/g, '');
       const phone = rawPhone.startsWith('+91') ? rawPhone.slice(3) : rawPhone;
 
-      // 1. Phone validation: Indian 10-digit mobile number format
+      // 1. Phone validation: Indian 10-digit mobile number format (^[6-9]\d{9}$)
       if (!/^[6-9]\d{9}$/.test(phone)) {
         errors.push({
           row: rowNumber,
@@ -125,7 +188,8 @@ export class ImportProcessor {
 
       // Invariant #2: users created in 'invited' state with zero SMS at import
       // Invariant #3: every bulk import row keeps its source
-      validUsersToCreate.push({
+      currentChunk.push({
+        row: rowNumber,
         name: rawName || 'Invited Candidate',
         phone,
         source,
@@ -134,40 +198,22 @@ export class ImportProcessor {
         ...(aadhaarLast4 ? { aadhaar_last4: aadhaarLast4, aadhaar_verified: false } : { aadhaar_verified: false }),
       });
 
-      // Periodic progress tracking every 500 rows
-      if (totalRows % 500 === 0) {
-        await job.updateProgress({
-          processed: totalRows,
-          valid: validUsersToCreate.length,
-          errors: errors.length,
-        });
+      // Flush when chunk size reaches 500 rows
+      if (currentChunk.length >= CHUNK_SIZE) {
+        await flushChunk();
       }
     }
 
-    // Persist to Supabase if database connection is available
-    if (this.supabase && validUsersToCreate.length > 0) {
-      const batchChunkSize = 200;
-      for (let i = 0; i < validUsersToCreate.length; i += batchChunkSize) {
-        const chunk = validUsersToCreate.slice(i, i + batchChunkSize);
-        await this.supabase.from('users').upsert(
-          chunk.map((u) => ({
-            mobile_number: u.phone,
-            role: u.role,
-            status: u.status,
-            source: u.source,
-            created_at: new Date().toISOString(),
-          })),
-          { onConflict: 'mobile_number' },
-        );
-      }
-    }
+    // Flush any remaining records in final chunk
+    await flushChunk();
 
     // Generate Error CSV Report if any invalid rows were found (BULK-02)
     let errorCsvContent: string | undefined;
+    let errorPath: string | undefined;
     if (errors.length > 0) {
       errorCsvContent = 'row,phone,reason\n' + errors.map((e) => `${e.row},"${e.phone}","${e.reason}"`).join('\n');
+      errorPath = `bulk-imports/${batchId}-errors.csv`;
       if (this.supabase) {
-        const errorPath = `bulk-imports/${batchId}-errors.csv`;
         await this.supabase.storage.from('private').upload(errorPath, errorCsvContent, {
           contentType: 'text/csv',
           upsert: true,
@@ -183,8 +229,9 @@ export class ImportProcessor {
           status: 'completed',
           total_rows: totalRows,
           processed_rows: totalRows,
-          valid_rows: validUsersToCreate.length,
+          valid_rows: validCount,
           error_rows: errors.length,
+          error_csv_storage_path: errorPath || null,
           completed_at: new Date().toISOString(),
         })
         .eq('id', batchId);
@@ -200,11 +247,11 @@ export class ImportProcessor {
       entityType,
       totalRows,
       processedRows: totalRows,
-      validRows: validUsersToCreate.length,
+      validRows: validCount,
       errorRows: errors.length,
       status: 'completed',
       errorCsvContent,
-      createdUserCount: validUsersToCreate.length,
+      createdUserCount: validCount,
     };
   }
 }

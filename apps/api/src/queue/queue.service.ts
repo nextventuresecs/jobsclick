@@ -91,14 +91,16 @@ export class QueueService implements OnModuleDestroy {
     this.serverAdapter = new FastifyAdapter();
     this.serverAdapter.setBasePath('/admin/queues');
 
+    /* eslint-disable @typescript-eslint/no-explicit-any */
     createBullBoard({
       queues: [
-        new BullMQAdapter(this.bulkImportQueue),
-        new BullMQAdapter(this.inviteWaveQueue),
-        new BullMQAdapter(this.pdfGeneratorQueue),
+        new BullMQAdapter(this.bulkImportQueue) as any,
+        new BullMQAdapter(this.inviteWaveQueue) as any,
+        new BullMQAdapter(this.pdfGeneratorQueue) as any,
       ],
       serverAdapter: this.serverAdapter,
     });
+    /* eslint-enable @typescript-eslint/no-explicit-any */
   }
 
   async publishBulkImportJob(data: {

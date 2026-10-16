@@ -79,19 +79,104 @@ export class BulkService {
     this.supabase = createClient(url, key);
   }
 
-  async processBulkImport(input: BulkUploadInput, csvContent: string): Promise<BulkBatchRecord> {
+  async getSignedUploadUrl(fileName: string, _contentType = 'text/csv'): Promise<{
+    signedUrl: string;
+    storagePath: string;
+    token: string;
+  }> {
+    const safeName = `${Date.now()}_${fileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+    const storagePath = `bulk-imports/${safeName}`;
+
+    if (this.isTestMode) {
+      return {
+        signedUrl: `http://localhost:54321/storage/v1/upload/sign/private/${storagePath}`,
+        storagePath,
+        token: `mock_signed_token_${Date.now()}`,
+      };
+    }
+
+    const { data, error } = await this.supabase.storage
+      .from('private')
+      .createSignedUploadUrl(storagePath);
+
+    if (error || !data) {
+      throw new BadRequestException(`Failed to create signed upload URL: ${error?.message}`);
+    }
+
+    return {
+      signedUrl: data.signedUrl,
+      storagePath,
+      token: data.token,
+    };
+  }
+
+  async processBulkImport(input: BulkUploadInput, csvContent?: string): Promise<BulkBatchRecord> {
+    const batchId = `batch_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const now = new Date().toISOString();
+
+    // Direct Supabase Storage upload flow (Ticket T-08)
+    if (input.storagePath) {
+      await this.queueService.publishBulkImportJob({
+        batchId,
+        source: input.source,
+        entityType: input.entityType,
+        storagePath: input.storagePath,
+      });
+
+      if (this.isTestMode) {
+        const record: BulkBatchRecord = {
+          id: batchId,
+          source: input.source,
+          entityType: input.entityType || 'student',
+          totalRows: 0,
+          processedRows: 0,
+          validRows: 0,
+          errorRows: 0,
+          status: 'queued',
+          qstashMessageId: null,
+          failureReason: null,
+          createdAt: now,
+          startedAt: null,
+          completedAt: null,
+          errorCsvContent: '',
+        };
+        this.memBatches.set(batchId, record);
+        return record;
+      }
+
+      const { data: batch, error: insertError } = await this.supabase
+        .from('bulk_import_batches')
+        .insert({
+          source: input.source,
+          entity_type: input.entityType || 'student',
+          total_rows: 0,
+          status: 'queued' as TaskStatus,
+          csv_storage_path: input.storagePath,
+        })
+        .select()
+        .single();
+
+      if (insertError || !batch) {
+        throw new BadRequestException(`Failed to create batch record: ${insertError?.message}`);
+      }
+
+      return this.toBatchRecord(batch);
+    }
+
+    const actualCsv = csvContent || input.csvContent;
+    if (!actualCsv) {
+      throw new BadRequestException('Either storagePath or csvContent must be provided');
+    }
+
     let records: Array<Record<string, string>> = [];
     try {
-      records = parseCsv(csvContent);
+      records = parseCsv(actualCsv);
     } catch {
       throw new BadRequestException('Invalid CSV format');
     }
     if (records.length === 0) {
       throw new BadRequestException('CSV file is empty or has no data rows');
     }
-
-    const batchId = `batch_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-    const now = new Date().toISOString();
 
     // Publish to BullMQ bulk-import queue (Ticket T-07)
     await this.queueService.publishBulkImportJob({
@@ -172,7 +257,7 @@ export class BulkService {
     const storagePath = `bulk-imports/${dbBatchId}.csv`;
     const { error: uploadError } = await this.supabase.storage
       .from('private')
-      .upload(storagePath, csvContent, {
+      .upload(storagePath, actualCsv, {
         contentType: 'text/csv',
         upsert: false,
       });

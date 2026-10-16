@@ -4,11 +4,13 @@ import { BulkService } from './bulk.service.js';
 import { QstashSignatureGuard } from '../qstash/qstash-signature.guard.js';
 import {
   bulkUploadSchema,
+  signedUrlSchema,
   inviteWaveSchema,
   updateWaveStatusSchema,
 } from '@indian-job-portal/validation';
 
 export class BulkUploadDto extends createZodDto(bulkUploadSchema) {}
+export class SignedUrlDto extends createZodDto(signedUrlSchema) {}
 export class InviteWaveDto extends createZodDto(inviteWaveSchema) {}
 export class UpdateWaveStatusDto extends createZodDto(updateWaveStatusSchema) {}
 
@@ -17,9 +19,14 @@ export class UpdateWaveStatusDto extends createZodDto(updateWaveStatusSchema) {}
 export class BulkController {
   constructor(@Inject(BulkService) private readonly bulkService: BulkService) {}
 
+  @Post('bulk/signed-url')
+  async getSignedUploadUrl(@Body() body: SignedUrlDto) {
+    return this.bulkService.getSignedUploadUrl(body.fileName, body.contentType);
+  }
+
   @Post('bulk/batches')
   async uploadCsv(@Body() body: BulkUploadDto) {
-    const csvContent = body.csvContent || 'name,phone\nAnita,9876543210';
+    const csvContent = body.csvContent;
     return this.bulkService.processBulkImport(body, csvContent);
   }
 
