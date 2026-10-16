@@ -12,6 +12,7 @@ export interface DatabasePersistenceState {
   institution_profiles: Record<string, any>;
   jobs: Record<string, any>;
   applications: Record<string, any>;
+  audit_logs: Record<string, any>;
 }
 
 export class PersistentDatabaseStore {
@@ -24,6 +25,7 @@ export class PersistentDatabaseStore {
     institution_profiles: {},
     jobs: {},
     applications: {},
+    audit_logs: {},
   };
 
   private constructor() {
@@ -58,6 +60,7 @@ export class PersistentDatabaseStore {
           institution_profiles: parsed.institution_profiles || {},
           jobs: parsed.jobs || {},
           applications: parsed.applications || {},
+          audit_logs: parsed.audit_logs || {},
         };
       }
     } catch {
