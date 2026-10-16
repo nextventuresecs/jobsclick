@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { useApp } from '../../context/AppContext';
-import { udyamNumberSchema, indianMobileNumberSchema } from '@indian-job-portal/validation';
+import { udyamNumberSchema, indianMobileNumberSchema, toBackendRole } from '@indian-job-portal/validation';
 import { JobsClickLogo, Button } from '@indian-job-portal/ui';
 import {
   X,
@@ -206,6 +206,7 @@ export function AuthModal() {
     closeAuthModal,
     authModalDefaultRole,
     loginAs,
+    setAuthSession,
     addToast,
   } = useApp();
 
@@ -219,7 +220,7 @@ export function AuthModal() {
 
   const [phone, setPhone] = useState('9876543210');
   const [otpStep, setOtpStep] = useState<'input' | 'verify'>('input');
-  const [otp, setOtp] = useState(['1', '2', '3', '4', '5', '6']);
+  const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [timer, setTimer] = useState(30);
 
   const [email, setEmail] = useState('');
@@ -254,8 +255,8 @@ export function AuthModal() {
 
   if (!isAuthModalOpen) return null;
 
-  const handleSendOtp = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setErrorMessage('');
 
     const parsedPhone = indianMobileNumberSchema.safeParse(phone);
@@ -265,30 +266,115 @@ export function AuthModal() {
     }
 
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || process.env['API_URL'] || 'http://localhost:3001';
+      const res = await fetch(`${apiUrl}/auth/send-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phone: parsedPhone.data,
+        }),
+      });
+
+      if (!res.ok) {
+        let msg = 'Failed to send OTP. Please try again.';
+        try {
+          const errData = await res.json();
+          if (Array.isArray(errData.message)) {
+            msg = errData.message.join(', ');
+          } else if (typeof errData.message === 'string') {
+            msg = errData.message;
+          } else if (errData.error) {
+            msg = errData.error;
+          }
+        } catch {
+          msg = res.statusText || msg;
+        }
+        setErrorMessage(msg);
+        return;
+      }
+
+      const data = await res.json();
       setOtpStep('verify');
-      setTimer(30);
+      setTimer(typeof data.cooldownSeconds === 'number' ? data.cooldownSeconds : 60);
+      setOtp(['', '', '', '', '', '']);
       addToast({
         type: 'info',
         title: 'OTP Dispatched via MSG91',
-        message: `Verification code sent to +91 ${parsedPhone.data}. Demo OTP: 123456.`,
+        message: data.message || `Verification code sent to +91 ${parsedPhone.data}.`,
       });
-    }, 500);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Network error connecting to auth service');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleVerifyOtp = (e: React.FormEvent) => {
+  const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage('');
+
     const code = otp.join('');
     if (code.length !== 6) {
       setErrorMessage('Please enter the full 6-digit verification code.');
       return;
     }
 
+    const parsedPhone = indianMobileNumberSchema.safeParse(phone);
+    if (!parsedPhone.success) {
+      setErrorMessage('Please enter a valid 10-digit Indian mobile number (starting with 6-9).');
+      return;
+    }
+
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      loginAs(selectedRole);
+    try {
+      const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || process.env['API_URL'] || 'http://localhost:3001';
+      const backendRole = toBackendRole(selectedRole);
+
+      const res = await fetch(`${apiUrl}/auth/verify-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phone: parsedPhone.data,
+          code,
+          role: backendRole,
+        }),
+      });
+
+      if (!res.ok) {
+        let msg = 'Failed to verify OTP code.';
+        try {
+          const errData = await res.json();
+          if (Array.isArray(errData.message)) {
+            msg = errData.message.join(', ');
+          } else if (typeof errData.message === 'string') {
+            msg = errData.message;
+          } else if (errData.error) {
+            msg = errData.error;
+          }
+        } catch {
+          msg = res.statusText || msg;
+        }
+        setErrorMessage(msg);
+        return;
+      }
+
+      const data = await res.json();
+      if (setAuthSession && data.accessToken && data.user) {
+        setAuthSession({
+          accessToken: data.accessToken,
+          user: data.user,
+        });
+      } else {
+        loginAs(selectedRole, {
+          accessToken: data.accessToken,
+          user: data.user,
+        });
+      }
 
       const roleDisplay =
         selectedRole === 'jobseeker'
@@ -304,7 +390,11 @@ export function AuthModal() {
         title: 'Verified & Signed In',
         message: `Welcome! Active session as ${roleDisplay}.`,
       });
-    }, 500);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Network error connecting to auth service');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleEmailPasswordSubmit = (e: React.FormEvent) => {
@@ -401,6 +491,21 @@ export function AuthModal() {
   };
 
   const handleOtpDigitChange = (index: number, val: string) => {
+    const digitsOnly = val.replace(/\D/g, '');
+    if (digitsOnly.length > 1) {
+      const nextOtp = [...otp];
+      for (let i = 0; i < 6 && index + i < 6; i++) {
+        if (digitsOnly[i]) {
+          nextOtp[index + i] = digitsOnly[i]!;
+        }
+      }
+      setOtp(nextOtp);
+      const targetFocusIdx = Math.min(5, index + digitsOnly.length);
+      const targetInput = document.getElementById(`modal-otp-${targetFocusIdx}`);
+      targetInput?.focus();
+      return;
+    }
+
     if (!/^\d*$/.test(val)) return;
     const nextOtp = [...otp];
     nextOtp[index] = val.slice(-1);
@@ -415,7 +520,7 @@ export function AuthModal() {
   const resetSubState = () => {
     setErrorMessage('');
     setOtpStep('input');
-    setOtp(['1', '2', '3', '4', '5', '6']);
+    setOtp(['', '', '', '', '', '']);
   };
 
   return (
@@ -552,7 +657,7 @@ export function AuthModal() {
                   otp={otp}
                   onOtpChange={handleOtpDigitChange}
                   timer={timer}
-                  onResend={() => setTimer(30)}
+                  onResend={() => handleSendOtp()}
                   onSendOtp={handleSendOtp}
                   onVerifyOtp={handleVerifyOtp}
                   isLoading={isLoading}
@@ -724,7 +829,7 @@ export function AuthModal() {
                     otp={otp}
                     onOtpChange={handleOtpDigitChange}
                     timer={timer}
-                    onResend={() => setTimer(30)}
+                    onResend={() => handleSendOtp()}
                     onSendOtp={handleSendOtp}
                     onVerifyOtp={handleVerifyOtp}
                     isLoading={isLoading}
@@ -762,7 +867,7 @@ export function AuthModal() {
                       otp={otp}
                       onOtpChange={handleOtpDigitChange}
                       timer={timer}
-                      onResend={() => setTimer(30)}
+                      onResend={() => handleSendOtp()}
                       onSendOtp={handleSendOtp}
                       onVerifyOtp={handleVerifyOtp}
                       isLoading={isLoading}
@@ -857,7 +962,7 @@ export function AuthModal() {
                   otp={otp}
                   onOtpChange={handleOtpDigitChange}
                   timer={timer}
-                  onResend={() => setTimer(30)}
+                  onResend={() => handleSendOtp()}
                   onSendOtp={handleSendOtp}
                   onVerifyOtp={handleVerifyOtp}
                   isLoading={isLoading}
