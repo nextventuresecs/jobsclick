@@ -210,3 +210,13 @@ export interface Database {
 }
 
 export type TaskStatus = 'queued' | 'dispatched' | 'processing' | 'completed' | 'failed';
+
+export type UserRow = Database['public']['Tables']['users']['Row'];
+export type JobSeekerProfileRow = Database['public']['Tables']['job_seeker_profiles']['Row'];
+export type BusinessProfileRow = Database['public']['Tables']['business_profiles']['Row'];
+export type InstitutionProfileRow = Database['public']['Tables']['institution_profiles']['Row'];
+export type JobRow = Database['public']['Tables']['jobs']['Row'];
+export type ApplicationRow = Database['public']['Tables']['applications']['Row'];
+export type AuditLogRow = Database['public']['Tables']['audit_logs']['Row'];
+export type BulkImportBatchRow = Database['public']['Tables']['bulk_import_batches']['Row'];
+export type InviteWaveRow = Database['public']['Tables']['invite_waves']['Row'];

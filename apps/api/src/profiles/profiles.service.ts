@@ -1,9 +1,16 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import {
   JobSeekerProfileInput,
   BusinessProfileInput,
   InstitutionProfileInput,
 } from '@indian-job-portal/validation';
+import { ProfileRepository } from '../database/repositories/profile.repository.js';
+import { UserRepository } from '../database/repositories/user.repository.js';
+import type {
+  JobSeekerProfileRow,
+  BusinessProfileRow,
+  InstitutionProfileRow,
+} from '@indian-job-portal/database';
 
 export interface SeekerProfileRecord extends JobSeekerProfileInput {
   id: string;
@@ -25,9 +32,10 @@ export interface InstitutionProfileRecord extends InstitutionProfileInput {
 
 @Injectable()
 export class ProfilesService {
-  private seekerProfiles = new Map<string, SeekerProfileRecord>();
-  private businessProfiles = new Map<string, BusinessProfileRecord>();
-  private institutionProfiles = new Map<string, InstitutionProfileRecord>();
+  constructor(
+    @Inject(ProfileRepository) private readonly profileRepository: ProfileRepository,
+    @Inject(UserRepository) private readonly userRepository: UserRepository,
+  ) {}
 
   // Calculate completeness score (JS-02 / Section 3.2 measure)
   private calculateCompleteness(input: JobSeekerProfileInput): number {
@@ -41,13 +49,15 @@ export class ProfilesService {
   }
 
   async getSeekerProfileMe(userId: string): Promise<SeekerProfileRecord> {
-    const profile = Array.from(this.seekerProfiles.values()).find((p) => p.userId === userId);
+    const profile = await this.profileRepository.findSeekerProfileByUserId(userId);
+    const user = await this.userRepository.findById(userId);
+
     if (!profile) {
       return {
         id: `seeker_${userId}`,
         userId,
-        phone: '9876543210',
-        email: null,
+        phone: user?.phone || '9876543210',
+        email: user?.email || null,
         fullName: 'New Job Seeker',
         photoUrl: '',
         seekerType: 'individual',
@@ -58,42 +68,127 @@ export class ProfilesService {
         completenessScore: 40,
       };
     }
-    return profile;
+
+    const completenessScore = this.calculateCompleteness({
+      fullName: profile.full_name,
+      photoUrl: profile.photo_url || '',
+      seekerType: profile.seeker_type as 'student' | 'individual',
+      aadhaarLastFour: profile.aadhaar_last_four || undefined,
+      apaarId: profile.apaar_id || undefined,
+      skills: profile.skills,
+      preferredCategories: (profile.preferred_categories as any) || [],
+      city: profile.city || '',
+      dpdpConsentGiven: profile.dpdp_consent_given ?? false,
+    });
+
+    return {
+      id: profile.id,
+      userId: profile.user_id,
+      phone: user?.phone || '9876543210',
+      email: user?.email || null,
+      fullName: profile.full_name,
+      photoUrl: profile.photo_url || '',
+      seekerType: profile.seeker_type as 'student' | 'individual',
+      aadhaarLastFour: profile.aadhaar_last_four || undefined,
+      apaarId: profile.apaar_id || undefined,
+      skills: profile.skills,
+      preferredCategories: (profile.preferred_categories as any) || [],
+      city: profile.city || '',
+      district: profile.district || undefined,
+      state: profile.state || undefined,
+      pincode: profile.pincode || undefined,
+      qualification: profile.qualification || undefined,
+      institution: profile.institution || undefined,
+      graduationYear: profile.graduation_year || undefined,
+      experienceYears: profile.experience_years || undefined,
+      currentRole: profile.current_role || undefined,
+      languages: profile.languages || [],
+      preferredLocations: profile.preferred_locations || [],
+      willingToRelocate: profile.willing_to_relocate,
+      bio: profile.bio || undefined,
+      dpdpConsentGiven: profile.dpdp_consent_given ?? false,
+      completenessScore,
+    };
   }
 
   async updateSeekerProfileMe(userId: string, input: JobSeekerProfileInput): Promise<SeekerProfileRecord> {
     const completenessScore = this.calculateCompleteness(input);
-    const existing = Array.from(this.seekerProfiles.values()).find((p) => p.userId === userId);
-    const record: SeekerProfileRecord = {
-      id: existing?.id || `seeker_${userId}`,
+    const existing = await this.profileRepository.findSeekerProfileByUserId(userId);
+    const now = new Date().toISOString();
+    const id = existing?.id || `seeker_${userId}`;
+
+    const row: JobSeekerProfileRow = {
+      id,
+      user_id: userId,
+      full_name: input.fullName,
+      photo_url: input.photoUrl ?? null,
+      seeker_type: input.seekerType as 'student' | 'individual',
+      gender: null,
+      dob: null,
+      apaar_id: input.apaarId ?? null,
+      aadhaar_last_four: input.aadhaarLastFour ?? null,
+      aadhaar_verified: false,
+      dpdp_consent_given: input.dpdpConsentGiven,
+      skills: input.skills ?? [],
+      preferred_categories: input.preferredCategories ?? [],
+      city: input.city ?? null,
+      district: input.district ?? null,
+      state: input.state ?? null,
+      pincode: input.pincode ?? null,
+      qualification: input.qualification ?? null,
+      institution: input.institution ?? null,
+      graduation_year: input.graduationYear ?? null,
+      experience_years: input.experienceYears ?? null,
+      current_role: input.currentRole ?? null,
+      languages: input.languages ?? [],
+      preferred_locations: input.preferredLocations ?? [],
+      willing_to_relocate: input.willingToRelocate,
+      bio: input.bio ?? null,
+      source: existing?.source || 'direct',
+      created_by: existing?.created_by || userId,
+      updated_by: userId,
+      created_at: existing?.created_at || now,
+      updated_at: now,
+    };
+
+    await this.profileRepository.saveSeekerProfile(row);
+    const user = await this.userRepository.findById(userId);
+
+    return {
+      id,
       userId,
-      phone: '9876543210',
-      email: null,
+      phone: user?.phone || '9876543210',
+      email: user?.email || null,
       ...input,
       completenessScore,
     };
-    this.seekerProfiles.set(record.id, record);
-    return record;
   }
 
   // Hard Invariant #1: Employer/anyone never sees phone or email!
-  async getSeekerProfilePublic(seekerId: string): Promise<Omit<SeekerProfileRecord, 'phone' | 'email' | 'aadhaarLastFour' | 'apaarId'>> {
-    const profile = this.seekerProfiles.get(seekerId);
+  async getSeekerProfilePublic(
+    seekerId: string,
+  ): Promise<Omit<SeekerProfileRecord, 'phone' | 'email' | 'aadhaarLastFour' | 'apaarId'>> {
+    const profile = await this.profileRepository.findSeekerProfileById(seekerId);
     if (!profile) {
       throw new NotFoundException('Job seeker profile not found');
     }
-    
-    // Privacy strip
-    const { phone: _phone, email: _email, aadhaarLastFour: _aadhaar, apaarId: _apaar, ...publicData } = profile;
-    void _phone;
-    void _email;
-    void _aadhaar;
-    void _apaar;
-    return publicData;
+
+    return {
+      id: profile.id,
+      userId: profile.user_id,
+      fullName: profile.full_name,
+      photoUrl: profile.photo_url || '',
+      seekerType: profile.seeker_type as 'student' | 'individual',
+      dpdpConsentGiven: profile.dpdp_consent_given ?? false,
+      skills: profile.skills,
+      preferredCategories: (profile.preferred_categories as any) || [],
+      city: profile.city || '',
+      completenessScore: 60,
+    };
   }
 
   async getBusinessProfileMe(userId: string): Promise<BusinessProfileRecord> {
-    const profile = Array.from(this.businessProfiles.values()).find((p) => p.userId === userId);
+    const profile = await this.profileRepository.findBusinessProfileByUserId(userId);
     if (!profile) {
       return {
         id: `bus_${userId}`,
@@ -108,22 +203,62 @@ export class ProfilesService {
         logoUrl: '',
       };
     }
-    return profile;
+    return {
+      id: profile.id,
+      userId: profile.user_id,
+      companyName: profile.company_name,
+      ownershipType: profile.ownership_type,
+      companySize: profile.company_size,
+      sector: profile.sector || undefined,
+      address: profile.address || undefined,
+      city: profile.city || 'Indore',
+      district: profile.district || 'Indore',
+      state: profile.state || undefined,
+      logoUrl: profile.logo_url || '',
+      phone: profile.phone || undefined,
+      email: profile.email || undefined,
+      website: profile.website || undefined,
+    };
   }
 
   async updateBusinessProfileMe(userId: string, input: BusinessProfileInput): Promise<BusinessProfileRecord> {
-    const existing = Array.from(this.businessProfiles.values()).find((p) => p.userId === userId);
-    const record: BusinessProfileRecord = {
-      id: existing?.id || `bus_${userId}`,
+    const existing = await this.profileRepository.findBusinessProfileByUserId(userId);
+    const id = existing?.id || `bus_${userId}`;
+    const now = new Date().toISOString();
+
+    const row: BusinessProfileRow = {
+      id,
+      user_id: userId,
+      company_name: input.companyName,
+      ownership_type: input.ownershipType,
+      company_size: input.companySize,
+      sector: input.sector ?? null,
+      address: input.address ?? null,
+      city: input.city ?? null,
+      district: input.district ?? null,
+      state: input.state ?? null,
+      logo_url: input.logoUrl ?? null,
+      phone: input.phone ?? null,
+      email: input.email ?? null,
+      website: input.website ?? null,
+      source: existing?.source || 'direct',
+      created_by: existing?.created_by || userId,
+      updated_by: userId,
+      created_at: existing?.created_at || now,
+      updated_at: now,
+    };
+
+    await this.profileRepository.saveBusinessProfile(row);
+
+    return {
+      id,
       userId,
       ...input,
     };
-    this.businessProfiles.set(record.id, record);
-    return record;
   }
 
   async getBusinessProfilePublic(businessId: string): Promise<BusinessProfileRecord> {
-    const profile = this.businessProfiles.get(businessId);
+    const profile = await this.profileRepository.findBusinessProfileById(businessId);
     if (!profile) {
       return {
         id: businessId,
@@ -138,7 +273,22 @@ export class ProfilesService {
         logoUrl: '',
       };
     }
-    return profile;
+    return {
+      id: profile.id,
+      userId: profile.user_id,
+      companyName: profile.company_name,
+      ownershipType: profile.ownership_type,
+      companySize: profile.company_size,
+      sector: profile.sector || undefined,
+      address: profile.address || undefined,
+      city: profile.city || 'Indore',
+      district: profile.district || 'Indore',
+      state: profile.state || undefined,
+      logoUrl: profile.logo_url || '',
+      phone: profile.phone || undefined,
+      email: profile.email || undefined,
+      website: profile.website || undefined,
+    };
   }
 
   // EMP-03: Generate QR code for business profile
@@ -152,13 +302,14 @@ export class ProfilesService {
     } catch {
       return {
         businessId,
-        qrDataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+        qrDataUrl:
+          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
       };
     }
   }
 
   async getInstitutionProfileMe(userId: string): Promise<InstitutionProfileRecord> {
-    const profile = Array.from(this.institutionProfiles.values()).find((p) => p.userId === userId);
+    const profile = await this.profileRepository.findInstitutionProfileByUserId(userId);
     if (!profile) {
       return {
         id: `inst_${userId}`,
@@ -170,17 +321,69 @@ export class ProfilesService {
         contactPerson: 'Placement Head',
       };
     }
-    return profile;
+    return {
+      id: profile.id,
+      userId: profile.user_id,
+      institutionName: profile.institution_name,
+      institutionType: profile.institution_type || 'iti',
+      affiliation: profile.affiliation || undefined,
+      address: profile.address || undefined,
+      contactPerson: profile.contact_person || undefined,
+      contactDesignation: profile.contact_designation || undefined,
+      contactEmail: profile.contact_email || undefined,
+      contactPhone: profile.contact_phone || undefined,
+      website: profile.website || undefined,
+      city: profile.city || undefined,
+      district: profile.district || undefined,
+      state: profile.state || undefined,
+      pincode: profile.pincode || undefined,
+    };
   }
 
-  async updateInstitutionProfileMe(userId: string, input: InstitutionProfileInput): Promise<InstitutionProfileRecord> {
-    const existing = Array.from(this.institutionProfiles.values()).find((p) => p.userId === userId);
-    const record: InstitutionProfileRecord = {
-      id: existing?.id || `inst_${userId}`,
+  async updateInstitutionProfileMe(
+    userId: string,
+    input: InstitutionProfileInput,
+  ): Promise<InstitutionProfileRecord> {
+    const existing = await this.profileRepository.findInstitutionProfileByUserId(userId);
+    const id = existing?.id || `inst_${userId}`;
+    const now = new Date().toISOString();
+
+    const row: InstitutionProfileRow = {
+      id,
+      user_id: userId,
+      institution_name: input.institutionName,
+      institution_type: input.institutionType || 'iti',
+      affiliation: input.affiliation ?? null,
+      affiliation_code: null,
+      establishment_year: null,
+      principal_name: null,
+      contact_person: input.contactPerson ?? null,
+      contact_designation: input.contactDesignation ?? null,
+      contact_email: input.contactEmail ?? null,
+      contact_phone: input.contactPhone ?? null,
+      website: input.website ?? null,
+      address: input.address ?? null,
+      city: input.city ?? null,
+      district: input.district ?? null,
+      state: input.state ?? null,
+      pincode: input.pincode ?? null,
+      trades_offered: [],
+      annual_capacity: null,
+      placement_brochure_url: null,
+      about: null,
+      source: existing?.source || 'direct',
+      created_by: existing?.created_by || userId,
+      updated_by: userId,
+      created_at: existing?.created_at || now,
+      updated_at: now,
+    };
+
+    await this.profileRepository.saveInstitutionProfile(row);
+
+    return {
+      id,
       userId,
       ...input,
     };
-    this.institutionProfiles.set(record.id, record);
-    return record;
   }
 }

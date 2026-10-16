@@ -1,6 +1,8 @@
-import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, BadRequestException, UnauthorizedException, Inject } from '@nestjs/common';
 import { SendOtpInput, VerifyOtpInput, AddEmailInput, VerifyEmailInput } from '@indian-job-portal/validation';
 import { captureException } from '../config/sentry.js';
+import { UserRepository } from '../database/repositories/user.repository.js';
+import type { UserRow } from '@indian-job-portal/database';
 
 interface OtpRecord {
   code: string;
@@ -21,8 +23,10 @@ export interface UserSession {
 @Injectable()
 export class AuthService {
   private otpStore = new Map<string, OtpRecord>();
-  private usersStore = new Map<string, UserSession>();
   private emailVerificationTokens = new Map<string, { userId: string; email: string }>();
+  private sessionCache = new Map<string, UserSession>();
+
+  constructor(@Inject(UserRepository) private readonly userRepository: UserRepository) {}
 
   async sendOtp(input: SendOtpInput, requestIp?: string): Promise<{ success: boolean; message: string; cooldownSeconds: number }> {
     const { phone, turnstileToken } = input;
@@ -88,22 +92,39 @@ export class AuthService {
     // Clear OTP after successful verification
     this.otpStore.delete(phone);
 
-    // Find or create user session
-    let user = Array.from(this.usersStore.values()).find((u) => u.phone === phone);
-    if (!user) {
+    // Find or create user row in database
+    let userRow = await this.userRepository.findByPhone(phone);
+    const now = new Date().toISOString();
+
+    if (!userRow) {
       const id = `usr_${phone}`;
-      user = {
+      userRow = {
         id,
         phone,
         email: null,
-        emailVerified: false,
         role,
         status: 'active',
+        source: 'direct',
+        created_by: null,
+        updated_by: null,
+        created_at: now,
+        updated_at: now,
       };
-      this.usersStore.set(id, user);
+      await this.userRepository.save(userRow);
     } else {
-      user.status = 'active';
+      userRow = (await this.userRepository.update(userRow.id, { status: 'active' })) || userRow;
     }
+
+    const user: UserSession = {
+      id: userRow.id,
+      phone: userRow.phone,
+      email: userRow.email,
+      emailVerified: false,
+      role: userRow.role,
+      status: userRow.status,
+    };
+
+    this.sessionCache.set(user.id, user);
 
     const accessToken = `jwt_session_${user.id}_${Date.now()}`;
     return {
@@ -113,14 +134,19 @@ export class AuthService {
   }
 
   async addEmail(userId: string, input: AddEmailInput): Promise<{ success: boolean; message: string }> {
-    const user = this.usersStore.get(userId);
-    if (!user) {
+    const userRow = await this.userRepository.findById(userId);
+    if (!userRow) {
       throw new BadRequestException('User not found');
     }
 
     const token = `token_verify_${Date.now()}`;
-    user.email = input.email;
-    user.emailVerified = false;
+    await this.userRepository.update(userId, { email: input.email });
+
+    const cached = this.sessionCache.get(userId);
+    if (cached) {
+      cached.email = input.email;
+      cached.emailVerified = false;
+    }
 
     this.emailVerificationTokens.set(token, { userId, email: input.email });
     console.log(`[Resend Email] Verification link sent to ${input.email}: token=${token}`);
@@ -137,9 +163,10 @@ export class AuthService {
       throw new BadRequestException('Invalid or expired verification token');
     }
 
-    const user = this.usersStore.get(record.userId);
-    if (user) {
-      user.emailVerified = true;
+    await this.userRepository.update(record.userId, { email: record.email });
+    const cached = this.sessionCache.get(record.userId);
+    if (cached) {
+      cached.emailVerified = true;
     }
 
     this.emailVerificationTokens.delete(input.token);
@@ -150,11 +177,8 @@ export class AuthService {
   }
 
   async signOutAll(userId: string): Promise<{ success: boolean; message: string }> {
-    const user = this.usersStore.get(userId);
-    if (user) {
-      // Invalidation of active sessions
-      console.log(`[Auth] Invalidated all active sessions for user ${userId}`);
-    }
+    this.sessionCache.delete(userId);
+    console.log(`[Auth] Invalidated all active sessions for user ${userId}`);
     return {
       success: true,
       message: 'Signed out of all devices',
@@ -162,6 +186,25 @@ export class AuthService {
   }
 
   getUserById(id: string): UserSession | undefined {
-    return this.usersStore.get(id);
+    return this.sessionCache.get(id);
+  }
+
+  async findUserById(id: string): Promise<UserSession | undefined> {
+    const cached = this.sessionCache.get(id);
+    if (cached) return cached;
+
+    const row = await this.userRepository.findById(id);
+    if (!row) return undefined;
+
+    const session: UserSession = {
+      id: row.id,
+      phone: row.phone,
+      email: row.email,
+      emailVerified: false,
+      role: row.role,
+      status: row.status,
+    };
+    this.sessionCache.set(id, session);
+    return session;
   }
 }
