@@ -19,6 +19,7 @@ import {
   Lock,
   Mail,
 } from 'lucide-react';
+import { getSupabaseBrowserClient } from '../../lib/supabaseClient';
 
 type EmployerTab = 'phone_otp' | 'email_pwd' | 'google' | 'udyam';
 type InstitutionTab = 'phone_otp' | 'credentials' | 'google';
@@ -331,18 +332,50 @@ export function AuthModal() {
     }, 500);
   };
 
-  const handleGoogleSubmit = () => {
+  const handleGoogleSubmit = async () => {
     setIsLoading(true);
     setErrorMessage('');
-    setTimeout(() => {
-      setIsLoading(false);
-      loginAs(selectedRole);
-      addToast({
-        type: 'success',
-        title: 'Google Sign-In Successful',
-        message: `Authenticated as ${selectedRole === 'employer' ? tRoles('employer') : selectedRole === 'institution' ? tRoles('institution') : tRoles('jobseeker')}.`,
+
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) {
+      setTimeout(() => {
+        setIsLoading(false);
+        loginAs(selectedRole);
+        addToast({
+          type: 'success',
+          title: 'Google Sign-In Successful',
+          message: `Authenticated as ${selectedRole === 'employer' ? tRoles('employer') : selectedRole === 'institution' ? tRoles('institution') : tRoles('jobseeker')}.`,
+        });
+      }, 500);
+      return;
+    }
+
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('jobsclick_pending_oauth_role', selectedRole);
+      }
+      const redirectTo = `${window.location.origin}/auth/callback?role=${encodeURIComponent(selectedRole)}`;
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
       });
-    }, 600);
+
+      if (error) {
+        setErrorMessage(error.message);
+        setIsLoading(false);
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to initialize Google Sign-In';
+      setErrorMessage(message);
+      setIsLoading(false);
+    }
   };
 
   const handleUdyamSubmit = (e: React.FormEvent) => {
