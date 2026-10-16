@@ -125,7 +125,7 @@ export class JobRepository {
 
     if (!this.isTestMode) {
       try {
-        await this.supabase.from('jobs').update(updates as any).eq('id', id);
+        await (this.supabase.from('jobs') as any).update(updates).eq('id', id);
       } catch {
         // Persisted locally
       }

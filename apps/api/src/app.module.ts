@@ -7,6 +7,7 @@ import { JobsModule } from './jobs/jobs.module.js';
 import { BulkModule } from './bulk/bulk.module.js';
 import { AdminModule } from './admin/admin.module.js';
 import { QstashModule } from './qstash/qstash.module.js';
+import { QueueModule } from './queue/queue.module.js';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { QstashModule } from './qstash/qstash.module.js';
     BulkModule,
     AdminModule,
     QstashModule,
+    QueueModule,
   ],
 })
 export class AppModule {}

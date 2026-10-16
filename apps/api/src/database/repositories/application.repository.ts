@@ -94,7 +94,7 @@ export class ApplicationRepository {
 
     if (!this.isTestMode) {
       try {
-        await this.supabase.from('applications').update({ status } as any).eq('id', id);
+        await (this.supabase.from('applications') as any).update({ status }).eq('id', id);
       } catch {
         // Persisted locally
       }
