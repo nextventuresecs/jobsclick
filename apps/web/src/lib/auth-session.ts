@@ -224,6 +224,7 @@ export async function getServerSession(
   }
 
   try {
+    // @ts-expect-error next/headers type resolution in NodeNext
     const { cookies } = await import('next/headers');
     const cookieStore = cookies();
     const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;

@@ -26,7 +26,7 @@ describe('Phone OTP Frontend Integration - Ticket T-04 (AUTH-01, AUTH-02)', () =
 
   describe('AppContext Session & User State Hydration', () => {
     it('exports AppProvider and useApp hook', async () => {
-      const { AppProvider, useApp } = await import('../src/context/AppContext');
+      const { AppProvider, useApp } = await import('../src/context/AppContext.js');
       expect(AppProvider).toBeDefined();
       expect(useApp).toBeDefined();
     });
@@ -84,6 +84,37 @@ describe('Phone OTP Frontend Integration - Ticket T-04 (AUTH-01, AUTH-02)', () =
       const data = await response.json();
       expect(data.success).toBe(true);
       expect(data.cooldownSeconds).toBe(60);
+    });
+
+    it('forwards turnstileToken in POST /auth/send-otp payload when bot challenge is completed', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          success: true,
+          message: 'OTP sent successfully',
+          cooldownSeconds: 60,
+        }),
+      });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const apiUrl = 'http://localhost:3001';
+      const phone = '9876543210';
+      const turnstileToken = 'cf_token_valid_123';
+
+      await fetch(`${apiUrl}/auth/send-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, turnstileToken }),
+      });
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        'http://localhost:3001/auth/send-otp',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: '9876543210', turnstileToken: 'cf_token_valid_123' }),
+        })
+      );
     });
 
     it('verifies error handling on 400 cool-down or daily limit from /auth/send-otp', async () => {

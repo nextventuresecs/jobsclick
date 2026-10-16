@@ -12,6 +12,7 @@
   "dependencies": {
     "@indian-job-portal/ui": "workspace:*",
     "@indian-job-portal/validation": "workspace:*",
+    "@marsidev/react-turnstile": "^1.6.2",
     "@sentry/nextjs": "^8.0.0",
     "@supabase/supabase-js": "^2.117.3",
     "lucide-react": "^1.57.0",

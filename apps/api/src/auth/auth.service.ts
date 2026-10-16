@@ -3,8 +3,7 @@ import { Injectable, BadRequestException, UnauthorizedException, Inject } from '
 import { SendOtpInput, VerifyOtpInput, AddEmailInput, VerifyEmailInput } from '@indian-job-portal/validation';
 import { captureException } from '../config/sentry.js';
 import { UserRepository } from '../database/repositories/user.repository.js';
-import type { UserRow } from '@indian-job-portal/database';
-import { DLT_SMS_TEMPLATES } from './sms-templates.js';
+import { Msg91SmsService } from './sms.service.js';
 
 interface OtpRecord {
   code: string;
@@ -28,16 +27,33 @@ export class AuthService {
   private emailVerificationTokens = new Map<string, { userId: string; email: string }>();
   private sessionCache = new Map<string, UserSession>();
 
-  constructor(@Inject(UserRepository) private readonly userRepository: UserRepository) {}
+  constructor(
+    @Inject(UserRepository) private readonly userRepository: UserRepository,
+    @Inject(Msg91SmsService) private readonly smsService: Msg91SmsService
+  ) {}
 
-  async sendOtp(input: SendOtpInput, requestIp?: string): Promise<{ success: boolean; message: string; cooldownSeconds: number }> {
-    const { phone, turnstileToken } = input;
+  async sendOtp(
+    input: SendOtpInput,
+    requestIp?: string
+  ): Promise<{ success: boolean; message: string; cooldownSeconds: number }> {
+    const { phone, turnstileToken, language = 'en' } = input as SendOtpInput & { language?: 'en' | 'hi' };
     const now = Date.now();
+    const isTestMode = process.env['NODE_ENV'] === 'test';
+    const secretKey = process.env['TURNSTILE_SECRET_KEY'];
 
-    // Turnstile bot challenge validation
-    if (process.env['TURNSTILE_SECRET_KEY'] && process.env['TURNSTILE_SECRET_KEY'] !== 'dummy-turnstile-secret-key') {
+    // 1. Turnstile bot challenge validation
+    if (!isTestMode && (process.env['NODE_ENV'] === 'production' || (secretKey && secretKey !== 'dummy-turnstile-secret-key'))) {
       if (!turnstileToken) {
         throw new BadRequestException('Cloudflare Turnstile token is required');
+      }
+      const isValid = await this.smsService.verifyTurnstile(turnstileToken, requestIp);
+      if (!isValid) {
+        throw new BadRequestException('Bot challenge verification failed. Please try again.');
+      }
+    } else if (turnstileToken) {
+      const isValid = await this.smsService.verifyTurnstile(turnstileToken, requestIp);
+      if (!isValid) {
+        throw new BadRequestException('Bot challenge verification failed. Please try again.');
       }
     }
 
@@ -58,7 +74,7 @@ export class AuthService {
     }
 
     // Generate 6-digit OTP code (or 123456 in test mode)
-    const code = process.env['NODE_ENV'] === 'test' ? '123456' : Math.floor(100000 + Math.random() * 900000).toString();
+    const code = isTestMode ? '123456' : Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = now + 10 * 60 * 1000; // 10 minutes expiry
 
     this.otpStore.set(phone, {
@@ -68,39 +84,12 @@ export class AuthService {
       requestCountToday: (existing?.requestCountToday || 0) + 1,
     });
 
-    const msg91AuthKey = process.env['MSG91_AUTH_KEY'];
-    const msg91SenderId = process.env['MSG91_SENDER_ID'] || 'INDIAN';
-    const msg91TemplateId =
-      process.env['MSG91_OTP_TEMPLATE_ID'] || DLT_SMS_TEMPLATES['OTP_EN']?.templateId || 'DLT_1001_OTP_EN';
-
-    if (msg91AuthKey && msg91AuthKey !== 'dummy-msg91-key' && process.env['NODE_ENV'] !== 'test') {
-      try {
-        const msg91Url = new URL('https://control.msg91.com/api/v5/otp');
-        msg91Url.searchParams.set('template_id', msg91TemplateId);
-        msg91Url.searchParams.set('mobile', `91${phone}`);
-        msg91Url.searchParams.set('authkey', msg91AuthKey);
-        msg91Url.searchParams.set('otp', code);
-        msg91Url.searchParams.set('sender', msg91SenderId);
-
-        const response = await fetch(msg91Url.toString(), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-        });
-
-        if (!response.ok) {
-          const resBody = await response.text();
-          console.error(`[MSG91 Error] Failed to send OTP via MSG91: ${response.status} - ${resBody}`);
-          captureException(new Error(`MSG91 OTP dispatch failed for ${phone}: ${response.status} ${resBody}`));
-        } else {
-          console.log(`[SMS Hook - MSG91 Live] Successfully dispatched OTP for +91${phone} via MSG91`);
-        }
-      } catch (smsErr) {
-        console.error(`[MSG91 Exception] Error calling MSG91 API:`, smsErr);
-        captureException(smsErr instanceof Error ? smsErr : new Error(String(smsErr)));
-      }
-    } else {
-      console.log(`[SMS Hook - MSG91] OTP for +91${phone}: ${code} (IP: ${requestIp || 'local'})`);
-    }
+    // Outbound SMS delivery via MSG91 (DLT_1001_OTP_EN / DLT_1002_OTP_HI)
+    await this.smsService.sendOtp({
+      phone,
+      otp: code,
+      language: (language as 'en' | 'hi') || 'en',
+    });
 
     return {
       success: true,

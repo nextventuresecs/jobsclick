@@ -20,6 +20,7 @@ import {
   Mail,
 } from 'lucide-react';
 import { getSupabaseBrowserClient } from '../../lib/supabaseClient';
+import { Turnstile } from '@marsidev/react-turnstile';
 
 type EmployerTab = 'phone_otp' | 'email_pwd' | 'google' | 'udyam';
 type InstitutionTab = 'phone_otp' | 'credentials' | 'google';
@@ -42,6 +43,7 @@ interface PhoneOtpProps {
   readonly label: string;
   readonly submitText?: string;
   readonly t: (key: string) => string;
+  readonly onTurnstileSuccess?: (token: string) => void;
 }
 
 function PhoneOtpForm({
@@ -59,6 +61,7 @@ function PhoneOtpForm({
   label,
   submitText,
   t,
+  onTurnstileSuccess,
 }: PhoneOtpProps) {
   if (otpStep === 'input') {
     return (
@@ -82,6 +85,21 @@ function PhoneOtpForm({
             />
           </div>
         </div>
+
+        {/* Turnstile Bot Challenge (Hard Invariant #4) */}
+        <div className="flex justify-center my-2 min-h-[65px]">
+          <Turnstile
+            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA'}
+            onSuccess={(token) => onTurnstileSuccess?.(token)}
+            onError={() => onTurnstileSuccess?.('')}
+            onExpire={() => onTurnstileSuccess?.('')}
+            options={{
+              theme: 'light',
+              size: 'normal',
+            }}
+          />
+        </div>
+
         <Button
           type="submit"
           variant="primary"
@@ -219,6 +237,7 @@ export function AuthModal() {
   const [institutionTab, setInstitutionTab] = useState<InstitutionTab>('phone_otp');
 
   const [phone, setPhone] = useState('9876543210');
+  const [turnstileToken, setTurnstileToken] = useState<string>('');
   const [otpStep, setOtpStep] = useState<'input' | 'verify'>('input');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [timer, setTimer] = useState(30);
@@ -275,6 +294,7 @@ export function AuthModal() {
         },
         body: JSON.stringify({
           phone: parsedPhone.data,
+          turnstileToken: turnstileToken || undefined,
         }),
       });
 
@@ -521,6 +541,7 @@ export function AuthModal() {
     setErrorMessage('');
     setOtpStep('input');
     setOtp(['', '', '', '', '', '']);
+    setTurnstileToken('');
   };
 
   return (
@@ -663,6 +684,7 @@ export function AuthModal() {
                   isLoading={isLoading}
                   label={t('mobileLabel')}
                   t={t}
+                  onTurnstileSuccess={setTurnstileToken}
                 />
               )}
 
@@ -836,6 +858,7 @@ export function AuthModal() {
                     label={t('studentMobileLabel')}
                     submitText={t('claimProfile')}
                     t={t}
+                    onTurnstileSuccess={setTurnstileToken}
                   />
                 </div>
               ) : (
@@ -873,6 +896,7 @@ export function AuthModal() {
                       isLoading={isLoading}
                       label={t('mobileLabel')}
                       t={t}
+                      onTurnstileSuccess={setTurnstileToken}
                     />
                   )}
 
@@ -968,6 +992,7 @@ export function AuthModal() {
                   isLoading={isLoading}
                   label={t('officerMobileLabel')}
                   t={t}
+                  onTurnstileSuccess={setTurnstileToken}
                 />
               )}
 

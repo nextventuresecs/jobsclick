@@ -67,6 +67,7 @@ export const msmeAuthSchema = z.object({
 export const sendOtpSchema = z.object({
   phone: indianMobileNumberSchema,
   turnstileToken: z.string().optional(),
+  language: z.enum(['en', 'hi']).optional(),
 });
 
 export const verifyOtpSchema = z.object({

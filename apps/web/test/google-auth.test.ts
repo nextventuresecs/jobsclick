@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { isSupabaseConfigured } from '../src/lib/supabaseClient';
+import { isSupabaseConfigured, getSupabaseBrowserClient } from '../src/lib/supabaseClient.js';
+import CallbackPage from '../src/app/auth/callback/page.js';
 import { isClientRole } from '@indian-job-portal/validation';
 
 describe('Google OAuth & Supabase Authentication Integration', () => {
   it('exports Supabase browser client helpers', async () => {
-    const { getSupabaseBrowserClient } = await import('../src/lib/supabaseClient');
     expect(typeof getSupabaseBrowserClient).toBe('function');
     expect(typeof isSupabaseConfigured).toBe('function');
   });
@@ -19,9 +19,8 @@ describe('Google OAuth & Supabase Authentication Integration', () => {
   });
 
   it('exports AuthCallbackPage with Suspense boundary', async () => {
-    const CallbackModule = await import('../src/app/auth/callback/page');
-    expect(CallbackModule.default).toBeDefined();
-    expect(typeof CallbackModule.default).toBe('function');
+    expect(CallbackPage).toBeDefined();
+    expect(typeof CallbackPage).toBe('function');
   });
 
   it('verifies redirect URL construction preserves target user role', () => {
