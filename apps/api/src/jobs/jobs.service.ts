@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject } from '@nestjs/common';
 import {
   CreateJobInput,
   UpdateJobInput,
@@ -128,7 +128,7 @@ export class JobsService {
       throw new NotFoundException('Job not found');
     }
     if (existing.employer_id !== employerId) {
-      throw new BadRequestException('Unauthorized to modify this job posting');
+      throw new ForbiddenException('Unauthorized to modify this job posting');
     }
 
     const updated = await this.jobRepository.update(jobId, {
@@ -156,7 +156,7 @@ export class JobsService {
       throw new NotFoundException('Job not found');
     }
     if (existing.employer_id !== employerId) {
-      throw new BadRequestException('Unauthorized to delete this job posting');
+      throw new ForbiddenException('Unauthorized to delete this job posting');
     }
 
     await this.jobRepository.softDelete(jobId);
@@ -219,7 +219,7 @@ export class JobsService {
       throw new NotFoundException('Job not found');
     }
     if (job.employer_id !== employerId) {
-      throw new BadRequestException('Unauthorized to view applications for this job');
+      throw new ForbiddenException('Unauthorized to view applications for this job');
     }
 
     const appRows = await this.applicationRepository.findByJobId(jobId);
@@ -260,7 +260,7 @@ export class JobsService {
 
     const job = await this.jobRepository.findById(appRecord.job_id);
     if (!job || job.employer_id !== employerId) {
-      throw new BadRequestException('Unauthorized to modify application status');
+      throw new ForbiddenException('Unauthorized to modify application status');
     }
 
     const updated = await this.applicationRepository.updateStatus(applicationId, status);
