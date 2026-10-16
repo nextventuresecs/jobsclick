@@ -41,7 +41,12 @@ export class PdfProcessor {
       fullName: data.fullName,
       seekerType: data.seekerType,
       city: data.city,
+      state: data.state,
       skills: data.skills || [],
+      summary: data.summary,
+      education: data.education,
+      experience: data.experience,
+      verificationUrl: data.verificationUrl,
       updatedAt: data.updatedAt || Date.now(),
     });
 
