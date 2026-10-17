@@ -3,6 +3,7 @@ import { Injectable, BadRequestException, UnauthorizedException, Inject } from '
 import { SendOtpInput, VerifyOtpInput, AddEmailInput, VerifyEmailInput } from '@indian-job-portal/validation';
 import { captureException } from '../config/sentry.js';
 import { UserRepository } from '../database/repositories/user.repository.js';
+import type { UserRow } from '@indian-job-portal/database';
 import { Msg91SmsService } from './sms.service.js';
 
 interface OtpRecord {
