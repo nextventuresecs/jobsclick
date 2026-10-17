@@ -32,15 +32,17 @@ Spec: `docs/PRD.md` (v1.3) + `docs/decisions/001-client-decisions.md` (overrides
 8a. i18n: English + Hindi at launch. **No hardcoded user-facing strings.** All copy in message files (`next-intl`), API errors return codes not prose. Hindi renders correctly in PDF (embed a Devanagari font).
 9. Public job/company pages server-rendered + JobPosting JSON-LD.
 10. No secrets in code. Never read/write `.env*` with real keys. Use `.env.example`.
+11. Pre-commit & Pre-push Verification: Before committing ANY code change, ALWAYS run typecheck and lint check. Push changes to remote ONLY upon 100% clean check success with zero errors.
 
 ## Workflow (one issue = one branch = one PR)
 1. Read issue + cited PRD IDs.
 2. Plan first (short). Post plan on issue for non-trivial work.
 3. Failing test first (TDD). Then implement.
-4. `pnpm lint && pnpm typecheck && pnpm test` must pass before PR.
-5. Small PRs (<~400 lines diff). Conventional commits: `feat(auth): AUTH-03 otp rate limit`.
-6. PR description: PRD IDs covered, how tested, anything deferred.
-7. Verify before claiming done: run it, show output.
+4. **Mandatory Pre-Commit Gate**: Before committing any code change, ALWAYS run `typecheck` across packages (`tsc --noEmit`) and `lint` check (`pnpm lint`). Zero errors permitted.
+5. Commit & Push: Only on 100% clean check success, commit with conventional message (`feat(auth): AUTH-03 otp rate limit`) and push changes to remote branch.
+6. Small PRs (<~400 lines diff).
+7. PR description: PRD IDs covered, how tested, anything deferred.
+8. Verify before claiming done: run it, show output.
 
 ## Human-review-only (agent drafts, human approves)
 RLS policies, auth/OTP flow, migrations touching existing data, anything with payments, DPDP consent text.
