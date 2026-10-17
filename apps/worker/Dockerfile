@@ -9,7 +9,7 @@ FROM base AS builder
 WORKDIR /app
 COPY . .
 RUN pnpm install --no-frozen-lockfile
-RUN pnpm --filter @indian-job-portal/worker build
+RUN pnpm --filter @indian-job-portal/worker... build
 
 FROM base AS runner
 WORKDIR /app
