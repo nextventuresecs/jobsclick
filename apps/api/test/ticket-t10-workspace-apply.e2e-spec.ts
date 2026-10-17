@@ -159,6 +159,6 @@ describe('Ticket T-10 E2E: Wire Workspace Forms & 1-Click Apply to API', () => {
     expect(myAppsRes.statusCode).toBe(200);
     const myApps = JSON.parse(myAppsRes.payload);
     expect(Array.isArray(myApps)).toBe(true);
-    expect(myApps.some((a: any) => a.jobId === postedJobId)).toBe(true);
+    expect(myApps.some((a: { jobId: string }) => a.jobId === postedJobId)).toBe(true);
   });
 });

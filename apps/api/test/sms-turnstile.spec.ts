@@ -17,7 +17,7 @@ describe('Ticket T-06: MSG91 SMS Service & Turnstile Bot Challenge', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     smsService = new Msg91SmsService();
-    authService = new AuthService(mockUserRepository as any, smsService);
+    authService = new AuthService(mockUserRepository as unknown as UserRepository, smsService);
   });
 
   describe('Msg91SmsService & DLT Template Routing', () => {

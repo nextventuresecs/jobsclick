@@ -27,7 +27,7 @@ export class JobRepository {
 
     if (!this.isTestMode) {
       try {
-        await this.supabase.from('jobs').insert(job as any);
+        await this.supabase.from('jobs').insert(job);
       } catch {
         // Persisted locally
       }
@@ -156,7 +156,7 @@ export class JobRepository {
 
     if (!this.isTestMode) {
       try {
-        await (this.supabase.from('jobs') as any).update(updates).eq('id', id);
+        await this.supabase.from('jobs').update(updates).eq('id', id);
       } catch {
         // Persisted locally
       }

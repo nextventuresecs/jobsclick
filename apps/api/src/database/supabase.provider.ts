@@ -6,13 +6,13 @@ import path from 'node:path';
 export const SUPABASE_CLIENT = Symbol('SUPABASE_CLIENT');
 
 export interface DatabasePersistenceState {
-  users: Record<string, any>;
-  job_seeker_profiles: Record<string, any>;
-  business_profiles: Record<string, any>;
-  institution_profiles: Record<string, any>;
-  jobs: Record<string, any>;
-  applications: Record<string, any>;
-  audit_logs: Record<string, any>;
+  users: Record<string, unknown>;
+  job_seeker_profiles: Record<string, unknown>;
+  business_profiles: Record<string, unknown>;
+  institution_profiles: Record<string, unknown>;
+  jobs: Record<string, unknown>;
+  applications: Record<string, unknown>;
+  audit_logs: Record<string, unknown>;
 }
 
 export class PersistentDatabaseStore {
@@ -76,11 +76,11 @@ export class PersistentDatabaseStore {
     }
   }
 
-  public getTable<T = any>(table: keyof DatabasePersistenceState): Record<string, T> {
+  public getTable<T = unknown>(table: keyof DatabasePersistenceState): Record<string, T> {
     return this.state[table] as Record<string, T>;
   }
 
-  public setRow<T = any>(table: keyof DatabasePersistenceState, id: string, row: T): void {
+  public setRow<T = unknown>(table: keyof DatabasePersistenceState, id: string, row: T): void {
     (this.state[table] as Record<string, T>)[id] = row;
     this.save();
   }

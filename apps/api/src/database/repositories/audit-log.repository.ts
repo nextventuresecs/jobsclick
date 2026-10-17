@@ -34,8 +34,8 @@ export class AuditLogRepository {
           action: record.action,
           meta: record.meta,
           created_at: record.created_at,
-        } as any);
-      } catch (err) {
+        });
+      } catch {
         // Maintained in persistent store if remote DB unreachable
       }
     }

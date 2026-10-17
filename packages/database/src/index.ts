@@ -4,6 +4,7 @@ export type TableDefinition<T> = {
   Row: T;
   Insert: Partial<T>;
   Update: Partial<T>;
+  Relationships: [];
 };
 
 export interface Database {
@@ -194,6 +195,8 @@ export interface Database {
         completed_at: string | null;
       }>;
     };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
   };
 }
 

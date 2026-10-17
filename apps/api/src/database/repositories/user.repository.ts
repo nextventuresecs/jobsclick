@@ -55,7 +55,7 @@ export class UserRepository {
           updated_by: user.updated_by,
           created_at: user.created_at,
           updated_at: user.updated_at,
-        } as any);
+        });
       } catch {
         // Persisted locally
       }

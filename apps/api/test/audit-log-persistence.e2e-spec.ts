@@ -100,7 +100,7 @@ describe('T-03: Persistent Immutable Audit Log Engine (E2E & Invariant #6)', () 
 
     // Verify written on instance 1
     const logs1 = await adminService1.getAuditLogs();
-    const found1 = logs1.find((l) => (l.meta as any)?.eventId === auditEntryId);
+    const found1 = logs1.find((l) => (l.meta as Record<string, unknown>)?.['eventId'] === auditEntryId);
     expect(found1).toBeDefined();
 
     // -------------------------------------------------------------------------
@@ -118,11 +118,11 @@ describe('T-03: Persistent Immutable Audit Log Engine (E2E & Invariant #6)', () 
 
       // Fetch logs on instance 2 after restart
       const logs2 = await adminService2.getAuditLogs();
-      const found2 = logs2.find((l) => (l.meta as any)?.eventId === auditEntryId);
+      const found2 = logs2.find((l) => (l.meta as Record<string, unknown>)?.['eventId'] === auditEntryId);
 
       expect(found2).toBeDefined();
       expect(found2?.action).toBe('CRITICAL_SECURITY_EVENT');
-      expect((found2?.meta as any)?.severity).toBe('high');
+      expect((found2?.meta as Record<string, unknown>)?.['severity']).toBe('high');
       expect(found2?.actorId).toBe('usr_admin_t03_reboot');
     } finally {
       await app2.close();

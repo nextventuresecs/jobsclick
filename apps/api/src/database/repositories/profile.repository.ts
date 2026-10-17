@@ -60,7 +60,7 @@ export class ProfileRepository {
 
     if (!this.isTestMode) {
       try {
-        await this.supabase.from('job_seeker_profiles').upsert(profile as any);
+        await this.supabase.from('job_seeker_profiles').upsert(profile);
       } catch {
         // Persisted locally
       }
@@ -111,7 +111,7 @@ export class ProfileRepository {
 
     if (!this.isTestMode) {
       try {
-        await this.supabase.from('business_profiles').upsert(profile as any);
+        await this.supabase.from('business_profiles').upsert(profile);
       } catch {
         // Persisted locally
       }
@@ -162,7 +162,7 @@ export class ProfileRepository {
 
     if (!this.isTestMode) {
       try {
-        await this.supabase.from('institution_profiles').upsert(profile as any);
+        await this.supabase.from('institution_profiles').upsert(profile);
       } catch {
         // Persisted locally
       }

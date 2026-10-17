@@ -18,7 +18,7 @@ export class ApplicationRepository {
 
     if (!this.isTestMode) {
       try {
-        await this.supabase.from('applications').insert(application as any);
+        await this.supabase.from('applications').insert(application);
       } catch {
         // Persisted locally
       }
@@ -110,7 +110,7 @@ export class ApplicationRepository {
 
     if (!this.isTestMode) {
       try {
-        await (this.supabase.from('applications') as any).update({ status }).eq('id', id);
+        await this.supabase.from('applications').update({ status }).eq('id', id);
       } catch {
         // Persisted locally
       }
