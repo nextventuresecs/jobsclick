@@ -1,10 +1,11 @@
 import crypto from 'node:crypto';
-import { Injectable, BadRequestException, UnauthorizedException, Inject } from '@nestjs/common';
+import { Injectable, BadRequestException, UnauthorizedException, Inject, Optional } from '@nestjs/common';
 import { SendOtpInput, VerifyOtpInput, AddEmailInput, VerifyEmailInput } from '@indian-job-portal/validation';
 import { captureException } from '../config/sentry.js';
 import { UserRepository } from '../database/repositories/user.repository.js';
 import type { UserRow } from '@indian-job-portal/database';
 import { Msg91SmsService } from './sms.service.js';
+import { WalletService } from '../wallet/wallet.service.js';
 
 interface OtpRecord {
   code: string;
@@ -30,7 +31,8 @@ export class AuthService {
 
   constructor(
     @Inject(UserRepository) private readonly userRepository: UserRepository,
-    @Inject(Msg91SmsService) private readonly smsService: Msg91SmsService
+    @Inject(Msg91SmsService) private readonly smsService: Msg91SmsService,
+    @Optional() @Inject(WalletService) private readonly walletService?: WalletService
   ) {}
 
   async sendOtp(
@@ -135,6 +137,15 @@ export class AuthService {
         updated_at: now,
       };
       await this.userRepository.save(userRow);
+
+      // WAL-02: Auto-grant 10 free job applications to job seekers upon account creation
+      if (role === 'job_seeker' && this.walletService) {
+        try {
+          await this.walletService.ensureStarterCredits(id);
+        } catch {
+          // non-blocking
+        }
+      }
     } else {
       const updates: Partial<UserRow> = { status: 'active' };
       if (role) updates.role = role;

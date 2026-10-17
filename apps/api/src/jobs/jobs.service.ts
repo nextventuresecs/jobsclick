@@ -11,6 +11,7 @@ import {
 import { JobRepository } from '../database/repositories/job.repository.js';
 import { ApplicationRepository } from '../database/repositories/application.repository.js';
 import { ProfileRepository } from '../database/repositories/profile.repository.js';
+import { WalletService } from '../wallet/wallet.service.js';
 import type { JobRow, ApplicationRow } from '@indian-job-portal/database';
 
 export interface JobRecord extends CreateJobInput {
@@ -68,6 +69,7 @@ export class JobsService {
     @Inject(JobRepository) private readonly jobRepository: JobRepository,
     @Inject(ApplicationRepository) private readonly applicationRepository: ApplicationRepository,
     @Inject(ProfileRepository) private readonly profileRepository: ProfileRepository,
+    @Inject(WalletService) private readonly walletService: WalletService,
   ) {}
 
   async createJob(employerId: string, input: CreateJobInput): Promise<JobRecord> {
@@ -177,6 +179,9 @@ export class JobsService {
     if (existingApp) {
       throw new BadRequestException('You have already applied to this job');
     }
+
+    // Deduct 1 credit for job application (WAL-02, Hard Invariant #7)
+    await this.walletService.deductForJobApplication(applicantId, jobId, job.title);
 
     const appId = `app_${jobId}_${applicantId}`;
     const now = new Date().toISOString();
