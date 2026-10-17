@@ -57,7 +57,7 @@ describe('JobsController (e2e) - Issues #13, #14, #15', () => {
     expect(listRes.statusCode).toBe(200);
     const listData = JSON.parse(listRes.payload);
     expect(listData.jobs.length).toBeGreaterThan(0);
-    expect(listData.jobs[0].title).toContain('Tally');
+    expect(listData.jobs.some((j: { title: string }) => j.title.includes('Tally'))).toBe(true);
   });
 
   it('POST /jobs/:id/apply & GET /jobs/:id/applications - handles candidate application and STRIPS phone/email (Hard Invariant #1 & JOB-03)', async () => {

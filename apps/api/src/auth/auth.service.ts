@@ -135,7 +135,9 @@ export class AuthService {
       };
       await this.userRepository.save(userRow);
     } else {
-      userRow = (await this.userRepository.update(userRow.id, { status: 'active' })) || userRow;
+      const updates: Partial<UserRow> = { status: 'active' };
+      if (role) updates.role = role;
+      userRow = (await this.userRepository.update(userRow.id, updates)) || userRow;
     }
 
     const user: UserSession = {
