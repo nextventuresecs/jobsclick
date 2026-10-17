@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <defs>
+    <linearGradient id="jRibbonGrad" x1="40" y1="30" x2="110" y2="160" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FB923C" />
+      <stop offset="45%" stop-color="#F97316" />
+      <stop offset="100%" stop-color="#EA580C" />
+    </linearGradient>
+    <linearGradient id="jFoldGrad" x1="60" y1="70" x2="110" y2="140" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F97316" />
+      <stop offset="100%" stop-color="#C2410C" />
+    </linearGradient>
+  </defs>
+  <!-- J-shaped curved ribbon -->
+  <path d="M110 50 L110 115 C110 142 88 162 58 162 C34 162 20 148 20 134 C20 124 28 116 38 116 C46 116 52 122 58 122 C68 122 76 114 76 102 L76 75 L110 50 Z" fill="url(#jRibbonGrad)"/>
+  <path d="M76 75 L110 50 L110 115 C110 128 103 140 92 148 C103 140 110 127 110 115 L110 50 Z" fill="url(#jFoldGrad)" opacity="0.45"/>
+  <path d="M110 50 C110 43 104 38 97 41 L78 52 C73 55 70 61 70 67 L70 102 C70 119 58 128 46 128 C36 128 30 122 30 134 C30 142 42 152 58 152 C82 152 100 135 100 112 L100 50 Z" fill="url(#jRibbonGrad)"/>
+  <!-- Golden Yellow Play / Click Triangle -->
+  <path d="M124 44 C124 37 132 32 138 36 L175 60 C181 64 181 74 175 78 L138 102 C132 106 124 101 124 94 Z" fill="#FBBF24"/>
+</svg>

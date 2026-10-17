@@ -41,6 +41,18 @@ async function bootstrap() {
   // Fastify multipart registration (No multer!)
   await app.register((multipart as unknown) as Parameters<NestFastifyApplication['register']>[0]);
 
+  // Mount Bull-Board Dashboard UI behind /admin/queues
+  try {
+    const { QueueService } = await import('./queue/queue.service.js');
+    const queueService = app.get(QueueService);
+    await app.register(
+      queueService.serverAdapter.registerPlugin() as unknown as Parameters<NestFastifyApplication['register']>[0],
+      { prefix: '/admin/queues' } as unknown as Parameters<NestFastifyApplication['register']>[1],
+    );
+  } catch (err) {
+    console.warn('[Bull-Board] Failed to mount Bull-Board on Fastify:', err);
+  }
+
   await app.listen(env.PORT, '0.0.0.0');
   console.log(`API running on http://localhost:${env.PORT}`);
 }

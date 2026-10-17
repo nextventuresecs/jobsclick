@@ -1,5 +1,6 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Inject } from '@nestjs/common';
 import { AdminUserStatusInput, GenerateResumeInput } from '@indian-job-portal/validation';
+import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
 
 export interface AuditLogRecord {
   id: string;
@@ -28,10 +29,13 @@ export interface PrivacyDeletionRequestRecord {
 
 @Injectable()
 export class AdminService {
-  private auditLogs: AuditLogRecord[] = [];
   private notifications = new Map<string, NotificationRecord[]>();
   private privacyRequests: PrivacyDeletionRequestRecord[] = [];
   private usersStatus = new Map<string, 'invited' | 'active' | 'disabled'>();
+
+  constructor(
+    @Inject(AuditLogRepository) private readonly auditLogRepo: AuditLogRepository,
+  ) {}
 
   // Issue #21: Admin User Management
   async updateUserStatus(userId: string, input: AdminUserStatusInput): Promise<{ userId: string; status: string }> {
@@ -40,26 +44,58 @@ export class AdminService {
     return { userId, status: input.status };
   }
 
-  // Issue #22: Audit Log (Hard Invariant #6: Append-only immutability!)
+  // Issue #22 & Ticket T-03: Persistent Audit Log (Hard Invariant #6: Append-only immutability!)
   async recordAuditLog(actorId: string | null, action: string, meta: Record<string, unknown> = {}): Promise<AuditLogRecord> {
-    const record: AuditLogRecord = {
-      id: `audit_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    const id = `audit_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const createdAt = new Date().toISOString();
+
+    await this.auditLogRepo.append({
+      id,
+      actor_id: actorId,
+      action,
+      meta,
+      created_at: createdAt,
+    });
+
+    return {
+      id,
       actorId,
       action,
       meta,
-      createdAt: new Date().toISOString(),
+      createdAt,
     };
-    this.auditLogs.push(record);
-    return record;
   }
 
   async getAuditLogs(): Promise<AuditLogRecord[]> {
-    return [...this.auditLogs];
+    const rows = await this.auditLogRepo.findAll();
+    return rows.map((r) => ({
+      id: r.id,
+      actorId: r.actor_id,
+      action: r.action,
+      meta: r.meta,
+      createdAt: r.created_at,
+    }));
   }
 
   // Prohibits UPDATE or DELETE on audit log (Hard Invariant #6)
   async modifyAuditLogProhibited(): Promise<never> {
+    await this.auditLogRepo.delete('any_audit_id');
     throw new BadRequestException('Audit log entries are append-only and cannot be modified or deleted');
+  }
+
+  // ADM-03 Helper: Record Admin Login
+  async logAdminLogin(adminId: string, meta: Record<string, unknown> = {}): Promise<AuditLogRecord> {
+    return this.recordAuditLog(adminId, 'ADMIN_LOGIN', meta);
+  }
+
+  // ADM-03 Helper: Record Bulk Import Action
+  async logBulkImport(actorId: string, meta: Record<string, unknown> = {}): Promise<AuditLogRecord> {
+    return this.recordAuditLog(actorId, 'BULK_IMPORT_INITIATED', meta);
+  }
+
+  // ADM-04 Helper: Record Data Export Action
+  async logDataExport(adminId: string, meta: Record<string, unknown> = {}): Promise<AuditLogRecord> {
+    return this.recordAuditLog(adminId, 'DATA_EXPORT_PERFORMED', meta);
   }
 
   // Issue #23: In-App Notifications (NOT-03)

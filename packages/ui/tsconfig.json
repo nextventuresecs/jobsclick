@@ -3,7 +3,11 @@
   "compilerOptions": {
     "jsx": "react-jsx",
     "rootDir": "src",
-    "outDir": "dist"
+    "outDir": "dist",
+    "baseUrl": ".",
+    "paths": {
+      "@indian-job-portal/validation": ["../validation/dist/index.d.ts"]
+    }
   },
   "include": ["src/**/*"]
 }

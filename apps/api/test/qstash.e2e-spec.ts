@@ -98,6 +98,7 @@ describe('QStash Service & Webhooks - Tickets 1, 2, 3, 4', () => {
     const scheduleRes = await app.inject({
       method: 'POST',
       url: '/bulk/invites/schedule',
+      headers: { 'x-user-id': 'usr_admin_tester' },
       payload: { batchId: 'batch_qstash_test_1', waveSize: 100, costPerSmsInr: 0.2 },
     });
     expect(scheduleRes.statusCode).toBe(201);

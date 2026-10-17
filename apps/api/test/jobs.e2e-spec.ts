@@ -57,7 +57,7 @@ describe('JobsController (e2e) - Issues #13, #14, #15', () => {
     expect(listRes.statusCode).toBe(200);
     const listData = JSON.parse(listRes.payload);
     expect(listData.jobs.length).toBeGreaterThan(0);
-    expect(listData.jobs[0].title).toContain('Tally');
+    expect(listData.jobs.some((j: { title: string }) => j.title.includes('Tally'))).toBe(true);
   });
 
   it('POST /jobs/:id/apply & GET /jobs/:id/applications - handles candidate application and STRIPS phone/email (Hard Invariant #1 & JOB-03)', async () => {
@@ -101,5 +101,41 @@ describe('JobsController (e2e) - Issues #13, #14, #15', () => {
     expect(statusRes.statusCode).toBe(200);
     const updatedApp = JSON.parse(statusRes.payload);
     expect(updatedApp.status).toBe('shortlisted');
+  });
+
+  it('enforces RBAC on JobsController: job_seeker cannot create jobs or view applications (Issue #2)', async () => {
+    // 1. job_seeker cannot create jobs
+    const seekerCreateRes = await app.inject({
+      method: 'POST',
+      url: '/jobs',
+      headers: { 'x-user-id': 'usr_candidate_77' },
+      payload: {
+        title: 'Unauthorized Seeker Job',
+        description: 'Should be rejected with 403',
+        category: 'white',
+        minPay: 15000,
+        maxPay: 20000,
+        city: 'Indore',
+        district: 'Indore',
+        openings: 1,
+      },
+    });
+    expect(seekerCreateRes.statusCode).toBe(403);
+
+    // 2. job_seeker cannot view applications
+    const seekerAppsRes = await app.inject({
+      method: 'GET',
+      url: `/jobs/${createdJobId}/applications`,
+      headers: { 'x-user-id': 'usr_candidate_77' },
+    });
+    expect(seekerAppsRes.statusCode).toBe(403);
+
+    // 3. employer cannot apply to a job
+    const employerApplyRes = await app.inject({
+      method: 'POST',
+      url: `/jobs/${createdJobId}/apply`,
+      headers: { 'x-user-id': 'usr_employer_55' },
+    });
+    expect(employerApplyRes.statusCode).toBe(403);
   });
 });

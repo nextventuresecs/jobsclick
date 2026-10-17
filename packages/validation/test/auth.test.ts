@@ -36,3 +36,49 @@ describe('OTP & Auth Schemas', () => {
     expect(valid.email).toBe('user@example.com');
   });
 });
+
+describe('Matt Pocock Role Typing & MSME Udyam Validation', async () => {
+  const {
+    clientRoleSchema,
+    toBackendRole,
+    toClientRole,
+    isClientRole,
+    udyamNumberSchema,
+  } = await import('../src/auth.js');
+
+  it('validates all 5 client roles with zero TypeScript any', () => {
+    expect(clientRoleSchema.parse('jobseeker')).toBe('jobseeker');
+    expect(clientRoleSchema.parse('employer')).toBe('employer');
+    expect(clientRoleSchema.parse('institution')).toBe('institution');
+    expect(clientRoleSchema.parse('msme_dept')).toBe('msme_dept');
+    expect(clientRoleSchema.parse('platform_admin')).toBe('platform_admin');
+    expect(() => clientRoleSchema.parse('invalid_role')).toThrow();
+  });
+
+  it('provides bidirectional lossless mapping between client and backend roles', () => {
+    expect(toBackendRole('jobseeker')).toBe('job_seeker');
+    expect(toBackendRole('institution')).toBe('intermediary');
+    expect(toBackendRole('msme_dept')).toBe('msme_admin');
+    expect(toBackendRole('platform_admin')).toBe('admin');
+
+    expect(toClientRole('job_seeker')).toBe('jobseeker');
+    expect(toClientRole('intermediary')).toBe('institution');
+    expect(toClientRole('msme_admin')).toBe('msme_dept');
+    expect(toClientRole('admin')).toBe('platform_admin');
+  });
+
+  it('validates client role type guards', () => {
+    expect(isClientRole('jobseeker')).toBe(true);
+    expect(isClientRole('employer')).toBe(true);
+    expect(isClientRole('random_string')).toBe(false);
+    expect(isClientRole(123)).toBe(false);
+  });
+
+  it('validates Udyam registration number format strictly', () => {
+    expect(udyamNumberSchema.parse('UDYAM-MH-26-0019482')).toBe('UDYAM-MH-26-0019482');
+    expect(udyamNumberSchema.parse('udyam-kr-03-0098231')).toBe('UDYAM-KR-03-0098231');
+    expect(() => udyamNumberSchema.parse('INVALID-NUMBER')).toThrow();
+    expect(() => udyamNumberSchema.parse('UDYAM-M-26-0019482')).toThrow();
+  });
+});
+

@@ -25,6 +25,52 @@ describe('BulkController (e2e) - Epic 4 (Issues #16-#20, #38, #39)', () => {
     await app.close();
   });
 
+  const adminHeaders = { 'x-user-id': 'usr_admin_tester' };
+
+  it('enforces authentication and rejects unauthenticated callers on bulk & admin endpoints (Issue #3)', async () => {
+    // 1. POST /bulk/signed-url without auth
+    const signedUrlRes = await app.inject({
+      method: 'POST',
+      url: '/bulk/signed-url',
+      payload: { fileName: 'test.csv', contentType: 'text/csv' },
+    });
+    expect(signedUrlRes.statusCode).toBe(401);
+
+    // 2. POST /bulk/batches without auth
+    const batchRes = await app.inject({
+      method: 'POST',
+      url: '/bulk/batches',
+      payload: { source: 'Anonymous', entityType: 'student', csvContent: 'name,phone\nA,9876543210' },
+    });
+    expect(batchRes.statusCode).toBe(401);
+
+    // 3. GET /admin/metrics without auth
+    const metricsRes = await app.inject({
+      method: 'GET',
+      url: '/admin/metrics',
+    });
+    expect(metricsRes.statusCode).toBe(401);
+  });
+
+  it('enforces RBAC and rejects unauthorized job_seeker role from calling bulk/admin endpoints (Issue #3)', async () => {
+    const seekerHeaders = { 'x-user-id': 'usr_candidate_unauthorized' };
+
+    const batchRes = await app.inject({
+      method: 'POST',
+      url: '/bulk/batches',
+      headers: seekerHeaders,
+      payload: { source: 'Rogue Seeker', entityType: 'student', csvContent: 'name,phone\nA,9876543210' },
+    });
+    expect(batchRes.statusCode).toBe(403);
+
+    const metricsRes = await app.inject({
+      method: 'GET',
+      url: '/admin/metrics',
+      headers: seekerHeaders,
+    });
+    expect(metricsRes.statusCode).toBe(403);
+  });
+
   it('POST /bulk/batches - parses CSV, checks duplicates, stores source, and creates users in invited state with ZERO SMS (Hard Invariants #2 & #3)', async () => {
     const sampleCsv = `name,phone
 Anita Sharma,9876543210
@@ -35,6 +81,7 @@ Duplicate Person,9876543210`;
     const res = await app.inject({
       method: 'POST',
       url: '/bulk/batches',
+      headers: adminHeaders,
       payload: {
         source: 'MSME Department MP',
         entityType: 'student',
@@ -56,6 +103,7 @@ Duplicate Person,9876543210`;
     const res = await app.inject({
       method: 'GET',
       url: `/bulk/batches/${batchId}/error-report`,
+      headers: adminHeaders,
     });
 
     expect(res.statusCode).toBe(200);
@@ -68,6 +116,7 @@ Duplicate Person,9876543210`;
     const previewRes = await app.inject({
       method: 'POST',
       url: '/bulk/invites/preview',
+      headers: adminHeaders,
       payload: { batchId, waveSize: 5000, costPerSmsInr: 0.2 },
     });
 
@@ -78,6 +127,7 @@ Duplicate Person,9876543210`;
     const scheduleRes = await app.inject({
       method: 'POST',
       url: '/bulk/invites/schedule',
+      headers: adminHeaders,
       payload: { batchId, waveSize: 5000, costPerSmsInr: 0.2 },
     });
 
@@ -92,6 +142,7 @@ Duplicate Person,9876543210`;
     const pauseRes = await app.inject({
       method: 'PUT',
       url: `/bulk/invites/waves/${waveId}`,
+      headers: adminHeaders,
       payload: { action: 'pause' },
     });
 
@@ -102,6 +153,7 @@ Duplicate Person,9876543210`;
     const resumeRes = await app.inject({
       method: 'PUT',
       url: `/bulk/invites/waves/${waveId}`,
+      headers: adminHeaders,
       payload: { action: 'resume' },
     });
 
@@ -114,6 +166,7 @@ Duplicate Person,9876543210`;
     const res = await app.inject({
       method: 'GET',
       url: '/admin/metrics',
+      headers: adminHeaders,
     });
 
     expect(res.statusCode).toBe(200);
@@ -126,10 +179,48 @@ Duplicate Person,9876543210`;
     const res = await app.inject({
       method: 'GET',
       url: '/admin/queues',
+      headers: adminHeaders,
     });
 
     expect(res.statusCode).toBe(200);
     const queueData = JSON.parse(res.payload);
     expect(queueData.queues.length).toBeGreaterThan(0);
+  });
+
+  it('POST /bulk/signed-url - generates secure signed upload URL for direct storage upload (Ticket T-08)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/bulk/signed-url',
+      headers: adminHeaders,
+      payload: {
+        fileName: 'students_50000_roster.csv',
+        contentType: 'text/csv',
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const data = JSON.parse(res.payload);
+    expect(data.signedUrl).toBeDefined();
+    expect(data.storagePath).toContain('bulk-imports/');
+    expect(data.token).toBeDefined();
+  });
+
+  it('POST /bulk/batches - accepts storagePath and creates queued batch asynchronously (Ticket T-08)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/bulk/batches',
+      headers: adminHeaders,
+      payload: {
+        source: 'Indore Institute of Science & Tech',
+        entityType: 'student',
+        storagePath: 'bulk-imports/mock_50k_batch.csv',
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const batch = JSON.parse(res.payload);
+    expect(batch.id).toBeDefined();
+    expect(batch.status).toBe('queued');
+    expect(batch.source).toBe('Indore Institute of Science & Tech');
   });
 });
