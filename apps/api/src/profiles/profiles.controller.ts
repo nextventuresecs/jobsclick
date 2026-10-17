@@ -2,21 +2,30 @@ import {
   Controller,
   Get,
   Put,
+  Post,
   Body,
   Param,
   UsePipes,
   UseGuards,
   Inject,
+  NotFoundException,
 } from '@nestjs/common';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { ProfilesService } from './profiles.service.js';
+import { InstitutionCmsService } from './institution-cms.service.js';
 import {
   jobSeekerProfileSchema,
   businessProfileSchema,
   institutionProfileSchema,
+  institutionCmsSchema,
+  createInstitutionInquirySchema,
+  updateInquiryStatusSchema,
   JobSeekerProfileInput,
   BusinessProfileInput,
   InstitutionProfileInput,
+  InstitutionCmsInput,
+  CreateInstitutionInquiryInput,
+  UpdateInquiryStatusInput,
 } from '@indian-job-portal/validation';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { Public } from '../auth/decorators/public.decorator.js';
@@ -26,7 +35,10 @@ import { CurrentUser, type AuthUser } from '../auth/decorators/current-user.deco
 @UseGuards(JwtAuthGuard)
 @UsePipes(ZodValidationPipe)
 export class ProfilesController {
-  constructor(@Inject(ProfilesService) private readonly profilesService: ProfilesService) {}
+  constructor(
+    @Inject(ProfilesService) private readonly profilesService: ProfilesService,
+    @Inject(InstitutionCmsService) private readonly institutionCmsService: InstitutionCmsService,
+  ) {}
 
   // Job Seeker Endpoints (JS-01, JS-02, JS-05, JS-07)
   @Get('seeker/me')
@@ -92,5 +104,53 @@ export class ProfilesController {
   ) {
     const validated = institutionProfileSchema.parse(body);
     return this.profilesService.updateInstitutionProfileMe(user.id, validated);
+  }
+
+  @Public()
+  @Get('institution/:id')
+  async getInstitutionProfilePublic(@Param('id') id: string) {
+    const profile = await this.profilesService.getInstitutionProfilePublic(id);
+    if (!profile) {
+      throw new NotFoundException('Institution profile not found');
+    }
+    return profile;
+  }
+
+  // Institution CMS Endpoints (INT-02, INT-03, T-18)
+  @Public()
+  @Get('institution/:id/cms')
+  async getInstitutionCms(@Param('id') id: string) {
+    return this.institutionCmsService.getCmsData(id);
+  }
+
+  @Put('institution/cms')
+  async updateInstitutionCms(
+    @CurrentUser() user: AuthUser,
+    @Body() body: InstitutionCmsInput,
+  ) {
+    const validated = institutionCmsSchema.parse(body);
+    return this.institutionCmsService.updateCmsData(user.id, validated);
+  }
+
+  @Public()
+  @Post('institution/inquiries')
+  async submitInstitutionInquiry(@Body() body: CreateInstitutionInquiryInput) {
+    const validated = createInstitutionInquirySchema.parse(body);
+    return this.institutionCmsService.submitInquiry(validated);
+  }
+
+  @Get('institution/inquiries')
+  async getInstitutionInquiries(@CurrentUser() user: AuthUser) {
+    return this.institutionCmsService.getInstitutionInquiries(user.id);
+  }
+
+  @Put('institution/inquiries/:id/status')
+  async updateInquiryStatus(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() body: UpdateInquiryStatusInput,
+  ) {
+    const validated = updateInquiryStatusSchema.parse(body);
+    return this.institutionCmsService.updateInquiryStatus(user.id, id, validated.status);
   }
 }

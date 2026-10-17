@@ -388,4 +388,35 @@ export class ProfilesService {
       ...input,
     };
   }
+
+  async getInstitutionProfilePublic(id: string) {
+    const profile = await this.profileRepository.findInstitutionProfileById(id);
+    if (!profile) {
+      return null;
+    }
+    return {
+      id: profile.id,
+      institutionName: profile.institution_name,
+      institutionType: profile.institution_type || 'iti',
+      affiliation: profile.affiliation,
+      affiliationCode: profile.affiliation_code,
+      establishmentYear: profile.establishment_year,
+      principalName: profile.principal_name,
+      contactPerson: profile.contact_person,
+      contactDesignation: profile.contact_designation,
+      contactEmail: profile.contact_email,
+      contactPhone: profile.contact_phone,
+      website: profile.website,
+      address: profile.address,
+      city: profile.city,
+      district: profile.district,
+      state: profile.state,
+      pincode: profile.pincode,
+      tradesOffered: profile.trades_offered || [],
+      annualCapacity: profile.annual_capacity,
+      about: profile.about,
+      cmsData: profile.cms_data || null,
+      isSponsorshipActive: profile.is_sponsorship_active || false,
+    };
+  }
 }

@@ -7,6 +7,7 @@ import { ApplicationRepository } from './repositories/application.repository.js'
 import { AuditLogRepository } from './repositories/audit-log.repository.js';
 import { CreditLedgerRepository } from './repositories/credit-ledger.repository.js';
 import { PaymentRepository } from './repositories/payment.repository.js';
+import { InquiryRepository } from './repositories/inquiry.repository.js';
 
 @Global()
 @Module({
@@ -22,6 +23,7 @@ import { PaymentRepository } from './repositories/payment.repository.js';
     AuditLogRepository,
     CreditLedgerRepository,
     PaymentRepository,
+    InquiryRepository,
   ],
   exports: [
     SUPABASE_CLIENT,
@@ -32,6 +34,7 @@ import { PaymentRepository } from './repositories/payment.repository.js';
     AuditLogRepository,
     CreditLedgerRepository,
     PaymentRepository,
+    InquiryRepository,
   ],
 })
 export class DatabaseModule {}

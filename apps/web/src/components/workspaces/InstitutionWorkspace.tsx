@@ -13,22 +13,50 @@ import {
   InviteWaveScheduler,
   CampusQrCard,
   InstitutionOverviewTab,
+  InstitutionCmsEditor,
   useInstitutionWorkspace,
 } from './institution';
-import { GraduationCap, Award, Users, FileSpreadsheet, Send, QrCode } from 'lucide-react';
+import {
+  GraduationCap,
+  Award,
+  Users,
+  FileSpreadsheet,
+  Send,
+  QrCode,
+  LayoutDashboard,
+  MessageSquare,
+} from 'lucide-react';
 
 export function InstitutionWorkspace() {
   const t = useTranslations('InstitutionWorkspace');
   const { addToast } = useApp();
 
   const {
-    activeTab, setActiveTab, institution, isOnboardingComplete,
-    isEditingProfile, setIsEditingProfile, students, filteredStudents,
-    studentSearch, setStudentSearch, streamFilter, setStreamFilter,
-    statusFilter, setStatusFilter, isAddingStudent, setIsAddingStudent,
-    profileForm, bulkUpload, quickAddFormData,
-    handleDownloadTemplate, handleParseCsv, handleExecuteImport,
-    handleScheduleWave, handleQuickAddStudent, handleSaveProfile,
+    activeTab,
+    setActiveTab,
+    institution,
+    isOnboardingComplete,
+    isEditingProfile,
+    setIsEditingProfile,
+    students,
+    filteredStudents,
+    studentSearch,
+    setStudentSearch,
+    streamFilter,
+    setStreamFilter,
+    statusFilter,
+    setStatusFilter,
+    isAddingStudent,
+    setIsAddingStudent,
+    profileForm,
+    bulkUpload,
+    quickAddFormData,
+    handleDownloadTemplate,
+    handleParseCsv,
+    handleExecuteImport,
+    handleScheduleWave,
+    handleQuickAddStudent,
+    handleSaveProfile,
   } = useInstitutionWorkspace({ addToast });
 
   return (
@@ -37,21 +65,31 @@ export function InstitutionWorkspace() {
       <InstitutionHeader
         institution={institution}
         isOnboardingComplete={isOnboardingComplete}
-        onOpenProfileEdit={() => { setActiveTab('profile'); setIsEditingProfile(true); }}
-        onOpenBulkImport={() => { setActiveTab('bulk-import'); bulkUpload.setImportStep(1); }}
+        onOpenProfileEdit={() => {
+          setActiveTab('profile');
+          setIsEditingProfile(true);
+        }}
+        onOpenBulkImport={() => {
+          setActiveTab('bulk-import');
+          bulkUpload.setImportStep(1);
+        }}
         onOpenQrCode={() => setActiveTab('qr-code')}
       />
 
       {/* Navigation Tabs */}
       <div className="flex border-b border-gray-200 overflow-x-auto gap-2">
-        {([
-          { id: 'overview', label: t('tabOverview'), icon: GraduationCap },
-          { id: 'profile', label: t('tabProfile'), icon: Award },
-          { id: 'students', label: `${t('tabStudents')} (${students.length})`, icon: Users },
-          { id: 'bulk-import', label: t('tabBulkImport'), icon: FileSpreadsheet },
-          { id: 'invitations', label: t('tabInvitations'), icon: Send },
-          { id: 'qr-code', label: t('tabQrCode'), icon: QrCode },
-        ] as const).map((tab) => {
+        {(
+          [
+            { id: 'overview', label: t('tabOverview'), icon: GraduationCap },
+            { id: 'cms', label: t('tabCms'), icon: LayoutDashboard },
+            { id: 'inquiries', label: t('tabInquiries'), icon: MessageSquare },
+            { id: 'profile', label: t('tabProfile'), icon: Award },
+            { id: 'students', label: `${t('tabStudents')} (${students.length})`, icon: Users },
+            { id: 'bulk-import', label: t('tabBulkImport'), icon: FileSpreadsheet },
+            { id: 'invitations', label: t('tabInvitations'), icon: Send },
+            { id: 'qr-code', label: t('tabQrCode'), icon: QrCode },
+          ] as const
+        ).map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
@@ -77,12 +115,21 @@ export function InstitutionWorkspace() {
         <InstitutionOverviewTab
           institution={institution}
           students={students}
-          onViewProfile={() => { setActiveTab('profile'); setIsEditingProfile(false); }}
+          onViewProfile={() => {
+            setActiveTab('profile');
+            setIsEditingProfile(false);
+          }}
           onViewStudents={() => setActiveTab('students')}
         />
       )}
 
-      {/* TAB 2: PROFILE */}
+      {/* TAB 2: CMS TAB EDITOR (INT-02 & AC #1) */}
+      {activeTab === 'cms' && <InstitutionCmsEditor institutionId={institution.id} />}
+
+      {/* TAB 3: INQUIRIES & LEADS (INT-03 & AC #2) */}
+      {activeTab === 'inquiries' && <InstitutionCmsEditor institutionId={institution.id} />}
+
+      {/* TAB 4: PROFILE */}
       {activeTab === 'profile' && (
         <>
           {!isEditingProfile ? (
@@ -100,7 +147,7 @@ export function InstitutionWorkspace() {
         </>
       )}
 
-      {/* TAB 3: STUDENTS ROSTER */}
+      {/* TAB 5: STUDENTS ROSTER */}
       {activeTab === 'students' && (
         <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs space-y-6">
           {isAddingStudent && (
@@ -121,7 +168,10 @@ export function InstitutionWorkspace() {
             setStatusFilter={setStatusFilter}
             isAddingStudent={isAddingStudent}
             onToggleAddStudent={() => setIsAddingStudent(!isAddingStudent)}
-            onOpenBulkImport={() => { setActiveTab('bulk-import'); bulkUpload.setImportStep(1); }}
+            onOpenBulkImport={() => {
+              setActiveTab('bulk-import');
+              bulkUpload.setImportStep(1);
+            }}
             onShareCandidate={(st) => {
               addToast({
                 type: 'info',
@@ -133,7 +183,7 @@ export function InstitutionWorkspace() {
         </div>
       )}
 
-      {/* TAB 4: BULK CSV IMPORT */}
+      {/* TAB 6: BULK CSV IMPORT */}
       {activeTab === 'bulk-import' && (
         <BulkUploadModal
           uploadState={bulkUpload}
@@ -142,14 +192,17 @@ export function InstitutionWorkspace() {
           onParseCsv={handleParseCsv}
           onExecuteImport={handleExecuteImport}
           onScheduleWave={handleScheduleWave}
-          onViewStudents={() => { bulkUpload.setImportStep(1); setActiveTab('students'); }}
+          onViewStudents={() => {
+            bulkUpload.setImportStep(1);
+            setActiveTab('students');
+          }}
         />
       )}
 
-      {/* TAB 5: INVITATIONS */}
+      {/* TAB 7: INVITATIONS */}
       {activeTab === 'invitations' && <InviteWaveScheduler />}
 
-      {/* TAB 6: CAMPUS QR */}
+      {/* TAB 8: CAMPUS QR */}
       {activeTab === 'qr-code' && <CampusQrCard institution={institution} />}
     </div>
   );
