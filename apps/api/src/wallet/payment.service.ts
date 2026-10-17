@@ -57,6 +57,20 @@ export class PaymentService {
     this.keyId = process.env['RAZORPAY_KEY_ID'] || 'rzp_test_dummy_key_id';
     this.keySecret = process.env['RAZORPAY_KEY_SECRET'] || 'dummy_razorpay_key_secret';
     this.webhookSecret = process.env['RAZORPAY_WEBHOOK_SECRET'] || 'dummy_razorpay_webhook_secret';
+
+    if (process.env['NODE_ENV'] === 'production') {
+      if (
+        !process.env['RAZORPAY_KEY_ID'] ||
+        !process.env['RAZORPAY_KEY_SECRET'] ||
+        process.env['RAZORPAY_KEY_ID'] === 'rzp_test_dummy_key_id' ||
+        process.env['RAZORPAY_KEY_SECRET'] === 'dummy_razorpay_key_secret'
+      ) {
+        throw new Error(
+          'Production environment requires valid RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET. Dummy/test keys are strictly rejected in production.',
+        );
+      }
+    }
+
     this.isTestMode =
       process.env['NODE_ENV'] === 'test' ||
       this.keyId === 'rzp_test_dummy_key_id' ||

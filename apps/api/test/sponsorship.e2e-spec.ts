@@ -1,17 +1,23 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import crypto from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
 import { SponsorshipService } from '../src/wallet/sponsorship.service.js';
 import { WalletService } from '../src/wallet/wallet.service.js';
+import { PaymentService } from '../src/wallet/payment.service.js';
 import { ProfileRepository } from '../src/database/repositories/profile.repository.js';
-import type { JobSeekerProfileRow } from '@indian-job-portal/database';
+import { PaymentRepository } from '../src/database/repositories/payment.repository.js';
+import type { JobSeekerProfileRow, InstitutionProfileRow } from '@indian-job-portal/database';
+import { ForbiddenException, BadRequestException } from '@nestjs/common';
 
 describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WAL-05, Section 10.1)', () => {
   let app: NestFastifyApplication;
   let sponsorshipService: SponsorshipService;
   let walletService: WalletService;
+  let paymentService: PaymentService;
   let profileRepo: ProfileRepository;
+  let paymentRepo: PaymentRepository;
   let jwtToken: string;
 
   beforeAll(async () => {
@@ -28,7 +34,9 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
 
     sponsorshipService = app.get(SponsorshipService);
     walletService = app.get(WalletService);
+    paymentService = app.get(PaymentService);
     profileRepo = app.get(ProfileRepository);
+    paymentRepo = app.get(PaymentRepository);
 
     // Create auth token for institution (intermediary)
     const authRes = await app.inject({
@@ -239,6 +247,281 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
       // Dynamic balance is still untouched (zero deductions recorded against candidate wallet)
       const { balance } = await walletService.getBalance(sponsoredUser);
       expect(balance).toBe(0);
+    });
+  });
+
+  describe('AC #4: Multi-Tenant Ownership Checks (Controller & Service Level Gates)', () => {
+    it('rejects cross-tenant activation when an unauthorized institution attempts to activate another institution', async () => {
+      const ownerPhone = '+919811122233';
+      const intruderPhone = '+919899900011';
+
+      // 1. Authenticate owner
+      const ownerAuthRes = await app.inject({
+        method: 'POST',
+        url: '/auth/verify-otp',
+        payload: { phone: ownerPhone, otp: '123456', role: 'institution' },
+      });
+      const ownerToken = ownerAuthRes.json().accessToken;
+      const ownerUserId = ownerAuthRes.json().user.id;
+
+      // 2. Authenticate intruder
+      const intruderAuthRes = await app.inject({
+        method: 'POST',
+        url: '/auth/verify-otp',
+        payload: { phone: intruderPhone, otp: '123456', role: 'institution' },
+      });
+      const intruderToken = intruderAuthRes.json().accessToken;
+      const intruderUserId = intruderAuthRes.json().user.id;
+
+      // 3. Setup owner's institution profile
+      const targetInstId = `inst_target_${Date.now()}`;
+      const targetInst: InstitutionProfileRow = {
+        id: targetInstId,
+        user_id: ownerUserId,
+        institution_name: 'St. Xavier Technical College',
+        institution_type: 'college',
+        affiliation: 'AICTE',
+        address: 'Knowledge Boulevard',
+        source: 'direct',
+        created_by: ownerUserId,
+        updated_by: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      await profileRepo.saveInstitutionProfile(targetInst);
+
+      // 4. Intruder attempts HTTP activation for owner's institution -> 403 Forbidden
+      const unauthorizedHttpRes = await app.inject({
+        method: 'POST',
+        url: `/institutions/${targetInstId}/sponsorship/activate`,
+        headers: {
+          Authorization: `Bearer ${intruderToken}`,
+        },
+        payload: {
+          paymentReference: 'rzp_pay_hacker_test',
+        },
+      });
+      expect(unauthorizedHttpRes.statusCode).toBe(403);
+      expect(unauthorizedHttpRes.json().message).toContain('not authorized');
+
+      // 5. Intruder attempts service-level activation directly -> ForbiddenException
+      await expect(
+        sponsorshipService.activateSponsorship(
+          targetInstId,
+          { paymentReference: 'rzp_pay_hacker_test' },
+          { id: intruderUserId, role: 'institution' },
+        ),
+      ).rejects.toThrow(ForbiddenException);
+
+      // 6. Legitimate owner activates their own institution -> 201 Created
+      const authorizedHttpRes = await app.inject({
+        method: 'POST',
+        url: `/institutions/${targetInstId}/sponsorship/activate`,
+        headers: {
+          Authorization: `Bearer ${ownerToken}`,
+        },
+        payload: {
+          paymentReference: 'rzp_pay_owner_valid',
+        },
+      });
+      expect(authorizedHttpRes.statusCode).toBe(201);
+      expect(authorizedHttpRes.json().success).toBe(true);
+    });
+  });
+
+  describe('AC #5: Concurrency & Transaction/Lock Serialization (WAL-05 Idempotency)', () => {
+    it('serializes concurrent activations and prevents duplicate sponsorship rows or double updates', async () => {
+      const concurrentInstId = `inst_concurrent_${Date.now()}`;
+      const ownerUser = `usr_concurrent_owner_${Date.now()}`;
+
+      // Create owning institution profile
+      await profileRepo.saveInstitutionProfile({
+        id: concurrentInstId,
+        user_id: ownerUser,
+        institution_name: 'Concurrent Test College',
+        source: 'direct',
+        created_by: ownerUser,
+        updated_by: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      // Create students linked to this institution
+      for (let i = 1; i <= 3; i++) {
+        await profileRepo.saveSeekerProfile({
+          id: `jsp_c_${Date.now()}_${i}`,
+          user_id: `usr_c_${Date.now()}_${i}`,
+          full_name: `Student C${i}`,
+          institution_id: concurrentInstId,
+          is_sponsored: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+      }
+
+      // Fire 5 concurrent activation requests for the same institution
+      const requests = Array.from({ length: 5 }, () =>
+        sponsorshipService.activateSponsorship(
+          concurrentInstId,
+          { studentCountOverride: 50 },
+          { id: ownerUser, role: 'institution' },
+        ),
+      );
+
+      const results = await Promise.all(requests);
+
+      // All 5 requests resolve successfully
+      expect(results.length).toBe(5);
+      results.forEach((r) => expect(r.success).toBe(true));
+
+      // Exactly ONE request performed the active initial grant (alreadyActive: false)
+      const freshGrants = results.filter((r) => r.alreadyActive === false);
+      expect(freshGrants.length).toBe(1);
+
+      // Remaining 4 requests received the idempotent cached active state (alreadyActive: true)
+      const cachedGrants = results.filter((r) => r.alreadyActive === true);
+      expect(cachedGrants.length).toBe(4);
+
+      // Assert exactly one sponsorship row was created in institution_sponsorships table
+      const sponsorships = await profileRepo.findSponsorshipsByInstitutionId(concurrentInstId);
+      expect(sponsorships.length).toBe(1);
+      expect(sponsorships[0]?.status).toBe('active');
+
+      // Verify all enrolled students are marked sponsored
+      const students = await profileRepo.findStudentsByInstitution(concurrentInstId);
+      expect(students.length).toBe(3);
+      students.forEach((s) => expect(s.is_sponsored).toBe(true));
+    });
+  });
+
+  describe('AC #6: Payment Verification & Webhook Idempotency (WAL-05 & WAL-03)', () => {
+    it('processes payment webhook idempotently and enforces payment verification on sponsorship activation', async () => {
+      const webhookSecret = process.env['RAZORPAY_WEBHOOK_SECRET'] || 'dummy_razorpay_webhook_secret';
+      const instUserId = `usr_inst_pay_${Date.now()}`;
+      const instId = `inst_pay_${Date.now()}`;
+
+      // Create institution profile
+      await profileRepo.saveInstitutionProfile({
+        id: instId,
+        user_id: instUserId,
+        institution_name: 'Bhopal Engineering College',
+        source: 'direct',
+        created_by: instUserId,
+        updated_by: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      // 1. Create a payment order for the institution
+      const order = await paymentService.createOrder(instUserId, {
+        packId: 'pack_starter',
+      });
+
+      const paymentId = `pay_rzp_inst_${Date.now()}`;
+      const webhookPayload = JSON.stringify({
+        event: 'payment.captured',
+        payload: {
+          payment: {
+            entity: {
+              id: paymentId,
+              order_id: order.orderId,
+              amount: 59000,
+            },
+          },
+        },
+      });
+
+      const signature = crypto
+        .createHmac('sha256', webhookSecret)
+        .update(webhookPayload)
+        .digest('hex');
+
+      // 2. First webhook call: captured successfully
+      const firstWebhookRes = await app.inject({
+        method: 'POST',
+        url: '/webhooks/razorpay',
+        headers: {
+          'content-type': 'application/json',
+          'x-razorpay-signature': signature,
+        },
+        payload: webhookPayload,
+      });
+      expect(firstWebhookRes.statusCode).toBe(200);
+      expect(firstWebhookRes.json().alreadyProcessed).toBe(false);
+
+      // 3. Second webhook replay (idempotency): alreadyProcessed is true
+      const secondWebhookRes = await app.inject({
+        method: 'POST',
+        url: '/webhooks/razorpay',
+        headers: {
+          'content-type': 'application/json',
+          'x-razorpay-signature': signature,
+        },
+        payload: webhookPayload,
+      });
+      expect(secondWebhookRes.statusCode).toBe(200);
+      expect(secondWebhookRes.json().alreadyProcessed).toBe(true);
+
+      // 4. Activate sponsorship using verified payment reference & idempotency key
+      const idempotencyKey = `spons_idem_${Date.now()}`;
+      const activationResult = await sponsorshipService.activateSponsorship(
+        instId,
+        {
+          paymentReference: paymentId,
+          idempotencyKey,
+        },
+        { id: instUserId, role: 'institution' },
+      );
+
+      expect(activationResult.success).toBe(true);
+      expect(activationResult.quote.isSponsorshipActive).toBe(true);
+      expect(activationResult.alreadyActive).toBe(false);
+
+      // 5. Repeating with same idempotencyKey returns existing sponsorship
+      const repeatedResult = await sponsorshipService.activateSponsorship(
+        instId,
+        {
+          paymentReference: paymentId,
+          idempotencyKey,
+        },
+        { id: instUserId, role: 'institution' },
+      );
+
+      expect(repeatedResult.success).toBe(true);
+      expect(repeatedResult.alreadyActive).toBe(true);
+      expect(repeatedResult.sponsorshipId).toBe(activationResult.sponsorshipId);
+
+      // 6. Attempting to activate with an uncaptured payment reference is rejected
+      const uncapturedPaymentId = `pay_uncaptured_${Date.now()}`;
+      await paymentRepo.create({
+        id: `pay_row_${Date.now()}`,
+        user_id: instUserId,
+        gateway_order_id: `order_fake_${Date.now()}`,
+        gateway_payment_id: uncapturedPaymentId,
+        amount_inr: 500,
+        status: 'created', // NOT captured
+        created_at: new Date().toISOString(),
+      });
+
+      const instUncapturedId = `inst_uncap_${Date.now()}`;
+      await profileRepo.saveInstitutionProfile({
+        id: instUncapturedId,
+        user_id: instUserId,
+        institution_name: 'Uncaptured Payment Test College',
+        source: 'direct',
+        created_by: instUserId,
+        updated_by: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      await expect(
+        sponsorshipService.activateSponsorship(
+          instUncapturedId,
+          { paymentReference: uncapturedPaymentId },
+          { id: instUserId, role: 'institution' },
+        ),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });
