@@ -1,4 +1,3 @@
-import crypto from 'node:crypto';
 import type { ClientRole } from '@indian-job-portal/validation';
 import { isClientRole, isUserRole, toClientRole } from '@indian-job-portal/validation';
 
@@ -36,33 +35,67 @@ function getJwtSecret(): string {
   );
 }
 
-function toBase64Url(str: string): string {
-  return Buffer.from(str, 'utf-8')
-    .toString('base64')
+function bufferToBase64Url(buffer: ArrayBuffer | Uint8Array): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]!);
+  }
+  return btoa(binary)
     .replace(/=/g, '')
     .replace(/\+/g, '-')
     .replace(/\//g, '_');
 }
 
-function fromBase64Url(base64url: string): string {
+function base64UrlToUint8Array(base64url: string): Uint8Array {
   let base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
   while (base64.length % 4) {
     base64 += '=';
   }
-  return Buffer.from(base64, 'base64').toString('utf-8');
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
 }
 
-function signHmacSha256(data: string, secret: string): string {
-  return crypto.createHmac('sha256', secret).update(data).digest('base64url');
+function toBase64Url(str: string): string {
+  const enc = new TextEncoder();
+  return bufferToBase64Url(enc.encode(str));
 }
 
-function verifyHmacSha256(data: string, signature: string, secret: string): boolean {
+function fromBase64Url(base64url: string): string {
+  const bytes = base64UrlToUint8Array(base64url);
+  const dec = new TextDecoder();
+  return dec.decode(bytes);
+}
+
+async function signHmacSha256(data: string, secret: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await globalThis.crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret).buffer as ArrayBuffer,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const sig = await globalThis.crypto.subtle.sign('HMAC', key, enc.encode(data).buffer as ArrayBuffer);
+  return bufferToBase64Url(sig);
+}
+
+async function verifyHmacSha256(data: string, signature: string, secret: string): Promise<boolean> {
   try {
-    const expected = crypto.createHmac('sha256', secret).update(data).digest('base64url');
-    const sigBuf = Buffer.from(signature);
-    const expBuf = Buffer.from(expected);
-    if (sigBuf.length !== expBuf.length) return false;
-    return crypto.timingSafeEqual(sigBuf, expBuf);
+    const enc = new TextEncoder();
+    const key = await globalThis.crypto.subtle.importKey(
+      'raw',
+      enc.encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify']
+    );
+    const sigBytes = base64UrlToUint8Array(signature);
+    return await globalThis.crypto.subtle.verify('HMAC', key, sigBytes.buffer as ArrayBuffer, enc.encode(data).buffer as ArrayBuffer);
   } catch {
     return false;
   }
@@ -92,7 +125,7 @@ export async function createSessionToken(
     })
   );
 
-  const signature = signHmacSha256(`${header}.${payload}`, secret);
+  const signature = await signHmacSha256(`${header}.${payload}`, secret);
   return `${header}.${payload}.${signature}`;
 }
 
@@ -110,7 +143,7 @@ export async function verifyToken(token?: string | null): Promise<VerifiedSessio
     const [headerB64, payloadB64, signature] = parts;
     if (!headerB64 || !payloadB64 || !signature) return null;
 
-    const isValid = verifyHmacSha256(`${headerB64}.${payloadB64}`, signature, secret);
+    const isValid = await verifyHmacSha256(`${headerB64}.${payloadB64}`, signature, secret);
     if (!isValid) {
       return null;
     }
