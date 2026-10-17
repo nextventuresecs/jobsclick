@@ -76,7 +76,9 @@ export class BulkService {
   ) {
     const url = process.env['SUPABASE_URL'] || 'http://localhost:54321';
     const key = process.env['SUPABASE_SERVICE_ROLE_KEY'] || 'dummy-service-role-key';
-    this.supabase = createClient(url, key);
+    this.supabase = createClient(url, key, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
   }
 
   async getSignedUploadUrl(fileName: string, _contentType = 'text/csv'): Promise<{

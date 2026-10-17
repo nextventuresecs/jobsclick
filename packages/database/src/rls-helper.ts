@@ -19,9 +19,42 @@ export interface ScopedApplicationRecord {
 
 export function canUserAccessApplication(
   requestorUserId: string,
-  application: ScopedApplicationRecord
+  application: ScopedApplicationRecord,
 ): boolean {
-  return requestorUserId === application.applicant_id || requestorUserId === application.job_employer_id;
+  return (
+    requestorUserId === application.applicant_id ||
+    requestorUserId === application.job_employer_id
+  );
+}
+
+export function canUserAccessInstitutionInquiry(
+  requestorUserId: string,
+  institutionOwnerUserId: string,
+): boolean {
+  return requestorUserId === institutionOwnerUserId;
+}
+
+export interface ScopedInstitutionRecord {
+  id: string;
+  user_id: string;
+  created_by?: string | null;
+}
+
+export function canUserManageInstitutionSponsorship(
+  requestorUserId: string,
+  requestorRole: string,
+  institution: ScopedInstitutionRecord,
+): boolean {
+  if (requestorRole === 'admin' || requestorRole === 'msme_admin') {
+    return true;
+  }
+  if (institution.user_id === requestorUserId) {
+    return true;
+  }
+  if (requestorRole === 'intermediary' && institution.created_by === requestorUserId) {
+    return true;
+  }
+  return false;
 }
 
 export function isAuditLogImmutable(operation: 'INSERT' | 'UPDATE' | 'DELETE'): boolean {
