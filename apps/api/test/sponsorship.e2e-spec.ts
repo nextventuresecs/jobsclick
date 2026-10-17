@@ -5,8 +5,7 @@ import { AppModule } from '../src/app.module.js';
 import { SponsorshipService } from '../src/wallet/sponsorship.service.js';
 import { WalletService } from '../src/wallet/wallet.service.js';
 import { ProfileRepository } from '../src/database/repositories/profile.repository.js';
-import { SPONSORSHIP_TIERS } from '@indian-job-portal/validation';
-import type { JobSeekerProfileRow, InstitutionProfileRow } from '@indian-job-portal/database';
+import type { JobSeekerProfileRow } from '@indian-job-portal/database';
 
 describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WAL-05, Section 10.1)', () => {
   let app: NestFastifyApplication;

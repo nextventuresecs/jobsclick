@@ -9,10 +9,6 @@ import { PaymentRepository } from '../src/database/repositories/payment.reposito
 import { CreditLedgerRepository } from '../src/database/repositories/credit-ledger.repository.js';
 import { CREDIT_PACKS } from '@indian-job-portal/validation';
 
-interface FastifyRequestWithRawBody {
-  rawBody?: string;
-}
-
 describe('Ticket T-16: Razorpay Payment Gateway & Invoicing (WAL-03, Section 8.7.1)', () => {
   let app: NestFastifyApplication;
   let walletService: WalletService;

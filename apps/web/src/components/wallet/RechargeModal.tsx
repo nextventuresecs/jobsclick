@@ -31,9 +31,18 @@ interface RechargeModalProps {
   };
 }
 
+interface RazorpayInstance {
+  open: () => void;
+  on: (event: string, handler: (response: { error?: { description?: string } }) => void) => void;
+}
+
+interface RazorpayConstructor {
+  new (options: Record<string, unknown>): RazorpayInstance;
+}
+
 declare global {
   interface Window {
-    Razorpay?: any;
+    Razorpay?: RazorpayConstructor;
   }
 }
 
@@ -187,22 +196,26 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
             if (onSuccess) {
               onSuccess(calculatedNewBalance);
             }
-          } catch (err: any) {
-            setError(err.message || t('paymentFailed'));
+          } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : t('paymentFailed'));
           } finally {
             setIsLoading(false);
           }
         },
       };
 
+      if (!window.Razorpay) {
+        throw new Error('Razorpay SDK failed to load. Please check your network connection.');
+      }
+
       const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', (resp: any) => {
+      rzp.on('payment.failed', (resp: { error?: { description?: string } }) => {
         setError(resp.error?.description || t('paymentFailed'));
         setIsLoading(false);
       });
       rzp.open();
-    } catch (err: any) {
-      setError(err.message || t('paymentFailed'));
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : t('paymentFailed'));
       setIsLoading(false);
     }
   };

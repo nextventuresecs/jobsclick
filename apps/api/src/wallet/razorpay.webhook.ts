@@ -29,7 +29,7 @@ export class RazorpayWebhookController {
   async handleRazorpayWebhook(
     @Headers('x-razorpay-signature') signature: string | undefined,
     @Req() req: RequestWithRawBody,
-    @Body() body: Record<string, any>,
+    @Body() body: Record<string, unknown>,
   ) {
     if (!signature) {
       this.logger.warn('Razorpay webhook received without x-razorpay-signature header');
@@ -58,9 +58,9 @@ export class RazorpayWebhookController {
 
     // Process payment.captured or order.paid events
     if (event === 'payment.captured' || event === 'order.paid') {
-      const payload = body['payload'] || {};
-      const paymentEntity = payload['payment']?.['entity'] || {};
-      const orderEntity = payload['order']?.['entity'] || {};
+      const payload = (body['payload'] as Record<string, Record<string, string> | undefined>) || {};
+      const paymentEntity = (payload['payment']?.['entity'] as unknown as Record<string, string>) || {};
+      const orderEntity = (payload['order']?.['entity'] as unknown as Record<string, string>) || {};
 
       const orderId = paymentEntity['order_id'] || orderEntity['id'];
       const paymentId = paymentEntity['id'] || `pay_${Date.now()}`;
