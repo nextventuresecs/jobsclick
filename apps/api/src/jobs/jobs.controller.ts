@@ -24,15 +24,17 @@ import {
   UpdateApplicationStatusInput,
 } from '@indian-job-portal/validation';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
+import { RolesGuard, Roles } from '../auth/guards/roles.guard.js';
 import { Public } from '../auth/decorators/public.decorator.js';
 import { CurrentUser, type AuthUser } from '../auth/decorators/current-user.decorator.js';
 
 @Controller('jobs')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @UsePipes(ZodValidationPipe)
 export class JobsController {
   constructor(@Inject(JobsService) private readonly jobsService: JobsService) {}
 
+  @Roles('employer', 'admin')
   @Post()
   async createJob(@CurrentUser() user: AuthUser, @Body() body: CreateJobInput) {
     const validated = createJobSchema.parse(body);
@@ -46,6 +48,7 @@ export class JobsController {
     return this.jobsService.getJobs(validated);
   }
 
+  @Roles('job_seeker', 'admin')
   @Get('applications/my')
   async getMyApplications(@CurrentUser() user: AuthUser) {
     return this.jobsService.getMyApplications(user.id);
@@ -57,6 +60,7 @@ export class JobsController {
     return this.jobsService.getJobById(id);
   }
 
+  @Roles('employer', 'admin')
   @Put(':id')
   async updateJob(
     @CurrentUser() user: AuthUser,
@@ -64,25 +68,29 @@ export class JobsController {
     @Body() body: UpdateJobInput,
   ) {
     const validated = updateJobSchema.parse(body);
-    return this.jobsService.updateJob(user.id, id, validated);
+    return this.jobsService.updateJob(user.id, id, validated, user.role);
   }
 
+  @Roles('employer', 'admin')
   @Delete(':id')
   async deleteJob(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    return this.jobsService.deleteJob(user.id, id);
+    return this.jobsService.deleteJob(user.id, id, user.role);
   }
 
   // Application Endpoints (JOB-03)
+  @Roles('job_seeker', 'admin')
   @Post(':id/apply')
   async applyToJob(@CurrentUser() user: AuthUser, @Param('id') id: string) {
     return this.jobsService.applyToJob(user.id, id);
   }
 
+  @Roles('employer', 'admin')
   @Get(':id/applications')
   async getJobApplications(@CurrentUser() user: AuthUser, @Param('id') id: string) {
-    return this.jobsService.getJobApplications(user.id, id);
+    return this.jobsService.getJobApplications(user.id, id, user.role);
   }
 
+  @Roles('employer', 'admin')
   @Put('applications/:appId/status')
   async updateApplicationStatus(
     @CurrentUser() user: AuthUser,
@@ -90,6 +98,6 @@ export class JobsController {
     @Body() body: UpdateApplicationStatusInput,
   ) {
     const validated = updateApplicationStatusSchema.parse(body);
-    return this.jobsService.updateApplicationStatus(user.id, appId, validated.status);
+    return this.jobsService.updateApplicationStatus(user.id, appId, validated.status, user.role);
   }
 }

@@ -102,4 +102,40 @@ describe('JobsController (e2e) - Issues #13, #14, #15', () => {
     const updatedApp = JSON.parse(statusRes.payload);
     expect(updatedApp.status).toBe('shortlisted');
   });
+
+  it('enforces RBAC on JobsController: job_seeker cannot create jobs or view applications (Issue #2)', async () => {
+    // 1. job_seeker cannot create jobs
+    const seekerCreateRes = await app.inject({
+      method: 'POST',
+      url: '/jobs',
+      headers: { 'x-user-id': 'usr_candidate_77' },
+      payload: {
+        title: 'Unauthorized Seeker Job',
+        description: 'Should be rejected with 403',
+        category: 'white',
+        minPay: 15000,
+        maxPay: 20000,
+        city: 'Indore',
+        district: 'Indore',
+        openings: 1,
+      },
+    });
+    expect(seekerCreateRes.statusCode).toBe(403);
+
+    // 2. job_seeker cannot view applications
+    const seekerAppsRes = await app.inject({
+      method: 'GET',
+      url: `/jobs/${createdJobId}/applications`,
+      headers: { 'x-user-id': 'usr_candidate_77' },
+    });
+    expect(seekerAppsRes.statusCode).toBe(403);
+
+    // 3. employer cannot apply to a job
+    const employerApplyRes = await app.inject({
+      method: 'POST',
+      url: `/jobs/${createdJobId}/apply`,
+      headers: { 'x-user-id': 'usr_employer_55' },
+    });
+    expect(employerApplyRes.statusCode).toBe(403);
+  });
 });

@@ -125,12 +125,12 @@ export class JobsService {
     return mapJobRowToRecord(row);
   }
 
-  async updateJob(employerId: string, jobId: string, input: UpdateJobInput): Promise<JobRecord> {
+  async updateJob(employerId: string, jobId: string, input: UpdateJobInput, role?: string): Promise<JobRecord> {
     const existing = await this.jobRepository.findById(jobId);
     if (!existing) {
       throw new NotFoundException('Job not found');
     }
-    if (existing.employer_id !== employerId) {
+    if (role !== 'admin' && existing.employer_id !== employerId) {
       throw new ForbiddenException('Unauthorized to modify this job posting');
     }
 
@@ -153,12 +153,12 @@ export class JobsService {
     return mapJobRowToRecord(updated!);
   }
 
-  async deleteJob(employerId: string, jobId: string): Promise<{ success: boolean }> {
+  async deleteJob(employerId: string, jobId: string, role?: string): Promise<{ success: boolean }> {
     const existing = await this.jobRepository.findById(jobId);
     if (!existing) {
       throw new NotFoundException('Job not found');
     }
-    if (existing.employer_id !== employerId) {
+    if (role !== 'admin' && existing.employer_id !== employerId) {
       throw new ForbiddenException('Unauthorized to delete this job posting');
     }
 
@@ -216,12 +216,12 @@ export class JobsService {
   }
 
   // Employer views applicant list (Hard Invariant #1 check)
-  async getJobApplications(employerId: string, jobId: string): Promise<ApplicationRecord[]> {
+  async getJobApplications(employerId: string, jobId: string, role?: string): Promise<ApplicationRecord[]> {
     const job = await this.jobRepository.findById(jobId);
     if (!job) {
       throw new NotFoundException('Job not found');
     }
-    if (job.employer_id !== employerId) {
+    if (role !== 'admin' && job.employer_id !== employerId) {
       throw new ForbiddenException('Unauthorized to view applications for this job');
     }
 
@@ -255,6 +255,7 @@ export class JobsService {
     employerId: string,
     applicationId: string,
     status: ApplicationStatus,
+    role?: string,
   ): Promise<ApplicationRecord> {
     const appRecord = await this.applicationRepository.findById(applicationId);
     if (!appRecord) {
@@ -262,7 +263,7 @@ export class JobsService {
     }
 
     const job = await this.jobRepository.findById(appRecord.job_id);
-    if (!job || job.employer_id !== employerId) {
+    if (!job || (role !== 'admin' && job.employer_id !== employerId)) {
       throw new ForbiddenException('Unauthorized to modify application status');
     }
 

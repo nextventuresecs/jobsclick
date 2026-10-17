@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import {
   Injectable,
   CanActivate,
@@ -47,8 +48,8 @@ export class JwtAuthGuard implements CanActivate {
   }
 
   private verifyToken(token: string): AuthUser {
-    // 1. Session token pattern: jwt_session_<userId>_<timestamp>
-    if (token.startsWith('jwt_session_')) {
+    // 1. Session token pattern: only permitted in test / dev mode
+    if (this.isTestMode && token.startsWith('jwt_session_')) {
       const parts = token.split('_');
       // jwt_session_<id...>_<timestamp>
       const userId = parts.slice(2, parts.length - 1).join('_');
@@ -57,34 +58,78 @@ export class JwtAuthGuard implements CanActivate {
 
     // 2. JWT structure: header.payload.signature
     const segments = token.split('.');
-    if (segments.length === 3) {
-      try {
-        const payloadJson = Buffer.from(segments[1]!, 'base64url').toString('utf-8');
-        const payload = JSON.parse(payloadJson);
+    if (segments.length !== 3) {
+      throw new UnauthorizedException('Invalid authorization token format');
+    }
 
-        const id = payload.sub || payload.id;
-        if (!id) {
-          throw new UnauthorizedException('Invalid JWT payload: missing sub/id');
-        }
+    const [headerB64, payloadB64, signature] = segments;
+    if (!headerB64 || !payloadB64 || !signature) {
+      throw new UnauthorizedException('Malformed JWT token segments');
+    }
 
-        const role =
-          payload.app_metadata?.role ||
-          payload.role ||
-          (id.includes('employer') ? 'employer' : 'job_seeker');
+    // Cryptographic signature verification with timing-safe comparison
+    const secret =
+      process.env['JWT_SECRET'] ||
+      process.env['SUPABASE_SECRET_KEY'] ||
+      'jobsclick-jwt-secret-key-32-chars-min';
 
-        return {
-          id,
-          role,
-          phone: payload.phone,
-          email: payload.email,
-        };
-      } catch (err) {
-        if (err instanceof UnauthorizedException) throw err;
-        throw new UnauthorizedException('Malformed JWT token');
+    const expectedSig = crypto
+      .createHmac('sha256', secret)
+      .update(`${headerB64}.${payloadB64}`)
+      .digest('base64url');
+
+    const sigBuf = Buffer.from(signature);
+    const expBuf = Buffer.from(expectedSig);
+
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+      throw new UnauthorizedException('Invalid JWT signature');
+    }
+
+    let payload: {
+      sub?: string;
+      id?: string;
+      role?: string;
+      app_metadata?: { role?: string };
+      exp?: number;
+      phone?: string;
+      email?: string | null;
+    };
+
+    try {
+      const payloadJson = Buffer.from(payloadB64, 'base64url').toString('utf-8');
+      payload = JSON.parse(payloadJson);
+    } catch {
+      throw new UnauthorizedException('Malformed JWT token payload');
+    }
+
+    // Expiration check
+    if (typeof payload.exp === 'number') {
+      const nowSec = Math.floor(Date.now() / 1000);
+      if (nowSec > payload.exp) {
+        throw new UnauthorizedException('JWT token has expired');
       }
     }
 
-    throw new UnauthorizedException('Invalid authorization token format');
+    const id = payload.sub || payload.id;
+    if (!id || typeof id !== 'string') {
+      throw new UnauthorizedException('Invalid JWT payload: missing sub/id');
+    }
+
+    const role =
+      payload.app_metadata?.role ||
+      payload.role ||
+      (this.isTestMode ? (id.includes('employer') ? 'employer' : 'job_seeker') : null);
+
+    if (!role || typeof role !== 'string') {
+      throw new UnauthorizedException('Invalid JWT payload: missing role');
+    }
+
+    return {
+      id,
+      role: role as AuthUser['role'],
+      phone: payload.phone,
+      email: payload.email,
+    };
   }
 
   private buildTestUser(userId: string): AuthUser {
