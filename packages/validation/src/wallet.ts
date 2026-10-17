@@ -193,6 +193,8 @@ export const sponsorshipQuoteSchema = z.object({
 export const activateSponsorshipSchema = z.object({
   paymentReference: z.string().optional(),
   studentCountOverride: z.number().int().positive().optional(),
+  idempotencyKey: z.string().optional(),
+  force: z.boolean().optional(),
 });
 
 export type SponsorshipTier = z.infer<typeof sponsorshipTierSchema>;

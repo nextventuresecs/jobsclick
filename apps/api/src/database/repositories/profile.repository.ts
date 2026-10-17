@@ -5,6 +5,7 @@ import type {
   JobSeekerProfileRow,
   BusinessProfileRow,
   InstitutionProfileRow,
+  InstitutionSponsorshipRow,
 } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
 
@@ -233,5 +234,76 @@ export class ProfileRepository {
     }
 
     return profile;
+  }
+
+  // ==========================================
+  // Concurrency & Sponsorship Persistence (WAL-05)
+  // ==========================================
+  async withLock<T>(institutionId: string, fn: () => Promise<T>): Promise<T> {
+    return this.persistentStore.withLock(institutionId, fn);
+  }
+
+  async saveSponsorship(record: InstitutionSponsorshipRow): Promise<InstitutionSponsorshipRow> {
+    this.persistentStore.setRow('institution_sponsorships', record.id, record);
+
+    if (!this.isTestMode) {
+      try {
+        await this.supabase.from('institution_sponsorships').upsert(record);
+      } catch {
+        // Persisted locally
+      }
+    }
+
+    return record;
+  }
+
+  async findSponsorshipsByInstitutionId(institutionId: string): Promise<InstitutionSponsorshipRow[]> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await this.supabase
+          .from('institution_sponsorships')
+          .select('*')
+          .eq('institution_id', institutionId)
+          .order('created_at', { ascending: false });
+
+        if (!error && data) return data as unknown as InstitutionSponsorshipRow[];
+      } catch {
+        // Fallback
+      }
+    }
+
+    const table = this.persistentStore.getTable<InstitutionSponsorshipRow>('institution_sponsorships');
+    return Object.values(table)
+      .filter((s) => s.institution_id === institutionId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }
+
+  async findActiveSponsorshipByInstitutionId(institutionId: string): Promise<InstitutionSponsorshipRow | null> {
+    const list = await this.findSponsorshipsByInstitutionId(institutionId);
+    const now = new Date().getTime();
+    return (
+      list.find(
+        (s) => s.status === 'active' && new Date(s.expires_at).getTime() > now,
+      ) || null
+    );
+  }
+
+  async findSponsorshipByIdempotencyKey(key: string): Promise<InstitutionSponsorshipRow | null> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await this.supabase
+          .from('institution_sponsorships')
+          .select('*')
+          .eq('idempotency_key', key)
+          .maybeSingle();
+
+        if (!error && data) return data as unknown as InstitutionSponsorshipRow;
+      } catch {
+        // Fallback
+      }
+    }
+
+    const table = this.persistentStore.getTable<InstitutionSponsorshipRow>('institution_sponsorships');
+    return Object.values(table).find((s) => s.idempotency_key === key) || null;
   }
 }

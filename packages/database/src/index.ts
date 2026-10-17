@@ -244,6 +244,22 @@ export interface Database {
         created_at: string;
         updated_at: string;
       }>;
+      institution_sponsorships: TableDefinition<{
+        id: string;
+        institution_id: string;
+        tier: string;
+        rate_per_student: number;
+        annual_fee: number;
+        student_count: number;
+        status: string;
+        payment_reference: string | null;
+        idempotency_key: string | null;
+        started_at: string;
+        expires_at: string;
+        created_by: string | null;
+        created_at: string;
+        updated_at: string;
+      }>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -264,3 +280,4 @@ export type InviteWaveRow = Database['public']['Tables']['invite_waves']['Row'];
 export type CreditLedgerRow = Database['public']['Tables']['credit_ledgers']['Row'];
 export type PaymentRow = Database['public']['Tables']['payments']['Row'];
 export type InstitutionInquiryRow = Database['public']['Tables']['institution_inquiries']['Row'];
+export type InstitutionSponsorshipRow = Database['public']['Tables']['institution_sponsorships']['Row'];
