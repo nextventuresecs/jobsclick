@@ -194,6 +194,14 @@ export interface Database {
         started_at: string | null;
         completed_at: string | null;
       }>;
+      credit_ledgers: TableDefinition<{
+        id: string;
+        user_id: string;
+        amount: number;
+        reason: string;
+        actor_id: string | null;
+        created_at: string;
+      }>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -211,3 +219,4 @@ export type ApplicationRow = Database['public']['Tables']['applications']['Row']
 export type AuditLogRow = Database['public']['Tables']['audit_logs']['Row'];
 export type BulkImportBatchRow = Database['public']['Tables']['bulk_import_batches']['Row'];
 export type InviteWaveRow = Database['public']['Tables']['invite_waves']['Row'];
+export type CreditLedgerRow = Database['public']['Tables']['credit_ledgers']['Row'];
