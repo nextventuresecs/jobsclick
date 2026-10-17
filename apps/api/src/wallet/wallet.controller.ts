@@ -4,21 +4,30 @@ import {
   Post,
   Put,
   Body,
+  Param,
+  Header,
   UsePipes,
   UseGuards,
   Inject,
+  BadRequestException,
 } from '@nestjs/common';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { WalletService } from './wallet.service.js';
+import { PaymentService } from './payment.service.js';
 import {
   grantCreditSchema,
   unlockContactSchema,
   featureJobSchema,
   configureCostSchema,
+  createPaymentOrderSchema,
+  verifyPaymentSchema,
+  CREDIT_PACKS,
   type GrantCreditInput,
   type UnlockContactInput,
   type FeatureJobInput,
   type ConfigureCostInput,
+  type CreatePaymentOrderInput,
+  type VerifyPaymentInput,
 } from '@indian-job-portal/validation';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard.js';
@@ -28,9 +37,18 @@ import { CurrentUser, type AuthUser } from '../auth/decorators/current-user.deco
 @UseGuards(JwtAuthGuard, RolesGuard)
 @UsePipes(ZodValidationPipe)
 export class WalletController {
-  constructor(@Inject(WalletService) private readonly walletService: WalletService) {}
+  constructor(
+    @Inject(WalletService) private readonly walletService: WalletService,
+    @Inject(PaymentService) private readonly paymentService: PaymentService,
+  ) {}
 
-  // Current user views their dynamically calculated balance
+  // List available pre-configured credit packs
+  @Get('packs')
+  async getCreditPacks() {
+    return Object.values(CREDIT_PACKS);
+  }
+
+  // Current user views their dynamically calculated balance (WAL-01, Hard Invariant #7)
   @Get('balance')
   async getBalance(@CurrentUser() user: AuthUser) {
     return this.walletService.getBalance(user.id);
@@ -40,6 +58,65 @@ export class WalletController {
   @Get('transactions')
   async getTransactions(@CurrentUser() user: AuthUser) {
     return this.walletService.getLedger(user.id);
+  }
+
+  // Create Razorpay recharge order (WAL-03)
+  @Post('recharge/create-order')
+  async createRechargeOrder(
+    @CurrentUser() user: AuthUser,
+    @Body() body: CreatePaymentOrderInput,
+  ) {
+    const validated = createPaymentOrderSchema.parse(body);
+    return this.paymentService.createOrder(user.id, validated);
+  }
+
+  // Verify and capture direct client checkout payment (WAL-03)
+  @Post('recharge/verify')
+  async verifyPayment(
+    @CurrentUser() user: AuthUser,
+    @Body() body: VerifyPaymentInput,
+  ) {
+    const validated = verifyPaymentSchema.parse(body);
+
+    const isValid = this.paymentService.verifyClientPaymentSignature(
+      validated.razorpayOrderId,
+      validated.razorpayPaymentId,
+      validated.razorpaySignature,
+    );
+
+    if (!isValid) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: 'INVALID_SIGNATURE',
+        message: 'Invalid payment signature from Razorpay checkout',
+      });
+    }
+
+    return this.paymentService.processPaymentSuccess(
+      validated.razorpayOrderId,
+      validated.razorpayPaymentId,
+      validated.razorpaySignature,
+      { verifiedBy: 'client_checkout', verifiedByUserId: user.id },
+    );
+  }
+
+  // Download / view structured GST Tax Invoice for successful payment (WAL-03)
+  @Get('invoice/:paymentId')
+  async getInvoice(
+    @CurrentUser() user: AuthUser,
+    @Param('paymentId') paymentId: string,
+  ) {
+    return this.paymentService.getInvoice(paymentId, user.id, user.role === 'admin');
+  }
+
+  // Render downloadable HTML GST Tax Invoice
+  @Get('invoice/:paymentId/html')
+  @Header('Content-Type', 'text/html')
+  async getInvoiceHtml(
+    @CurrentUser() user: AuthUser,
+    @Param('paymentId') paymentId: string,
+  ) {
+    return this.paymentService.getInvoiceHtml(paymentId, user.id, user.role === 'admin');
   }
 
   // Admin or platform grants credits

@@ -202,6 +202,23 @@ export interface Database {
         actor_id: string | null;
         created_at: string;
       }>;
+      payments: TableDefinition<{
+        id: string;
+        user_id: string;
+        gateway_order_id: string;
+        gateway_payment_id?: string | null;
+        gateway_signature?: string | null;
+        pack_id?: string | null;
+        credits_added?: number;
+        amount_inr: number;
+        tax_amount_inr?: number;
+        currency?: string;
+        invoice_number?: string | null;
+        status: 'created' | 'pending' | 'captured' | 'failed' | string;
+        metadata?: Record<string, unknown> | null;
+        created_at: string;
+        updated_at?: string;
+      }>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -220,3 +237,4 @@ export type AuditLogRow = Database['public']['Tables']['audit_logs']['Row'];
 export type BulkImportBatchRow = Database['public']['Tables']['bulk_import_batches']['Row'];
 export type InviteWaveRow = Database['public']['Tables']['invite_waves']['Row'];
 export type CreditLedgerRow = Database['public']['Tables']['credit_ledgers']['Row'];
+export type PaymentRow = Database['public']['Tables']['payments']['Row'];

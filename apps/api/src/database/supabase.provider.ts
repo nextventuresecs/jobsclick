@@ -14,6 +14,7 @@ export interface DatabasePersistenceState {
   applications: Record<string, unknown>;
   audit_logs: Record<string, unknown>;
   credit_ledgers: Record<string, unknown>;
+  payments: Record<string, unknown>;
 }
 
 export class PersistentDatabaseStore {
@@ -28,6 +29,7 @@ export class PersistentDatabaseStore {
     applications: {},
     audit_logs: {},
     credit_ledgers: {},
+    payments: {},
   };
 
   private constructor() {
@@ -64,6 +66,7 @@ export class PersistentDatabaseStore {
           applications: parsed.applications || {},
           audit_logs: parsed.audit_logs || {},
           credit_ledgers: parsed.credit_ledgers || {},
+          payments: parsed.payments || {},
         };
       }
     } catch {

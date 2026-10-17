@@ -41,6 +41,100 @@ export const creditLedgerEntrySchema = z.object({
   created_at: z.string(),
 });
 
+// Pre-defined credit packs with 18% GST calculation
+export interface CreditPackDefinition {
+  id: string;
+  name: string;
+  nameHi: string;
+  credits: number;
+  priceInr: number; // Base price before GST
+  gstRate: number; // 0.18
+  gstAmountInr: number;
+  totalAmountInr: number;
+  popular?: boolean;
+}
+
+export const CREDIT_PACKS: Record<string, CreditPackDefinition> = {
+  pack_starter: {
+    id: 'pack_starter',
+    name: 'Starter Pack',
+    nameHi: 'स्टार्टर पैक',
+    credits: 50,
+    priceInr: 500,
+    gstRate: 0.18,
+    gstAmountInr: 90,
+    totalAmountInr: 590,
+  },
+  pack_growth: {
+    id: 'pack_growth',
+    name: 'Growth Pack',
+    nameHi: 'ग्रोथ पैक',
+    credits: 200,
+    priceInr: 1800,
+    gstRate: 0.18,
+    gstAmountInr: 324,
+    totalAmountInr: 2124,
+    popular: true,
+  },
+  pack_enterprise: {
+    id: 'pack_enterprise',
+    name: 'Enterprise Pack',
+    nameHi: 'एंटरप्राइज पैक',
+    credits: 500,
+    priceInr: 4000,
+    gstRate: 0.18,
+    gstAmountInr: 720,
+    totalAmountInr: 4720,
+  },
+};
+
+export const createPaymentOrderSchema = z.object({
+  packId: z.string().min(1, 'Credit pack ID is required'),
+  billingName: z.string().optional(),
+  billingEmail: z.string().email('Invalid email address').optional(),
+  billingPhone: z.string().optional(),
+  billingAddress: z.string().optional(),
+  billingGstin: z
+    .string()
+    .regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, 'Invalid GSTIN format')
+    .optional()
+    .or(z.literal('')),
+});
+
+export const verifyPaymentSchema = z.object({
+  razorpayOrderId: z.string().min(1, 'Razorpay order ID is required'),
+  razorpayPaymentId: z.string().min(1, 'Razorpay payment ID is required'),
+  razorpaySignature: z.string().min(1, 'Razorpay signature is required'),
+});
+
+export const razorpayWebhookEventSchema = z.object({
+  event: z.string(),
+  entity: z.string().optional(),
+  contains: z.array(z.string()).optional(),
+  payload: z.record(z.any()),
+  created_at: z.number().optional(),
+});
+
+export const invoiceResponseSchema = z.object({
+  invoiceNumber: z.string(),
+  paymentId: z.string(),
+  orderId: z.string(),
+  date: z.string(),
+  hsnCode: z.string(),
+  packId: z.string().optional(),
+  packName: z.string(),
+  credits: z.number().int(),
+  baseAmountInr: z.number(),
+  gstRate: z.number(),
+  cgstInr: z.number(),
+  sgstInr: z.number(),
+  igstInr: z.number(),
+  totalAmountInr: z.number(),
+  customerName: z.string(),
+  customerGstin: z.string().nullable(),
+  status: z.string(),
+});
+
 export type GrantCreditInput = z.infer<typeof grantCreditSchema>;
 export type DeductCreditInput = z.infer<typeof deductCreditSchema>;
 export type UnlockContactInput = z.infer<typeof unlockContactSchema>;
@@ -48,3 +142,7 @@ export type FeatureJobInput = z.infer<typeof featureJobSchema>;
 export type ConfigureCostInput = z.infer<typeof configureCostSchema>;
 export type CreditBalanceResponse = z.infer<typeof creditBalanceResponseSchema>;
 export type CreditLedgerEntry = z.infer<typeof creditLedgerEntrySchema>;
+export type CreatePaymentOrderInput = z.infer<typeof createPaymentOrderSchema>;
+export type VerifyPaymentInput = z.infer<typeof verifyPaymentSchema>;
+export type RazorpayWebhookEvent = z.infer<typeof razorpayWebhookEventSchema>;
+export type InvoiceResponse = z.infer<typeof invoiceResponseSchema>;
