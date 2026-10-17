@@ -4,6 +4,9 @@ import {
   UpdateJobInput,
   JobFilterInput,
   ApplicationStatus,
+  IndustryCategory,
+  EmploymentType,
+  ExperienceLevel,
 } from '@indian-job-portal/validation';
 import { JobRepository } from '../database/repositories/job.repository.js';
 import { ApplicationRepository } from '../database/repositories/application.repository.js';
@@ -42,9 +45,9 @@ function mapJobRowToRecord(row: JobRow): JobRecord {
     employerId: row.employer_id,
     title: row.title,
     description: row.description,
-    category: row.category as any,
-    employmentType: row.employment_type as any,
-    experienceLevel: row.experience_level as any,
+    category: row.category as IndustryCategory,
+    employmentType: row.employment_type as EmploymentType,
+    experienceLevel: row.experience_level as ExperienceLevel,
     minPay: row.min_pay ?? 0,
     maxPay: row.max_pay ?? 0,
     city: row.city,
@@ -282,5 +285,32 @@ export class JobsService {
         // Hard Invariant #1: Phone & email explicitly excluded!
       },
     };
+  }
+
+  async getMyApplications(applicantId: string): Promise<ApplicationRecord[]> {
+    const appRows = await this.applicationRepository.findByApplicantId(applicantId);
+    const records: ApplicationRecord[] = [];
+
+    for (const app of appRows) {
+      const seekerProfile = await this.profileRepository.findSeekerProfileByUserId(app.applicant_id);
+      records.push({
+        id: app.id,
+        jobId: app.job_id,
+        applicantId: app.applicant_id,
+        status: app.status as ApplicationStatus,
+        source: app.source,
+        createdAt: app.created_at,
+        applicantProfile: {
+          seekerId: seekerProfile?.id || `seeker_${app.applicant_id}`,
+          fullName: seekerProfile?.full_name || 'Applicant',
+          seekerType: seekerProfile?.seeker_type || 'individual',
+          city: seekerProfile?.city || '',
+          skills: seekerProfile?.skills || [],
+          // Hard Invariant #1: Phone & email explicitly excluded!
+        },
+      });
+    }
+
+    return records;
   }
 }

@@ -46,6 +46,11 @@ export class JobsController {
     return this.jobsService.getJobs(validated);
   }
 
+  @Get('applications/my')
+  async getMyApplications(@CurrentUser() user: AuthUser) {
+    return this.jobsService.getMyApplications(user.id);
+  }
+
   @Public()
   @Get(':id')
   async getJobById(@Param('id') id: string) {

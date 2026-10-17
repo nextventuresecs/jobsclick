@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useApp } from '../../context/AppContext';
 import {
   INITIAL_STUDENTS,
@@ -73,6 +74,7 @@ function parseCsvLine(line: string): string[] {
 }
 
 export function InstitutionWorkspace() {
+  const t = useTranslations('InstitutionWorkspace');
   const { addToast } = useApp();
   const [activeTab, setActiveTab] = useState<'overview' | 'profile' | 'students' | 'bulk-import' | 'invitations' | 'qr-code'>('overview');
 
@@ -496,9 +498,9 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
             <p className="text-xs text-gray-500 mt-1 flex items-center gap-2">
               <span>{institution.city}, {institution.state}</span>
               <span>•</span>
-              <span>TPO: {institution.contactPerson} ({institution.contactDesignation})</span>
+              <span>{t('tpo')} {institution.contactPerson} ({institution.contactDesignation})</span>
               <span>•</span>
-              <span className="font-semibold text-teal-700">Capacity: {institution.annualCapacity} Students/Yr</span>
+              <span className="font-semibold text-teal-700">{t('capacityPrefix')} {institution.annualCapacity} {t('studentsPerYr')}</span>
             </p>
           </div>
         </div>
@@ -510,7 +512,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
           >
             <ExternalLink className="w-3.5 h-3.5 text-gray-500" />
-            <span>Public Profile</span>
+            <span>{t('viewPublicProfile')}</span>
           </Link>
 
           <Button
@@ -521,7 +523,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
             className="inline-flex items-center gap-1.5"
           >
             <QrCode className="w-4 h-4 text-brand-orange" />
-            <span>Campus QR</span>
+            <span>{t('campusQr')}</span>
           </Button>
 
           <Button
@@ -535,7 +537,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
             className="inline-flex items-center gap-1.5"
           >
             <Edit3 className="w-4 h-4" />
-            <span>Edit Profile</span>
+            <span>{t('editProfile')}</span>
           </Button>
 
           <Button
@@ -549,7 +551,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
             className="inline-flex items-center gap-1.5"
           >
             <Upload className="w-4 h-4" />
-            <span>Bulk Student Onboarding</span>
+            <span>{t('bulkStudentOnboarding')}</span>
           </Button>
         </div>
       </div>
@@ -560,9 +562,9 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
           <div className="flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
             <div>
-              <p className="text-xs font-bold">Institutional Profile & Accreditation Incomplete</p>
+              <p className="text-xs font-bold">{t('alertIncompleteTitle')}</p>
               <p className="text-[11px] text-amber-800 mt-0.5">
-                Complete your campus affiliation, accreditation codes, and placement officer credentials before releasing student rosters to employers.
+                {t('alertIncompleteDesc')}
               </p>
             </div>
           </div>
@@ -576,7 +578,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
             }}
             className="shrink-0"
           >
-            Complete Institutional Profile Now
+            {t('btnCompleteProfileNow')}
           </Button>
         </div>
       )}
@@ -584,12 +586,12 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
       {/* Navigation Tabs */}
       <div className="flex border-b border-gray-200 overflow-x-auto gap-2">
         {([
-          { id: 'overview', label: 'Placement Cell Overview', icon: GraduationCap },
-          { id: 'profile', label: 'Institutional Profile & KYC', icon: Award },
-          { id: 'students', label: `Student Roster (${students.length})`, icon: Users },
-          { id: 'bulk-import', label: 'Bulk Student CSV Engine (BULK-01 to 03)', icon: FileSpreadsheet },
-          { id: 'invitations', label: 'Invite Batches & Costs', icon: Send },
-          { id: 'qr-code', label: 'Campus QR & Share', icon: QrCode },
+          { id: 'overview', label: t('tabOverview'), icon: GraduationCap },
+          { id: 'profile', label: t('tabProfile'), icon: Award },
+          { id: 'students', label: `${t('tabStudents')} (${students.length})`, icon: Users },
+          { id: 'bulk-import', label: t('tabBulkImport'), icon: FileSpreadsheet },
+          { id: 'invitations', label: t('tabInvitations'), icon: Send },
+          { id: 'qr-code', label: t('tabQrCode'), icon: QrCode },
         ] as const).map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -618,31 +620,31 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs">
-              <span className="text-xs font-semibold text-gray-500">Enrolled Students</span>
+              <span className="text-xs font-semibold text-gray-500">{t('enrolledStudents')}</span>
               <p className="text-2xl font-bold text-gray-900 mt-1">{students.length}</p>
-              <p className="text-[11px] text-gray-500 mt-1">Across vocational trades</p>
+              <p className="text-[11px] text-gray-500 mt-1">{t('acrossTrades')}</p>
             </div>
             <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs">
-              <span className="text-xs font-semibold text-gray-500">Profiles Active</span>
+              <span className="text-xs font-semibold text-gray-500">{t('profilesActive')}</span>
               <p className="text-2xl font-bold text-teal-600 mt-1">
                 {students.filter((s) => s.profileCompleted).length}
               </p>
-              <p className="text-[11px] text-gray-500 mt-1">Ready for MSME dispatch</p>
+              <p className="text-[11px] text-gray-500 mt-1">{t('readyForMsme')}</p>
             </div>
             <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs">
-              <span className="text-xs font-semibold text-gray-500">Job Placements</span>
+              <span className="text-xs font-semibold text-gray-500">{t('jobPlacements')}</span>
               <p className="text-2xl font-bold text-emerald-600 mt-1">
                 {students.filter((s) => s.placementStatus === 'Placed').length}
               </p>
-              <p className="text-[11px] text-gray-500 mt-1">Placed in verified enterprises</p>
+              <p className="text-[11px] text-gray-500 mt-1">{t('placedInEnterprises')}</p>
             </div>
             <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs">
-              <span className="text-xs font-semibold text-gray-500">Hard Invariant #2</span>
+              <span className="text-xs font-semibold text-gray-500">{t('hardInvariant2')}</span>
               <div className="flex items-center gap-1.5 mt-2 text-emerald-700 font-semibold text-xs">
                 <ShieldCheck className="w-4 h-4" />
-                <span>Zero SMS at Import</span>
+                <span>{t('zeroSmsAtImport')}</span>
               </div>
-              <p className="text-[11px] text-gray-500 mt-1">Invited state enforced</p>
+              <p className="text-[11px] text-gray-500 mt-1">{t('invitedStateEnforced')}</p>
             </div>
           </div>
 
@@ -743,6 +745,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
       )}
 
       {/* ================================================================ */}
+      {/* ================================================================ */}
       {/* TAB 2: INSTITUTION PROFILE & ONBOARDING KYC (INT-01) */}
       {/* ================================================================ */}
       {activeTab === 'profile' && (
@@ -752,8 +755,8 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-base font-bold text-gray-900">Institutional Accreditation Dossier</h2>
-                  <p className="text-xs text-gray-500">Official technical education affiliation and placement cell credentials.</p>
+                  <h2 className="text-base font-bold text-gray-900">{t('profileHeading')}</h2>
+                  <p className="text-xs text-gray-500">{t('profileSubheading')}</p>
                 </div>
                 <Button
                   type="button"
@@ -763,7 +766,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                   className="inline-flex items-center gap-1.5"
                 >
                   <Edit3 className="w-4 h-4" />
-                  <span>Edit Institutional Profile</span>
+                  <span>{t('editProfile')}</span>
                 </Button>
               </div>
 
@@ -775,28 +778,28 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                   <div>
-                    <span className="text-gray-500">Institution Name</span>
+                    <span className="text-gray-500">{t('labelInstName')}</span>
                     <p className="font-bold text-gray-900 mt-0.5 text-sm">{institution.institutionName}</p>
                   </div>
                   <div>
-                    <span className="text-gray-500">Institution Category</span>
+                    <span className="text-gray-500">{t('labelInstType')}</span>
                     <p className="font-bold text-gray-900 mt-0.5 uppercase tracking-wide">{institution.institutionType}</p>
                   </div>
                   <div>
-                    <span className="text-gray-500">Affiliation Body</span>
+                    <span className="text-gray-500">{t('labelAffiliation')}</span>
                     <p className="font-bold text-teal-700 mt-0.5">{institution.affiliation}</p>
                   </div>
                   <div>
-                    <span className="text-gray-500">AISHE / NCVT Mis Code</span>
+                    <span className="text-gray-500">{t('labelAffiliationCode')}</span>
                     <p className="font-mono font-bold text-gray-900 mt-0.5">{institution.affiliationCode}</p>
                   </div>
                   <div>
-                    <span className="text-gray-500">Establishment Year</span>
+                    <span className="text-gray-500">{t('labelEstYear')}</span>
                     <p className="font-mono text-gray-900 mt-0.5">{institution.establishmentYear}</p>
                   </div>
                   <div>
-                    <span className="text-gray-500">Principal / Director Name</span>
-                    <p className="font-bold text-gray-900 mt-0.5">{institution.principalName || 'Not Specified'}</p>
+                    <span className="text-gray-500">{t('labelPrincipal')}</span>
+                    <p className="font-bold text-gray-900 mt-0.5">{institution.principalName || '—'}</p>
                   </div>
                 </div>
               </div>
@@ -809,19 +812,19 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                   <div>
-                    <span className="text-gray-500">Placement Officer (TPO)</span>
+                    <span className="text-gray-500">{t('labelContactPerson')}</span>
                     <p className="font-bold text-gray-900 mt-0.5 text-sm">{institution.contactPerson}</p>
                   </div>
                   <div>
-                    <span className="text-gray-500">Designation</span>
+                    <span className="text-gray-500">{t('labelContactDesignation')}</span>
                     <p className="font-bold text-gray-900 mt-0.5">{institution.contactDesignation}</p>
                   </div>
                   <div>
-                    <span className="text-gray-500">Official Placement Email</span>
+                    <span className="text-gray-500">{t('labelContactEmail')}</span>
                     <p className="font-mono text-gray-900 mt-0.5">{institution.contactEmail}</p>
                   </div>
                   <div>
-                    <span className="text-gray-500">Direct Contact Phone</span>
+                    <span className="text-gray-500">{t('labelContactPhone')}</span>
                     <p className="font-mono text-gray-900 mt-0.5">{institution.contactPhone}</p>
                   </div>
                   <div>
@@ -883,8 +886,8 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                     <p className="font-bold text-gray-900 mt-0.5">{institution.state} - {institution.pincode}</p>
                   </div>
                   <div>
-                    <span className="text-gray-500">Annual Student Capacity</span>
-                    <p className="font-bold text-gray-900 mt-0.5">{institution.annualCapacity} Students / Year</p>
+                    <span className="text-gray-500">{t('labelAnnualCapacity')}</span>
+                    <p className="font-bold text-gray-900 mt-0.5">{institution.annualCapacity} {t('studentsPerYr')}</p>
                   </div>
                 </div>
               </div>
@@ -893,7 +896,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
               <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-xs space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-teal-700 border-b border-gray-100 pb-2 flex items-center gap-1.5">
                   <BookOpen className="w-4 h-4 text-teal-600" />
-                  <span>4. Vocational Trades & Academic Specializations</span>
+                  <span>{t('labelTradesOffered')}</span>
                 </h3>
                 <div className="space-y-3">
                   <div className="flex flex-wrap gap-2">
@@ -908,7 +911,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                   </div>
 
                   <div className="pt-2 text-xs">
-                    <span className="text-gray-500 font-semibold">About Institutional Placement Vision:</span>
+                    <span className="text-gray-500 font-semibold">{t('labelAbout')}:</span>
                     <p className="text-gray-700 mt-1 leading-relaxed">{institution.about}</p>
                   </div>
                 </div>
@@ -919,8 +922,8 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
             <form onSubmit={handleSaveProfile} className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-200 shadow-xs space-y-6">
               <div className="flex items-center justify-between pb-4 border-b border-gray-200">
                 <div>
-                  <h2 className="text-base font-bold text-gray-900">Edit Institutional Profile & Placement Cell KYC</h2>
-                  <p className="text-xs text-gray-500">All fields verified as per technical education guidelines.</p>
+                  <h2 className="text-base font-bold text-gray-900">{t('profileHeading')}</h2>
+                  <p className="text-xs text-gray-500">{t('profileSubheading')}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -928,11 +931,11 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                     onClick={() => setIsEditingProfile(false)}
                     className="px-3 py-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 rounded-lg border border-gray-300"
                   >
-                    Cancel
+                    {t('cancel')}
                   </button>
                   <Button type="submit" variant="primary" size="sm" className="inline-flex items-center gap-1.5">
                     <Save className="w-4 h-4" />
-                    <span>Save Institutional Profile</span>
+                    <span>{t('saveInstituteProfile')}</span>
                   </Button>
                 </div>
               </div>
@@ -945,7 +948,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Institution Full Name <span className="text-red-500">*</span>
+                      {t('labelInstName')} <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -959,7 +962,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
 
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Institution Type <span className="text-red-500">*</span>
+                      {t('labelInstType')} <span className="text-red-500">*</span>
                     </label>
                     <select
                       value={formInstType}
@@ -978,7 +981,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
 
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Affiliation Body <span className="text-red-500">*</span>
+                      {t('labelAffiliation')} <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -992,7 +995,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
 
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      AISHE / NCVT Registration Code
+                      {t('labelAffiliationCode')}
                     </label>
                     <input
                       type="text"
@@ -1005,7 +1008,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
 
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Year of Establishment
+                      {t('labelEstYear')}
                     </label>
                     <input
                       type="number"
@@ -1018,7 +1021,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
 
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Principal / Director Name
+                      {t('labelPrincipal')}
                     </label>
                     <input
                       type="text"
@@ -1065,7 +1068,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      TPO Officer Name <span className="text-red-500">*</span>
+                      {t('labelContactPerson')} <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -1079,7 +1082,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
 
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Official Designation
+                      {t('labelContactDesignation')}
                     </label>
                     <input
                       type="text"
@@ -1092,7 +1095,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
 
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Official TPO Email
+                      {t('labelContactEmail')}
                     </label>
                     <input
                       type="email"
@@ -1105,7 +1108,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
 
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Direct Contact Phone / WhatsApp
+                      {t('labelContactPhone')}
                     </label>
                     <input
                       type="tel"
@@ -1201,7 +1204,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Trades & Specializations Offered (Comma Separated)
+                      {t('labelTradesOffered')}
                     </label>
                     <input
                       type="text"
@@ -1214,7 +1217,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
 
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Annual Student Intake Capacity
+                      {t('labelAnnualCapacity')}
                     </label>
                     <input
                       type="number"
@@ -1227,7 +1230,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
 
                   <div className="sm:col-span-3">
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      About Institutional Placement Vision & Industrial Linkages
+                      {t('labelAbout')}
                     </label>
                     <textarea
                       rows={3}
@@ -1247,11 +1250,11 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                   onClick={() => setIsEditingProfile(false)}
                   className="px-4 py-2.5 rounded-xl border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50"
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
                 <Button type="submit" variant="primary" size="md" className="inline-flex items-center gap-1.5 font-semibold">
                   <Save className="w-4 h-4" />
-                  <span>Save Institutional Profile</span>
+                  <span>{t('saveInstituteProfile')}</span>
                 </Button>
               </div>
             </form>
@@ -1260,15 +1263,16 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
       )}
 
       {/* ================================================================ */}
+      {/* ================================================================ */}
       {/* TAB 3: STUDENT ROSTER (INT-04) */}
       {/* ================================================================ */}
       {activeTab === 'students' && (
         <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-gray-100 gap-4">
             <div>
-              <h2 className="text-base font-bold text-gray-900">Institutional Student Roster ({students.length})</h2>
+              <h2 className="text-base font-bold text-gray-900">{t('studentsHeading')} ({students.length})</h2>
               <p className="text-xs text-gray-500 mt-0.5">
-                Students tracked under institutional placement programs.
+                {t('studentsSubheading')}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -1280,7 +1284,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                 className="inline-flex items-center gap-1.5"
               >
                 <PlusCircle className="w-4 h-4" />
-                <span>{isAddingStudent ? 'Close Form' : 'Add Single Student'}</span>
+                <span>{isAddingStudent ? t('cancel') : t('btnAddStudent')}</span>
               </Button>
               <Button
                 type="button"
@@ -1293,7 +1297,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                 className="inline-flex items-center gap-1.5"
               >
                 <Upload className="w-4 h-4" />
-                <span>Upload Batch CSV</span>
+                <span>{t('btnBulkUploadCsv')}</span>
               </Button>
             </div>
           </div>
@@ -1303,14 +1307,14 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
             <form onSubmit={handleQuickAddStudent} className="p-5 rounded-xl bg-teal-50/50 border border-teal-200 space-y-4 animate-in fade-in">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-teal-800">
-                  Quick Register Single Student (Enrolls in Invited State)
+                  {t('btnAddStudent')}
                 </h3>
-                <span className="text-[11px] text-teal-700 font-medium">Hard Invariant #2 Enforced: Zero SMS sent</span>
+                <span className="text-[11px] text-teal-700 font-medium">{t('inv2BannerTitle')}</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 text-xs">
                 <div>
-                  <label className="block font-semibold text-gray-700 mb-1">Student Full Name *</label>
+                  <label className="block font-semibold text-gray-700 mb-1">{t('colStudentName')} *</label>
                   <input
                     type="text"
                     value={quickStudentName}
@@ -1322,7 +1326,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-gray-700 mb-1">Roll / Enrolment No. *</label>
+                  <label className="block font-semibold text-gray-700 mb-1">{t('colRollNumber')} *</label>
                   <input
                     type="text"
                     value={quickRollNumber}
@@ -1334,7 +1338,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-gray-700 mb-1">10-Digit Mobile *</label>
+                  <label className="block font-semibold text-gray-700 mb-1">{t('colPhone')} *</label>
                   <input
                     type="tel"
                     maxLength={10}
@@ -1347,7 +1351,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-gray-700 mb-1">Vocational Stream / Trade</label>
+                  <label className="block font-semibold text-gray-700 mb-1">{t('colStream')}</label>
                   <input
                     type="text"
                     value={quickStream}
@@ -1358,7 +1362,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-gray-700 mb-1">Batch Year</label>
+                  <label className="block font-semibold text-gray-700 mb-1">{t('colPassingYear')}</label>
                   <input
                     type="text"
                     value={quickPassingYear}
@@ -1375,10 +1379,10 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                   onClick={() => setIsAddingStudent(false)}
                   className="px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-100"
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
                 <Button type="submit" variant="primary" size="sm">
-                  Register in Invited State
+                  {t('saveStudent')}
                 </Button>
               </div>
             </form>
@@ -1392,7 +1396,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                 type="text"
                 value={studentSearch}
                 onChange={(e) => setStudentSearch(e.target.value)}
-                placeholder="Search by student name or roll number..."
+                placeholder={t('searchStudentPlaceholder')}
                 className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-gray-300 focus:ring-2 focus:ring-teal-500 focus:outline-hidden"
               />
             </div>
@@ -1402,7 +1406,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
               onChange={(e) => setStreamFilter(e.target.value)}
               className="px-3 py-2 text-xs rounded-xl border border-gray-300 focus:ring-2 focus:ring-teal-500 bg-white"
             >
-              <option value="all">All Vocational Streams</option>
+              <option value="all">{t('filterAllStreams')}</option>
               <option value="mechanical">Mechanical & Automobile</option>
               <option value="electrical">Electrical & Electronics</option>
               <option value="machinist">Machinist & Fitter</option>
@@ -1415,7 +1419,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
               onChange={(e) => setStatusFilter(e.target.value)}
               className="px-3 py-2 text-xs rounded-xl border border-gray-300 focus:ring-2 focus:ring-teal-500 bg-white"
             >
-              <option value="all">All Placement Statuses</option>
+              <option value="all">{t('filterAllStatuses')}</option>
               <option value="Available">Available for Placement</option>
               <option value="Placed">Placed</option>
               <option value="In Process">Interview in Process</option>
@@ -1499,24 +1503,25 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
       )}
 
       {/* ================================================================ */}
+      {/* ================================================================ */}
       {/* TAB 4: BULK CSV IMPORT ENGINE (BULK-01 to BULK-03) */}
       {/* ================================================================ */}
       {activeTab === 'bulk-import' && (
         <div className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 shadow-xs space-y-6">
           <div className="pb-4 border-b border-gray-100">
-            <h2 className="text-base font-bold text-gray-900">Bulk Student CSV Onboarding Engine</h2>
+            <h2 className="text-base font-bold text-gray-900">{t('bulkImportHeading')}</h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              BULK-01 to BULK-03 compliant: Browser validation, zero SMS at import, and wave cost preview.
+              {t('bulkImportSubheading')}
             </p>
           </div>
 
           {/* Stepper bar */}
           <div className="grid grid-cols-4 gap-2 text-center text-xs font-semibold">
             {[
-              { step: 1, label: '1. Select CSV' },
-              { step: 2, label: '2. Verify Rows' },
-              { step: 3, label: '3. Import Invited' },
-              { step: 4, label: '4. Wave Dispatch' },
+              { step: 1, label: t('step1Title') },
+              { step: 2, label: t('step2Title') },
+              { step: 3, label: t('step3Title') },
+              { step: 4, label: t('step4Title') },
             ].map((s) => (
               <div
                 key={s.step}
@@ -1537,9 +1542,9 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
               <div className="border-2 border-dashed border-teal-300 rounded-2xl p-8 text-center bg-teal-50/30 space-y-4">
                 <FileSpreadsheet className="w-12 h-12 text-teal-600 mx-auto" />
                 <div>
-                  <h3 className="text-sm font-bold text-gray-900">Upload Student Roster CSV</h3>
+                  <h3 className="text-sm font-bold text-gray-900">{t('labelUploadCsvFile')}</h3>
                   <p className="text-xs text-gray-500 mt-1 max-w-md mx-auto">
-                    Columns: Student Name, Roll Number, Phone, Vocational Stream, Passing Year.
+                    Columns: {t('colStudentName')}, {t('colRollNumber')}, {t('colPhone')}, {t('colStream')}, {t('colPassingYear')}.
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center justify-center gap-3">
@@ -1551,7 +1556,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                     className="inline-flex items-center gap-1.5"
                   >
                     <Download className="w-4 h-4" />
-                    <span>Download CSV Template</span>
+                    <span>{t('btnDownloadTemplate')}</span>
                   </Button>
                   
                   <input
@@ -1572,7 +1577,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                     className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white font-semibold text-xs rounded-lg shadow-xs transition-colors"
                   >
                     <Upload className="w-4 h-4" />
-                    <span>Upload CSV (50,000+ Rows Supported)</span>
+                    <span>{t('btnBulkUploadCsv')}</span>
                   </label>
 
                   <Button
@@ -1582,7 +1587,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                     onClick={handleParseCsv}
                     className="inline-flex items-center gap-1.5"
                   >
-                    <span>Inspect Sample Text ({rawCsvText.trim().split('\n').length - 1} Rows)</span>
+                    <span>{t('btnParseValidate')}</span>
                   </Button>
                 </div>
               </div>
@@ -1590,7 +1595,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
               {/* Editable CSV textarea toggle for inspection */}
               <details className="text-xs text-gray-500 pt-2">
                 <summary className="font-semibold text-gray-700 cursor-pointer hover:text-teal-700">
-                  View or Edit Raw Student CSV Text
+                  {t('orPasteCsv')}
                 </summary>
                 <div className="mt-2">
                   <textarea
@@ -1606,9 +1611,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
               <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-950 flex items-center gap-2">
                 <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
                 <span>
-                  <strong>Hard Invariant #2 & #3:</strong> Bulk import creates candidates in{' '}
-                  <code className="bg-amber-100 px-1 py-0.5 rounded font-mono">invited</code> state with{' '}
-                  <strong>ZERO SMS sent at import</strong>. Invites go out only when an explicit batch wave is scheduled.
+                  <strong>{t('inv2BannerTitle')}:</strong> {t('inv2BannerDesc')}
                 </span>
               </div>
             </div>
@@ -1619,8 +1622,8 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-sm font-bold text-gray-900">Row Validation & Review</h3>
-                  <p className="text-xs text-gray-500">{parsedRows.length} rows parsed from CSV</p>
+                  <h3 className="text-sm font-bold text-gray-900">{t('step2Title')}</h3>
+                  <p className="text-xs text-gray-500">{parsedRows.length} rows</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -1628,7 +1631,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                     onClick={() => setImportStep(1)}
                     className="px-3 py-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg"
                   >
-                    Back to CSV
+                    {t('cancel')}
                   </button>
                   <Button
                     type="button"
@@ -1636,7 +1639,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                     size="sm"
                     onClick={handleExecuteImport}
                   >
-                    Confirm & Import ({parsedRows.filter((r) => r.isValid).length} Valid)
+                    {t('btnProceedToQueue')} ({parsedRows.filter((r) => r.isValid).length} {t('validRows')})
                   </Button>
                 </div>
               </div>
@@ -1657,7 +1660,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                       {r.isValid ? (
                         <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
                           <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          <span>Valid</span>
+                          <span>{t('validRows')}</span>
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-800 bg-red-50 px-2.5 py-0.5 rounded-full border border-red-200">
@@ -1683,7 +1686,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                       ? 'Uploading to Supabase Storage...'
                       : batchStatus === 'processing' || batchStatus === 'queued'
                       ? 'Background Worker Processing (500-Row Chunks)...'
-                      : 'Import Completed in Invited State'}
+                      : t('batchSuccessTitle')}
                   </h3>
                 </div>
                 {batchStatus !== 'idle' && (
@@ -1716,13 +1719,13 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                     </span>
                   </div>
                   <div className="p-3 rounded-xl bg-white border border-teal-200 text-center">
-                    <span className="text-[11px] text-gray-500 block font-medium">Valid (Invited)</span>
+                    <span className="text-[11px] text-gray-500 block font-medium">{t('validRows')}</span>
                     <span className="text-base font-bold text-emerald-700 font-mono">
                       {batchMetrics.validRows || parsedRows.filter((r) => r.isValid).length}
                     </span>
                   </div>
                   <div className="p-3 rounded-xl bg-white border border-teal-200 text-center">
-                    <span className="text-[11px] text-gray-500 block font-medium">Rejected</span>
+                    <span className="text-[11px] text-gray-500 block font-medium">{t('invalidRows')}</span>
                     <span className="text-base font-bold text-red-600 font-mono">
                       {batchMetrics.errorRows || parsedRows.filter((r) => !r.isValid).length}
                     </span>
@@ -1731,10 +1734,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
               )}
 
               <p className="text-xs text-teal-800">
-                {batchMetrics.validRows || parsedRows.filter((r) => r.isValid).length} candidates enrolled in{' '}
-                <code className="bg-white px-1 py-0.5 rounded font-mono font-bold">invited</code> state with permanent source tracking to{' '}
-                <strong>{institution.institutionName}</strong>.
-                In strict adherence to <strong>Hard Invariant #2</strong>, zero SMS messages have been dispatched yet.
+                {t('batchSuccessDesc')}
               </p>
 
               {/* Error CSV Download button if errors exist */}
@@ -1743,7 +1743,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                   <div className="flex items-center gap-2 text-red-800 font-medium">
                     <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
                     <span>
-                      {batchMetrics.errorRows} rejected records (invalid phone format or duplicates).
+                      {batchMetrics.errorRows} {t('invalidRows')}
                     </span>
                   </div>
                   <a
@@ -1758,22 +1758,16 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
               )}
 
               <div className="bg-white p-4 rounded-xl border border-teal-200 text-xs space-y-2">
-                <h4 className="font-bold text-gray-900">SMS Cost Preview (BULK-03)</h4>
+                <h4 className="font-bold text-gray-900">{t('waveHeading')}</h4>
                 <div className="flex justify-between text-gray-600">
                   <span>Target Recipients:</span>
                   <span className="font-bold text-gray-900">
-                    {batchMetrics.validRows || parsedRows.filter((r) => r.isValid).length} Students
+                    {batchMetrics.validRows || parsedRows.filter((r) => r.isValid).length}
                   </span>
                 </div>
                 <div className="flex justify-between text-gray-600">
-                  <span>DLT Registered SMS Rate:</span>
-                  <span className="font-bold text-gray-900">₹0.18 / SMS</span>
-                </div>
-                <div className="flex justify-between text-gray-900 font-bold pt-2 border-t border-gray-100">
-                  <span>Estimated Batch Cost:</span>
-                  <span className="text-emerald-700">
-                    ₹{((batchMetrics.validRows || parsedRows.filter((r) => r.isValid).length) * 0.18).toFixed(2)}
-                  </span>
+                  <span>{t('smsCostPerCandidate')}</span>
+                  <span className="font-bold text-gray-900">₹0.12 / SMS</span>
                 </div>
               </div>
 
@@ -1786,7 +1780,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                   className="inline-flex items-center gap-1.5"
                 >
                   <Send className="w-4 h-4" />
-                  <span>Authorize & Schedule Invite Wave</span>
+                  <span>{t('btnDispatchWave')}</span>
                 </Button>
               </div>
             </div>
@@ -1797,10 +1791,10 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
             <div className="p-6 rounded-2xl bg-emerald-50 border border-emerald-200 space-y-3 text-center">
               <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
               <h3 className="text-base font-bold text-emerald-950">
-                Invite Wave Scheduled via BullMQ & MSG91 Hook
+                {t('waveScheduleSuccess')}
               </h3>
               <p className="text-xs text-emerald-800 max-w-md mx-auto">
-                Delayed batch delivery queued. Candidates will receive their pre-filled registration links.
+                {t('waveSubheading')}
               </p>
               <div className="pt-3">
                 <Button
@@ -1812,7 +1806,7 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
                     setActiveTab('students');
                   }}
                 >
-                  Back to Student Roster
+                  {t('tabStudents')}
                 </Button>
               </div>
             </div>
@@ -1826,9 +1820,9 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
       {activeTab === 'invitations' && (
         <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs space-y-4">
           <div>
-            <h2 className="text-base font-bold text-gray-900">Invite Batches & Cost Tracking</h2>
+            <h2 className="text-base font-bold text-gray-900">{t('tabInvitations')}</h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Monitor candidate registration conversion across batch dispatches.
+              {t('waveSubheading')}
             </p>
           </div>
 
@@ -1884,8 +1878,8 @@ Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`
             title={institution.institutionName}
             subtitle={`${institution.affiliation} • Established ${institution.establishmentYear}`}
             path={`/institution/${institution.id}`}
-            badgeText="Campus Placement & Verification QR Poster"
-            description="Display this official QR poster at campus recruitment centers, training kiosks, or convocation boards. Employers and recruiters can scan with their smartphone camera to view verified batch disciplines and student rosters directly."
+            badgeText={t('campusQrHeading')}
+            description={t('campusQrSubheading')}
             downloadFileName={`${institution.institutionName}-campus-qr`}
             isInstitution={true}
             udyamOrAffiliation={institution.affiliationCode}

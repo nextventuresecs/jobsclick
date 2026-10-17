@@ -80,6 +80,22 @@ export class ApplicationRepository {
     return Object.values(apps).filter((a) => a.job_id === jobId);
   }
 
+  async findByApplicantId(applicantId: string): Promise<ApplicationRow[]> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await this.supabase
+          .from('applications')
+          .select('*')
+          .eq('applicant_id', applicantId);
+        if (!error && data) return data as ApplicationRow[];
+      } catch {
+        // Fall back to persistent local store
+      }
+    }
+    const apps = this.persistentStore.getTable<ApplicationRow>('applications');
+    return Object.values(apps).filter((a) => a.applicant_id === applicantId);
+  }
+
   async updateStatus(id: string, status: string): Promise<ApplicationRow | null> {
     const existing = await this.findById(id);
     if (!existing) return null;

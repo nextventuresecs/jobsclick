@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { useApp } from '../../context/AppContext';
 import {
   INITIAL_SEEKER_PROFILE,
@@ -39,10 +40,11 @@ import {
 } from 'lucide-react';
 
 export function SeekerWorkspace() {
-  const { addToast } = useApp();
+  const t = useTranslations('SeekerWorkspace');
+  const { user, accessToken, addToast } = useApp();
   const [activeTab, setActiveTab] = useState<'overview' | 'applications' | 'profile' | 'cv-preview'>('overview');
   const [profile, setProfile] = useState<SeekerProfileData>(INITIAL_SEEKER_PROFILE);
-  const [applications] = useState<readonly ApplicationData[]>(INITIAL_APPLICATIONS);
+  const [applications, setApplications] = useState<readonly ApplicationData[]>(INITIAL_APPLICATIONS);
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(profile.isOnboardingComplete);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -75,8 +77,144 @@ export function SeekerWorkspace() {
     profile.preferredCategories.includes(j.category)
   ).slice(0, 3);
 
-  // Save profile with validation against jobSeekerProfileSchema
-  const handleSaveProfile = (e: React.FormEvent) => {
+  // Refresh simulation: load seeker profile and submitted applications on mount
+  useEffect(() => {
+    let isMounted = true;
+    const apiUrl =
+      process.env['NEXT_PUBLIC_API_URL'] ||
+      process.env['API_URL'] ||
+      'http://localhost:3001';
+    const authHeader = accessToken
+      ? `Bearer ${accessToken}`
+      : `Bearer jwt_session_${user?.id || 'usr_seeker_77'}_${Date.now()}`;
+    const userId = user?.id || 'usr_seeker_77';
+
+    // 1. Fetch Seeker Profile
+    fetch(`${apiUrl}/profiles/seeker/me`, {
+      headers: {
+        Authorization: authHeader,
+        'x-user-id': userId,
+      },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data || !isMounted) return;
+        if (data.fullName) {
+          setProfile((prev) => ({
+            ...prev,
+            id: data.id || prev.id,
+            name: data.fullName || prev.name,
+            seekerType: data.seekerType || prev.seekerType,
+            gender: data.gender || prev.gender,
+            dob: data.dob || prev.dob,
+            address: data.address || prev.address,
+            city: data.city || prev.city,
+            district: data.district || prev.district,
+            state: data.state || prev.state,
+            pincode: data.pincode || prev.pincode,
+            qualification: data.qualification || prev.qualification,
+            institution: data.institution || prev.institution,
+            graduationYear: data.graduationYear || prev.graduationYear,
+            experienceYears: data.experienceYears ?? prev.experienceYears,
+            currentRole: data.currentRole || prev.currentRole,
+            skills: data.skills && data.skills.length > 0 ? data.skills : prev.skills,
+            languages: data.languages && data.languages.length > 0 ? data.languages : prev.languages,
+            preferredLocations:
+              data.preferredLocations && data.preferredLocations.length > 0
+                ? data.preferredLocations
+                : prev.preferredLocations,
+            willingToRelocate: data.willingToRelocate ?? prev.willingToRelocate,
+            bio: data.bio || prev.bio,
+            aadhaarLastFour: data.aadhaarLastFour || prev.aadhaarLastFour,
+            apaarId: data.apaarId || prev.apaarId,
+            dpdpConsentGiven: data.dpdpConsentGiven ?? prev.dpdpConsentGiven,
+            completionPercentage: data.completenessScore ?? prev.completionPercentage,
+            isOnboardingComplete: true,
+          }));
+
+          setFormName(data.fullName);
+          if (data.seekerType) setFormSeekerType(data.seekerType);
+          if (data.gender) setFormGender(data.gender);
+          if (data.dob) setFormDob(data.dob);
+          if (data.address) setFormAddress(data.address);
+          if (data.city) setFormCity(data.city);
+          if (data.district) setFormDistrict(data.district);
+          if (data.state) setFormState(data.state);
+          if (data.pincode) setFormPincode(data.pincode);
+          if (data.qualification) setFormQualification(data.qualification);
+          if (data.institution) setFormInstitution(data.institution);
+          if (data.graduationYear) setFormGraduationYear(data.graduationYear);
+          if (data.experienceYears !== undefined) setFormExperienceYears(data.experienceYears);
+          if (data.currentRole) setFormCurrentRole(data.currentRole);
+          if (data.skills && data.skills.length > 0) setFormSkillsInput(data.skills.join(', '));
+          if (data.languages && data.languages.length > 0) setFormLanguagesInput(data.languages.join(', '));
+          if (data.preferredLocations && data.preferredLocations.length > 0)
+            setFormLocationsInput(data.preferredLocations.join(', '));
+          if (data.willingToRelocate !== undefined) setFormWillingToRelocate(data.willingToRelocate);
+          if (data.bio) setFormBio(data.bio);
+          if (data.aadhaarLastFour) setFormAadhaarLastFour(data.aadhaarLastFour);
+          if (data.apaarId) setFormApaarId(data.apaarId);
+          if (data.dpdpConsentGiven !== undefined) setFormDpdpConsent(data.dpdpConsentGiven);
+        }
+      })
+      .catch(() => {});
+
+    // 2. Fetch Seeker's Submitted Applications
+    fetch(`${apiUrl}/jobs/applications/my`, {
+      headers: {
+        Authorization: authHeader,
+        'x-user-id': userId,
+      },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((appsData) => {
+        if (!appsData || !Array.isArray(appsData) || !isMounted) return;
+        interface ApiCandidateAppRow {
+          id: string;
+          jobId: string;
+          applicantId: string;
+          jobTitle?: string;
+          companyName?: string;
+          companyId?: string;
+          applicantProfile?: {
+            fullName?: string;
+            skills?: string[];
+          };
+          createdAt?: string;
+          status?: ApplicationData['status'];
+        }
+
+        const mappedApps: ApplicationData[] = (appsData as ApiCandidateAppRow[]).map((a) => ({
+          id: a.id,
+          jobId: a.jobId,
+          jobTitle: a.jobTitle || 'Verified Technical Vacancy',
+          companyName: a.companyName || 'Verified MSME Enterprise',
+          companyId: a.companyId || 'comp-01',
+          candidateId: a.applicantId,
+          candidateName: a.applicantProfile?.fullName || 'Anita Sharma',
+          candidateEducation: 'Trade Certified',
+          candidateExperience: 'Vocational Experience',
+          candidateSkills: a.applicantProfile?.skills || [],
+          appliedDate: (a.createdAt?.split('T')[0] ?? '2026-10-16'),
+          status: a.status || 'applied',
+        }));
+
+        if (mappedApps.length > 0) {
+          setApplications((prev) => {
+            const mappedIds = new Set(mappedApps.map((m) => m.id));
+            return [...mappedApps, ...prev.filter((p) => !mappedIds.has(p.id))];
+          });
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accessToken, user]);
+
+  // Save profile with validation against jobSeekerProfileSchema and PUT /profiles/seeker/me
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const skillsArray = formSkillsInput
@@ -121,9 +259,40 @@ export function SeekerWorkspace() {
     });
 
     if (!validationResult.success) {
-      const err = validationResult.error.errors[0]?.message || 'Please check your profile details.';
-      addToast({ type: 'error', title: 'Validation Error', message: err });
+      const err = validationResult.error.errors[0]?.message || t('toastValidationError');
+      addToast({ type: 'error', title: t('toastValidationError'), message: err });
       return;
+    }
+
+    const apiUrl =
+      process.env['NEXT_PUBLIC_API_URL'] ||
+      process.env['API_URL'] ||
+      'http://localhost:3001';
+    const authHeader = accessToken
+      ? `Bearer ${accessToken}`
+      : `Bearer jwt_session_${user?.id || 'usr_seeker_77'}_${Date.now()}`;
+    const userId = user?.id || 'usr_seeker_77';
+
+    let completeness = 100;
+    try {
+      const res = await fetch(`${apiUrl}/profiles/seeker/me`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: authHeader,
+          'x-user-id': userId,
+        },
+        body: JSON.stringify(validationResult.data),
+      });
+
+      if (res.ok) {
+        const saved = await res.json();
+        if (saved?.completenessScore) {
+          completeness = saved.completenessScore;
+        }
+      }
+    } catch {
+      // Offline fallback
     }
 
     setProfile({
@@ -151,7 +320,7 @@ export function SeekerWorkspace() {
       aadhaarVerified: Boolean(formAadhaarLastFour),
       apaarId: formApaarId,
       dpdpConsentGiven: formDpdpConsent,
-      completionPercentage: 100,
+      completionPercentage: completeness,
       isOnboardingComplete: true,
     });
 
@@ -159,8 +328,8 @@ export function SeekerWorkspace() {
     setIsEditing(false);
     addToast({
       type: 'success',
-      title: 'Profile Saved',
-      message: 'Your candidate profile & trade certifications are up to date.',
+      title: t('toastProfileSaved'),
+      message: t('toastProfileSavedDesc'),
     });
   };
 
@@ -191,17 +360,17 @@ export function SeekerWorkspace() {
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{profile.name}</h1>
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
                 <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                <span>JobsClick Verified Candidate</span>
+                <span>{t('verifiedCandidate')}</span>
               </span>
               {profile.enrolledViaInstitution && (
                 <span className="inline-flex items-center gap-1 text-[11px] font-medium text-teal-800 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-full">
                   <GraduationCap className="w-3 h-3 text-teal-600" />
-                  <span>Enrolled via {profile.enrolledViaInstitution}</span>
+                  <span>{t('enrolledVia')} {profile.enrolledViaInstitution}</span>
                 </span>
               )}
             </div>
             <p className="text-xs text-gray-500 mt-1 flex flex-wrap items-center gap-2">
-              <span>{profile.currentRole || 'Technical Candidate'}</span>
+              <span>{profile.currentRole || t('defaultRole')}</span>
               <span>•</span>
               <span className="flex items-center gap-1">
                 <MapPin className="w-3 h-3 text-gray-400" />
@@ -215,7 +384,7 @@ export function SeekerWorkspace() {
 
         <div className="flex items-center gap-4">
           <div className="text-right">
-            <span className="text-xs font-semibold text-gray-500">Profile Readiness</span>
+            <span className="text-xs font-semibold text-gray-500">{t('profileReadiness')}</span>
             <div className="flex items-center gap-2 mt-1">
               <div className="w-28 h-2.5 bg-gray-100 rounded-full overflow-hidden">
                 <div
@@ -234,7 +403,7 @@ export function SeekerWorkspace() {
             className="hidden sm:inline-flex items-center gap-1.5"
           >
             <Printer className="w-4 h-4 text-gray-600" />
-            <span>Digital CV</span>
+            <span>{t('digitalCv')}</span>
           </Button>
         </div>
       </div>
@@ -245,9 +414,9 @@ export function SeekerWorkspace() {
           <div className="flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
             <div>
-              <p className="text-xs font-bold">Candidate Profile Setup Incomplete</p>
+              <p className="text-xs font-bold">{t('onboardingIncompleteTitle')}</p>
               <p className="text-[11px] text-amber-800 mt-0.5">
-                Complete your trade certifications, vocational stream, and DPDP consent to activate job applications.
+                {t('onboardingIncompleteDesc')}
               </p>
             </div>
           </div>
@@ -261,7 +430,7 @@ export function SeekerWorkspace() {
             }}
             className="shrink-0"
           >
-            Complete Profile Now
+            {t('completeProfileNow')}
           </Button>
         </div>
       )}
@@ -269,10 +438,10 @@ export function SeekerWorkspace() {
       {/* Navigation Tabs */}
       <div className="flex border-b border-gray-200 overflow-x-auto gap-2">
         {([
-          { id: 'overview', label: 'Dashboard Overview', icon: Briefcase },
-          { id: 'applications', label: `My Applications (${myApplications.length})`, icon: Clock },
-          { id: 'profile', label: 'Professional Profile & KYC', icon: User },
-          { id: 'cv-preview', label: 'Verified CV & PDF', icon: FileText },
+          { id: 'overview', label: t('tabOverview'), icon: Briefcase },
+          { id: 'applications', label: `${t('tabApplications')} (${myApplications.length})`, icon: Clock },
+          { id: 'profile', label: t('tabProfile'), icon: User },
+          { id: 'cv-preview', label: t('tabCvPreview'), icon: FileText },
         ] as const).map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -302,37 +471,37 @@ export function SeekerWorkspace() {
           {/* Quick Metrics */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs">
-              <span className="text-xs font-semibold text-gray-500">Active Applications</span>
+              <span className="text-xs font-semibold text-gray-500">{t('statActiveApplications')}</span>
               <p className="text-2xl font-bold text-gray-900 mt-1">{myApplications.length}</p>
-              <p className="text-[11px] text-gray-500 mt-1">Submitted to verified enterprises</p>
+              <p className="text-[11px] text-gray-500 mt-1">{t('statActiveApplicationsDesc')}</p>
             </div>
             <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs">
-              <span className="text-xs font-semibold text-gray-500">Shortlisted / Under Review</span>
+              <span className="text-xs font-semibold text-gray-500">{t('statShortlisted')}</span>
               <p className="text-2xl font-bold text-blue-600 mt-1">
                 {myApplications.filter((a) => a.status === 'shortlisted' || a.status === 'under_review').length}
               </p>
-              <p className="text-[11px] text-gray-500 mt-1">Employer evaluation active</p>
+              <p className="text-[11px] text-gray-500 mt-1">{t('statShortlistedDesc')}</p>
             </div>
             <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs">
-              <span className="text-xs font-semibold text-gray-500">Privacy Status</span>
+              <span className="text-xs font-semibold text-gray-500">{t('statPrivacyStatus')}</span>
               <div className="flex items-center gap-1.5 mt-1.5">
                 <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                <span className="text-sm font-bold text-emerald-700">100% PII Protected</span>
+                <span className="text-sm font-bold text-emerald-700">{t('statPrivacyStatusVal')}</span>
               </div>
-              <p className="text-[11px] text-gray-500 mt-1">Hard Invariant #1: Phone & email hidden</p>
+              <p className="text-[11px] text-gray-500 mt-1">{t('statPrivacyStatusDesc')}</p>
             </div>
           </div>
 
           {/* Active Applications preview */}
           <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-bold text-gray-900">Application Pipeline</h2>
+              <h2 className="text-sm font-bold text-gray-900">{t('pipelineHeading')}</h2>
               <button
                 type="button"
                 onClick={() => setActiveTab('applications')}
                 className="text-xs font-semibold text-[#F97316] hover:underline"
               >
-                View all ({myApplications.length})
+                {t('viewAll')} ({myApplications.length})
               </button>
             </div>
 
@@ -348,12 +517,12 @@ export function SeekerWorkspace() {
                       <Building2 className="w-3.5 h-3.5 text-gray-400" />
                       <span>{app.companyName}</span>
                       <span>•</span>
-                      <span>Applied on {app.appliedDate}</span>
+                      <span>{t('appliedOn')} {app.appliedDate}</span>
                     </p>
                     {app.interviewDate && (
                       <p className="text-xs font-semibold text-blue-700 mt-1.5 flex items-center gap-1 bg-blue-50 px-2.5 py-1 rounded-md w-fit">
                         <Calendar className="w-3.5 h-3.5" />
-                        <span>Interview Scheduled: {app.interviewDate}</span>
+                        <span>{t('interviewScheduled')} {app.interviewDate}</span>
                       </p>
                     )}
                   </div>
@@ -369,14 +538,14 @@ export function SeekerWorkspace() {
           <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-sm font-bold text-gray-900">Recommended Opportunities</h2>
-                <p className="text-xs text-gray-500">Based on your skills & vocational preferences</p>
+                <h2 className="text-sm font-bold text-gray-900">{t('recommendedJobsHeading')}</h2>
+                <p className="text-xs text-gray-500">{t('recommendedJobsDesc')}</p>
               </div>
               <Link
                 href="/jobs"
                 className="text-xs font-semibold text-[#F97316] hover:underline inline-flex items-center gap-1"
               >
-                <span>Browse All Jobs</span>
+                <span>{t('browseAllJobs')}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
@@ -407,7 +576,7 @@ export function SeekerWorkspace() {
                     href={`/jobs/${job.id}`}
                     className="mt-4 block text-center py-2 px-3 rounded-lg text-xs font-semibold text-[#F97316] bg-orange-50 hover:bg-orange-100 transition-colors"
                   >
-                    View Details & Apply
+                    {t('viewDetailsApply')}
                   </Link>
                 </div>
               ))}
@@ -422,9 +591,9 @@ export function SeekerWorkspace() {
       {activeTab === 'applications' && (
         <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-xs space-y-4">
           <div>
-            <h2 className="text-base font-bold text-gray-900">My Job Applications</h2>
+            <h2 className="text-base font-bold text-gray-900">{t('applicationsHeading')}</h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              Live status updates for your direct submissions to verified MSME employers.
+              {t('applicationsSubheading')}
             </p>
           </div>
 
@@ -441,7 +610,7 @@ export function SeekerWorkspace() {
                       <Building2 className="w-3.5 h-3.5 text-gray-400" />
                       <span className="font-semibold">{app.companyName}</span>
                       <span>•</span>
-                      <span>Applied on {app.appliedDate}</span>
+                      <span>{t('appliedOn')} {app.appliedDate}</span>
                     </p>
                   </div>
                   <StatusBadge status={app.status} />
@@ -449,7 +618,7 @@ export function SeekerWorkspace() {
 
                 {app.notes && (
                   <div className="p-3 rounded-lg bg-orange-50 border border-orange-200 text-xs text-orange-950">
-                    <span className="font-semibold">Recruiter Note:</span> {app.notes}
+                    <span className="font-semibold">{t('recruiterNote')}</span> {app.notes}
                   </div>
                 )}
 
@@ -457,16 +626,16 @@ export function SeekerWorkspace() {
                   <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-950 flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-blue-600 shrink-0" />
                     <span>
-                      <strong className="font-semibold">Interview Scheduled:</strong> {app.interviewDate}
+                      <strong className="font-semibold">{t('interviewScheduled')}</strong> {app.interviewDate}
                     </span>
                   </div>
                 )}
 
                 <div className="pt-2 border-t border-gray-200 flex flex-wrap items-center justify-between text-xs text-gray-500 gap-2">
-                  <span>Candidate Ref: {app.candidateId}</span>
+                  <span>{t('candidateRef')} {app.candidateId}</span>
                   <span className="flex items-center gap-1 text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Hard Invariant #1: Contact details masked for privacy</span>
+                    <span>{t('hardInvariant1Notice')}</span>
                   </span>
                 </div>
               </div>
@@ -485,8 +654,8 @@ export function SeekerWorkspace() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-base font-bold text-gray-900">Verified Candidate Dossier</h2>
-                  <p className="text-xs text-gray-500">Candidate credentials, verified trade skills, and DPDP consent.</p>
+                  <h2 className="text-base font-bold text-gray-900">{t('dossierHeading')}</h2>
+                  <p className="text-xs text-gray-500">{t('dossierSubheading')}</p>
                 </div>
                 <Button
                   type="button"
@@ -496,7 +665,7 @@ export function SeekerWorkspace() {
                   className="inline-flex items-center gap-1.5"
                 >
                   <Edit3 className="w-4 h-4" />
-                  <span>Edit Profile</span>
+                  <span>{t('editProfile')}</span>
                 </Button>
               </div>
 
@@ -504,37 +673,37 @@ export function SeekerWorkspace() {
               <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-xs space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-orange-600 border-b border-gray-100 pb-2 flex items-center gap-1.5">
                   <User className="w-4 h-4" />
-                  <span>1. Personal & Demographic Details</span>
+                  <span>{t('secPersonalInfo')}</span>
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                   <div>
-                    <span className="text-gray-500">Full Name</span>
+                    <span className="text-gray-500">{t('labelFullName')}</span>
                     <p className="font-bold text-gray-900 mt-0.5 text-sm">{profile.name}</p>
                   </div>
                   <div>
-                    <span className="text-gray-500">Candidate Type</span>
+                    <span className="text-gray-500">{t('labelCandidateType')}</span>
                     <p className="font-bold text-gray-900 mt-0.5 capitalize">
-                      {profile.seekerType === 'student' ? 'Institutional Student' : 'Individual Candidate'}
+                      {profile.seekerType === 'student' ? t('typeStudent') : t('typeIndividual')}
                     </p>
                   </div>
                   <div>
-                    <span className="text-gray-500">Gender & DOB</span>
+                    <span className="text-gray-500">{t('labelGenderDob')}</span>
                     <p className="font-bold text-gray-900 mt-0.5">{profile.gender} • {profile.dob}</p>
                   </div>
                   <div>
-                    <span className="text-gray-500">Current Role</span>
-                    <p className="font-bold text-gray-900 mt-0.5">{profile.currentRole || 'Fresher / Trainee'}</p>
+                    <span className="text-gray-500">{t('labelCurrentRole')}</span>
+                    <p className="font-bold text-gray-900 mt-0.5">{profile.currentRole || t('roleFresher')}</p>
                   </div>
                   <div>
-                    <span className="text-gray-500">Location</span>
+                    <span className="text-gray-500">{t('labelLocation')}</span>
                     <p className="font-bold text-gray-900 mt-0.5">
                       {profile.city}, {profile.district}, {profile.state} ({profile.pincode})
                     </p>
                   </div>
                   <div>
-                    <span className="text-gray-500">Campus Affiliation</span>
+                    <span className="text-gray-500">{t('labelCampusAffiliation')}</span>
                     <p className="font-bold text-gray-900 mt-0.5">
-                      {profile.enrolledViaInstitution || profile.institution || 'Direct Registration'}
+                      {profile.enrolledViaInstitution || profile.institution || t('directRegistration')}
                     </p>
                   </div>
                 </div>
@@ -544,37 +713,37 @@ export function SeekerWorkspace() {
               <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-xs space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-orange-600 border-b border-gray-100 pb-2 flex items-center gap-1.5">
                   <ShieldCheck className="w-4 h-4" />
-                  <span>2. Statutory Identity & Privacy (DPDP Act & Aadhaar)</span>
+                  <span>{t('secDpdp')}</span>
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                   <div>
-                    <span className="text-gray-500">Aadhaar (Last 4 Digits Only)</span>
+                    <span className="text-gray-500">{t('labelAadhaarLastFour')}</span>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <span className="font-mono font-bold text-gray-900">
-                        {profile.aadhaarLastFour ? `•••• •••• ${profile.aadhaarLastFour}` : 'Not Provided'}
+                        {profile.aadhaarLastFour ? `•••• •••• ${profile.aadhaarLastFour}` : t('notProvided')}
                       </span>
                       {profile.aadhaarVerified && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                           <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          <span>Verified</span>
+                          <span>{t('verified')}</span>
                         </span>
                       )}
                     </div>
-                    <p className="text-[10px] text-gray-400 mt-0.5">Full number is never stored (Hard Invariant #8)</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">{t('aadhaarNotice')}</p>
                   </div>
 
                   <div>
-                    <span className="text-gray-500">APAAR ID (MoE Edu ID)</span>
-                    <p className="font-mono font-bold text-gray-900 mt-0.5">{profile.apaarId || 'Optional — Not Provided'}</p>
+                    <span className="text-gray-500">{t('labelApaarId')}</span>
+                    <p className="font-mono font-bold text-gray-900 mt-0.5">{profile.apaarId || t('optionalNotProvided')}</p>
                   </div>
 
                   <div>
-                    <span className="text-gray-500">DPDP Consent</span>
+                    <span className="text-gray-500">{t('labelDpdpConsent')}</span>
                     <div className="flex items-center gap-1.5 mt-0.5">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span className="font-bold text-emerald-700">Consent Recorded & Active</span>
+                      <span className="font-bold text-emerald-700">{t('consentActive')}</span>
                     </div>
-                    <p className="text-[10px] text-gray-400 mt-0.5">Data processed per DPDP Act guidelines</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">{t('dpdpGuidelines')}</p>
                   </div>
                 </div>
               </div>
@@ -583,21 +752,21 @@ export function SeekerWorkspace() {
               <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-xs space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-orange-600 border-b border-gray-100 pb-2 flex items-center gap-1.5">
                   <GraduationCap className="w-4 h-4" />
-                  <span>3. Technical Education & Vocational Stream</span>
+                  <span>{t('secEducation')}</span>
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                   <div>
-                    <span className="text-gray-500">Highest Qualification</span>
+                    <span className="text-gray-500">{t('labelHighestQual')}</span>
                     <p className="font-bold text-gray-900 mt-0.5">{profile.qualification}</p>
                   </div>
                   <div>
-                    <span className="text-gray-500">Institute / College</span>
+                    <span className="text-gray-500">{t('labelTrainingInstitute')}</span>
                     <p className="font-bold text-gray-900 mt-0.5">{profile.institution}</p>
                   </div>
                   <div>
-                    <span className="text-gray-500">Passing Year & Experience</span>
+                    <span className="text-gray-500">{t('labelPassingYear')}</span>
                     <p className="font-bold text-gray-900 mt-0.5">
-                      Batch of {profile.graduationYear} • {profile.experienceYears} Years Exp.
+                      Batch of {profile.graduationYear} • {profile.experienceYears} {t('yearsExp')}
                     </p>
                   </div>
                 </div>
@@ -607,12 +776,12 @@ export function SeekerWorkspace() {
               <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-xs space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-orange-600 border-b border-gray-100 pb-2 flex items-center gap-1.5">
                   <Award className="w-4 h-4" />
-                  <span>4. Certified Skills, Tools & Languages</span>
+                  <span>{t('secSkills')}</span>
                 </h3>
                 <div className="space-y-3">
                   <div>
                     <span className="text-xs font-semibold text-gray-500 block mb-1.5">
-                      Certified Skills & Machine Competencies:
+                      {t('labelTradeSkills')}:
                     </span>
                     <div className="flex flex-wrap gap-2">
                       {profile.skills.map((s, idx) => (
@@ -627,12 +796,12 @@ export function SeekerWorkspace() {
                   </div>
 
                   <div className="pt-2 text-xs">
-                    <span className="text-gray-500 font-semibold">Languages:</span>
+                    <span className="text-gray-500 font-semibold">{t('labelLanguages')}:</span>
                     <span className="font-bold text-gray-800 ml-2">{profile.languages.join(', ')}</span>
                   </div>
 
                   <div className="pt-2 text-xs">
-                    <span className="text-gray-500 font-semibold">Professional Summary / Bio:</span>
+                    <span className="text-gray-500 font-semibold">{t('secBio')}:</span>
                     <p className="text-gray-700 mt-1 leading-relaxed bg-gray-50 p-4 rounded-xl border border-gray-200">
                       {profile.bio}
                     </p>
@@ -644,22 +813,22 @@ export function SeekerWorkspace() {
               <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-xs space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-orange-600 border-b border-gray-100 pb-2 flex items-center gap-1.5">
                   <Briefcase className="w-4 h-4" />
-                  <span>5. Job Preferences & Relocation</span>
+                  <span>{t('labelRelocate')}</span>
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                   <div>
-                    <span className="text-gray-500">Preferred Locations</span>
+                    <span className="text-gray-500">{t('preferredLocationsHeading')}</span>
                     <p className="font-bold text-gray-900 mt-0.5">{profile.preferredLocations.join(', ')}</p>
                   </div>
                   <div>
-                    <span className="text-gray-500">Willing to Relocate</span>
-                    <p className="font-bold text-gray-900 mt-0.5">{profile.willingToRelocate ? 'Yes' : 'No'}</p>
+                    <span className="text-gray-500">{t('labelRelocate')}</span>
+                    <p className="font-bold text-gray-900 mt-0.5">{profile.willingToRelocate ? t('yes') : t('no')}</p>
                   </div>
                   <div>
-                    <span className="text-gray-500">Recruiter Contact Policy</span>
+                    <span className="text-gray-500">{t('hardInvariant1Notice')}</span>
                     <div className="flex items-center gap-1 mt-0.5 text-emerald-700 font-semibold">
                       <Lock className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>In-Platform Messaging Only (PII Protected)</span>
+                      <span>{t('hardInvariant1Notice')}</span>
                     </div>
                   </div>
                 </div>
@@ -670,8 +839,8 @@ export function SeekerWorkspace() {
             <form onSubmit={handleSaveProfile} className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-200 shadow-xs space-y-6">
               <div className="flex items-center justify-between pb-4 border-b border-gray-200">
                 <div>
-                  <h2 className="text-base font-bold text-gray-900">Edit Professional Profile & KYC</h2>
-                  <p className="text-xs text-gray-500">Ensure your trade skills and contact privacy preferences are accurate.</p>
+                  <h2 className="text-base font-bold text-gray-900">{t('formEditHeading')}</h2>
+                  <p className="text-xs text-gray-500">{t('formEditSubheading')}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -679,11 +848,11 @@ export function SeekerWorkspace() {
                     onClick={() => setIsEditing(false)}
                     className="px-3 py-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 rounded-lg border border-gray-300"
                   >
-                    Cancel
+                    {t('cancel')}
                   </button>
                   <Button type="submit" variant="primary" size="sm" className="inline-flex items-center gap-1.5">
                     <Save className="w-4 h-4" />
-                    <span>Save Candidate Profile</span>
+                    <span>{t('saveProfile')}</span>
                   </Button>
                 </div>
               </div>
@@ -691,12 +860,12 @@ export function SeekerWorkspace() {
               {/* Section 1: Demographics */}
               <div className="space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-orange-600 border-b border-gray-100 pb-2">
-                  1. Personal & Demographics
+                  {t('secPersonalInfo')}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Full Legal Name <span className="text-red-500">*</span>
+                      {t('labelFullName')} <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -709,20 +878,20 @@ export function SeekerWorkspace() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Gender</label>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">{t('labelGender')}</label>
                     <select
                       value={formGender}
                       onChange={(e) => setFormGender(e.target.value as SeekerProfileData['gender'])}
                       className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:outline-hidden bg-white"
                     >
-                      <option value="Male">Male</option>
-                      <option value="Female">Female</option>
-                      <option value="Other">Other</option>
+                      <option value="Male">{t('genderMale')}</option>
+                      <option value="Female">{t('genderFemale')}</option>
+                      <option value="Other">{t('genderOther')}</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Date of Birth</label>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">{t('labelDob')}</label>
                     <input
                       type="date"
                       value={formDob}
@@ -732,19 +901,19 @@ export function SeekerWorkspace() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Candidate Enrolment Type</label>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">{t('labelCandidateType')}</label>
                     <select
                       value={formSeekerType}
                       onChange={(e) => setFormSeekerType(e.target.value as SeekerProfileData['seekerType'])}
                       className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:outline-hidden bg-white"
                     >
-                      <option value="student">Institutional Student (College / ITI)</option>
-                      <option value="individual">Individual Job Seeker</option>
+                      <option value="student">{t('typeStudent')}</option>
+                      <option value="individual">{t('typeIndividual')}</option>
                     </select>
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Street Address</label>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">{t('labelPermanentAddress')}</label>
                     <input
                       type="text"
                       value={formAddress}
@@ -756,7 +925,7 @@ export function SeekerWorkspace() {
 
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      City <span className="text-red-500">*</span>
+                      {t('labelCity')} <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
@@ -769,7 +938,7 @@ export function SeekerWorkspace() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">District</label>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">{t('labelDistrict')}</label>
                     <input
                       type="text"
                       value={formDistrict}
@@ -780,7 +949,7 @@ export function SeekerWorkspace() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">State</label>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">{t('labelState')}</label>
                     <input
                       type="text"
                       value={formState}
@@ -791,7 +960,7 @@ export function SeekerWorkspace() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">PIN Code</label>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">{t('labelPincode')}</label>
                     <input
                       type="text"
                       maxLength={6}
@@ -807,7 +976,7 @@ export function SeekerWorkspace() {
               {/* Section 2: Statutory Identity & DPDP Consent (Hard Invariant #8) */}
               <div className="space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-orange-600 border-b border-gray-100 pb-2">
-                  2. Statutory Identity & DPDP Consent (Hard Invariant #8)
+                  {t('secDpdp')}
                 </h3>
 
                 <div className="p-4 rounded-xl bg-gray-50 border border-gray-200 text-xs text-gray-700 space-y-2">
@@ -820,7 +989,7 @@ export function SeekerWorkspace() {
                       className="mt-0.5 rounded border-gray-300 text-orange-600 focus:ring-orange-500 cursor-pointer"
                     />
                     <label htmlFor="dpdp-consent-checkbox" className="leading-relaxed cursor-pointer font-medium">
-                      <strong>DPDP Act Consent:</strong> I authorize JobsClick to securely store and process my last 4 digits of Aadhaar and/or APAAR ID strictly for employment verification with certified partners. I understand my phone number and email will never be exposed to recruiters.
+                      {t('labelDpdpCheckbox')}
                     </label>
                   </div>
                 </div>
@@ -828,7 +997,7 @@ export function SeekerWorkspace() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Aadhaar Number (Last 4 Digits Only)
+                      {t('labelAadhaarInput')}
                     </label>
                     <input
                       type="text"
@@ -839,13 +1008,13 @@ export function SeekerWorkspace() {
                       className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:outline-hidden"
                     />
                     <p className="text-[11px] text-gray-500 mt-1">
-                      Optional. Only last 4 digits stored. Full Aadhaar is never saved (Hard Invariant #8).
+                      {t('labelAadhaarHelp')}
                     </p>
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      APAAR ID (Automated Permanent Academic Account Registry)
+                      {t('labelApaarInput')}
                     </label>
                     <input
                       type="text"
@@ -854,7 +1023,6 @@ export function SeekerWorkspace() {
                       placeholder="e.g. 2024-EDU-99214"
                       className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:outline-hidden"
                     />
-                    <p className="text-[11px] text-gray-500 mt-1">Optional 12-digit student academic registry identifier.</p>
                   </div>
                 </div>
               </div>
@@ -862,12 +1030,12 @@ export function SeekerWorkspace() {
               {/* Section 3: Education & Trades */}
               <div className="space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-orange-600 border-b border-gray-100 pb-2">
-                  3. Technical Education & Vocational Stream
+                  {t('secEducation')}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Highest Technical Qualification
+                      {t('labelHighestQual')}
                     </label>
                     <input
                       type="text"
@@ -880,7 +1048,7 @@ export function SeekerWorkspace() {
 
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Institution / Training College
+                      {t('labelTrainingInstitute')}
                     </label>
                     <input
                       type="text"
@@ -892,7 +1060,7 @@ export function SeekerWorkspace() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Graduation Year</label>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">{t('labelPassingYear')}</label>
                     <input
                       type="text"
                       value={formGraduationYear}
@@ -907,12 +1075,12 @@ export function SeekerWorkspace() {
               {/* Section 4: Experience & Skills */}
               <div className="space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-orange-600 border-b border-gray-100 pb-2">
-                  4. Experience & Technical Competencies
+                  {t('secSkills')}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Experience in Years
+                      {t('labelExpYears')}
                     </label>
                     <input
                       type="number"
@@ -925,7 +1093,7 @@ export function SeekerWorkspace() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Current Job Role</label>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">{t('labelCurrentRole')}</label>
                     <input
                       type="text"
                       value={formCurrentRole}
@@ -936,7 +1104,7 @@ export function SeekerWorkspace() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">Languages (Comma Separated)</label>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">{t('labelLanguages')}</label>
                     <input
                       type="text"
                       value={formLanguagesInput}
@@ -948,7 +1116,7 @@ export function SeekerWorkspace() {
 
                   <div className="sm:col-span-3">
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Certified Skills & Machine Competencies (Comma Separated)
+                      {t('labelTradeSkills')}
                     </label>
                     <input
                       type="text"
@@ -961,7 +1129,7 @@ export function SeekerWorkspace() {
 
                   <div className="sm:col-span-3">
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Professional Bio / Summary
+                      {t('secBio')}
                     </label>
                     <textarea
                       rows={3}
@@ -977,12 +1145,12 @@ export function SeekerWorkspace() {
               {/* Section 5: Preferences */}
               <div className="space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-orange-600 border-b border-gray-100 pb-2">
-                  5. Job Preferences & Relocation
+                  {t('labelRelocate')}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Preferred Work Locations (Comma Separated)
+                      {t('labelPreferredLocations')}
                     </label>
                     <input
                       type="text"
@@ -1002,7 +1170,7 @@ export function SeekerWorkspace() {
                       className="rounded border-gray-300 text-orange-600 focus:ring-orange-500 cursor-pointer"
                     />
                     <label htmlFor="relocate-checkbox" className="text-xs font-semibold text-gray-700 cursor-pointer">
-                      Willing to relocate across Indian industrial clusters
+                      {t('labelRelocateCheckbox')}
                     </label>
                   </div>
                 </div>
@@ -1015,11 +1183,11 @@ export function SeekerWorkspace() {
                   onClick={() => setIsEditing(false)}
                   className="px-4 py-2.5 rounded-xl border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50"
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
                 <Button type="submit" variant="primary" size="md" className="inline-flex items-center gap-1.5 font-semibold">
                   <Save className="w-4 h-4" />
-                  <span>Save Candidate Profile</span>
+                  <span>{t('saveProfile')}</span>
                 </Button>
               </div>
             </form>
@@ -1034,9 +1202,9 @@ export function SeekerWorkspace() {
         <div className="space-y-6">
           <div className="flex items-center justify-between bg-white p-4 rounded-xl border border-gray-200 shadow-2xs">
             <div>
-              <h2 className="text-sm font-bold text-gray-900">Authenticated JobsClick Digital CV</h2>
+              <h2 className="text-sm font-bold text-gray-900">{t('cvHeading')}</h2>
               <p className="text-xs text-gray-500">
-                Hard Invariant #1 & #8a: Bilingual ready, privacy-shielded format.
+                {t('statPrivacyStatusDesc')}
               </p>
             </div>
             <Button
@@ -1047,7 +1215,7 @@ export function SeekerWorkspace() {
               className="inline-flex items-center gap-1.5"
             >
               <Printer className="w-4 h-4" />
-              <span>Print / Download PDF</span>
+              <span>{t('printResume')}</span>
             </Button>
           </div>
 
@@ -1067,19 +1235,19 @@ export function SeekerWorkspace() {
                 {profile.enrolledViaInstitution && (
                   <p className="text-xs text-teal-700 font-medium mt-1 flex items-center gap-1">
                     <GraduationCap className="w-3.5 h-3.5" />
-                    <span>Enrolled via {profile.enrolledViaInstitution}</span>
+                    <span>{t('enrolledVia')} {profile.enrolledViaInstitution}</span>
                   </p>
                 )}
               </div>
               <div className="text-right">
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>JobsClick Verified</span>
+                  <span>{t('verifiedCandidate')}</span>
                 </span>
-                <p className="text-[11px] text-gray-400 font-mono mt-2">Candidate Ref: {profile.id}</p>
+                <p className="text-[11px] text-gray-400 font-mono mt-2">{t('candidateRef')} {profile.id}</p>
                 {profile.aadhaarLastFour && (
                   <p className="text-[10px] text-gray-500 font-mono mt-0.5">
-                    Aadhaar: •••• •••• {profile.aadhaarLastFour} (Verified)
+                    {t('labelAadhaarLastFour')}: •••• •••• {profile.aadhaarLastFour} ({t('verified')})
                   </p>
                 )}
               </div>
@@ -1088,15 +1256,15 @@ export function SeekerWorkspace() {
             {/* Privacy notice banner */}
             <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-600 flex items-center justify-between">
               <span className="font-semibold text-gray-800">
-                Contact Privacy Protocol Enforced:
+                {t('hardInvariant1Notice')}:
               </span>
-              <span>Direct communication via verified platform messaging only.</span>
+              <span>{t('statPrivacyStatusDesc')}</span>
             </div>
 
             {/* Profile summary */}
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-orange-600 mb-2">
-                Professional Summary
+                {t('secBio')}
               </h3>
               <p className="text-sm text-gray-700 leading-relaxed">{profile.bio}</p>
             </div>
@@ -1105,23 +1273,23 @@ export function SeekerWorkspace() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-gray-100">
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-orange-600 mb-2">
-                  Technical Education
+                  {t('secEducation')}
                 </h3>
                 <p className="font-bold text-gray-900 text-sm">{profile.qualification}</p>
                 <p className="text-xs text-gray-600 mt-0.5">{profile.institution}</p>
-                <p className="text-xs text-gray-500 mt-0.5">Batch of {profile.graduationYear}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{t('labelPassingYear')}: {profile.graduationYear}</p>
               </div>
 
               <div>
                 <h3 className="text-xs font-bold uppercase tracking-wider text-orange-600 mb-2">
-                  Experience & Roles
+                  {t('experienceHeading')}
                 </h3>
                 <p className="font-bold text-gray-900 text-sm">
-                  {profile.experienceYears} Years Hands-on Experience
+                  {profile.experienceYears} {t('yearsExp')} {t('labelExpYears')}
                 </p>
-                <p className="text-xs text-gray-600 mt-0.5">Current Role: {profile.currentRole || 'Fresher'}</p>
+                <p className="text-xs text-gray-600 mt-0.5">{t('labelCurrentRole')}: {profile.currentRole || t('roleFresher')}</p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Willing to Relocate: {profile.willingToRelocate ? 'Yes' : 'No'}
+                  {t('labelRelocate')}: {profile.willingToRelocate ? t('yes') : t('no')}
                 </p>
               </div>
             </div>
@@ -1129,7 +1297,7 @@ export function SeekerWorkspace() {
             {/* Skills */}
             <div className="pt-4 border-t border-gray-100">
               <h3 className="text-xs font-bold uppercase tracking-wider text-orange-600 mb-2">
-                Certified Skills & Tools
+                {t('secSkills')}
               </h3>
               <div className="flex flex-wrap gap-2">
                 {profile.skills.map((s, idx) => (

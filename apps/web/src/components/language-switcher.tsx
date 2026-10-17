@@ -1,18 +1,32 @@
 'use client';
 
 import React, { useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useLocale } from 'next-intl';
 import { Globe } from 'lucide-react';
 
 export function LanguageSwitcher({ className = '' }: { className?: string }) {
   const router = useRouter();
+  const pathname = usePathname() || '/';
   const currentLocale = useLocale();
   const [isPending, startTransition] = useTransition();
 
   const handleLanguageChange = (newLocale: string) => {
     document.cookie = `NEXT_LOCALE=${newLocale}; path=/; max-age=31536000; SameSite=Lax`;
     startTransition(() => {
+      if (newLocale === 'hi') {
+        if (!pathname.startsWith('/hi')) {
+          const target = pathname === '/' ? '/hi' : `/hi${pathname}`;
+          router.push(target);
+          return;
+        }
+      } else if (newLocale === 'en') {
+        if (pathname.startsWith('/hi')) {
+          const target = pathname.replace(/^\/hi(?:\/|$)/, '/') || '/';
+          router.push(target);
+          return;
+        }
+      }
       router.refresh();
     });
   };

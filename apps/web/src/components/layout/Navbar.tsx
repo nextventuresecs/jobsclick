@@ -106,6 +106,16 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               {t('howItWorks')}
             </Link>
+            <Link
+              href="/institutions"
+              className={`whitespace-nowrap transition-colors py-1 ${
+                isActive('/institutions')
+                  ? 'text-brand-orange font-semibold border-b-2 border-brand-orange'
+                  : 'hover:text-brand-orange'
+              }`}
+            >
+              Institutions
+            </Link>
           </nav>
 
           {/* Zone 3: Actions (Language, Role Switcher, Auth) */}
@@ -213,6 +223,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             className="block px-3 py-2 text-base font-medium text-gray-800 rounded-md hover:bg-gray-50"
           >
             {t('howItWorks')}
+          </Link>
+          <Link
+            href="/institutions"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block px-3 py-2 text-base font-medium text-gray-800 rounded-md hover:bg-gray-50"
+          >
+            Institutions
           </Link>
 
           <div className="pt-3 border-t border-gray-100 flex flex-col gap-2">
