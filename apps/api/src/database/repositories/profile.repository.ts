@@ -69,6 +69,70 @@ export class ProfileRepository {
     return profile;
   }
 
+  async findStudentsByInstitution(institutionIdOrName: string): Promise<JobSeekerProfileRow[]> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await this.supabase
+          .from('job_seeker_profiles')
+          .select('*')
+          .or(`institution_id.eq.${institutionIdOrName},institution.eq.${institutionIdOrName}`);
+        if (!error && data) return data as unknown as JobSeekerProfileRow[];
+      } catch {
+        // Fall back to persistent local store
+      }
+    }
+    const profiles = this.persistentStore.getTable<JobSeekerProfileRow>('job_seeker_profiles');
+    return Object.values(profiles).filter(
+      (p) =>
+        p.institution_id === institutionIdOrName ||
+        p.institution === institutionIdOrName,
+    );
+  }
+
+  async updateStudentSponsorshipByInstitution(
+    institutionIdOrName: string,
+    isSponsored: boolean,
+  ): Promise<number> {
+    const students = await this.findStudentsByInstitution(institutionIdOrName);
+    let count = 0;
+    const now = new Date().toISOString();
+
+    for (const student of students) {
+      student.is_sponsored = isSponsored;
+      student.updated_at = now;
+      this.persistentStore.setRow('job_seeker_profiles', student.id, student);
+      count++;
+    }
+
+    if (!this.isTestMode && students.length > 0) {
+      try {
+        await this.supabase
+          .from('job_seeker_profiles')
+          .update({ is_sponsored: isSponsored, updated_at: now })
+          .or(`institution_id.eq.${institutionIdOrName},institution.eq.${institutionIdOrName}`);
+      } catch {
+        // Fall back
+      }
+    }
+
+    return count;
+  }
+
+  async markSeekerSponsored(
+    seekerUserIdOrProfileId: string,
+    isSponsored: boolean,
+  ): Promise<JobSeekerProfileRow | null> {
+    let profile = await this.findSeekerProfileByUserId(seekerUserIdOrProfileId);
+    if (!profile) {
+      profile = await this.findSeekerProfileById(seekerUserIdOrProfileId);
+    }
+    if (!profile) return null;
+
+    profile.is_sponsored = isSponsored;
+    profile.updated_at = new Date().toISOString();
+    return this.saveSeekerProfile(profile);
+  }
+
   // ==========================================
   // Business Profiles
   // ==========================================

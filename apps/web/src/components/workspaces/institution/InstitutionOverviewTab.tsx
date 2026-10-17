@@ -4,6 +4,7 @@ import React from 'react';
 import { useTranslations } from 'next-intl';
 import type { InstitutionProfileData, StudentRecordData } from '../../../data/sampleWorkspaces';
 import { ShieldCheck } from 'lucide-react';
+import { SponsorshipCard } from './SponsorshipCard';
 
 interface InstitutionOverviewTabProps {
   readonly institution: InstitutionProfileData;
@@ -142,6 +143,17 @@ export function InstitutionOverviewTab({
           </div>
         </div>
       </div>
+
+      {/* WAL-05 & Section 10.1: Campus Sponsorship & Tier Billing */}
+      <SponsorshipCard
+        institutionId={institution.id}
+        institutionName={institution.institutionName}
+        enrolledStudentsCount={students.length}
+        isSponsorshipActive={institution.isSponsorshipActive}
+        sponsorshipTier={institution.sponsorshipTier}
+        sponsorshipExpiresAt={institution.sponsorshipExpiresAt}
+        totalSponsoredStudents={institution.totalSponsoredStudents}
+      />
     </div>
   );
 }

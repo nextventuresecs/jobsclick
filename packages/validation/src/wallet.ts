@@ -146,3 +146,56 @@ export type CreatePaymentOrderInput = z.infer<typeof createPaymentOrderSchema>;
 export type VerifyPaymentInput = z.infer<typeof verifyPaymentSchema>;
 export type RazorpayWebhookEvent = z.infer<typeof razorpayWebhookEventSchema>;
 export type InvoiceResponse = z.infer<typeof invoiceResponseSchema>;
+
+// WAL-05 & Section 10.1: Institution pricing tiers
+export const SPONSORSHIP_TIERS = {
+  Small: {
+    tier: 'Small' as const,
+    name: 'Small Campus Tier',
+    nameHi: 'छोटा परिसर स्तर',
+    maxStudents: 2000,
+    ratePerStudentInr: 150,
+  },
+  Medium: {
+    tier: 'Medium' as const,
+    name: 'Medium Campus Tier',
+    nameHi: 'मध्यम परिसर स्तर',
+    minStudents: 2001,
+    maxStudents: 10000,
+    ratePerStudentInr: 100,
+  },
+  Large: {
+    tier: 'Large' as const,
+    name: 'Large Campus Tier',
+    nameHi: 'बड़ा परिसर स्तर',
+    minStudents: 10001,
+    ratePerStudentInr: 70,
+  },
+} as const;
+
+export const sponsorshipTierSchema = z.enum(['Small', 'Medium', 'Large']);
+
+export const sponsorshipQuoteSchema = z.object({
+  institutionId: z.string(),
+  institutionName: z.string(),
+  studentCount: z.number().int().nonnegative(),
+  tier: sponsorshipTierSchema,
+  ratePerStudentInr: z.number().positive(),
+  baseAnnualFeeInr: z.number().nonnegative(),
+  gstRate: z.number(),
+  gstAmountInr: z.number().nonnegative(),
+  totalAnnualFeeInr: z.number().nonnegative(),
+  isSponsorshipActive: z.boolean(),
+  sponsorshipExpiresAt: z.string().nullable(),
+  activeSponsoredCount: z.number().int().nonnegative(),
+});
+
+export const activateSponsorshipSchema = z.object({
+  paymentReference: z.string().optional(),
+  studentCountOverride: z.number().int().positive().optional(),
+});
+
+export type SponsorshipTier = z.infer<typeof sponsorshipTierSchema>;
+export type SponsorshipQuote = z.infer<typeof sponsorshipQuoteSchema>;
+export type ActivateSponsorshipInput = z.infer<typeof activateSponsorshipSchema>;
+

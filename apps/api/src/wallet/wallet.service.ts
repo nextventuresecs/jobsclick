@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, Inject } from '@nestjs/common';
 import type { CreditLedgerRow } from '@indian-job-portal/database';
 import { CreditLedgerRepository } from '../database/repositories/credit-ledger.repository.js';
 import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
+import { ProfileRepository } from '../database/repositories/profile.repository.js';
 
 export interface WalletTransactionInput {
   userId: string;
@@ -30,6 +31,8 @@ export class WalletService {
     private readonly creditLedgerRepository: CreditLedgerRepository,
     @Inject(AuditLogRepository)
     private readonly auditLogRepository: AuditLogRepository,
+    @Inject(ProfileRepository)
+    private readonly profileRepository: ProfileRepository,
   ) {}
 
   // WAL-01 & Hard Invariant #7: Calculate dynamic balance directly from immutable ledger
@@ -103,11 +106,27 @@ export class WalletService {
   }
 
   // Deduct 1 credit for job application; 11th application prompts for recharge
+  // Sponsored students receive unlimited applications without consuming individual wallet balance (WAL-05)
   async deductForJobApplication(
     applicantId: string,
     jobId: string,
     jobTitle?: string,
-  ): Promise<{ success: boolean; remainingBalance: number }> {
+  ): Promise<{ success: boolean; remainingBalance: number; isSponsored?: boolean }> {
+    // WAL-05: Check if applicant is a sponsored candidate enrolled in a registered institution
+    try {
+      const seekerProfile = await this.profileRepository.findSeekerProfileByUserId(applicantId);
+      if (seekerProfile?.is_sponsored) {
+        const { balance } = await this.getBalance(applicantId);
+        return {
+          success: true,
+          remainingBalance: balance,
+          isSponsored: true,
+        };
+      }
+    } catch {
+      // Non-blocking fallback to standard wallet deduction
+    }
+
     // Ensure starter credits exist if candidate is fresh
     await this.ensureStarterCredits(applicantId);
 
@@ -132,6 +151,7 @@ export class WalletService {
     return {
       success: true,
       remainingBalance: balance - requiredCredits,
+      isSponsored: false,
     };
   }
 

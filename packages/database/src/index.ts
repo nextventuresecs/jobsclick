@@ -49,6 +49,8 @@ export interface Database {
         preferred_locations?: string[];
         willing_to_relocate?: boolean;
         bio?: string | null;
+        is_sponsored?: boolean;
+        institution_id?: string | null;
         source: string;
         created_by: string | null;
         updated_by: string | null;
@@ -112,6 +114,12 @@ export interface Database {
         annual_capacity?: number | null;
         placement_brochure_url?: string | null;
         about?: string | null;
+        is_sponsorship_active?: boolean;
+        sponsorship_tier?: 'Small' | 'Medium' | 'Large' | string;
+        sponsorship_rate_per_student?: number;
+        sponsorship_expires_at?: string | null;
+        total_sponsored_students?: number;
+        annual_sponsorship_fee?: number;
         source: string;
         created_by: string | null;
         updated_by: string | null;
