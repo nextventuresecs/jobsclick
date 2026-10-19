@@ -363,12 +363,11 @@ export class PaymentService {
       const now = new Date();
       const invoiceNumber = `INV-${now.getFullYear()}-${payment.id.replace(/[^a-zA-Z0-9]/g, '').slice(-8).toUpperCase()}`;
 
-      // 3. Update payment record to 'captured' with audit metadata
-      const updatedPayment = await this.paymentRepository.update(payment.id, {
+      // 3. Atomic Conditional Transition to 'captured'
+      const transitionResult = await this.paymentRepository.transitionToCaptured(payment.id, {
         gateway_payment_id: paymentId,
         gateway_signature: signature ?? payment.gateway_signature,
         invoice_number: invoiceNumber,
-        status: 'captured',
         processed_at: now.toISOString(),
         processed_by: (extraMetadata?.['verifiedBy'] as string) || 'razorpay_webhook',
         metadata: {
@@ -377,6 +376,17 @@ export class PaymentService {
           capturedAt: now.toISOString(),
         },
       });
+
+      // If already captured by another concurrent execution, return invoice idempotently
+      if (transitionResult.alreadyCaptured || !transitionResult.updated) {
+        const capturedPayment = transitionResult.payment || (await this.paymentRepository.findById(payment.id));
+        if (capturedPayment) {
+          const invoice = this.formatInvoice(capturedPayment);
+          return { payment: capturedPayment, invoice, alreadyProcessed: true };
+        }
+      }
+
+      const updatedPayment = transitionResult.updated!;
 
       // 4. Grant credits to wallet via ledger (Hard Invariant #7: Ledger is source of truth)
       const creditsToGrant = updatedPayment.credits_added || 0;

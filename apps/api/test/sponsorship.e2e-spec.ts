@@ -19,6 +19,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
   let profileRepo: ProfileRepository;
   let paymentRepo: PaymentRepository;
   let jwtToken: string;
+  let institutionUser: { id: string; role: string; phone: string };
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -50,6 +51,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
     });
     const authData = authRes.json();
     jwtToken = authData.accessToken;
+    institutionUser = authData.user;
   });
 
   afterAll(async () => {
@@ -130,6 +132,18 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
       const student1UserId = `std_usr_1_${Date.now()}`;
       const student2UserId = `std_usr_2_${Date.now()}`;
 
+      // Create owning institution profile linked to the test auth user
+      await profileRepo.saveInstitutionProfile({
+        id: institutionId,
+        user_id: institutionUser.id,
+        institution_name: 'IIT Delhi Technical Campus',
+        source: 'direct',
+        created_by: institutionUser.id,
+        updated_by: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
       // Enroll two students linked to this institution
       const s1: JobSeekerProfileRow = {
         id: `jsp_1_${Date.now()}`,
@@ -159,6 +173,18 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
       expect(s1.is_sponsored).toBe(false);
       expect(s2.is_sponsored).toBe(false);
 
+      // Create a verified captured payment record for the institution
+      const testPaymentId = `pay_inst_test_${Date.now()}`;
+      await paymentRepo.create({
+        id: `pay_row_ac2_${Date.now()}`,
+        user_id: institutionUser.id,
+        gateway_order_id: `order_inst_${Date.now()}`,
+        gateway_payment_id: testPaymentId,
+        amount_inr: 50000,
+        status: 'captured',
+        created_at: new Date().toISOString(),
+      });
+
       // Institution activates annual sponsorship via HTTP endpoint
       const activationRes = await app.inject({
         method: 'POST',
@@ -167,7 +193,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
           Authorization: `Bearer ${jwtToken}`,
         },
         payload: {
-          paymentReference: 'rzp_pay_inst_test_123',
+          paymentReference: testPaymentId,
         },
       });
 
@@ -313,7 +339,18 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
         ),
       ).rejects.toThrow(ForbiddenException);
 
-      // 6. Legitimate owner activates their own institution -> 201 Created
+      // 6. Legitimate owner activates their own institution with captured payment -> 201 Created
+      const validOwnerPaymentId = `pay_owner_valid_${Date.now()}`;
+      await paymentRepo.create({
+        id: `pay_row_owner_${Date.now()}`,
+        user_id: ownerUserId,
+        gateway_order_id: `order_owner_${Date.now()}`,
+        gateway_payment_id: validOwnerPaymentId,
+        amount_inr: 50000,
+        status: 'captured',
+        created_at: new Date().toISOString(),
+      });
+
       const authorizedHttpRes = await app.inject({
         method: 'POST',
         url: `/institutions/${targetInstId}/sponsorship/activate`,
@@ -321,7 +358,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
           Authorization: `Bearer ${ownerToken}`,
         },
         payload: {
-          paymentReference: 'rzp_pay_owner_valid',
+          paymentReference: validOwnerPaymentId,
         },
       });
       expect(authorizedHttpRes.statusCode).toBe(201);
@@ -359,11 +396,23 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
         });
       }
 
+      // Create a verified captured payment record for the concurrent institution
+      const concurrentPaymentId = `pay_concurrent_${Date.now()}`;
+      await paymentRepo.create({
+        id: `pay_row_c_${Date.now()}`,
+        user_id: ownerUser,
+        gateway_order_id: `order_c_${Date.now()}`,
+        gateway_payment_id: concurrentPaymentId,
+        amount_inr: 50000,
+        status: 'captured',
+        created_at: new Date().toISOString(),
+      });
+
       // Fire 5 concurrent activation requests for the same institution
       const requests = Array.from({ length: 5 }, () =>
         sponsorshipService.activateSponsorship(
           concurrentInstId,
-          { studentCountOverride: 50 },
+          { studentCountOverride: 50, paymentReference: concurrentPaymentId },
           { id: ownerUser, role: 'institution' },
         ),
       );
@@ -522,6 +571,16 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
           { id: instUserId, role: 'institution' },
         ),
       ).rejects.toThrow(BadRequestException);
+
+      // 7. Non-admin attempting to activate without any payment reference is rejected
+      await expect(
+        sponsorshipService.activateSponsorship(
+          instUncapturedId,
+          {},
+          { id: instUserId, role: 'institution' },
+        ),
+      ).rejects.toThrow('A verified, captured payment reference is required to activate sponsorship');
     });
   });
 });
+

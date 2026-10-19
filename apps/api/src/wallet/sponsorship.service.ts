@@ -180,24 +180,32 @@ export class SponsorshipService {
       }
     }
 
-    // 2. Payment verification hardening
+    // 2. Payment verification hardening (Mandatory for non-admins)
+    const isPrivileged = user.role === 'admin' || (user.role as string) === 'msme_admin';
+
+    if (!isPrivileged && !input?.paymentReference) {
+      throw new BadRequestException('A verified, captured payment reference is required to activate sponsorship');
+    }
+
     if (input?.paymentReference) {
       const payment =
         (await this.paymentRepository.findByGatewayPaymentId(input.paymentReference)) ||
         (await this.paymentRepository.findById(input.paymentReference)) ||
         (await this.paymentRepository.findByGatewayOrderId(input.paymentReference));
 
-      if (payment) {
-        if (payment.status !== 'captured') {
-          throw new BadRequestException('Payment not verified: payment status is not captured');
-        }
-        const isPaymentOwner =
-          payment.user_id === user.id ||
-          (instProfile && payment.user_id === instProfile.user_id);
-        const isPrivileged = user.role === 'admin' || (user.role as string) === 'msme_admin';
-        if (!isPaymentOwner && !isPrivileged) {
-          throw new ForbiddenException('Payment is not linked to this institution or caller');
-        }
+      if (!payment) {
+        throw new BadRequestException(`Payment reference ${input.paymentReference} not found`);
+      }
+
+      if (payment.status !== 'captured') {
+        throw new BadRequestException('Payment not verified: payment status is not captured');
+      }
+
+      const isPaymentOwner =
+        payment.user_id === user.id ||
+        (instProfile && payment.user_id === instProfile.user_id);
+      if (!isPaymentOwner && !isPrivileged) {
+        throw new ForbiddenException('Payment is not linked to this institution or caller');
       }
     }
 

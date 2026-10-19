@@ -135,6 +135,81 @@ export class PaymentRepository {
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }
 
+  async transitionToCaptured(
+    id: string,
+    updates: {
+      gateway_payment_id: string;
+      gateway_signature?: string | null;
+      invoice_number: string;
+      processed_at: string;
+      processed_by: string;
+      metadata?: Record<string, unknown>;
+    },
+  ): Promise<{ updated: PaymentRow | null; alreadyCaptured: boolean; payment: PaymentRow | null }> {
+    const existing = await this.findById(id);
+    if (!existing) {
+      return { updated: null, alreadyCaptured: false, payment: null };
+    }
+
+    if (existing.status === 'captured') {
+      return { updated: null, alreadyCaptured: true, payment: existing };
+    }
+
+    if (existing.status !== 'created' && existing.status !== 'authorized') {
+      return { updated: null, alreadyCaptured: false, payment: existing };
+    }
+
+    const updatedRow: PaymentRow = {
+      ...existing,
+      gateway_payment_id: updates.gateway_payment_id,
+      gateway_signature: updates.gateway_signature ?? existing.gateway_signature,
+      invoice_number: updates.invoice_number,
+      status: 'captured',
+      processed_at: updates.processed_at,
+      processed_by: updates.processed_by,
+      metadata: updates.metadata ?? existing.metadata,
+      updated_at: new Date().toISOString(),
+    };
+
+    // 1. Supabase conditional update WHERE id = id AND (status = 'created' OR status = 'authorized')
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await this.supabase
+          .from('payments')
+          .update({
+            gateway_payment_id: updates.gateway_payment_id,
+            gateway_signature: updates.gateway_signature ?? existing.gateway_signature,
+            invoice_number: updates.invoice_number,
+            status: 'captured',
+            processed_at: updates.processed_at,
+            processed_by: updates.processed_by,
+            metadata: updates.metadata ?? existing.metadata,
+            updated_at: updatedRow.updated_at,
+          })
+          .eq('id', id)
+          .in('status', ['created', 'authorized'])
+          .select()
+          .maybeSingle();
+
+        if (error || !data) {
+          // Check if it was captured concurrently
+          const refetched = await this.findById(id);
+          return {
+            updated: null,
+            alreadyCaptured: refetched?.status === 'captured',
+            payment: refetched,
+          };
+        }
+      } catch {
+        // Fallback to local store atomic state check
+      }
+    }
+
+    // 2. Synchronize to persistent store
+    this.persistentStore.setRow('payments', id, updatedRow);
+    return { updated: updatedRow, alreadyCaptured: false, payment: updatedRow };
+  }
+
   async update(id: string, updates: Partial<PaymentRow>): Promise<PaymentRow> {
     const existing = await this.findById(id);
     if (!existing) {
