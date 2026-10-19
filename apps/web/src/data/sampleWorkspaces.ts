@@ -89,6 +89,10 @@ export interface InstitutionProfileData {
   readonly about: string;
   readonly isVerified: boolean;
   readonly isOnboardingComplete: boolean;
+  readonly isSponsorshipActive?: boolean;
+  readonly sponsorshipTier?: 'Small' | 'Medium' | 'Large';
+  readonly sponsorshipExpiresAt?: string;
+  readonly totalSponsoredStudents?: number;
 }
 
 export const INITIAL_INSTITUTION_PROFILE: InstitutionProfileData = {

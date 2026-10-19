@@ -25,6 +25,11 @@ const baseSchema = z.object({
   MSG91_AUTH_KEY: z.string().optional(),
   MSG91_SENDER_ID: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
+  // Razorpay Payment Gateway (WAL-03)
+  RAZORPAY_KEY_ID: z.string().optional(),
+  RAZORPAY_KEY_SECRET: z.string().optional(),
+  RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
+  ALLOW_TEST_PAYMENTS: z.coerce.boolean().default(false),
 }).passthrough();
 
 export type EnvConfig = z.infer<typeof baseSchema>;
@@ -63,10 +68,30 @@ export function validateEnv(): EnvConfig {
       ['SUPABASE_SERVICE_ROLE_KEY', env.SUPABASE_SERVICE_ROLE_KEY, 'SUPABASE_SERVICE_ROLE_KEY is required in production for storage'],
     ];
 
-    const missing = required.filter(([, value]) => !value);
+    // Enforce real Razorpay keys in production unless ALLOW_TEST_PAYMENTS is explicitly true
+    if (!env.ALLOW_TEST_PAYMENTS) {
+      required.push(
+        ['RAZORPAY_KEY_ID', env.RAZORPAY_KEY_ID, 'RAZORPAY_KEY_ID is required in production (or set ALLOW_TEST_PAYMENTS=true)'],
+        ['RAZORPAY_KEY_SECRET', env.RAZORPAY_KEY_SECRET, 'RAZORPAY_KEY_SECRET is required in production (or set ALLOW_TEST_PAYMENTS=true)'],
+        ['RAZORPAY_WEBHOOK_SECRET', env.RAZORPAY_WEBHOOK_SECRET, 'RAZORPAY_WEBHOOK_SECRET is required in production (or set ALLOW_TEST_PAYMENTS=true)'],
+      );
+    }
+
+    const missing = required.filter(([, value]) => {
+      if (!value) return true;
+      if (typeof value === 'string') {
+        const lower = value.toLowerCase();
+        // Reject obvious dummy/placeholder keys in production unless ALLOW_TEST_PAYMENTS=true
+        if (!env.ALLOW_TEST_PAYMENTS && (lower.includes('dummy') || lower.startsWith('rzp_test_dummy'))) {
+          return true;
+        }
+      }
+      return false;
+    });
+
     if (missing.length > 0) {
       const msgs = missing.map(([name, , reason]) => `  - ${name}: ${reason}`);
-      throw new Error(`Missing required production environment variables:\n${msgs.join('\n')}`);
+      throw new Error(`Missing or dummy required production environment variables:\n${msgs.join('\n')}`);
     }
 
     // API_URL must be HTTPS in production (QStash refuses plain HTTP)
