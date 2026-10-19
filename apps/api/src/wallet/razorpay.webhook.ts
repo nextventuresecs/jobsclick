@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
 import { PaymentService } from './payment.service.js';
+import { captureException } from '../config/sentry.js';
 
 interface RequestWithRawBody extends FastifyRequest {
   rawBody?: string;
@@ -33,6 +34,7 @@ export class RazorpayWebhookController {
   ) {
     if (!signature) {
       this.logger.warn('Razorpay webhook received without x-razorpay-signature header');
+      captureException(new Error('Razorpay webhook missing x-razorpay-signature header'));
       throw new BadRequestException({
         statusCode: 400,
         code: 'MISSING_SIGNATURE',
@@ -46,6 +48,7 @@ export class RazorpayWebhookController {
     const isValid = this.paymentService.verifyWebhookSignature(rawPayload, signature);
     if (!isValid) {
       this.logger.warn('Razorpay webhook HMAC signature verification failed');
+      captureException(new Error('Invalid Razorpay webhook signature detected'));
       throw new BadRequestException({
         statusCode: 400,
         code: 'INVALID_SIGNATURE',
@@ -88,6 +91,47 @@ export class RazorpayWebhookController {
         orderId,
         paymentId,
         alreadyProcessed: result.alreadyProcessed,
+      };
+    }
+
+    // Process payment.failed event
+    if (event === 'payment.failed') {
+      const payload = (body['payload'] as Record<string, Record<string, unknown> | undefined>) || {};
+      const paymentEntity = (payload['payment']?.['entity'] as unknown as Record<string, unknown>) || {};
+      const orderId = paymentEntity['order_id'] as string;
+      const paymentId = (paymentEntity['id'] as string) || `pay_${Date.now()}`;
+      const errorDesc = (paymentEntity['error_description'] as string) || (paymentEntity['error_reason'] as string);
+
+      if (orderId) {
+        await this.paymentService.handlePaymentFailure(orderId, paymentId, errorDesc);
+      }
+
+      return {
+        status: 'ok',
+        received: true,
+        event,
+        action: 'payment_failed_recorded',
+      };
+    }
+
+    // Process payment.refunded event
+    if (event === 'payment.refunded' || event === 'refund.processed') {
+      const payload = (body['payload'] as Record<string, Record<string, unknown> | undefined>) || {};
+      const paymentEntity = (payload['payment']?.['entity'] as unknown as Record<string, unknown>) || {};
+      const refundEntity = (payload['refund']?.['entity'] as unknown as Record<string, unknown>) || {};
+      const orderId = paymentEntity['order_id'] as string;
+      const paymentId = (paymentEntity['id'] as string) || (refundEntity['payment_id'] as string);
+      const refundAmount = Number(refundEntity['amount'] || paymentEntity['amount_refunded']);
+
+      if (orderId && paymentId) {
+        await this.paymentService.handlePaymentRefunded(orderId, paymentId, refundAmount);
+      }
+
+      return {
+        status: 'ok',
+        received: true,
+        event,
+        action: 'refund_processed',
       };
     }
 

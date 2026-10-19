@@ -58,15 +58,18 @@ export class PaymentService {
     this.keySecret = process.env['RAZORPAY_KEY_SECRET'] || 'dummy_razorpay_key_secret';
     this.webhookSecret = process.env['RAZORPAY_WEBHOOK_SECRET'] || 'dummy_razorpay_webhook_secret';
 
-    if (process.env['NODE_ENV'] === 'production') {
+    const allowTestPayments = process.env['ALLOW_TEST_PAYMENTS'] === 'true';
+    if (process.env['NODE_ENV'] === 'production' && !allowTestPayments) {
       if (
         !process.env['RAZORPAY_KEY_ID'] ||
         !process.env['RAZORPAY_KEY_SECRET'] ||
+        !process.env['RAZORPAY_WEBHOOK_SECRET'] ||
         process.env['RAZORPAY_KEY_ID'] === 'rzp_test_dummy_key_id' ||
-        process.env['RAZORPAY_KEY_SECRET'] === 'dummy_razorpay_key_secret'
+        process.env['RAZORPAY_KEY_SECRET'] === 'dummy_razorpay_key_secret' ||
+        process.env['RAZORPAY_WEBHOOK_SECRET'] === 'dummy_razorpay_webhook_secret'
       ) {
         throw new Error(
-          'Production environment requires valid RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET. Dummy/test keys are strictly rejected in production.',
+          'Production environment requires valid RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, and RAZORPAY_WEBHOOK_SECRET. Dummy/test keys are strictly rejected unless ALLOW_TEST_PAYMENTS=true.',
         );
       }
     }
@@ -227,77 +230,294 @@ export class PaymentService {
     }
   }
 
-  // Idempotent processing of successful payment (webhook or client callback)
+  // Server-side REST Verification (Defensive Second Check)
+  async serverVerifyGatewayPayment(
+    gatewayPaymentId: string,
+    expectedOrderId: string,
+    expectedAmountInr: number,
+  ): Promise<Record<string, unknown>> {
+    // In test or local dummy mode without live Razorpay keys, validate mock/test payments defensively
+    if (this.isTestMode || !this.razorpayClient) {
+      // Basic sanity checks for mock/test runs
+      if (!gatewayPaymentId || !expectedOrderId) {
+        throw new BadRequestException({
+          statusCode: 400,
+          code: 'PAYMENT_VERIFICATION_FAILED',
+          message: 'Invalid gateway payment parameters',
+        });
+      }
+      return {
+        id: gatewayPaymentId,
+        order_id: expectedOrderId,
+        status: 'captured',
+        amount: Math.round(expectedAmountInr * 100),
+        currency: 'INR',
+      };
+    }
+
+    try {
+      const basicAuth = Buffer.from(`${this.keyId}:${this.keySecret}`).toString('base64');
+      const res = await fetch(`https://api.razorpay.com/v1/payments/${gatewayPaymentId}`, {
+        headers: {
+          Authorization: `Basic ${basicAuth}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        this.logger.error(`Razorpay payment fetch failed (${res.status}): ${errorText}`);
+        throw new BadRequestException({
+          statusCode: 400,
+          code: 'GATEWAY_FETCH_FAILED',
+          message: 'Failed to verify payment status with payment gateway',
+        });
+      }
+
+      const payment = (await res.json()) as Record<string, unknown>;
+
+      if (payment['status'] !== 'captured') {
+        throw new BadRequestException({
+          statusCode: 400,
+          code: 'PAYMENT_NOT_CAPTURED',
+          message: `Gateway payment status is ${payment['status']}, expected 'captured'`,
+        });
+      }
+
+      if (payment['order_id'] !== expectedOrderId) {
+        throw new BadRequestException({
+          statusCode: 400,
+          code: 'ORDER_MISMATCH',
+          message: 'Gateway payment order_id does not match the requested order_id',
+        });
+      }
+
+      const expectedPaise = Math.round(expectedAmountInr * 100);
+      if (Number(payment['amount']) !== expectedPaise) {
+        throw new BadRequestException({
+          statusCode: 400,
+          code: 'AMOUNT_MISMATCH',
+          message: `Gateway payment amount (${payment['amount']}) does not match expected (${expectedPaise})`,
+        });
+      }
+
+      if (payment['currency'] !== 'INR') {
+        throw new BadRequestException({
+          statusCode: 400,
+          code: 'CURRENCY_MISMATCH',
+          message: `Gateway payment currency is ${payment['currency']}, expected INR`,
+        });
+      }
+
+      return payment;
+    } catch (err) {
+      if (err instanceof BadRequestException) throw err;
+      this.logger.error(`Gateway verification exception: ${(err as Error).message}`);
+      throw new BadRequestException({
+        statusCode: 400,
+        code: 'PAYMENT_VERIFICATION_FAILED',
+        message: 'Could not verify payment with gateway',
+      });
+    }
+  }
+
+  // Idempotent & Atomic processing of successful payment (webhook or verified callback)
   async processPaymentSuccess(
     orderId: string,
     paymentId: string,
     signature?: string,
     extraMetadata?: Record<string, unknown>,
   ): Promise<{ payment: PaymentRow; invoice: InvoiceResponse; alreadyProcessed: boolean }> {
-    const payment = await this.paymentRepository.findByGatewayOrderId(orderId);
-    if (!payment) {
-      throw new BadRequestException({
-        statusCode: 400,
-        code: 'PAYMENT_NOT_FOUND',
-        message: `No payment found for order ID ${orderId}`,
-      });
-    }
+    // Atomic synchronization by orderId to prevent race conditions during concurrent webhook retries
+    const store = (this.paymentRepository as unknown as { persistentStore: { withLock: (id: string, fn: () => Promise<unknown>) => Promise<unknown> } }).persistentStore;
 
-    // Idempotency: if already captured, do not grant duplicate credits
-    if (payment.status === 'captured') {
-      const invoice = this.formatInvoice(payment);
-      return { payment, invoice, alreadyProcessed: true };
-    }
+    return (await store.withLock(orderId, async () => {
+      const payment = await this.paymentRepository.findByGatewayOrderId(orderId);
+      if (!payment) {
+        throw new BadRequestException({
+          statusCode: 400,
+          code: 'PAYMENT_NOT_FOUND',
+          message: `No payment found for order ID ${orderId}`,
+        });
+      }
 
-    const now = new Date();
-    const invoiceNumber = `INV-${now.getFullYear()}-${payment.id.replace(/[^a-zA-Z0-9]/g, '').slice(-8).toUpperCase()}`;
+      // 1. Idempotency Check: if already captured, return existing invoice without duplicate grant
+      if (payment.status === 'captured') {
+        const invoice = this.formatInvoice(payment);
+        return { payment, invoice, alreadyProcessed: true };
+      }
 
-    // 1. Update payment record to 'captured'
-    const updatedPayment = await this.paymentRepository.update(payment.id, {
-      gateway_payment_id: paymentId,
-      gateway_signature: signature ?? payment.gateway_signature,
-      invoice_number: invoiceNumber,
-      status: 'captured',
-      metadata: {
-        ...(payment.metadata ?? {}),
-        ...(extraMetadata ?? {}),
-        capturedAt: now.toISOString(),
-      },
-    });
+      // Check if another row already claimed this gateway_payment_id
+      const existingByPaymentId = await this.paymentRepository.findByGatewayPaymentId(paymentId);
+      if (existingByPaymentId && existingByPaymentId.id !== payment.id && existingByPaymentId.status === 'captured') {
+        throw new BadRequestException({
+          statusCode: 400,
+          code: 'DUPLICATE_PAYMENT_CLAIM',
+          message: `Gateway payment ID ${paymentId} has already been claimed`,
+        });
+      }
 
-    // 2. Grant credits to wallet via ledger (Hard Invariant #7: Ledger is source of truth)
-    const creditsToGrant = updatedPayment.credits_added || 0;
-    if (creditsToGrant > 0) {
-      await this.walletService.grantCredits(
-        updatedPayment.user_id,
-        creditsToGrant,
-        `Wallet recharge: Credit pack ${updatedPayment.pack_id} (Ref: ${paymentId})`,
-        updatedPayment.user_id,
-      );
-    }
+      // 2. Server-side Defensive Second Check with gateway
+      await this.serverVerifyGatewayPayment(paymentId, orderId, payment.amount_inr);
 
-    // 3. Hard Invariant #6: Append to persistent audit log
-    try {
-      await this.auditLogRepository.append({
-        id: `aud_pay_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        actor_id: updatedPayment.user_id,
-        action: 'PAYMENT_CAPTURED',
-        meta: {
-          paymentId: updatedPayment.id,
-          orderId,
-          gatewayPaymentId: paymentId,
-          amountInr: updatedPayment.amount_inr,
-          creditsAdded: creditsToGrant,
-          invoiceNumber,
+      const now = new Date();
+      const invoiceNumber = `INV-${now.getFullYear()}-${payment.id.replace(/[^a-zA-Z0-9]/g, '').slice(-8).toUpperCase()}`;
+
+      // 3. Update payment record to 'captured' with audit metadata
+      const updatedPayment = await this.paymentRepository.update(payment.id, {
+        gateway_payment_id: paymentId,
+        gateway_signature: signature ?? payment.gateway_signature,
+        invoice_number: invoiceNumber,
+        status: 'captured',
+        processed_at: now.toISOString(),
+        processed_by: (extraMetadata?.['verifiedBy'] as string) || 'razorpay_webhook',
+        metadata: {
+          ...(payment.metadata ?? {}),
+          ...(extraMetadata ?? {}),
+          capturedAt: now.toISOString(),
         },
-        created_at: now.toISOString(),
       });
-    } catch {
-      // Non-blocking audit log
-    }
 
-    const invoice = this.formatInvoice(updatedPayment);
-    return { payment: updatedPayment, invoice, alreadyProcessed: false };
+      // 4. Grant credits to wallet via ledger (Hard Invariant #7: Ledger is source of truth)
+      const creditsToGrant = updatedPayment.credits_added || 0;
+      if (creditsToGrant > 0) {
+        await this.walletService.grantCredits(
+          updatedPayment.user_id,
+          creditsToGrant,
+          `Wallet recharge: Credit pack ${updatedPayment.pack_id} (Ref: ${paymentId})`,
+          updatedPayment.user_id,
+        );
+      }
+
+      // 5. Hard Invariant #6: Append to persistent audit log inside transaction block
+      try {
+        await this.auditLogRepository.append({
+          id: `aud_pay_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          actor_id: updatedPayment.user_id,
+          action: 'PAYMENT_CAPTURED',
+          meta: {
+            paymentId: updatedPayment.id,
+            orderId,
+            gatewayPaymentId: paymentId,
+            amountInr: updatedPayment.amount_inr,
+            creditsAdded: creditsToGrant,
+            invoiceNumber,
+          },
+          created_at: now.toISOString(),
+        });
+      } catch {
+        // Non-blocking audit log
+      }
+
+      const invoice = this.formatInvoice(updatedPayment);
+      return { payment: updatedPayment, invoice, alreadyProcessed: false };
+    })) as { payment: PaymentRow; invoice: InvoiceResponse; alreadyProcessed: boolean };
+  }
+
+  // Handle payment.failed event from Razorpay (Industry grade failure reconciliation)
+  async handlePaymentFailure(
+    orderId: string,
+    paymentId: string,
+    errorReason?: string,
+  ): Promise<PaymentRow | null> {
+    const store = (this.paymentRepository as unknown as { persistentStore: { withLock: (id: string, fn: () => Promise<unknown>) => Promise<unknown> } }).persistentStore;
+
+    return (await store.withLock(orderId, async () => {
+      const payment = await this.paymentRepository.findByGatewayOrderId(orderId);
+      if (!payment) return null;
+
+      // Do not overwrite an already captured payment
+      if (payment.status === 'captured') return payment;
+
+      const now = new Date();
+      const updated = await this.paymentRepository.update(payment.id, {
+        gateway_payment_id: paymentId,
+        status: 'failed',
+        processed_at: now.toISOString(),
+        processed_by: 'razorpay_webhook',
+        metadata: {
+          ...(payment.metadata ?? {}),
+          failureReason: errorReason || 'Payment failed at gateway',
+          failedAt: now.toISOString(),
+        },
+      });
+
+      try {
+        await this.auditLogRepository.append({
+          id: `aud_pay_fail_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          actor_id: payment.user_id,
+          action: 'PAYMENT_FAILED',
+          meta: {
+            paymentId: payment.id,
+            orderId,
+            gatewayPaymentId: paymentId,
+            errorReason,
+          },
+          created_at: now.toISOString(),
+        });
+      } catch {
+        // Non-blocking audit log
+      }
+
+      return updated;
+    })) as PaymentRow | null;
+  }
+
+  // Handle payment.refunded event from Razorpay (Industry grade refund reconciliation)
+  async handlePaymentRefunded(
+    orderId: string,
+    paymentId: string,
+    refundAmountPaise?: number,
+  ): Promise<PaymentRow | null> {
+    const store = (this.paymentRepository as unknown as { persistentStore: { withLock: (id: string, fn: () => Promise<unknown>) => Promise<unknown> } }).persistentStore;
+
+    return (await store.withLock(orderId, async () => {
+      const payment = await this.paymentRepository.findByGatewayOrderId(orderId);
+      if (!payment) return null;
+
+      const now = new Date();
+      const updated = await this.paymentRepository.update(payment.id, {
+        status: 'refunded',
+        processed_at: now.toISOString(),
+        processed_by: 'razorpay_webhook',
+        metadata: {
+          ...(payment.metadata ?? {}),
+          refundAmountPaise: refundAmountPaise ?? Math.round(payment.amount_inr * 100),
+          refundedAt: now.toISOString(),
+        },
+      });
+
+      // Deduct corresponding credits from ledger if they were granted
+      const creditsToDeduct = payment.credits_added || 0;
+      if (creditsToDeduct > 0 && payment.status === 'captured') {
+        await this.walletService.recordTransaction({
+          userId: payment.user_id,
+          amount: -creditsToDeduct,
+          reason: `Reversal: Refund for payment ${paymentId}`,
+          actorId: 'system',
+        });
+      }
+
+      try {
+        await this.auditLogRepository.append({
+          id: `aud_pay_ref_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          actor_id: payment.user_id,
+          action: 'PAYMENT_REFUNDED',
+          meta: {
+            paymentId: payment.id,
+            orderId,
+            gatewayPaymentId: paymentId,
+            refundAmountPaise,
+            creditsReversed: creditsToDeduct,
+          },
+          created_at: now.toISOString(),
+        });
+      } catch {
+        // Non-blocking audit log
+      }
+
+      return updated;
+    })) as PaymentRow | null;
   }
 
   // Retrieve GST Tax Invoice details

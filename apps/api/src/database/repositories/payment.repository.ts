@@ -34,6 +34,8 @@ export class PaymentRepository {
           invoice_number: record.invoice_number ?? null,
           status: record.status,
           metadata: record.metadata ?? {},
+          processed_at: record.processed_at ?? null,
+          processed_by: record.processed_by ?? null,
           created_at: record.created_at,
           updated_at: record.updated_at ?? record.created_at,
         });

@@ -101,6 +101,16 @@ export const createPaymentOrderSchema = z.object({
     .or(z.literal('')),
 });
 
+export const paymentStatusSchema = z.enum([
+  'created',
+  'authorized',
+  'captured',
+  'refunded',
+  'failed',
+]);
+
+export type PaymentStatus = z.infer<typeof paymentStatusSchema>;
+
 export const verifyPaymentSchema = z.object({
   razorpayOrderId: z.string().min(1, 'Razorpay order ID is required'),
   razorpayPaymentId: z.string().min(1, 'Razorpay payment ID is required'),

@@ -315,4 +315,180 @@ describe('Ticket T-16: Razorpay Payment Gateway & Invoicing (WAL-03, Section 8.7
     const adminInvoice = await paymentService.getInvoice(order.orderId, 'admin_user', true);
     expect(adminInvoice).toBeDefined();
   });
+
+  it('Hardening Layer B & C: Simultaneous concurrent webhooks for the same order are serialized idempotently', async () => {
+    const order = await paymentService.createOrder(employerUserId, {
+      packId: 'pack_starter',
+    });
+
+    const paymentId = `pay_concurrent_${Date.now()}`;
+    const payload = JSON.stringify({
+      event: 'payment.captured',
+      payload: {
+        payment: {
+          entity: {
+            id: paymentId,
+            order_id: order.orderId,
+            amount: 59000,
+          },
+        },
+      },
+    });
+
+    const signature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(payload)
+      .digest('hex');
+
+    // Fire two requests concurrently
+    const [res1, res2] = await Promise.all([
+      app.inject({
+        method: 'POST',
+        url: '/webhooks/razorpay',
+        headers: {
+          'content-type': 'application/json',
+          'x-razorpay-signature': signature,
+        },
+        payload,
+      }),
+      app.inject({
+        method: 'POST',
+        url: '/webhooks/razorpay',
+        headers: {
+          'content-type': 'application/json',
+          'x-razorpay-signature': signature,
+        },
+        payload,
+      }),
+    ]);
+
+    expect(res1.statusCode).toBe(200);
+    expect(res2.statusCode).toBe(200);
+
+    const body1 = res1.json();
+    const body2 = res2.json();
+
+    // Exactly one should be marked as first process, the other as alreadyProcessed
+    const alreadyProcessedFlags = [body1.alreadyProcessed, body2.alreadyProcessed];
+    expect(alreadyProcessedFlags).toContain(false);
+    expect(alreadyProcessedFlags).toContain(true);
+
+    // Verify exactly one ledger row was added for this payment
+    const ledger = await ledgerRepo.findByUserId(employerUserId);
+    const matches = ledger.filter((l) => l.reason.includes(paymentId));
+    expect(matches.length).toBe(1);
+  });
+
+  it('Hardening Layer C: Prevents duplicate claim of the same gateway payment id across different orders', async () => {
+    const order1 = await paymentService.createOrder(employerUserId, { packId: 'pack_starter' });
+    const order2 = await paymentService.createOrder(strangerUserId, { packId: 'pack_starter' });
+
+    const sharedPaymentId = `pay_duplicate_claim_${Date.now()}`;
+
+    // Process order1 with sharedPaymentId
+    const res1 = await paymentService.processPaymentSuccess(order1.orderId, sharedPaymentId);
+    expect(res1.alreadyProcessed).toBe(false);
+
+    // Attempt to claim the same gateway payment id for order2
+    await expect(
+      paymentService.processPaymentSuccess(order2.orderId, sharedPaymentId),
+    ).rejects.toThrow();
+  });
+
+  it('Industry-Grade Lifecycle: Handles payment.failed webhook gracefully without granting credits', async () => {
+    const order = await paymentService.createOrder(employerUserId, { packId: 'pack_starter' });
+    const failPaymentId = `pay_fail_${Date.now()}`;
+
+    const failPayload = JSON.stringify({
+      event: 'payment.failed',
+      payload: {
+        payment: {
+          entity: {
+            id: failPaymentId,
+            order_id: order.orderId,
+            status: 'failed',
+            error_description: 'Card declined by issuing bank',
+          },
+        },
+      },
+    });
+
+    const signature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(failPayload)
+      .digest('hex');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/webhooks/razorpay',
+      headers: {
+        'content-type': 'application/json',
+        'x-razorpay-signature': signature,
+      },
+      payload: failPayload,
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.action).toBe('payment_failed_recorded');
+
+    const payment = await paymentRepo.findByGatewayOrderId(order.orderId);
+    expect(payment?.status).toBe('failed');
+    expect(payment?.metadata?.['failureReason']).toContain('declined');
+  });
+
+  it('Industry-Grade Lifecycle: Handles payment.refunded webhook and reverses granted credits', async () => {
+    const order = await paymentService.createOrder(employerUserId, { packId: 'pack_starter' });
+    const refundPaymentId = `pay_refund_${Date.now()}`;
+
+    // First, complete the payment to captured
+    await paymentService.processPaymentSuccess(order.orderId, refundPaymentId);
+    const balanceBeforeRefund = await walletService.getBalance(employerUserId);
+
+    // Simulate payment.refunded webhook
+    const refundPayload = JSON.stringify({
+      event: 'payment.refunded',
+      payload: {
+        payment: {
+          entity: {
+            id: refundPaymentId,
+            order_id: order.orderId,
+            amount_refunded: 59000,
+          },
+        },
+        refund: {
+          entity: {
+            id: `rfnd_${Date.now()}`,
+            payment_id: refundPaymentId,
+            amount: 59000,
+          },
+        },
+      },
+    });
+
+    const signature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(refundPayload)
+      .digest('hex');
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/razorpay',
+      headers: {
+        'content-type': 'application/json',
+        'x-razorpay-signature': signature,
+      },
+      payload: refundPayload,
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().action).toBe('refund_processed');
+
+    const payment = await paymentRepo.findByGatewayOrderId(order.orderId);
+    expect(payment?.status).toBe('refunded');
+
+    // Verify credits deducted via ledger
+    const balanceAfterRefund = await walletService.getBalance(employerUserId);
+    expect(balanceAfterRefund.balance).toBe(balanceBeforeRefund.balance - 50);
+  });
 });

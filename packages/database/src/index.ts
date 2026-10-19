@@ -222,8 +222,10 @@ export interface Database {
         tax_amount_inr?: number;
         currency?: string;
         invoice_number?: string | null;
-        status: 'created' | 'pending' | 'captured' | 'failed' | string;
+        status: 'created' | 'authorized' | 'captured' | 'refunded' | 'failed';
         metadata?: Record<string, unknown> | null;
+        processed_at?: string | null;
+        processed_by?: 'razorpay_webhook' | 'client_checkout' | 'admin' | string | null;
         created_at: string;
         updated_at?: string;
       }>;
