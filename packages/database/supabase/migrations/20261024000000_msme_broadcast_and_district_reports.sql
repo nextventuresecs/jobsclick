@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS broadcast_campaigns (
     estimated_cost_paise BIGINT NOT NULL CHECK (estimated_cost_paise >= 0),
     status VARCHAR(50) NOT NULL DEFAULT 'queued'
         CHECK (status IN ('queued', 'processing', 'completed', 'failed', 'cancelled')),
+    confirmation_token VARCHAR(150),
+    audience_digest VARCHAR(64),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -37,6 +39,9 @@ CREATE INDEX IF NOT EXISTS idx_broadcast_campaigns_created_by
 
 CREATE INDEX IF NOT EXISTS idx_broadcast_campaigns_status 
     ON broadcast_campaigns (status);
+
+CREATE INDEX IF NOT EXISTS idx_broadcast_campaigns_confirmation_token
+    ON broadcast_campaigns (confirmation_token);
 
 CREATE INDEX IF NOT EXISTS idx_broadcast_deliveries_campaign_id 
     ON broadcast_deliveries (campaign_id);

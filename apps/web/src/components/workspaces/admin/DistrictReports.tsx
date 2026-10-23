@@ -266,9 +266,19 @@ export function DistrictReports({ initialData }: DistrictReportsProps) {
 
                     {/* Total Hires */}
                     <td className="py-3.5 px-4">
-                      <span className="font-bold text-emerald-700">
-                        {item.totalHires.toLocaleString('en-IN')}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-emerald-700">
+                          {item.displayHires ?? item.totalHires.toLocaleString('en-IN')}
+                        </span>
+                        {item.suppressedHires && (
+                          <span
+                            title="Statistical Disclosure Control: masked to protect privacy in low-volume districts"
+                            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200"
+                          >
+                            SDC
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     {/* Visual Progress Bar */}

@@ -2,17 +2,26 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
-import { calculateSmsSegments, interpolateTemplate } from '../src/admin/sms-segment.util.js';
+import {
+  calculateSmsSegments,
+  splitSmsIntoSegments,
+  getGraphemeClusters,
+  interpolateTemplate,
+  validateDltTemplateVariables,
+} from '../src/admin/sms-segment.util.js';
 import { BroadcastProcessor } from '../../worker/src/processors/broadcast.processor.js';
 import { ProfileRepository } from '../src/database/repositories/profile.repository.js';
 import { JobRepository } from '../src/database/repositories/job.repository.js';
 import { ApplicationRepository } from '../src/database/repositories/application.repository.js';
+import { CreditLedgerRepository } from '../src/database/repositories/credit-ledger.repository.js';
+import { applyStatisticalDisclosureControl } from '../src/admin/reports.service.js';
 
 describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Reports', () => {
   let app: NestFastifyApplication;
   let profileRepo: ProfileRepository;
   let jobRepo: JobRepository;
   let appRepo: ApplicationRepository;
+  let ledgerRepo: CreditLedgerRepository;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -29,6 +38,7 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
     profileRepo = app.get(ProfileRepository);
     jobRepo = app.get(JobRepository);
     appRepo = app.get(ApplicationRepository);
+    ledgerRepo = app.get(CreditLedgerRepository);
   });
 
   afterAll(async () => {
@@ -93,6 +103,51 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
       });
       expect(resolved).toBe('Dear Apex Tools Pvt Ltd, subsidy for Automotive is approved.');
     });
+
+    it('protects Devanagari grapheme clusters and reassembles split segments seamlessly', () => {
+      const complexHindi = 'भारत सरकार एमएसएमई विभाग: राष्ट्रीय सूक्ष्म, लघु एवं मध्यम उद्योग प्रोत्साहन योजना 2026 के अंतर्गत सब्सिडी एवं ऋण सहायता हेतु तुरंत आवेदन करें।';
+      const clusters = getGraphemeClusters(complexHindi);
+      expect(clusters.length).toBeGreaterThan(0);
+
+      // Verify segmentation produces valid segments
+      const segResult = calculateSmsSegments(complexHindi);
+      expect(segResult.encoding).toBe('UCS-2');
+      expect(segResult.segments.length).toBeGreaterThanOrEqual(1);
+
+      const directSplit = splitSmsIntoSegments(complexHindi);
+      expect(directSplit.length).toBe(segResult.segments.length);
+
+      // Reassembly test: zero data loss across segment boundaries
+      const reassembled = segResult.segments.join('');
+      expect(reassembled).toBe(complexHindi.normalize('NFC'));
+
+      // Ensure segment splitting respects atomic grapheme clusters
+      segResult.segments.forEach((seg) => {
+        expect(seg.length).toBeLessThanOrEqual(70);
+      });
+    });
+
+    it('validates DLT template variables against length limits and prevents delimiter injection', () => {
+      const template = '[MSME Alert] Subsidies available for {#sector#} units in {#district#}. Apply at msme.gov.in';
+      
+      // Valid inputs
+      const validRes = validateDltTemplateVariables(template, { sector: 'Manufacturing', district: 'Indore' });
+      expect(validRes.valid).toBe(true);
+
+      // Delimiter injection attempt
+      const injectRes = validateDltTemplateVariables(template, { sector: 'Textiles{#malicious#}', district: 'Bhopal' });
+      expect(injectRes.valid).toBe(false);
+      expect(injectRes.errors[0]).toContain('illegal delimiter');
+
+      // Max length overflow attempt
+      const overflowRes = validateDltTemplateVariables(
+        template,
+        { sector: 'A'.repeat(60), district: 'Indore' },
+        { sector: { maxLength: 50 } },
+      );
+      expect(overflowRes.valid).toBe(false);
+      expect(overflowRes.errors[0]).toContain('exceeds maximum length');
+    });
   });
 
   // =========================================================================
@@ -150,9 +205,11 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
       expect(data.totalCostPaise).toBe(data.recipientCount * 20);
       expect(data.totalCostInr).toBe(data.totalCostPaise / 100);
       expect(data.previewText).toContain('Bhopal');
+      expect(data.audienceDigest).toBeDefined();
+      expect(data.graphemeCount).toBeGreaterThan(0);
     });
 
-    it('POST /admin/broadcast/dispatch - dispatches campaign and records immutable audit log', async () => {
+    it('POST /admin/broadcast/dispatch - dispatches campaign, reserves ledger escrow and records immutable audit log', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/admin/broadcast/dispatch',
@@ -173,6 +230,13 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
       expect(data.campaignId).toBeDefined();
       expect(data.status).toBe('queued');
       expect(data.batchesEnqueued).toBeGreaterThan(0);
+      expect(data.audienceDigest).toBeDefined();
+
+      // Verify Two-Phase Escrow in Credit Ledger (Hard Invariant #7)
+      const ledgerEntries = await ledgerRepo.findByUserId('admin_state_officer_1');
+      const escrowEntry = ledgerEntries.find((e) => e.reason.includes('BROADCAST_ESCROW_RESERVED'));
+      expect(escrowEntry).toBeDefined();
+      expect(escrowEntry?.amount).toBeLessThan(0);
 
       // Verify Audit Log was recorded (Hard Invariant #6)
       const auditRes = await app.inject({
@@ -183,6 +247,50 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
       const broadcastLog = logs.find((l: { action: string }) => l.action === 'MSME_BROADCAST_DISPATCHED');
       expect(broadcastLog).toBeDefined();
       expect(broadcastLog.meta.campaignId).toBe(data.campaignId);
+    });
+
+    it('POST /admin/broadcast/dispatch - rejects duplicate confirmation token with 409 Conflict', async () => {
+      // Re-dispatching with the same token used in previous test
+      const duplicateRes = await app.inject({
+        method: 'POST',
+        url: '/admin/broadcast/dispatch',
+        headers: {
+          'x-user-id': 'admin_state_officer_1',
+          'x-user-role': 'msme_admin',
+        },
+        payload: {
+          filters: { district: 'Bhopal' },
+          templateId: 'DLT_MSME_NOTICE_EN',
+          variables: { message: 'Cluster notification' },
+          confirmationToken: 'CONFIRM_DISPATCH_XYZ123',
+        },
+      });
+
+      expect(duplicateRes.statusCode).toBe(409);
+      const err = JSON.parse(duplicateRes.payload);
+      expect(err.message).toContain('already in progress or has executed');
+    });
+
+    it('POST /admin/broadcast/dispatch - rejects drifted audience digest with 422 Unprocessable Entity', async () => {
+      const driftRes = await app.inject({
+        method: 'POST',
+        url: '/admin/broadcast/dispatch',
+        headers: {
+          'x-user-id': 'admin_state_officer_1',
+          'x-user-role': 'msme_admin',
+        },
+        payload: {
+          filters: { district: 'Bhopal' },
+          templateId: 'DLT_MSME_NOTICE_EN',
+          variables: { message: 'Cluster notification' },
+          confirmationToken: 'CONFIRM_DISPATCH_NEW_TOKEN_999',
+          audienceDigest: 'tampered_invalid_sha256_digest_000000',
+        },
+      });
+
+      expect(driftRes.statusCode).toBe(422);
+      const err = JSON.parse(driftRes.payload);
+      expect(err.message).toContain('AUDIENCE_DRIFT_DETECTED');
     });
 
     it('POST /admin/broadcast/dispatch - rejects unauthorized roles with 403 Forbidden', async () => {
@@ -334,6 +442,32 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
       });
 
       expect(res.statusCode).toBe(403);
+    });
+
+    it('enforces Statistical Disclosure Control (SDC): primary and complementary cell suppression', () => {
+      // Test dataset with 1 primary suppressed district (Hires = 2 < 5)
+      const rawDistricts = [
+        { district: 'District Alpha', onboardedMsmes: 50, activeJobs: 20, totalHires: 2 }, // primary: < 5
+        { district: 'District Beta', onboardedMsmes: 80, activeJobs: 40, totalHires: 12 }, // secondary candidate (smallest non-zero)
+        { district: 'District Gamma', onboardedMsmes: 120, activeJobs: 60, totalHires: 45 },
+      ];
+
+      const sdcResult = applyStatisticalDisclosureControl(rawDistricts);
+
+      // District Alpha must be primary-suppressed
+      const alpha = sdcResult.find((d) => d.district === 'District Alpha')!;
+      expect(alpha.suppressedHires).toBe(true);
+      expect(alpha.displayHires).toBe('<5');
+
+      // District Beta must be secondary-suppressed to prevent linear subtraction derivation from column totals
+      const beta = sdcResult.find((d) => d.district === 'District Beta')!;
+      expect(beta.suppressedHires).toBe(true);
+      expect(beta.displayHires).toBe('<5');
+
+      // District Gamma has large volume, remains unsuppressed
+      const gamma = sdcResult.find((d) => d.district === 'District Gamma')!;
+      expect(gamma.suppressedHires).toBe(false);
+      expect(gamma.displayHires).toBe('45');
     });
   });
 });

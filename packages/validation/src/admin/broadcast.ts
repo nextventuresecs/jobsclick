@@ -27,6 +27,8 @@ export const costPreviewResponseSchema = z.object({
   totalCostPaise: z.number().int().nonnegative(),
   totalCostInr: z.number().nonnegative(),
   previewText: z.string(),
+  audienceDigest: z.string().optional(),
+  graphemeCount: z.number().int().nonnegative().optional(),
 });
 
 export type CostPreviewResponse = z.infer<typeof costPreviewResponseSchema>;
@@ -36,6 +38,7 @@ export const dispatchBroadcastSchema = z.object({
   templateId: z.string().min(1, 'DLT Template ID is required'),
   variables: z.record(z.string()).default({}),
   confirmationToken: z.string().min(8, 'Confirmation token required'),
+  audienceDigest: z.string().optional(),
 });
 
 export type DispatchBroadcast = z.infer<typeof dispatchBroadcastSchema>;
@@ -45,6 +48,9 @@ export const districtReportItemSchema = z.object({
   onboardedMsmes: z.number().int().nonnegative(),
   activeJobs: z.number().int().nonnegative(),
   totalHires: z.number().int().nonnegative(),
+  suppressedHires: z.boolean().optional(),
+  suppressedActiveJobs: z.boolean().optional(),
+  displayHires: z.string().optional(),
 });
 
 export type DistrictReportItem = z.infer<typeof districtReportItemSchema>;
