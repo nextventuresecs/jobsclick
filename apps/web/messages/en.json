@@ -247,7 +247,9 @@
     "auditTrailDesc": "Admin logins, CSV imports, enterprise verifications, and permission updates are permanently recorded.",
     "searchAuditPlaceholder": "Search audit trail...",
     "integrityVerified": "Integrity: Verified",
-    "byActor": "By:"
+    "byActor": "By:",
+    "tabBroadcast": "MSME Broadcast",
+    "tabReports": "District Reports"
   },
   "SeekerWorkspace": {
     "title": "Job Seeker Workspace",
@@ -769,5 +771,48 @@
     "stageBadgeRejected": "Rejected",
     "batchYear": "Batch {year}",
     "defaultAffiliation": "AICTE / NCVT / DGT Accredited"
+  },
+  "MsmeBroadcast": {
+    "title": "MSME Cluster Broadcast Engine",
+    "subtitle": "TRAI / DLT Compliant Mass Advisory & Scheme Dissemination",
+    "filterDistrict": "District",
+    "filterSector": "Sector",
+    "filterSize": "Enterprise Size",
+    "allDistricts": "All Districts",
+    "allSectors": "All Sectors",
+    "allSizes": "All Sizes (Micro, Small, Medium)",
+    "micro": "Micro (< ₹5 Cr)",
+    "small": "Small (₹5 - 50 Cr)",
+    "medium": "Medium (₹50 - 250 Cr)",
+    "dltTemplate": "Approved DLT Template",
+    "customMessage": "Custom Notice / Scheme Details",
+    "previewCardTitle": "Dynamic Cost & Telecom Preview",
+    "targetedCount": "Target Audience",
+    "encoding": "Wire Encoding",
+    "segments": "Billable Segments",
+    "unitRate": "Telco Rate",
+    "totalEstimate": "Total Spend Preview",
+    "dispatchButton": "Initiate Cluster Broadcast",
+    "modalTitle": "Confirm Broadcast Dispatch",
+    "modalWarning": "This will commit official government telecom spend and dispatch messages via the MSG91 DLT gateway.",
+    "modalConfirmPrompt": "Type CONFIRM to authorize dispatch:",
+    "confirmButton": "Authorize & Dispatch",
+    "cancelButton": "Cancel",
+    "dispatchSuccess": "Broadcast campaign queued for processing successfully.",
+    "dispatchError": "Failed to dispatch broadcast campaign."
+  },
+  "DistrictReports": {
+    "title": "District Employment & MSME Dashboard",
+    "subtitle": "Aggregated state-level employment metrics with zero candidate PII exposure",
+    "statTotalDistricts": "Reporting Districts",
+    "statTotalMsmes": "Onboarded MSMEs",
+    "statTotalJobs": "Active Job Openings",
+    "statTotalHires": "Verified Hires",
+    "colDistrict": "District",
+    "colMsmes": "Onboarded MSMEs",
+    "colJobs": "Active Jobs",
+    "colHires": "Total Hires",
+    "colConversion": "Hiring Rate",
+    "privacyNotice": "Privacy Safeguard: Compliant with Hard Invariant #1 & DPDP Act. Individual applicant records are non-discoverable."
   }
 }

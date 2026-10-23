@@ -7,3 +7,4 @@ export * from './resume';
 export * from './wallet';
 export * from './placement';
 export * from './placement-fsm';
+export * from './admin/broadcast';

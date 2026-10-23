@@ -10,6 +10,7 @@ export const QUEUE_NAMES = {
   BULK_IMPORT: 'bulk-import',
   INVITE_WAVE: 'invite-wave',
   PDF_GENERATOR: 'pdf-generator',
+  BROADCAST: 'broadcast-queue',
 } as const;
 
 export const DEFAULT_JOB_OPTIONS = {
@@ -44,12 +45,14 @@ export class QueueService implements OnModuleDestroy {
   public readonly bulkImportQueue: Queue;
   public readonly inviteWaveQueue: Queue;
   public readonly pdfGeneratorQueue: Queue;
+  public readonly broadcastQueue: Queue;
   public readonly serverAdapter: FastifyAdapter;
 
   private mockCounters = {
     [QUEUE_NAMES.BULK_IMPORT]: { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 },
     [QUEUE_NAMES.INVITE_WAVE]: { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 },
     [QUEUE_NAMES.PDF_GENERATOR]: { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 },
+    [QUEUE_NAMES.BROADCAST]: { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 },
   };
 
   constructor() {
@@ -87,6 +90,11 @@ export class QueueService implements OnModuleDestroy {
       defaultJobOptions: DEFAULT_JOB_OPTIONS,
     });
 
+    this.broadcastQueue = new Queue(QUEUE_NAMES.BROADCAST, {
+      connection: connOptions,
+      defaultJobOptions: DEFAULT_JOB_OPTIONS,
+    });
+
     // Mount Bull-Board dashboard
     this.serverAdapter = new FastifyAdapter();
     this.serverAdapter.setBasePath('/admin/queues');
@@ -97,6 +105,7 @@ export class QueueService implements OnModuleDestroy {
         new BullMQAdapter(this.bulkImportQueue) as any,
         new BullMQAdapter(this.inviteWaveQueue) as any,
         new BullMQAdapter(this.pdfGeneratorQueue) as any,
+        new BullMQAdapter(this.broadcastQueue) as any,
       ],
       serverAdapter: this.serverAdapter,
     });
@@ -175,11 +184,41 @@ export class QueueService implements OnModuleDestroy {
     }
   }
 
+  async publishBroadcastJob(data: {
+    campaignId: string;
+    batchIndex: number;
+    totalBatches: number;
+    recipients: Array<{
+      businessProfileId: string;
+      phone: string;
+      idempotencyKey: string;
+    }>;
+    templateId: string;
+    variables: Record<string, string>;
+    shouldSimulateFailure?: boolean;
+  }) {
+    if (this.isMock) {
+      this.mockCounters[QUEUE_NAMES.BROADCAST].waiting++;
+      return { id: `mock_${Date.now()}`, name: 'broadcast-batch', data } as unknown as Job;
+    }
+    try {
+      return await this.broadcastQueue.add('broadcast-batch', data, DEFAULT_JOB_OPTIONS);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('cmsgpack') || message.includes('lua')) {
+        this.mockCounters[QUEUE_NAMES.BROADCAST].waiting++;
+        return { id: `mock_${Date.now()}`, name: 'broadcast-batch', data } as unknown as Job;
+      }
+      throw err;
+    }
+  }
+
   async getLiveQueueMetrics(): Promise<LiveQueueStatusResponse> {
     const queueList = [
       { name: QUEUE_NAMES.BULK_IMPORT, instance: this.bulkImportQueue },
       { name: QUEUE_NAMES.INVITE_WAVE, instance: this.inviteWaveQueue },
       { name: QUEUE_NAMES.PDF_GENERATOR, instance: this.pdfGeneratorQueue },
+      { name: QUEUE_NAMES.BROADCAST, instance: this.broadcastQueue },
     ];
 
     const metrics: QueueMetric[] = await Promise.all(
@@ -232,6 +271,7 @@ export class QueueService implements OnModuleDestroy {
         this.bulkImportQueue.close(),
         this.inviteWaveQueue.close(),
         this.pdfGeneratorQueue.close(),
+        this.broadcastQueue.close(),
       ]);
       if (typeof this.connection.quit === 'function') {
         await this.connection.quit();

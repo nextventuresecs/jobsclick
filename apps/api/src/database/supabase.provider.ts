@@ -16,6 +16,8 @@ export interface DatabasePersistenceState {
   credit_ledgers: Record<string, unknown>;
   payments: Record<string, unknown>;
   institution_sponsorships: Record<string, unknown>;
+  broadcast_campaigns: Record<string, unknown>;
+  broadcast_deliveries: Record<string, unknown>;
 }
 
 export class PersistentDatabaseStore {
@@ -33,6 +35,8 @@ export class PersistentDatabaseStore {
     credit_ledgers: {},
     payments: {},
     institution_sponsorships: {},
+    broadcast_campaigns: {},
+    broadcast_deliveries: {},
   };
 
   private constructor() {
@@ -90,6 +94,8 @@ export class PersistentDatabaseStore {
           credit_ledgers: parsed.credit_ledgers || {},
           payments: parsed.payments || {},
           institution_sponsorships: parsed.institution_sponsorships || {},
+          broadcast_campaigns: parsed.broadcast_campaigns || {},
+          broadcast_deliveries: parsed.broadcast_deliveries || {},
         };
       }
     } catch {

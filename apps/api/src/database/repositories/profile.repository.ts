@@ -185,6 +185,45 @@ export class ProfileRepository {
     return profile;
   }
 
+  async findBusinessProfilesByFilters(filters: {
+    district?: string;
+    sector?: string;
+    companySize?: string;
+  }): Promise<BusinessProfileRow[]> {
+    if (!this.isTestMode) {
+      try {
+        let query = this.supabase.from("business_profiles").select("*");
+        if (filters.district) query = query.ilike("district", filters.district);
+        if (filters.sector) query = query.ilike("sector", filters.sector);
+        if (filters.companySize) query = query.eq("company_size", filters.companySize);
+        const { data, error } = await query;
+        if (!error && data) return data as unknown as BusinessProfileRow[];
+      } catch {
+        // Fall back
+      }
+    }
+    const profiles = this.persistentStore.getTable<BusinessProfileRow>("business_profiles");
+    return Object.values(profiles).filter((p) => {
+      if (filters.district && p.district?.toLowerCase() !== filters.district.toLowerCase()) return false;
+      if (filters.sector && p.sector?.toLowerCase() !== filters.sector.toLowerCase()) return false;
+      if (filters.companySize && p.company_size?.toLowerCase() !== filters.companySize.toLowerCase()) return false;
+      return true;
+    });
+  }
+
+  async getAllBusinessProfiles(): Promise<BusinessProfileRow[]> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await this.supabase.from("business_profiles").select("*");
+        if (!error && data) return data as unknown as BusinessProfileRow[];
+      } catch {
+        // Fall back
+      }
+    }
+    const profiles = this.persistentStore.getTable<BusinessProfileRow>("business_profiles");
+    return Object.values(profiles);
+  }
+
   // ==========================================
   // Institution Profiles
   // ==========================================
