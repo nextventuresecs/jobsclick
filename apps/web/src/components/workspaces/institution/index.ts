@@ -8,4 +8,5 @@ export * from './InviteWaveScheduler';
 export * from './CampusQrCard';
 export * from './InstitutionOverviewTab';
 export * from './SponsorshipCard';
+export * from './PlacementDashboard';
 export * from './useInstitutionWorkspace';

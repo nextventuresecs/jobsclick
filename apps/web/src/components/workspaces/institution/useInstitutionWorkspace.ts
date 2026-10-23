@@ -1,8 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import type { StudentRecordData, InstitutionProfileData } from '../../../data/sampleWorkspaces';
-import { INITIAL_STUDENTS, INITIAL_INSTITUTION_PROFILE } from '../../../data/sampleWorkspaces';
+import type {
+  StudentRecordData,
+  InstitutionProfileData,
+  CorporateTieUpData,
+  PlacementApplicationRecord,
+} from '../../../data/sampleWorkspaces';
+import {
+  INITIAL_STUDENTS,
+  INITIAL_INSTITUTION_PROFILE,
+  INITIAL_CORPORATE_TIEUPS,
+  INITIAL_PLACEMENT_APPLICATIONS,
+} from '../../../data/sampleWorkspaces';
 import { institutionProfileSchema } from '@indian-job-portal/validation';
 import { useInstitutionProfileState } from './useInstitutionProfileState';
 import { useBulkUploadState } from './useBulkUploadState';
@@ -14,13 +24,17 @@ interface UseInstitutionWorkspaceProps {
 }
 
 export function useInstitutionWorkspace({ addToast }: UseInstitutionWorkspaceProps) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'profile' | 'students' | 'bulk-import' | 'invitations' | 'qr-code'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'profile' | 'students' | 'placements' | 'bulk-import' | 'invitations' | 'qr-code'>('overview');
   const [institution, setInstitution] = useState<InstitutionProfileData>(INITIAL_INSTITUTION_PROFILE);
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(institution.isOnboardingComplete);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
 
   const profileForm = useInstitutionProfileState(institution);
   const [students, setStudents] = useState<readonly StudentRecordData[]>(INITIAL_STUDENTS);
+  const [tieUps, setTieUps] = useState<readonly CorporateTieUpData[]>(INITIAL_CORPORATE_TIEUPS);
+  const [applications, setApplications] = useState<readonly PlacementApplicationRecord[]>(
+    INITIAL_PLACEMENT_APPLICATIONS,
+  );
   const [studentSearch, setStudentSearch] = useState('');
   const [streamFilter, setStreamFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -140,7 +154,8 @@ export function useInstitutionWorkspace({ addToast }: UseInstitutionWorkspacePro
 
   return {
     activeTab, setActiveTab, institution, isOnboardingComplete,
-    isEditingProfile, setIsEditingProfile, students, filteredStudents,
+    isEditingProfile, setIsEditingProfile, students, setStudents, filteredStudents,
+    tieUps, setTieUps, applications, setApplications,
     studentSearch, setStudentSearch, streamFilter, setStreamFilter,
     statusFilter, setStatusFilter, isAddingStudent, setIsAddingStudent,
     profileForm, bulkUpload,

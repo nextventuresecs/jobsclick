@@ -13,9 +13,10 @@ import {
   InviteWaveScheduler,
   CampusQrCard,
   InstitutionOverviewTab,
+  PlacementDashboard,
   useInstitutionWorkspace,
 } from './institution';
-import { GraduationCap, Award, Users, FileSpreadsheet, Send, QrCode } from 'lucide-react';
+import { GraduationCap, Award, Users, FileSpreadsheet, Send, QrCode, Briefcase } from 'lucide-react';
 
 export function InstitutionWorkspace() {
   const t = useTranslations('InstitutionWorkspace');
@@ -23,7 +24,8 @@ export function InstitutionWorkspace() {
 
   const {
     activeTab, setActiveTab, institution, isOnboardingComplete,
-    isEditingProfile, setIsEditingProfile, students, filteredStudents,
+    isEditingProfile, setIsEditingProfile, students, setStudents, filteredStudents,
+    tieUps, setTieUps, applications, setApplications,
     studentSearch, setStudentSearch, streamFilter, setStreamFilter,
     statusFilter, setStatusFilter, isAddingStudent, setIsAddingStudent,
     profileForm, bulkUpload, quickAddFormData,
@@ -48,6 +50,7 @@ export function InstitutionWorkspace() {
           { id: 'overview', label: t('tabOverview'), icon: GraduationCap },
           { id: 'profile', label: t('tabProfile'), icon: Award },
           { id: 'students', label: `${t('tabStudents')} (${students.length})`, icon: Users },
+          { id: 'placements', label: t('tabPlacements'), icon: Briefcase },
           { id: 'bulk-import', label: t('tabBulkImport'), icon: FileSpreadsheet },
           { id: 'invitations', label: t('tabInvitations'), icon: Send },
           { id: 'qr-code', label: t('tabQrCode'), icon: QrCode },
@@ -133,7 +136,20 @@ export function InstitutionWorkspace() {
         </div>
       )}
 
-      {/* TAB 4: BULK CSV IMPORT */}
+      {/* TAB 4: PLACEMENT & CORPORATE RELATIONS */}
+      {activeTab === 'placements' && (
+        <PlacementDashboard
+          institution={institution}
+          students={students}
+          onUpdateStudents={setStudents}
+          tieUps={tieUps}
+          onUpdateTieUps={setTieUps}
+          applications={applications}
+          onUpdateApplications={setApplications}
+        />
+      )}
+
+      {/* TAB 5: BULK CSV IMPORT */}
       {activeTab === 'bulk-import' && (
         <BulkUploadModal
           uploadState={bulkUpload}
