@@ -49,6 +49,8 @@ export interface Database {
         preferred_locations?: string[];
         willing_to_relocate?: boolean;
         bio?: string | null;
+        is_sponsored?: boolean;
+        institution_id?: string | null;
         source: string;
         created_by: string | null;
         updated_by: string | null;
@@ -112,6 +114,12 @@ export interface Database {
         annual_capacity?: number | null;
         placement_brochure_url?: string | null;
         about?: string | null;
+        is_sponsorship_active?: boolean;
+        sponsorship_tier?: 'Small' | 'Medium' | 'Large' | string;
+        sponsorship_rate_per_student?: number;
+        sponsorship_expires_at?: string | null;
+        total_sponsored_students?: number;
+        annual_sponsorship_fee?: number;
         source: string;
         created_by: string | null;
         updated_by: string | null;
@@ -134,6 +142,8 @@ export interface Database {
         openings: number;
         skills?: string[];
         expiry_date?: string | null;
+        is_featured?: boolean;
+        featured_until?: string | null;
         is_active: boolean;
         source: string;
         created_by: string | null;
@@ -194,6 +204,66 @@ export interface Database {
         started_at: string | null;
         completed_at: string | null;
       }>;
+      credit_ledgers: TableDefinition<{
+        id: string;
+        user_id: string;
+        amount: number;
+        reason: string;
+        actor_id: string | null;
+        created_at: string;
+      }>;
+      payments: TableDefinition<{
+        id: string;
+        user_id: string;
+        gateway_order_id: string;
+        gateway_payment_id?: string | null;
+        gateway_signature?: string | null;
+        pack_id?: string | null;
+        credits_added?: number;
+        amount_inr: number;
+        tax_amount_inr?: number;
+        currency?: string;
+        invoice_number?: string | null;
+        status: 'created' | 'authorized' | 'captured' | 'refunded' | 'failed';
+        metadata?: Record<string, unknown> | null;
+        processed_at?: string | null;
+        processed_by?: 'razorpay_webhook' | 'client_checkout' | 'admin' | string | null;
+        created_at: string;
+        updated_at?: string;
+      }>;
+      institution_sponsorships: TableDefinition<{
+        id: string;
+        institution_id: string;
+        tier: string;
+        rate_per_student: number;
+        annual_fee: number;
+        student_count: number;
+        status: string;
+        payment_reference: string | null;
+        idempotency_key: string | null;
+        started_at: string;
+        expires_at: string;
+        created_by: string | null;
+        created_at: string;
+        updated_at: string;
+      }>;
+    job_alerts: TableDefinition<{
+        id: string;
+        user_id: string;
+        title: string;
+        filters: Record<string, unknown>;
+        frequency: 'daily' | 'weekly';
+        is_active: boolean;
+        created_at: string;
+        updated_at: string;
+      }>;
+      alert_deliveries: TableDefinition<{
+        id: string;
+        alert_id: string;
+        user_id: string;
+        job_id: string;
+        delivered_at: string;
+      }>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -211,3 +281,8 @@ export type ApplicationRow = Database['public']['Tables']['applications']['Row']
 export type AuditLogRow = Database['public']['Tables']['audit_logs']['Row'];
 export type BulkImportBatchRow = Database['public']['Tables']['bulk_import_batches']['Row'];
 export type InviteWaveRow = Database['public']['Tables']['invite_waves']['Row'];
+export type CreditLedgerRow = Database['public']['Tables']['credit_ledgers']['Row'];
+export type PaymentRow = Database['public']['Tables']['payments']['Row'];
+export type InstitutionSponsorshipRow = Database['public']['Tables']['institution_sponsorships']['Row'];
+export type JobAlertRow = Database['public']['Tables']['job_alerts']['Row'];
+export type AlertDeliveryRow = Database['public']['Tables']['alert_deliveries']['Row'];

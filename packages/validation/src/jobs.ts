@@ -103,3 +103,33 @@ export type UpdateJobInput = z.infer<typeof updateJobSchema>;
 export type JobFilterInput = z.infer<typeof jobFilterSchema>;
 export type UpdateApplicationStatusInput = z.infer<typeof updateApplicationStatusSchema>;
 
+export const FEATURED_PROMOTION_PRICING: Record<7 | 14 | 30, number> = {
+  7: 50,
+  14: 90,
+  30: 160,
+};
+
+export const promoteJobSchema = z.object({
+  durationDays: z.union([z.literal(7), z.literal(14), z.literal(30)]),
+});
+export type PromoteJobInput = z.infer<typeof promoteJobSchema>;
+
+export const createJobAlertSchema = z.object({
+  title: z.string().trim().min(2, 'Title must be at least 2 characters').max(100),
+  filters: z.record(z.unknown()).default({}),
+  frequency: z.enum(['daily', 'weekly']).default('daily'),
+});
+export type CreateJobAlertInput = z.infer<typeof createJobAlertSchema>;
+
+export const jobAlertResponseSchema = z.object({
+  id: z.string().uuid(),
+  userId: z.string().uuid(),
+  title: z.string(),
+  filters: z.record(z.unknown()),
+  frequency: z.enum(['daily', 'weekly']),
+  isActive: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type JobAlertResponse = z.infer<typeof jobAlertResponseSchema>;
+

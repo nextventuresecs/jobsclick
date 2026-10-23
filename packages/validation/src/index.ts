@@ -4,3 +4,7 @@ export * from './profiles';
 export * from './bulk';
 export * from './admin';
 export * from './resume';
+export * from './wallet';
+export * from './placement';
+export * from './placement-fsm';
+export * from './admin/broadcast';

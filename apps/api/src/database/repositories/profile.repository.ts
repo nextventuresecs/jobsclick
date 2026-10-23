@@ -5,6 +5,7 @@ import type {
   JobSeekerProfileRow,
   BusinessProfileRow,
   InstitutionProfileRow,
+  InstitutionSponsorshipRow,
 } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
 
@@ -69,6 +70,70 @@ export class ProfileRepository {
     return profile;
   }
 
+  async findStudentsByInstitution(institutionIdOrName: string): Promise<JobSeekerProfileRow[]> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await this.supabase
+          .from('job_seeker_profiles')
+          .select('*')
+          .or(`institution_id.eq.${institutionIdOrName},institution.eq.${institutionIdOrName}`);
+        if (!error && data) return data as unknown as JobSeekerProfileRow[];
+      } catch {
+        // Fall back to persistent local store
+      }
+    }
+    const profiles = this.persistentStore.getTable<JobSeekerProfileRow>('job_seeker_profiles');
+    return Object.values(profiles).filter(
+      (p) =>
+        p.institution_id === institutionIdOrName ||
+        p.institution === institutionIdOrName,
+    );
+  }
+
+  async updateStudentSponsorshipByInstitution(
+    institutionIdOrName: string,
+    isSponsored: boolean,
+  ): Promise<number> {
+    const students = await this.findStudentsByInstitution(institutionIdOrName);
+    let count = 0;
+    const now = new Date().toISOString();
+
+    for (const student of students) {
+      student.is_sponsored = isSponsored;
+      student.updated_at = now;
+      this.persistentStore.setRow('job_seeker_profiles', student.id, student);
+      count++;
+    }
+
+    if (!this.isTestMode && students.length > 0) {
+      try {
+        await this.supabase
+          .from('job_seeker_profiles')
+          .update({ is_sponsored: isSponsored, updated_at: now })
+          .or(`institution_id.eq.${institutionIdOrName},institution.eq.${institutionIdOrName}`);
+      } catch {
+        // Fall back
+      }
+    }
+
+    return count;
+  }
+
+  async markSeekerSponsored(
+    seekerUserIdOrProfileId: string,
+    isSponsored: boolean,
+  ): Promise<JobSeekerProfileRow | null> {
+    let profile = await this.findSeekerProfileByUserId(seekerUserIdOrProfileId);
+    if (!profile) {
+      profile = await this.findSeekerProfileById(seekerUserIdOrProfileId);
+    }
+    if (!profile) return null;
+
+    profile.is_sponsored = isSponsored;
+    profile.updated_at = new Date().toISOString();
+    return this.saveSeekerProfile(profile);
+  }
+
   // ==========================================
   // Business Profiles
   // ==========================================
@@ -120,6 +185,45 @@ export class ProfileRepository {
     return profile;
   }
 
+  async findBusinessProfilesByFilters(filters: {
+    district?: string;
+    sector?: string;
+    companySize?: string;
+  }): Promise<BusinessProfileRow[]> {
+    if (!this.isTestMode) {
+      try {
+        let query = this.supabase.from("business_profiles").select("*");
+        if (filters.district) query = query.ilike("district", filters.district);
+        if (filters.sector) query = query.ilike("sector", filters.sector);
+        if (filters.companySize) query = query.eq("company_size", filters.companySize);
+        const { data, error } = await query;
+        if (!error && data) return data as unknown as BusinessProfileRow[];
+      } catch {
+        // Fall back
+      }
+    }
+    const profiles = this.persistentStore.getTable<BusinessProfileRow>("business_profiles");
+    return Object.values(profiles).filter((p) => {
+      if (filters.district && p.district?.toLowerCase() !== filters.district.toLowerCase()) return false;
+      if (filters.sector && p.sector?.toLowerCase() !== filters.sector.toLowerCase()) return false;
+      if (filters.companySize && p.company_size?.toLowerCase() !== filters.companySize.toLowerCase()) return false;
+      return true;
+    });
+  }
+
+  async getAllBusinessProfiles(): Promise<BusinessProfileRow[]> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await this.supabase.from("business_profiles").select("*");
+        if (!error && data) return data as unknown as BusinessProfileRow[];
+      } catch {
+        // Fall back
+      }
+    }
+    const profiles = this.persistentStore.getTable<BusinessProfileRow>("business_profiles");
+    return Object.values(profiles);
+  }
+
   // ==========================================
   // Institution Profiles
   // ==========================================
@@ -169,5 +273,76 @@ export class ProfileRepository {
     }
 
     return profile;
+  }
+
+  // ==========================================
+  // Concurrency & Sponsorship Persistence (WAL-05)
+  // ==========================================
+  async withLock<T>(institutionId: string, fn: () => Promise<T>): Promise<T> {
+    return this.persistentStore.withLock(institutionId, fn);
+  }
+
+  async saveSponsorship(record: InstitutionSponsorshipRow): Promise<InstitutionSponsorshipRow> {
+    this.persistentStore.setRow('institution_sponsorships', record.id, record);
+
+    if (!this.isTestMode) {
+      try {
+        await this.supabase.from('institution_sponsorships').upsert(record);
+      } catch {
+        // Persisted locally
+      }
+    }
+
+    return record;
+  }
+
+  async findSponsorshipsByInstitutionId(institutionId: string): Promise<InstitutionSponsorshipRow[]> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await this.supabase
+          .from('institution_sponsorships')
+          .select('*')
+          .eq('institution_id', institutionId)
+          .order('created_at', { ascending: false });
+
+        if (!error && data) return data as unknown as InstitutionSponsorshipRow[];
+      } catch {
+        // Fallback
+      }
+    }
+
+    const table = this.persistentStore.getTable<InstitutionSponsorshipRow>('institution_sponsorships');
+    return Object.values(table)
+      .filter((s) => s.institution_id === institutionId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }
+
+  async findActiveSponsorshipByInstitutionId(institutionId: string): Promise<InstitutionSponsorshipRow | null> {
+    const list = await this.findSponsorshipsByInstitutionId(institutionId);
+    const now = new Date().getTime();
+    return (
+      list.find(
+        (s) => s.status === 'active' && new Date(s.expires_at).getTime() > now,
+      ) || null
+    );
+  }
+
+  async findSponsorshipByIdempotencyKey(key: string): Promise<InstitutionSponsorshipRow | null> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await this.supabase
+          .from('institution_sponsorships')
+          .select('*')
+          .eq('idempotency_key', key)
+          .maybeSingle();
+
+        if (!error && data) return data as unknown as InstitutionSponsorshipRow;
+      } catch {
+        // Fallback
+      }
+    }
+
+    const table = this.persistentStore.getTable<InstitutionSponsorshipRow>('institution_sponsorships');
+    return Object.values(table).find((s) => s.idempotency_key === key) || null;
   }
 }
