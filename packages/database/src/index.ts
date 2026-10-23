@@ -142,6 +142,8 @@ export interface Database {
         openings: number;
         skills?: string[];
         expiry_date?: string | null;
+        is_featured?: boolean;
+        featured_until?: string | null;
         is_active: boolean;
         source: string;
         created_by: string | null;
@@ -245,6 +247,23 @@ export interface Database {
         created_at: string;
         updated_at: string;
       }>;
+    job_alerts: TableDefinition<{
+        id: string;
+        user_id: string;
+        title: string;
+        filters: Record<string, unknown>;
+        frequency: 'daily' | 'weekly';
+        is_active: boolean;
+        created_at: string;
+        updated_at: string;
+      }>;
+      alert_deliveries: TableDefinition<{
+        id: string;
+        alert_id: string;
+        user_id: string;
+        job_id: string;
+        delivered_at: string;
+      }>;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -265,3 +284,5 @@ export type InviteWaveRow = Database['public']['Tables']['invite_waves']['Row'];
 export type CreditLedgerRow = Database['public']['Tables']['credit_ledgers']['Row'];
 export type PaymentRow = Database['public']['Tables']['payments']['Row'];
 export type InstitutionSponsorshipRow = Database['public']['Tables']['institution_sponsorships']['Row'];
+export type JobAlertRow = Database['public']['Tables']['job_alerts']['Row'];
+export type AlertDeliveryRow = Database['public']['Tables']['alert_deliveries']['Row'];

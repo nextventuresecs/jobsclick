@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { Button, JobStatusBadge } from '@indian-job-portal/ui';
 import type { JobItem } from '../../../data/sampleJobs';
 import { MapPin, Eye, PlusCircle } from 'lucide-react';
+import { PromoteJobModal } from './PromoteJobModal';
 
 interface EmployerJobListProps {
   readonly jobs: readonly JobItem[];
@@ -91,6 +92,12 @@ export function EmployerJobList({
               >
                 {t('reviewApplicants')} ({job.applicantCount})
               </Button>
+              <PromoteJobModal
+                jobId={job.id}
+                jobTitle={job.title}
+                isPromoted={job.isPromoted}
+                featuredUntil={job.featuredUntil}
+              />
             </div>
           </div>
         ))}

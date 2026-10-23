@@ -83,7 +83,18 @@
     "allCategories": "All Categories",
     "viewAndApply": "View & Apply",
     "postedDate": "Posted",
-    "openingsCount": "Openings"
+    "openingsCount": "Openings",
+    "featuredBadge": "Featured",
+    "saveAlert": "Create Job Alert",
+    "saveAlertModalTitle": "Save Job Search Alert",
+    "saveAlertModalDesc": "Receive daily email digests of newly posted openings matching your search criteria.",
+    "alertTitleLabel": "Alert Name",
+    "alertTitlePlaceholder": "e.g. CNC Pune Openings",
+    "alertFrequencyLabel": "Delivery Frequency",
+    "frequencyDaily": "Daily Digest (Max 5 matches)",
+    "frequencyWeekly": "Weekly Digest",
+    "btnSaveAlert": "Save Alert",
+    "alertSavedSuccess": "Search alert saved successfully!"
   },
   "Footer": {
     "tagline": "JobsClick connects job seekers, MSMEs, educational institutions, and enterprise development programs nationwide with verified employment and apprenticeship opportunities.",
@@ -478,7 +489,19 @@
     "verifiedTechSkills": "Verified Technical Skills",
     "maskedPerInvariant": "Masked per Platform Invariant",
     "inAppChatOnly": "In-App Chat Only",
-    "reviewApplicants": "Review Applicants"
+    "reviewApplicants": "Review Applicants",
+    "btnPromoteJob": "Promote Listing",
+    "promotedBadge": "Promoted",
+    "featuredUntil": "Featured until",
+    "promoteModalTitle": "Feature Vacancy at Top of Search",
+    "promoteModalDesc": "Featured jobs are pinned to the top of matching candidate searches, boosting applications up to 4x.",
+    "promoteDurationLabel": "Choose Promotion Duration",
+    "promote7Days": "7 Days (50 Credits)",
+    "promote14Days": "14 Days (90 Credits - Save 10%)",
+    "promote30Days": "30 Days (160 Credits - Best Value)",
+    "btnConfirmPromote": "Confirm & Deduct Credits",
+    "promoteSuccessToast": "Job vacancy promoted to top of search results!",
+    "insufficientCredits": "Insufficient wallet credits. Please recharge your wallet."
   },
   "InstitutionWorkspace": {
     "title": "Placement Cell Directorate",

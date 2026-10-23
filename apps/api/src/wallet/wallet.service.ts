@@ -238,6 +238,36 @@ export class WalletService {
     });
   }
 
+  // Deduct credits for featuring a job (Hard Invariant #7 & PRD JOB-05)
+  async deductForFeaturedPromotion(
+    employerId: string,
+    jobId: string,
+    durationDays: 7 | 14 | 30,
+    cost: number,
+  ): Promise<{ success: boolean; cost: number; remainingBalance: number }> {
+    const { balance } = await this.getBalance(employerId);
+    if (balance < cost) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: 'INSUFFICIENT_CREDITS',
+        message: `Insufficient credits. Featuring this job for ${durationDays} days requires ${cost} credits, but current balance is ${balance}.`,
+      });
+    }
+
+    await this.recordTransaction({
+      userId: employerId,
+      amount: -cost,
+      reason: `Featured job promotion: ${jobId} (${durationDays} days)`,
+      actorId: employerId,
+    });
+
+    return {
+      success: true,
+      cost,
+      remainingBalance: balance - cost,
+    };
+  }
+
   // WAL-04: Admin-configurable action costs
   getActionCost(action: string): number {
     return this.actionCosts.get(action) ?? 1;

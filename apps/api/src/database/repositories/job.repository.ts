@@ -1,6 +1,7 @@
 import { Injectable, Inject } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
-import type { Database, JobRow } from '@indian-job-portal/database';
+import { randomUUID } from 'node:crypto';
+import type { Database, JobRow, JobAlertRow, AlertDeliveryRow } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
 
 export interface JobFilterParams {
@@ -102,7 +103,17 @@ export class JobRepository {
 
         const { data, count, error } = await query;
         if (!error && data) {
-          return { jobs: data as JobRow[], total: count ?? data.length };
+          const now = new Date();
+          const sorted = (data as JobRow[]).sort((a, b) => {
+            const aFeatured = Boolean(a.is_featured && a.featured_until && new Date(a.featured_until).getTime() > now.getTime());
+            const bFeatured = Boolean(b.is_featured && b.featured_until && new Date(b.featured_until).getTime() > now.getTime());
+            if (aFeatured !== bFeatured) return aFeatured ? -1 : 1;
+            const aCreated = new Date(a.created_at).getTime();
+            const bCreated = new Date(b.created_at).getTime();
+            if (bCreated !== aCreated) return bCreated - aCreated;
+            return a.id.localeCompare(b.id);
+          });
+          return { jobs: sorted, total: count ?? sorted.length };
         }
       } catch {
         // Fall back to persistent local store
@@ -135,6 +146,16 @@ export class JobRepository {
     }
 
     const total = list.length;
+    const now = new Date();
+    list.sort((a, b) => {
+      const aFeatured = Boolean(a.is_featured && a.featured_until && new Date(a.featured_until).getTime() > now.getTime());
+      const bFeatured = Boolean(b.is_featured && b.featured_until && new Date(b.featured_until).getTime() > now.getTime());
+      if (aFeatured !== bFeatured) return aFeatured ? -1 : 1;
+      const aCreated = new Date(a.created_at).getTime();
+      const bCreated = new Date(b.created_at).getTime();
+      if (bCreated !== aCreated) return bCreated - aCreated;
+      return a.id.localeCompare(b.id);
+    });
     const offset = filters.offset ?? 0;
     const limit = filters.limit ?? 20;
     const paginated = list.slice(offset, offset + limit);
@@ -171,5 +192,115 @@ export class JobRepository {
 
     await this.update(id, { is_active: false });
     return true;
+  }
+
+  async createAlert(data: {
+    id?: string;
+    userId: string;
+    title: string;
+    filters: Record<string, unknown>;
+    frequency?: 'daily' | 'weekly';
+  }): Promise<JobAlertRow> {
+    const alertId = data.id || randomUUID();
+    const now = new Date().toISOString();
+    const record: JobAlertRow = {
+      id: alertId,
+      user_id: data.userId,
+      title: data.title,
+      filters: data.filters,
+      frequency: data.frequency || 'daily',
+      is_active: true,
+      created_at: now,
+      updated_at: now,
+    };
+    this.persistentStore.setRow('job_alerts', alertId, record);
+    if (!this.isTestMode) {
+      try {
+        await this.supabase.from('job_alerts').insert(record);
+      } catch {
+        // Persisted locally
+      }
+    }
+    return record;
+  }
+
+  async findAlertsByUserId(userId: string): Promise<JobAlertRow[]> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await this.supabase
+          .from('job_alerts')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false });
+        if (!error && data) return data as JobAlertRow[];
+      } catch {
+        // Fall back
+      }
+    }
+    const alerts = this.persistentStore.getTable<JobAlertRow>('job_alerts');
+    return Object.values(alerts).filter((a) => a.user_id === userId && a.is_active);
+  }
+
+  async findActiveAlerts(): Promise<JobAlertRow[]> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await this.supabase
+          .from('job_alerts')
+          .select('*')
+          .eq('is_active', true);
+        if (!error && data) return data as JobAlertRow[];
+      } catch {
+        // Fall back
+      }
+    }
+    const alerts = this.persistentStore.getTable<JobAlertRow>('job_alerts');
+    return Object.values(alerts).filter((a) => a.is_active);
+  }
+
+  async hasJobBeenDelivered(userId: string, jobId: string): Promise<boolean> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await this.supabase
+          .from('alert_deliveries')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('job_id', jobId)
+          .maybeSingle();
+        if (!error && data) return true;
+      } catch {
+        // Fall back
+      }
+    }
+    const deliveries = this.persistentStore.getTable<AlertDeliveryRow>('alert_deliveries');
+    return Object.values(deliveries).some((d) => d.user_id === userId && d.job_id === jobId);
+  }
+
+  async recordDelivery(alertId: string, userId: string, jobId: string): Promise<AlertDeliveryRow> {
+    const deliveryId = randomUUID();
+    const record: AlertDeliveryRow = {
+      id: deliveryId,
+      alert_id: alertId,
+      user_id: userId,
+      job_id: jobId,
+      delivered_at: new Date().toISOString(),
+    };
+    this.persistentStore.setRow('alert_deliveries', deliveryId, record);
+    if (!this.isTestMode) {
+      try {
+        await this.supabase.from('alert_deliveries').insert(record);
+      } catch {
+        // Persisted locally
+      }
+    }
+    return record;
+  }
+
+  async findRecentlyCreatedJobs(since: Date): Promise<JobRow[]> {
+    const jobsMap = this.persistentStore.getTable<JobRow>('jobs');
+    const jobs = Object.values(jobsMap).filter(
+      (j) => j.is_active && new Date(j.created_at).getTime() >= since.getTime(),
+    );
+    return jobs;
   }
 }

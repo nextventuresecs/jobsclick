@@ -7,6 +7,10 @@ import {
   IndustryCategory,
   EmploymentType,
   ExperienceLevel,
+  PromoteJobInput,
+  CreateJobAlertInput,
+  JobAlertResponse,
+  FEATURED_PROMOTION_PRICING,
 } from '@indian-job-portal/validation';
 import { JobRepository } from '../database/repositories/job.repository.js';
 import { ApplicationRepository } from '../database/repositories/application.repository.js';
@@ -18,6 +22,9 @@ export interface JobRecord extends CreateJobInput {
   id: string;
   employerId: string;
   isActive: boolean;
+  isFeatured?: boolean;
+  featuredUntil?: string | null;
+  isPromoted?: boolean;
   source: string;
   createdAt: string;
   updatedAt: string;
@@ -41,6 +48,11 @@ export interface ApplicationRecord {
 }
 
 function mapJobRowToRecord(row: JobRow): JobRecord {
+  const isPromoted = Boolean(
+    row.is_featured &&
+    row.featured_until &&
+    new Date(row.featured_until).getTime() > Date.now(),
+  );
   return {
     id: row.id,
     employerId: row.employer_id,
@@ -56,6 +68,9 @@ function mapJobRowToRecord(row: JobRow): JobRecord {
     state: row.state ?? '',
     openings: row.openings,
     skills: row.skills ?? [],
+    isFeatured: row.is_featured ?? false,
+    featuredUntil: row.featured_until ?? null,
+    isPromoted,
     isActive: row.is_active,
     source: row.source,
     createdAt: row.created_at,
@@ -318,5 +333,87 @@ export class JobsService {
     }
 
     return records;
+  }
+
+  async promoteJob(
+    userId: string,
+    jobId: string,
+    input: PromoteJobInput,
+    userRole?: string,
+  ): Promise<{ success: boolean; job: JobRecord; cost: number; remainingBalance: number }> {
+    const job = await this.jobRepository.findById(jobId);
+    if (!job) {
+      throw new NotFoundException('Job not found');
+    }
+
+    const isOwner = job.employer_id === userId;
+    const isAdmin = userRole === 'admin' || userRole === 'msme_admin';
+    if (!isOwner && !isAdmin) {
+      throw new ForbiddenException('You can only promote your own jobs');
+    }
+
+    const cost = FEATURED_PROMOTION_PRICING[input.durationDays] || 50;
+
+    const deduction = await this.walletService.deductForFeaturedPromotion(
+      userId,
+      jobId,
+      input.durationDays,
+      cost,
+    );
+
+    const now = new Date();
+    const currentExpiry =
+      job.featured_until && new Date(job.featured_until).getTime() > now.getTime()
+        ? new Date(job.featured_until)
+        : now;
+    const newFeaturedUntil = new Date(
+      currentExpiry.getTime() + input.durationDays * 24 * 60 * 60 * 1000,
+    ).toISOString();
+
+    const updated = await this.jobRepository.update(jobId, {
+      is_featured: true,
+      featured_until: newFeaturedUntil,
+    });
+
+    return {
+      success: true,
+      job: mapJobRowToRecord(updated!),
+      cost,
+      remainingBalance: deduction.remainingBalance,
+    };
+  }
+
+  async createJobAlert(userId: string, input: CreateJobAlertInput): Promise<JobAlertResponse> {
+    const row = await this.jobRepository.createAlert({
+      userId,
+      title: input.title,
+      filters: input.filters,
+      frequency: input.frequency,
+    });
+
+    return {
+      id: row.id,
+      userId: row.user_id,
+      title: row.title,
+      filters: row.filters,
+      frequency: row.frequency,
+      isActive: row.is_active,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  async getJobAlerts(userId: string): Promise<JobAlertResponse[]> {
+    const rows = await this.jobRepository.findAlertsByUserId(userId);
+    return rows.map((row) => ({
+      id: row.id,
+      userId: row.user_id,
+      title: row.title,
+      filters: row.filters,
+      frequency: row.frequency,
+      isActive: row.is_active,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
   }
 }

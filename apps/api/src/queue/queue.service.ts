@@ -11,6 +11,7 @@ export const QUEUE_NAMES = {
   INVITE_WAVE: 'invite-wave',
   PDF_GENERATOR: 'pdf-generator',
   BROADCAST: 'broadcast-queue',
+  ALERTS: 'alerts-queue',
 } as const;
 
 export const DEFAULT_JOB_OPTIONS = {
@@ -46,6 +47,7 @@ export class QueueService implements OnModuleDestroy {
   public readonly inviteWaveQueue: Queue;
   public readonly pdfGeneratorQueue: Queue;
   public readonly broadcastQueue: Queue;
+  public readonly alertsQueue: Queue;
   public readonly serverAdapter: FastifyAdapter;
 
   private mockCounters = {
@@ -53,6 +55,7 @@ export class QueueService implements OnModuleDestroy {
     [QUEUE_NAMES.INVITE_WAVE]: { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 },
     [QUEUE_NAMES.PDF_GENERATOR]: { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 },
     [QUEUE_NAMES.BROADCAST]: { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 },
+    [QUEUE_NAMES.ALERTS]: { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 },
   };
 
   constructor() {
@@ -95,6 +98,11 @@ export class QueueService implements OnModuleDestroy {
       defaultJobOptions: DEFAULT_JOB_OPTIONS,
     });
 
+    this.alertsQueue = new Queue(QUEUE_NAMES.ALERTS, {
+      connection: connOptions,
+      defaultJobOptions: DEFAULT_JOB_OPTIONS,
+    });
+
     // Mount Bull-Board dashboard
     this.serverAdapter = new FastifyAdapter();
     this.serverAdapter.setBasePath('/admin/queues');
@@ -106,6 +114,7 @@ export class QueueService implements OnModuleDestroy {
         new BullMQAdapter(this.inviteWaveQueue) as any,
         new BullMQAdapter(this.pdfGeneratorQueue) as any,
         new BullMQAdapter(this.broadcastQueue) as any,
+        new BullMQAdapter(this.alertsQueue) as any,
       ],
       serverAdapter: this.serverAdapter,
     });
@@ -213,12 +222,21 @@ export class QueueService implements OnModuleDestroy {
     }
   }
 
+  async publishAlertsJob(data: { timeframeHours?: number; candidateId?: string }): Promise<Job> {
+    const jobName = `search-alerts-${Date.now()}`;
+    if (this.isMock) {
+      this.mockCounters[QUEUE_NAMES.ALERTS].waiting++;
+    }
+    return this.alertsQueue.add(jobName, data);
+  }
+
   async getLiveQueueMetrics(): Promise<LiveQueueStatusResponse> {
     const queueList = [
       { name: QUEUE_NAMES.BULK_IMPORT, instance: this.bulkImportQueue },
       { name: QUEUE_NAMES.INVITE_WAVE, instance: this.inviteWaveQueue },
       { name: QUEUE_NAMES.PDF_GENERATOR, instance: this.pdfGeneratorQueue },
       { name: QUEUE_NAMES.BROADCAST, instance: this.broadcastQueue },
+      { name: QUEUE_NAMES.ALERTS, instance: this.alertsQueue },
     ];
 
     const metrics: QueueMetric[] = await Promise.all(
@@ -272,6 +290,7 @@ export class QueueService implements OnModuleDestroy {
         this.inviteWaveQueue.close(),
         this.pdfGeneratorQueue.close(),
         this.broadcastQueue.close(),
+        this.alertsQueue.close(),
       ]);
       if (typeof this.connection.quit === 'function') {
         await this.connection.quit();

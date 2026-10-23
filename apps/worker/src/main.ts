@@ -8,12 +8,14 @@ import { bulkImportProcessor } from './processors/import.processor.js';
 import { inviteWaveProcessor } from './processors/invite.processor.js';
 import { pdfGeneratorProcessor } from './processors/pdf.processor.js';
 import { broadcastProcessor } from './processors/broadcast.processor.js';
+import { alertsProcessor } from './processors/alerts.processor.js';
 
 export const QUEUE_NAMES = {
   BULK_IMPORT: 'bulk-import',
   INVITE_WAVE: 'invite-wave',
   PDF_GENERATOR: 'pdf-generator',
   BROADCAST: 'broadcast-queue',
+  ALERTS: 'alerts-queue',
 } as const;
 
 export const DEFAULT_RETRY_OPTIONS = {
@@ -50,10 +52,12 @@ export interface WorkerInstanceRegistry {
   inviteWorker: Worker;
   pdfWorker: Worker;
   broadcastWorker: Worker;
+  alertsWorker: Worker;
   importQueue: Queue;
   inviteQueue: Queue;
   pdfQueue: Queue;
   broadcastQueue: Queue;
+  alertsQueue: Queue;
   connection: IORedis;
   close: () => Promise<void>;
 }
@@ -79,6 +83,11 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
   });
 
   const broadcastQueue = new Queue(QUEUE_NAMES.BROADCAST, {
+    connection: connOptions,
+    defaultJobOptions: DEFAULT_RETRY_OPTIONS,
+  });
+
+  const alertsQueue = new Queue(QUEUE_NAMES.ALERTS, {
     connection: connOptions,
     defaultJobOptions: DEFAULT_RETRY_OPTIONS,
   });
@@ -135,11 +144,25 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
     },
   );
 
+  // 5. Alerts Processor Worker (Saved Job Alerts & Daily Digest Email)
+  const alertsWorker = new Worker(
+    QUEUE_NAMES.ALERTS,
+    async (job) => {
+      console.log(`[Worker - ${QUEUE_NAMES.ALERTS}] Starting Job ${job.id} (Attempt ${job.attemptsMade + 1}/3)...`);
+      return alertsProcessor(job);
+    },
+    {
+      connection: connOptions,
+      concurrency: 5,
+    },
+  );
+
   const workers = [
     { name: QUEUE_NAMES.BULK_IMPORT, instance: importWorker },
     { name: QUEUE_NAMES.INVITE_WAVE, instance: inviteWorker },
     { name: QUEUE_NAMES.PDF_GENERATOR, instance: pdfWorker },
     { name: QUEUE_NAMES.BROADCAST, instance: broadcastWorker },
+    { name: QUEUE_NAMES.ALERTS, instance: alertsWorker },
   ];
 
   workers.forEach(({ name, instance }) => {
@@ -165,10 +188,12 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
       inviteWorker.close(),
       pdfWorker.close(),
       broadcastWorker.close(),
+      alertsWorker.close(),
       importQueue.close(),
       inviteQueue.close(),
       pdfQueue.close(),
       broadcastQueue.close(),
+      alertsQueue.close(),
     ]);
     if (typeof connection.quit === 'function') {
       try {
@@ -184,10 +209,12 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
     inviteWorker,
     pdfWorker,
     broadcastWorker,
+    alertsWorker,
     importQueue,
     inviteQueue,
     pdfQueue,
     broadcastQueue,
+    alertsQueue,
     connection,
     close,
   };

@@ -83,7 +83,18 @@
     "allCategories": "सभी श्रेणियां",
     "viewAndApply": "देखें और आवेदन करें",
     "postedDate": "पोस्ट किया गया",
-    "openingsCount": "रिक्तियां"
+    "openingsCount": "रिक्तियां",
+    "featuredBadge": "प्रायोजित",
+    "saveAlert": "जॉब अलर्ट बनाएं",
+    "saveAlertModalTitle": "जॉब खोज अलर्ट सहेजें",
+    "saveAlertModalDesc": "अपनी प्राथमिकताओं से मेल खाने वाले नए अवसरों का दैनिक ईमेल डाइजेस्ट प्राप्त करें।",
+    "alertTitleLabel": "अलर्ट का नाम",
+    "alertTitlePlaceholder": "उदा. सीएनसी पुणे रिक्तियां",
+    "alertFrequencyLabel": "वितरण आवृत्ति",
+    "frequencyDaily": "दैनिक डाइजेस्ट (अधिकतम 5 मैच)",
+    "frequencyWeekly": "साप्ताहिक डाइजेस्ट",
+    "btnSaveAlert": "अलर्ट सहेजें",
+    "alertSavedSuccess": "खोज अलर्ट सफलतापूर्वक सहेजा गया!"
   },
   "Footer": {
     "tagline": "जॉब्सक्लिक सत्यापित रोजगार और अप्रेंटिसशिप अवसरों के साथ देश भर में नौकरी चाहने वालों, एमएसएमई, शैक्षणिक संस्थानों को जोड़ता है।",
@@ -478,7 +489,19 @@
     "verifiedTechSkills": "सत्यापित तकनीकी कौशल",
     "maskedPerInvariant": "प्लेटफ़ॉर्म नियम के अनुसार सुरक्षित",
     "inAppChatOnly": "केवल इन-ऐप चैट",
-    "reviewApplicants": "उम्मीदवारों की समीक्षा करें"
+    "reviewApplicants": "उम्मीदवारों की समीक्षा करें",
+    "btnPromoteJob": "रिक्ति को प्रमोट करें",
+    "promotedBadge": "प्रायोजित",
+    "featuredUntil": "प्रायोजित तिथि तक",
+    "promoteModalTitle": "खोज परिणामों में सबसे ऊपर लाएं",
+    "promoteModalDesc": "प्रायोजित नौकरियां संबंधित खोज परिणामों में सबसे ऊपर दिखाई देती हैं, जिससे 4 गुना अधिक आवेदन मिलते हैं।",
+    "promoteDurationLabel": "प्रमोशन अवधि चुनें",
+    "promote7Days": "7 दिन (50 क्रेडिट्स)",
+    "promote14Days": "14 दिन (90 क्रेडिट्स - 10% बचत)",
+    "promote30Days": "30 दिन (160 क्रेडिट्स - सर्वोत्तम मूल्य)",
+    "btnConfirmPromote": "पुष्टि करें और क्रेडिट काटें",
+    "promoteSuccessToast": "नौकरी रिक्ति सफलतापूर्वक प्रमोट की गई!",
+    "insufficientCredits": "वॉलेट में अपर्याप्त क्रेडिट्स। कृपया वॉलेट रीचार्ज करें।"
   },
   "InstitutionWorkspace": {
     "title": "प्लेसमेंट सेल निदेशालय",
