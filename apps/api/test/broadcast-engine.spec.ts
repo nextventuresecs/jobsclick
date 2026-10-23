@@ -414,7 +414,10 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
       expect(bhopalItem).toBeDefined();
       expect(bhopalItem.onboardedMsmes).toBeGreaterThanOrEqual(1);
       expect(bhopalItem.activeJobs).toBeGreaterThanOrEqual(1);
-      expect(bhopalItem.totalHires).toBeGreaterThanOrEqual(1);
+      // Bhopal has 1 hire (< 5 threshold), so SDC cell suppression sanitizes totalHires to 0 and displayHires to '<5'
+      expect(bhopalItem.suppressedHires).toBe(true);
+      expect(bhopalItem.totalHires).toBe(0);
+      expect(bhopalItem.displayHires).toBe('<5');
 
       // Verify Hard Invariant #1 & PRD Decision D12: ZERO PII fields exist anywhere in response
       data.forEach((item: Record<string, unknown>) => {
@@ -454,14 +457,16 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
 
       const sdcResult = applyStatisticalDisclosureControl(rawDistricts);
 
-      // District Alpha must be primary-suppressed
+      // District Alpha must be primary-suppressed (raw totalHires zeroed out for SDC compliance)
       const alpha = sdcResult.find((d) => d.district === 'District Alpha')!;
       expect(alpha.suppressedHires).toBe(true);
+      expect(alpha.totalHires).toBe(0);
       expect(alpha.displayHires).toBe('<5');
 
-      // District Beta must be secondary-suppressed to prevent linear subtraction derivation from column totals
+      // District Beta must be secondary-suppressed (raw totalHires zeroed out for SDC compliance)
       const beta = sdcResult.find((d) => d.district === 'District Beta')!;
       expect(beta.suppressedHires).toBe(true);
+      expect(beta.totalHires).toBe(0);
       expect(beta.displayHires).toBe('<5');
 
       // District Gamma has large volume, remains unsuppressed

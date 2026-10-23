@@ -2,6 +2,7 @@ import { Injectable, Inject } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, PaymentRow } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
+import { captureException } from '../../config/sentry.js';
 
 @Injectable()
 export class PaymentRepository {
@@ -39,8 +40,11 @@ export class PaymentRepository {
           created_at: record.created_at,
           updated_at: record.updated_at ?? record.created_at,
         });
-      } catch {
-        // Fallback maintained in persistentStore
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production') {
+          captureException(err as Error);
+          throw new Error(`Database persistence failure for payment: ${(err as Error).message}`);
+        }
       }
     }
 

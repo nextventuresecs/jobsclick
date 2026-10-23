@@ -220,6 +220,14 @@ export class BroadcastService {
 
       // 5. Pre-allocation Escrow: Record credit ledger reservation (Hard Invariant #7)
       if (costPreview.totalCostPaise > 0) {
+        if (!this.isTestMode) {
+          const { balance } = await this.creditLedgerRepo.calculateBalance(actor.id);
+          if (balance < costPreview.totalCostPaise) {
+            throw new BadRequestException(
+              `INSUFFICIENT_CREDITS: Required ${costPreview.totalCostPaise} paise, current balance is ${balance} paise`,
+            );
+          }
+        }
         await this.creditLedgerRepo.append({
           id: `cld_escrow_${campaignId}`,
           user_id: actor.id,
@@ -258,20 +266,26 @@ export class BroadcastService {
 
       // 7. Batch recipients into chunks of 500 for async BullMQ queue fan-out
       const CHUNK_SIZE = 500;
-      const recipientList = await Promise.all(
-        targetBusinesses.map(async (biz) => {
-          let phone = '9876543210';
-          if (biz.user_id) {
-            const user = await this.userRepo.findById(biz.user_id);
-            if (user?.phone) phone = user.phone;
+      const recipientList: Array<{ businessProfileId: string; phone: string; idempotencyKey: string }> = [];
+      for (const biz of targetBusinesses) {
+        let phone: string | null = null;
+        if (biz.user_id) {
+          const user = await this.userRepo.findById(biz.user_id);
+          if (user?.phone && user.phone.trim().length >= 10) {
+            phone = user.phone.trim();
           }
-          return {
+        }
+        if (!phone && this.isTestMode) {
+          phone = '9876543210';
+        }
+        if (phone) {
+          recipientList.push({
             businessProfileId: biz.id,
             phone,
             idempotencyKey: `broadcast_${campaignId}_${biz.id}`,
-          };
-        }),
-      );
+          });
+        }
+      }
 
       const totalBatches = Math.max(1, Math.ceil(recipientList.length / CHUNK_SIZE));
       let batchesEnqueued = 0;

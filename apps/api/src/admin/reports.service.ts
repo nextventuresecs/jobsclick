@@ -47,7 +47,7 @@ export function applyStatisticalDisclosureControl(items: DistrictReportItem[]): 
       district: item.district,
       onboardedMsmes: item.onboardedMsmes,
       activeJobs: item.activeJobs,
-      totalHires: item.totalHires,
+      totalHires: isSuppressed ? 0 : item.totalHires,
       suppressedHires: isSuppressed,
       displayHires: isSuppressed ? '<5' : String(item.totalHires),
     };

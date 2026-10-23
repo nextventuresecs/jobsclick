@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import multipart from '@fastify/multipart';
+import crypto from 'node:crypto';
 import { AppModule } from './app.module.js';
 import { validateEnv } from './config/env.js';
 import { initSentry } from './config/sentry.js';
@@ -32,6 +33,42 @@ async function bootstrap() {
       }
     },
   );
+
+  // SEC-01: Administrative Queue Dashboard Guard
+  adapter.getInstance().addHook('preHandler', async (req, reply) => {
+    const url = req.url.split('?')[0] || '';
+    if (url.startsWith('/admin/queues')) {
+      const authHeader = req.headers['authorization'];
+      const secret = process.env['ADMIN_DASHBOARD_SECRET'] || process.env['JWT_SECRET'];
+
+      if (!authHeader) {
+        reply.code(401).send({
+          statusCode: 401,
+          error: 'UNAUTHORIZED',
+          message: 'Authentication required for administrative queue dashboard',
+        });
+        return;
+      }
+
+      let authorized = false;
+      if (secret && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.slice(7).trim();
+        // Check either matching secret directly or token comparison
+        if (token.length === secret.length && crypto.timingSafeEqual(Buffer.from(token), Buffer.from(secret))) {
+          authorized = true;
+        }
+      }
+
+      if (!authorized) {
+        reply.code(403).send({
+          statusCode: 403,
+          error: 'FORBIDDEN',
+          message: 'Insufficient administrative privileges to access queue dashboard',
+        });
+        return;
+      }
+    }
+  });
 
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
