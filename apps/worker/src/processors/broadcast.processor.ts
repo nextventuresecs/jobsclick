@@ -1,5 +1,7 @@
 import { Job } from 'bullmq';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import IORedis from 'ioredis';
+import IORedisMock from 'ioredis-mock';
 
 export interface BroadcastRecipient {
   businessProfileId: string;
@@ -8,13 +10,17 @@ export interface BroadcastRecipient {
 }
 
 export interface BroadcastBatchJobData {
+  version?: 1 | 2;
   campaignId: string;
   batchIndex: number;
   totalBatches: number;
   recipients: BroadcastRecipient[];
   templateId: string;
   variables: Record<string, string>;
+  targetDistricts?: string[];
+  batchSize?: number;
   shouldSimulateFailure?: boolean;
+  traceId?: string;
 }
 
 export interface BroadcastBatchJobResult {
@@ -22,21 +28,53 @@ export interface BroadcastBatchJobResult {
   batchIndex: number;
   processedCount: number;
   sentCount: number;
+  skippedCount: number;
   failedCount: number;
   status: 'completed' | 'failed';
 }
 
+export const DEFAULT_DEDUPE_TTL_SECONDS = 86400; // 24-hour lease covering standard retry windows
+
 export class BroadcastProcessor {
   private static globalProcessedKeys = new Set<string>();
   private supabase: SupabaseClient | null = null;
+  private redis: IORedis | null = null;
   private processedIdempotencyKeys: Set<string>;
 
-  constructor() {
+  constructor(customRedis?: IORedis | null, customSupabase?: SupabaseClient | null) {
     this.processedIdempotencyKeys = BroadcastProcessor.globalProcessedKeys;
-    const supabaseUrl = process.env['SUPABASE_URL'];
-    const supabaseKey = process.env['SUPABASE_SERVICE_ROLE_KEY'];
-    if (supabaseUrl && supabaseKey && supabaseKey !== 'dummy-service-role-key') {
-      this.supabase = createClient(supabaseUrl, supabaseKey);
+
+    if (customSupabase) {
+      this.supabase = customSupabase;
+    } else {
+      const supabaseUrl = process.env['SUPABASE_URL'];
+      const supabaseKey = process.env['SUPABASE_SERVICE_ROLE_KEY'];
+      if (supabaseUrl && supabaseKey && supabaseKey !== 'dummy-service-role-key') {
+        this.supabase = createClient(supabaseUrl, supabaseKey, {
+          auth: { persistSession: false, autoRefreshToken: false },
+        });
+      }
+    }
+
+    if (customRedis) {
+      this.redis = customRedis;
+    } else {
+      const redisUrl = process.env['REDIS_URL'];
+      const isTest = process.env['NODE_ENV'] === 'test' || Boolean(process.env['VITEST']) || process.env['USE_MOCK_REDIS'] === 'true';
+
+      if (isTest) {
+        this.redis = new (IORedisMock as unknown as typeof IORedis)() as IORedis;
+      } else if (redisUrl) {
+        try {
+          this.redis = new IORedis(redisUrl, {
+            maxRetriesPerRequest: null,
+            enableReadyCheck: false,
+            lazyConnect: true,
+          });
+        } catch (err) {
+          console.warn('[BroadcastProcessor] Failed initializing Redis connection, falling back to memory/DB dedupe:', err);
+        }
+      }
     }
   }
 
@@ -49,6 +87,10 @@ export class BroadcastProcessor {
     return `+91XXXXXX${last4}`;
   }
 
+  private sanitizeKey(key: string): string {
+    return key.replace(/[^a-zA-Z0-9_-]/g, '');
+  }
+
   async process(job: Job<BroadcastBatchJobData>): Promise<BroadcastBatchJobResult> {
     const { campaignId, batchIndex, recipients, templateId, variables, shouldSimulateFailure } = job.data;
 
@@ -58,34 +100,73 @@ export class BroadcastProcessor {
     }
 
     let sentCount = 0;
+    let skippedCount = 0;
     let failedCount = 0;
 
-    for (const recipient of recipients) {
+    for (let i = 0; i < recipients.length; i++) {
+      const recipient = recipients[i]!;
       const { businessProfileId, phone, idempotencyKey } = recipient;
 
-      // 1. In-memory / DB idempotency check (Hard Invariant #4)
-      if (this.processedIdempotencyKeys.has(idempotencyKey)) {
-        console.log(`[BroadcastProcessor] Skipping duplicate delivery for idempotencyKey=${idempotencyKey}`);
-        sentCount++;
-        continue;
-      }
-
-      if (this.supabase) {
-        const { data: existing } = await this.supabase
-          .from('broadcast_deliveries')
-          .select('id, status')
-          .eq('idempotency_key', idempotencyKey)
-          .single();
-
-        if (existing && existing.status === 'sent') {
-          console.log(`[BroadcastProcessor] Idempotency match in DB: delivery ${existing.id} already sent.`);
-          this.processedIdempotencyKeys.add(idempotencyKey);
-          sentCount++;
-          continue;
+      // Renew job lock / heartbeat on BullMQ every 25 items for large batches
+      if (i > 0 && i % 25 === 0 && job && typeof job.updateProgress === 'function') {
+        try {
+          await job.updateProgress(Math.floor((i / recipients.length) * 100));
+        } catch {
+          // Ignore progress update error in mock environments
         }
       }
 
-      // 2. Gateway dispatch (MSG91 or Mock)
+      // 1. In-memory check (fast-path)
+      if (this.processedIdempotencyKeys.has(idempotencyKey)) {
+        console.log(`[BroadcastProcessor] Skipping duplicate delivery for idempotencyKey=${idempotencyKey}`);
+        sentCount++;
+        skippedCount++;
+        continue;
+      }
+
+      // 2. Distributed Redis Lease Gate (Tier 1 Deduplication)
+      // Prevents concurrent duplicate dispatches when rolling pods (N and N-1) run side-by-side
+      const redisDedupeKey = `dedupe:broadcast:${this.sanitizeKey(campaignId)}:${idempotencyKey}`;
+      let acquiredRedisLock = false;
+      if (this.redis) {
+        try {
+          const res = await this.redis.set(redisDedupeKey, 'locked', 'EX', DEFAULT_DEDUPE_TTL_SECONDS, 'NX');
+          if (!res) {
+            console.log(`[BroadcastProcessor] Duplicate detected via distributed Redis lease: ${idempotencyKey}`);
+            this.processedIdempotencyKeys.add(idempotencyKey);
+            sentCount++;
+            skippedCount++;
+            continue;
+          }
+          acquiredRedisLock = true;
+        } catch (redisErr) {
+          console.warn('[BroadcastProcessor] Redis dedupe check failed, relying on DB transaction gate:', redisErr);
+        }
+      }
+
+      // 3. Database Invariant Gate (Tier 2 Deduplication)
+      // Transactional boundary: if already sent or claimed in DB, skip
+      if (this.supabase) {
+        try {
+          const { data: existing } = await this.supabase
+            .from('broadcast_deliveries')
+            .select('id, status')
+            .eq('idempotency_key', idempotencyKey)
+            .maybeSingle();
+
+          if (existing && existing.status === 'sent') {
+            console.log(`[BroadcastProcessor] Idempotency match in DB: delivery ${existing.id} already sent.`);
+            this.processedIdempotencyKeys.add(idempotencyKey);
+            sentCount++;
+            skippedCount++;
+            continue;
+          }
+        } catch (dbErr) {
+          console.warn('[BroadcastProcessor] DB idempotency pre-check error:', dbErr);
+        }
+      }
+
+      // 4. Gateway dispatch (MSG91 or Mock)
       const maskedPhone = this.maskPhone(phone);
       const isTestMode =
         process.env['NODE_ENV'] === 'test' ||
@@ -97,7 +178,6 @@ export class BroadcastProcessor {
         let gatewayMsgId = `mock_gw_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
 
         if (!isTestMode) {
-          // Live gateway invocation
           const authKey = process.env['MSG91_AUTH_KEY']!;
           const senderId = process.env['MSG91_SENDER_ID'] || 'INDIAN';
           const msg91Url = new URL('https://control.msg91.com/api/v5/flow');
@@ -126,7 +206,7 @@ export class BroadcastProcessor {
           gatewayMsgId = resData.request_id || gatewayMsgId;
         }
 
-        // 3. Record successful delivery
+        // 5. Record successful delivery
         this.processedIdempotencyKeys.add(idempotencyKey);
         sentCount++;
 
@@ -148,6 +228,15 @@ export class BroadcastProcessor {
         console.error(`[BroadcastProcessor] Failed sending to ${maskedPhone}:`, dispatchErr);
         failedCount++;
 
+        // Revert Redis lock if acquired so failed message can be retried cleanly
+        if (acquiredRedisLock && this.redis) {
+          try {
+            await this.redis.del(redisDedupeKey);
+          } catch {
+            // Ignore redis deletion error
+          }
+        }
+
         if (this.supabase) {
           await this.supabase.from('broadcast_deliveries').upsert(
             {
@@ -164,7 +253,7 @@ export class BroadcastProcessor {
       }
     }
 
-    // 4. Update campaign overall status in DB if last batch
+    // 6. Update campaign overall status in DB if last batch
     if (this.supabase && batchIndex === job.data.totalBatches - 1) {
       await this.supabase
         .from('broadcast_campaigns')
@@ -180,6 +269,7 @@ export class BroadcastProcessor {
       batchIndex,
       processedCount: recipients.length,
       sentCount,
+      skippedCount,
       failedCount,
       status: 'completed',
     };

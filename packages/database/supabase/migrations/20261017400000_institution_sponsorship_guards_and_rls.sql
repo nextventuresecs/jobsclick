@@ -1,5 +1,8 @@
 -- Migration: 20261017400000_institution_sponsorship_guards_and_rls.sql
 -- Defense-in-depth: Institution sponsorships table, idempotency constraint, and DB-level RLS policies (WAL-05 & Invariant #5)
+-- Zero-Downtime Guard: Short lock_timeout prevents lock-queue starvation
+SET LOCAL lock_timeout = '2s';
+SET LOCAL statement_timeout = '60s';
 
 -- 1. Create institution_sponsorships table for recording active annual sponsorship grants
 CREATE TABLE IF NOT EXISTS institution_sponsorships (

@@ -1,5 +1,8 @@
 -- Migration: 20261017100000_payments_and_invoicing.sql
 -- Ticket T-16: Razorpay Payment Gateway & Invoicing (WAL-03, Section 8.7.1)
+-- Zero-Downtime Guard: Short lock_timeout prevents lock-queue starvation on payments table
+SET LOCAL lock_timeout = '2s';
+SET LOCAL statement_timeout = '60s';
 
 -- 1. Extend payments table columns for gateway reference, GST tax breakdown, and invoices
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS gateway_payment_id VARCHAR(255);
