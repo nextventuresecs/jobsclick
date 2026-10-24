@@ -71,11 +71,9 @@ export class InstitutionSponsorshipController {
       }
     } else {
       const isSelfUser = user.id === id;
-      const isIntermediary =
-        user.role === 'intermediary' || (user.role as string) === 'institution';
       const isPlatformAdmin = user.role === 'admin' || (user.role as string) === 'msme_admin';
 
-      if (!(isSelfUser || isIntermediary || isPlatformAdmin)) {
+      if (!(isSelfUser || isPlatformAdmin)) {
         throw new ForbiddenException(
           'You are not authorized to view sponsorship quote for this institution',
         );

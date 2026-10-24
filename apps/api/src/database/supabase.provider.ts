@@ -130,6 +130,11 @@ export class PersistentDatabaseStore {
     delete this.state[table][id];
     this.save();
   }
+
+  public clearTable(table: keyof DatabasePersistenceState): void {
+    this.state[table] = {};
+    this.save();
+  }
 }
 
 export function createSupabaseClient(): SupabaseClient<Database> {

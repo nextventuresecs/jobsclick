@@ -137,6 +137,17 @@ export class PlacementService {
     this.seedInitialDataIfEmpty();
   }
 
+  public resetSeedData(): void {
+    this.persistentStore.clearTable('corporate_tie_ups');
+    this.persistentStore.clearTable('placement_applications');
+    for (const t of SEED_TIE_UPS) {
+      this.persistentStore.setRow('corporate_tie_ups', t.id, t);
+    }
+    for (const a of SEED_APPLICATIONS) {
+      this.persistentStore.setRow('placement_applications', a.id, a);
+    }
+  }
+
   private seedInitialDataIfEmpty(): void {
     const tieUpsTable = this.persistentStore.getTable<CorporateTieUp>('corporate_tie_ups');
     if (Object.keys(tieUpsTable).length === 0) {
