@@ -67,14 +67,36 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Malformed JWT token segments');
     }
 
+    // Enforce valid header and alg=HS256
+    try {
+      const headerJson = Buffer.from(headerB64, 'base64url').toString('utf-8');
+      const header = JSON.parse(headerJson);
+      if (header.alg !== 'HS256') {
+        throw new UnauthorizedException(`Unsupported JWT algorithm: ${header.alg}. HS256 required.`);
+      }
+    } catch (err) {
+      if (err instanceof UnauthorizedException) throw err;
+      throw new UnauthorizedException('Malformed JWT header');
+    }
+
     // Cryptographic signature verification with timing-safe comparison
-    const secret =
-      process.env['JWT_SECRET'] ||
-      process.env['SUPABASE_SECRET_KEY'] ||
-      'jobsclick-jwt-secret-key-32-chars-min';
+    const isProduction = process.env['NODE_ENV'] === 'production';
+    const secret = process.env['JWT_SECRET'] || process.env['SUPABASE_SECRET_KEY'];
+
+    if (!secret) {
+      if (isProduction) {
+        throw new UnauthorizedException('Authentication misconfigured: server JWT_SECRET is not set');
+      }
+      // Strictly rejected in production; in test only fall back to test-only key if not provided
+    }
+
+    const verificationSecret = secret || (this.isTestMode ? 'jobsclick-jwt-secret-key-32-chars-min' : '');
+    if (!verificationSecret) {
+      throw new UnauthorizedException('Server configuration error: missing JWT signing secret');
+    }
 
     const expectedSig = crypto
-      .createHmac('sha256', secret)
+      .createHmac('sha256', verificationSecret)
       .update(`${headerB64}.${payloadB64}`)
       .digest('base64url');
 

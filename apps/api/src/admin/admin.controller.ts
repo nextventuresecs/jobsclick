@@ -1,22 +1,32 @@
 import { Controller, Get, Post, Put, Body, Param, Headers, Inject, UsePipes } from '@nestjs/common';
 import { ZodValidationPipe, createZodDto } from 'nestjs-zod';
 import { AdminService } from './admin.service.js';
+import { BroadcastService } from './broadcast.service.js';
+import { ReportsService } from './reports.service.js';
 import {
   adminUserStatusSchema,
   auditLogSchema,
   privacyRequestSchema,
   generateResumeSchema,
+  costPreviewRequestSchema,
+  dispatchBroadcastSchema,
 } from '@indian-job-portal/validation';
 
 export class AdminUserStatusDto extends createZodDto(adminUserStatusSchema) {}
 export class AuditLogDto extends createZodDto(auditLogSchema) {}
 export class PrivacyRequestDto extends createZodDto(privacyRequestSchema) {}
 export class GenerateResumeDto extends createZodDto(generateResumeSchema) {}
+export class CostPreviewRequestDto extends createZodDto(costPreviewRequestSchema) {}
+export class DispatchBroadcastDto extends createZodDto(dispatchBroadcastSchema) {}
 
 @Controller()
 @UsePipes(ZodValidationPipe)
 export class AdminController {
-  constructor(@Inject(AdminService) private readonly adminService: AdminService) {}
+  constructor(
+    @Inject(AdminService) private readonly adminService: AdminService,
+    @Inject(BroadcastService) private readonly broadcastService: BroadcastService,
+    @Inject(ReportsService) private readonly reportsService: ReportsService,
+  ) {}
 
   // Issue #21: Admin User Status Update
   @Put('admin/users/:id/status')
@@ -62,5 +72,37 @@ export class AdminController {
   @Get('admin/reports/analytics')
   async getAnalyticsReports() {
     return this.adminService.getAnalyticsReports();
+  }
+
+  // Ticket T-20: MSME Department Broadcast Engine & Dynamic Cost Preview (MSME-03)
+  @Post('admin/broadcast/preview')
+  async getBroadcastCostPreview(@Body() body: CostPreviewRequestDto) {
+    return this.broadcastService.calculateCostPreview(body);
+  }
+
+  @Post('admin/broadcast/dispatch')
+  async dispatchBroadcast(
+    @Headers('x-user-id') userId: string,
+    @Headers('x-user-role') role: string,
+    @Body() body: DispatchBroadcastDto,
+  ) {
+    const actor = {
+      id: userId || 'admin_root',
+      role: role || 'admin',
+    };
+    return this.broadcastService.dispatchBroadcast(actor, body);
+  }
+
+  // Ticket T-20: District Employment Reports (MSME-04 & Zero PII Invariant #1)
+  @Get('admin/reports/district-employment')
+  async getDistrictEmploymentReports(
+    @Headers('x-user-id') userId: string,
+    @Headers('x-user-role') role: string,
+  ) {
+    const actor = {
+      id: userId || 'admin_root',
+      role: role || 'admin',
+    };
+    return this.reportsService.getDistrictEmploymentReports(actor);
   }
 }

@@ -9,7 +9,11 @@ import {
 import { SAMPLE_JOBS, JobItem } from '../../data/sampleJobs';
 import { SAMPLE_COMPANIES } from '../../data/sampleCompanies';
 import { CategoryBadge } from '@indian-job-portal/ui';
+import { MsmeBroadcastConsole } from "./admin/MsmeBroadcastConsole";
+import { DistrictReports } from "./admin/DistrictReports";
 import {
+  Radio,
+  BarChart2,
   ShieldCheck,
   Building,
   Briefcase,
@@ -21,7 +25,7 @@ import {
 
 export function AdminWorkspace({ isMsmeDept = false }: { readonly isMsmeDept?: boolean }) {
   const t = useTranslations('AdminWorkspace');
-  const [activeTab, setActiveTab] = useState<'overview' | 'jobs' | 'businesses' | 'audit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'broadcast' | 'reports' | 'jobs' | 'businesses' | 'audit'>(isMsmeDept ? 'broadcast' : 'overview');
   const [auditLogs] = useState<readonly AuditLogEntryData[]>(INITIAL_AUDIT_LOGS);
   const [jobs] = useState<readonly JobItem[]>(SAMPLE_JOBS);
   const [searchLog, setSearchLog] = useState('');
@@ -65,6 +69,8 @@ export function AdminWorkspace({ isMsmeDept = false }: { readonly isMsmeDept?: b
       <div className="flex border-b border-gray-200 overflow-x-auto gap-2">
         {([
           { id: 'overview', label: t('tabOverview'), icon: TrendingUp },
+          { id: 'broadcast', label: t('tabBroadcast'), icon: Radio },
+          { id: 'reports', label: t('tabReports'), icon: BarChart2 },
           { id: 'jobs', label: `${t('tabJobs')} (${jobs.length})`, icon: Briefcase },
           { id: 'businesses', label: `${t('tabBusinesses')} (${SAMPLE_COMPANIES.length})`, icon: Building },
           { id: 'audit', label: `${t('tabAudit')} (${auditLogs.length})`, icon: History },
@@ -213,6 +219,12 @@ export function AdminWorkspace({ isMsmeDept = false }: { readonly isMsmeDept?: b
           </div>
         </div>
       )}
+
+      {/* TAB: MSME BROADCAST CONSOLE */}
+      {activeTab === 'broadcast' && <MsmeBroadcastConsole />}
+
+      {/* TAB: DISTRICT EMPLOYMENT REPORTS */}
+      {activeTab === 'reports' && <DistrictReports />}
 
       {/* TAB: AUDIT LOG (Hard Invariant #6) */}
       {activeTab === 'audit' && (

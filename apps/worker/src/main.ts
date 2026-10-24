@@ -7,11 +7,13 @@ import { initSentry, captureException } from './config/sentry.js';
 import { bulkImportProcessor } from './processors/import.processor.js';
 import { inviteWaveProcessor } from './processors/invite.processor.js';
 import { pdfGeneratorProcessor } from './processors/pdf.processor.js';
+import { broadcastProcessor } from './processors/broadcast.processor.js';
 
 export const QUEUE_NAMES = {
   BULK_IMPORT: 'bulk-import',
   INVITE_WAVE: 'invite-wave',
   PDF_GENERATOR: 'pdf-generator',
+  BROADCAST: 'broadcast-queue',
 } as const;
 
 export const DEFAULT_RETRY_OPTIONS = {
@@ -47,9 +49,11 @@ export interface WorkerInstanceRegistry {
   importWorker: Worker;
   inviteWorker: Worker;
   pdfWorker: Worker;
+  broadcastWorker: Worker;
   importQueue: Queue;
   inviteQueue: Queue;
   pdfQueue: Queue;
+  broadcastQueue: Queue;
   connection: IORedis;
   close: () => Promise<void>;
 }
@@ -70,6 +74,11 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
   });
 
   const pdfQueue = new Queue(QUEUE_NAMES.PDF_GENERATOR, {
+    connection: connOptions,
+    defaultJobOptions: DEFAULT_RETRY_OPTIONS,
+  });
+
+  const broadcastQueue = new Queue(QUEUE_NAMES.BROADCAST, {
     connection: connOptions,
     defaultJobOptions: DEFAULT_RETRY_OPTIONS,
   });
@@ -113,10 +122,24 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
     },
   );
 
+  // 4. Broadcast Processor Worker (MSME Department Bulk SMS Dispatch)
+  const broadcastWorker = new Worker(
+    QUEUE_NAMES.BROADCAST,
+    async (job) => {
+      console.log(`[Worker - ${QUEUE_NAMES.BROADCAST}] Starting Job ${job.id} (Attempt ${job.attemptsMade + 1}/3)...`);
+      return broadcastProcessor(job);
+    },
+    {
+      connection: connOptions,
+      concurrency: 5,
+    },
+  );
+
   const workers = [
     { name: QUEUE_NAMES.BULK_IMPORT, instance: importWorker },
     { name: QUEUE_NAMES.INVITE_WAVE, instance: inviteWorker },
     { name: QUEUE_NAMES.PDF_GENERATOR, instance: pdfWorker },
+    { name: QUEUE_NAMES.BROADCAST, instance: broadcastWorker },
   ];
 
   workers.forEach(({ name, instance }) => {
@@ -141,9 +164,11 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
       importWorker.close(),
       inviteWorker.close(),
       pdfWorker.close(),
+      broadcastWorker.close(),
       importQueue.close(),
       inviteQueue.close(),
       pdfQueue.close(),
+      broadcastQueue.close(),
     ]);
     if (typeof connection.quit === 'function') {
       try {
@@ -158,9 +183,11 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
     importWorker,
     inviteWorker,
     pdfWorker,
+    broadcastWorker,
     importQueue,
     inviteQueue,
     pdfQueue,
+    broadcastQueue,
     connection,
     close,
   };

@@ -10,6 +10,7 @@ describe('JwtAuthGuard Cryptographic Verification & Expiration (Issue #1)', () =
   const secret = 'jobsclick-jwt-secret-key-32-chars-min';
 
   beforeEach(() => {
+    process.env['JWT_SECRET'] = secret;
     reflector = new Reflector();
     guard = new JwtAuthGuard(reflector);
   });

@@ -25,6 +25,14 @@ const baseSchema = z.object({
   MSG91_AUTH_KEY: z.string().optional(),
   MSG91_SENDER_ID: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
+  // Authentication & Administrative Security
+  JWT_SECRET: z.string().optional(),
+  ADMIN_DASHBOARD_SECRET: z.string().optional(),
+  // Razorpay Payment Gateway (WAL-03)
+  RAZORPAY_KEY_ID: z.string().optional(),
+  RAZORPAY_KEY_SECRET: z.string().optional(),
+  RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
+  ALLOW_TEST_PAYMENTS: z.coerce.boolean().default(false),
 }).passthrough();
 
 export type EnvConfig = z.infer<typeof baseSchema>;
@@ -61,12 +69,38 @@ export function validateEnv(): EnvConfig {
       ['API_URL', env.API_URL, 'API_URL is required in production — QStash sends webhooks to this URL'],
       ['SUPABASE_URL', env.SUPABASE_URL, 'SUPABASE_URL is required in production for storage'],
       ['SUPABASE_SERVICE_ROLE_KEY', env.SUPABASE_SERVICE_ROLE_KEY, 'SUPABASE_SERVICE_ROLE_KEY is required in production for storage'],
+      ['JWT_SECRET', env.JWT_SECRET, 'JWT_SECRET is required in production (min 32 characters) to securely sign and verify authentication tokens'],
     ];
 
-    const missing = required.filter(([, value]) => !value);
+    // Enforce real Razorpay keys in production unless ALLOW_TEST_PAYMENTS is explicitly true
+    if (!env.ALLOW_TEST_PAYMENTS) {
+      required.push(
+        ['RAZORPAY_KEY_ID', env.RAZORPAY_KEY_ID, 'RAZORPAY_KEY_ID is required in production (or set ALLOW_TEST_PAYMENTS=true)'],
+        ['RAZORPAY_KEY_SECRET', env.RAZORPAY_KEY_SECRET, 'RAZORPAY_KEY_SECRET is required in production (or set ALLOW_TEST_PAYMENTS=true)'],
+        ['RAZORPAY_WEBHOOK_SECRET', env.RAZORPAY_WEBHOOK_SECRET, 'RAZORPAY_WEBHOOK_SECRET is required in production (or set ALLOW_TEST_PAYMENTS=true)'],
+      );
+    }
+
+    const missing = required.filter(([, value]) => {
+      if (!value) return true;
+      if (typeof value === 'string') {
+        const lower = value.toLowerCase();
+        // Reject obvious dummy/placeholder keys in production unless ALLOW_TEST_PAYMENTS=true
+        if (!env.ALLOW_TEST_PAYMENTS && (lower.includes('dummy') || lower.startsWith('rzp_test_dummy'))) {
+          return true;
+        }
+      }
+      return false;
+    });
+
     if (missing.length > 0) {
       const msgs = missing.map(([name, , reason]) => `  - ${name}: ${reason}`);
-      throw new Error(`Missing required production environment variables:\n${msgs.join('\n')}`);
+      throw new Error(`Missing or dummy required production environment variables:\n${msgs.join('\n')}`);
+    }
+
+    // JWT_SECRET must have at least 32 characters in production
+    if (env.JWT_SECRET && env.JWT_SECRET.length < 32) {
+      throw new Error('JWT_SECRET must be at least 32 characters long in production');
     }
 
     // API_URL must be HTTPS in production (QStash refuses plain HTTP)
