@@ -45,11 +45,43 @@ export class InstitutionSponsorshipController {
    * Get sponsorship quote for an institution
    * Endpoint: GET /institutions/:id/sponsorship-quote
    */
+  @Roles('institution', 'intermediary', 'admin')
   @Get(':id/sponsorship-quote')
   async getSponsorshipQuote(
+    @CurrentUser() user: AuthUser,
     @Param('id') id: string,
     @Query('students') students?: string,
   ) {
+    let inst = await this.profileRepository.findInstitutionProfileById(id);
+    if (!inst) {
+      inst = await this.profileRepository.findInstitutionProfileByUserId(id);
+    }
+
+    if (inst) {
+      const isOwner = inst.user_id === user.id;
+      const isIntermediaryAdmin =
+        (user.role === 'intermediary' || (user.role as string) === 'institution') &&
+        (inst.created_by === user.id || inst.user_id === user.id);
+      const isPlatformAdmin = user.role === 'admin' || (user.role as string) === 'msme_admin';
+
+      if (!(isOwner || isIntermediaryAdmin || isPlatformAdmin)) {
+        throw new ForbiddenException(
+          'You are not authorized to view sponsorship quote for this institution',
+        );
+      }
+    } else {
+      const isSelfUser = user.id === id;
+      const isIntermediary =
+        user.role === 'intermediary' || (user.role as string) === 'institution';
+      const isPlatformAdmin = user.role === 'admin' || (user.role as string) === 'msme_admin';
+
+      if (!(isSelfUser || isIntermediary || isPlatformAdmin)) {
+        throw new ForbiddenException(
+          'You are not authorized to view sponsorship quote for this institution',
+        );
+      }
+    }
+
     const studentCountOverride = students ? parseInt(students, 10) : undefined;
     return this.sponsorshipService.getSponsorshipQuote(id, studentCountOverride);
   }

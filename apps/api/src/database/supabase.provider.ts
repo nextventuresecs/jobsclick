@@ -18,6 +18,8 @@ export interface DatabasePersistenceState {
   institution_sponsorships: Record<string, unknown>;
   broadcast_campaigns: Record<string, unknown>;
   broadcast_deliveries: Record<string, unknown>;
+  corporate_tie_ups: Record<string, unknown>;
+  placement_applications: Record<string, unknown>;
 }
 
 export class PersistentDatabaseStore {
@@ -37,6 +39,8 @@ export class PersistentDatabaseStore {
     institution_sponsorships: {},
     broadcast_campaigns: {},
     broadcast_deliveries: {},
+    corporate_tie_ups: {},
+    placement_applications: {},
   };
 
   private constructor() {
@@ -96,6 +100,8 @@ export class PersistentDatabaseStore {
           institution_sponsorships: parsed.institution_sponsorships || {},
           broadcast_campaigns: parsed.broadcast_campaigns || {},
           broadcast_deliveries: parsed.broadcast_deliveries || {},
+          corporate_tie_ups: parsed.corporate_tie_ups || {},
+          placement_applications: parsed.placement_applications || {},
         };
       }
     } catch {

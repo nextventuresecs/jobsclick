@@ -90,7 +90,7 @@ export class JwtAuthGuard implements CanActivate {
       // Strictly rejected in production; in test only fall back to test-only key if not provided
     }
 
-    const verificationSecret = secret || (this.isTestMode ? 'test-only-ephemeral-jwt-secret-32-chars-ok' : '');
+    const verificationSecret = secret || (this.isTestMode ? 'jobsclick-jwt-secret-key-32-chars-min' : '');
     if (!verificationSecret) {
       throw new UnauthorizedException('Server configuration error: missing JWT signing secret');
     }
