@@ -4,6 +4,9 @@ import {
   canUserAccessApplication,
   canUserManageInstitutionSponsorship,
   isAuditLogImmutable,
+  isAlertDeliveryImmutable,
+  canUserAccessAlertDelivery,
+  canUserManageJobAlert,
 } from '../src/rls-helper.js';
 
 describe('Database Row Level Security (RLS) & Audit Policies', () => {
@@ -92,5 +95,61 @@ describe('Database Row Level Security (RLS) & Audit Policies', () => {
     expect(canUserManageInstitutionSponsorship(intruderId, 'intermediary', institution)).toBe(false);
     expect(canUserManageInstitutionSponsorship(intruderId, 'job_seeker', institution)).toBe(false);
     expect(canUserManageInstitutionSponsorship(intruderId, 'employer', institution)).toBe(false);
+  });
+
+  it('enforces alert delivery ledger immutability and tenant isolation (Hard Invariants #5 & #6)', () => {
+    const candidateA = 'usr_candidate_aaa';
+    const candidateB = 'usr_candidate_bbb';
+    const adminId = 'usr_admin_999';
+
+    const deliveryRecord = {
+      id: 'deliv_123',
+      user_id: candidateA,
+      alert_id: 'alert_1',
+      job_id: 'job_1',
+    };
+
+    // Immutability: only INSERT is allowed, UPDATE and DELETE are strictly prohibited
+    expect(isAlertDeliveryImmutable('INSERT')).toBe(true);
+    expect(isAlertDeliveryImmutable('UPDATE')).toBe(false);
+    expect(isAlertDeliveryImmutable('DELETE')).toBe(false);
+
+    // Candidate A can insert their own delivery, but cannot UPDATE or DELETE
+    expect(canUserAccessAlertDelivery(candidateA, 'job_seeker', deliveryRecord, 'INSERT')).toBe(true);
+    expect(canUserAccessAlertDelivery(candidateA, 'job_seeker', deliveryRecord, 'UPDATE')).toBe(false);
+    expect(canUserAccessAlertDelivery(candidateA, 'job_seeker', deliveryRecord, 'DELETE')).toBe(false);
+
+    // Candidate B cannot insert a delivery record belonging to Candidate A
+    expect(canUserAccessAlertDelivery(candidateB, 'job_seeker', deliveryRecord, 'INSERT')).toBe(false);
+
+    // Admin can insert for Candidate A
+    expect(canUserAccessAlertDelivery(adminId, 'admin', deliveryRecord, 'INSERT')).toBe(true);
+    // But admin still cannot UPDATE or DELETE immutable delivery records
+    expect(canUserAccessAlertDelivery(adminId, 'admin', deliveryRecord, 'UPDATE')).toBe(false);
+    expect(canUserAccessAlertDelivery(adminId, 'admin', deliveryRecord, 'DELETE')).toBe(false);
+  });
+
+  it('enforces job alert tenant isolation and ownership integrity', () => {
+    const userA = 'usr_user_aaa';
+    const userB = 'usr_user_bbb';
+    const adminId = 'usr_admin_999';
+
+    const alert = {
+      id: 'alert_100',
+      user_id: userA,
+      title: 'Software Developer Alerts',
+    };
+
+    // User A can manage their own alert
+    expect(canUserManageJobAlert(userA, 'job_seeker', alert)).toBe(true);
+
+    // User B cannot manage User A's alert
+    expect(canUserManageJobAlert(userB, 'job_seeker', alert)).toBe(false);
+
+    // User A cannot re-assign their alert to User B (tampering prevention)
+    expect(canUserManageJobAlert(userA, 'job_seeker', alert, userB)).toBe(false);
+
+    // Admin can manage User A's alert
+    expect(canUserManageJobAlert(adminId, 'admin', alert)).toBe(true);
   });
 });

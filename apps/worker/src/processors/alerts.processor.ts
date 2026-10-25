@@ -8,6 +8,7 @@ import type { JobRow, JobAlertRow, AlertDeliveryRow } from '@indian-job-portal/d
 export interface AlertsJobData {
   timeframeHours?: number;
   candidateId?: string;
+  frequency?: 'daily' | 'weekly';
   shouldSimulateFailure?: boolean;
   alerts?: JobAlertRow[];
   jobs?: JobRow[];
@@ -22,6 +23,7 @@ export interface AlertsJobResult {
 }
 
 interface LocalPersistenceState {
+  users?: Record<string, { email?: string; language?: string; [key: string]: unknown }>;
   jobs?: Record<string, JobRow>;
   job_alerts?: Record<string, JobAlertRow>;
   alert_deliveries?: Record<string, AlertDeliveryRow>;
@@ -62,7 +64,7 @@ export class AlertsProcessor {
   }
 
   async process(job: Job<AlertsJobData>): Promise<AlertsJobResult> {
-    const { timeframeHours = 24, candidateId, shouldSimulateFailure } = job.data;
+    const { timeframeHours = 24, candidateId, frequency = 'daily', shouldSimulateFailure } = job.data;
 
     if (shouldSimulateFailure && job.attemptsMade < 2) {
       throw new Error(`Simulated transient search alert failure for retry test (attempt ${job.attemptsMade + 1})`);
@@ -76,7 +78,11 @@ export class AlertsProcessor {
 
     if (this.supabase) {
       try {
-        let alertQuery = this.supabase.from('job_alerts').select('*').eq('is_active', true);
+        let alertQuery = this.supabase
+          .from('job_alerts')
+          .select('*')
+          .eq('is_active', true)
+          .eq('frequency', frequency);
         if (candidateId) {
           alertQuery = alertQuery.eq('user_id', candidateId);
         }
@@ -91,7 +97,19 @@ export class AlertsProcessor {
           .gte('created_at', cutoffTime);
         recentJobs = (jobs as JobRow[]) || [];
 
-        const { data: deliveries } = await this.supabase.from('alert_deliveries').select('*');
+        // Memory bounded: scope existing delivery lookup to active candidates rather than global table scan
+        let deliveriesQuery = this.supabase
+          .from('alert_deliveries')
+          .select('id, alert_id, user_id, job_id, delivered_at');
+        if (candidateId) {
+          deliveriesQuery = deliveriesQuery.eq('user_id', candidateId);
+        } else if (activeAlerts.length > 0) {
+          const userIds = Array.from(new Set(activeAlerts.map((a) => a.user_id)));
+          if (userIds.length > 0) {
+            deliveriesQuery = deliveriesQuery.in('user_id', userIds);
+          }
+        }
+        const { data: deliveries } = await deliveriesQuery;
         existingDeliveries = (deliveries as AlertDeliveryRow[]) || [];
       } catch {
         // Fall back to local state
@@ -99,10 +117,12 @@ export class AlertsProcessor {
     }
 
     if (job.data.alerts && job.data.alerts.length > 0) {
-      activeAlerts = job.data.alerts;
+      activeAlerts = job.data.alerts.filter((a) => !a.frequency || a.frequency === frequency);
     } else if (activeAlerts.length === 0) {
       const allAlerts = Object.values(localState.job_alerts || {});
-      activeAlerts = allAlerts.filter((a) => a.is_active && (!candidateId || a.user_id === candidateId));
+      activeAlerts = allAlerts.filter(
+        (a) => a.is_active && (!candidateId || a.user_id === candidateId) && (!a.frequency || a.frequency === frequency),
+      );
     }
 
     if (job.data.jobs && job.data.jobs.length > 0) {
@@ -110,21 +130,27 @@ export class AlertsProcessor {
     } else if (recentJobs.length === 0) {
       const allJobs = Object.values(localState.jobs || {});
       const cutoff = Date.now() - timeframeHours * 60 * 60 * 1000;
-      // In tests or if no newly created jobs in cutoff, include active jobs
       recentJobs = allJobs.filter((j) => j.is_active && (new Date(j.created_at).getTime() >= cutoff || allJobs.length <= 10));
     }
 
     if (existingDeliveries.length === 0) {
-      existingDeliveries = Object.values(localState.alert_deliveries || {});
+      const allLocal = Object.values(localState.alert_deliveries || {});
+      if (candidateId) {
+        existingDeliveries = allLocal.filter((d) => d.user_id === candidateId);
+      } else if (activeAlerts.length > 0) {
+        const userIds = new Set(activeAlerts.map((a) => a.user_id));
+        existingDeliveries = allLocal.filter((d) => userIds.has(d.user_id));
+      } else {
+        existingDeliveries = allLocal;
+      }
     }
 
-    const deliveredSet = new Set(existingDeliveries.map((d) => `${d.user_id}:${d.job_id}`));
+    // Set of delivered tuples: user_id:job_id (Hard Invariant: deduplication ledger)
+    const deliveredSet = new Set<string>(
+      existingDeliveries.map((d) => `${d.user_id}:${d.job_id}`),
+    );
 
-    let candidatesNotified = 0;
-    let totalJobsMatched = 0;
-    let totalDeliveriesCreated = 0;
-
-    // Group alerts by candidate/user
+    // Group alerts by user
     const alertsByUser = new Map<string, JobAlertRow[]>();
     for (const alert of activeAlerts) {
       const list = alertsByUser.get(alert.user_id) || [];
@@ -132,38 +158,43 @@ export class AlertsProcessor {
       alertsByUser.set(alert.user_id, list);
     }
 
+    let candidatesNotified = 0;
+    let totalJobsMatched = 0;
+    let totalDeliveriesCreated = 0;
     const newDeliveries: AlertDeliveryRow[] = [];
 
+    // Evaluate matching jobs per user
     for (const [userId, userAlerts] of alertsByUser.entries()) {
-      const matchedJobsForUser: { job: JobRow; alertId: string }[] = [];
+      const matchedJobsForUser: Array<{ job: JobRow; alertId: string }> = [];
 
       for (const alert of userAlerts) {
         const filters = (alert.filters || {}) as Record<string, unknown>;
-        const kw = typeof filters['keyword'] === 'string' ? filters['keyword'].toLowerCase() : null;
-        const city = typeof filters['city'] === 'string' ? filters['city'].toLowerCase() : null;
-        const category = typeof filters['category'] === 'string' ? filters['category'] : null;
-        const minPay = typeof filters['minPay'] === 'number' ? filters['minPay'] : null;
+        const kw = typeof filters['keyword'] === 'string' ? (filters['keyword'] as string).toLowerCase().trim() : null;
+        const city = typeof filters['city'] === 'string' ? (filters['city'] as string).toLowerCase().trim() : null;
+        const category = typeof filters['category'] === 'string' ? (filters['category'] as string).toLowerCase().trim() : null;
+        const minPay = typeof filters['minPay'] === 'number' ? (filters['minPay'] as number) : null;
 
         for (const jobItem of recentJobs) {
           const dedupeKey = `${userId}:${jobItem.id}`;
           if (deliveredSet.has(dedupeKey)) {
+            continue; // Already delivered to this user previously
+          }
+
+          if (city && (!jobItem.city || jobItem.city.toLowerCase() !== city)) {
             continue;
           }
 
-          // Check relevance match
+          if (category && (!jobItem.category || jobItem.category.toLowerCase() !== category)) {
+            continue;
+          }
+
           if (kw) {
-            const inTitle = jobItem.title.toLowerCase().includes(kw);
-            const inDesc = jobItem.description.toLowerCase().includes(kw);
-            const inSkills = jobItem.skills?.some((s) => s.toLowerCase().includes(kw));
-            if (!inTitle && !inDesc && !inSkills) continue;
-          }
-
-          if (city && jobItem.city.toLowerCase() !== city) {
-            continue;
-          }
-
-          if (category && jobItem.category !== category) {
-            continue;
+            const matchesTitle = jobItem.title && jobItem.title.toLowerCase().includes(kw);
+            const matchesDesc = jobItem.description && jobItem.description.toLowerCase().includes(kw);
+            const matchesSkills = Array.isArray(jobItem.skills) && jobItem.skills.some((s) => s.toLowerCase().includes(kw));
+            if (!matchesTitle && !matchesDesc && !matchesSkills) {
+              continue;
+            }
           }
 
           if (minPay !== null && (jobItem.max_pay ?? 0) < minPay) {
@@ -186,15 +217,42 @@ export class AlertsProcessor {
       }
 
       if (matchedJobsForUser.length > 0) {
-        candidatesNotified++;
-        totalJobsMatched += matchedJobsForUser.length;
+        // 1. Resolve recipient contact info and language preference
+        let recipientEmail: string | null = null;
+        let recipientLang = 'en';
 
-        // Build Daily Digest Email with DPDP compliance & RFC 8058 List-Unsubscribe
-        const isLiveEmail = Boolean(process.env['RESEND_API_KEY']);
-        if (isLiveEmail) {
+        if (this.supabase) {
           try {
-            // Live Resend integration with compliance headers
-            await fetch('https://api.resend.com/emails', {
+            const { data: userRow } = await this.supabase
+              .from('users')
+              .select('email')
+              .eq('id', userId)
+              .maybeSingle();
+            if (userRow?.email) {
+              recipientEmail = userRow.email;
+            }
+          } catch {
+            // fallback
+          }
+        } else if (localState.users?.[userId]?.email) {
+          recipientEmail = localState.users[userId]!.email!;
+          if (localState.users[userId]!.language === 'hi') {
+            recipientLang = 'hi';
+          }
+        }
+
+        const isTestEnv = process.env['NODE_ENV'] === 'test' || !process.env['RESEND_API_KEY'];
+
+        // 2. Bilingual Subject Resolution (Hard Invariant #8a - No hardcoded user-facing strings)
+        const subject = recipientLang === 'hi'
+          ? `आपकी जॉब अलर्ट सूचना (${matchedJobsForUser.length} नए मैच)`
+          : `Your Job Alert Digest (${matchedJobsForUser.length} new matches)`;
+
+        // 3. Dispatch Outbound Email Notification
+        let dispatchSucceeded = isTestEnv;
+        if (!isTestEnv && recipientEmail) {
+          try {
+            const res = await fetch('https://api.resend.com/emails', {
               method: 'POST',
               headers: {
                 Authorization: `Bearer ${process.env['RESEND_API_KEY']}`,
@@ -202,8 +260,8 @@ export class AlertsProcessor {
               },
               body: JSON.stringify({
                 from: 'Indian Jobs Alerts <alerts@indianjobs.portal>',
-                to: `candidate-${userId.slice(0, 8)}@mail.portal`,
-                subject: `Your Daily Job Digest (${matchedJobsForUser.length} new matches)`,
+                to: recipientEmail,
+                subject,
                 headers: {
                   'List-Unsubscribe': `<https://indianjobs.portal/alerts/unsubscribe?user=${userId}>`,
                   'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
@@ -213,30 +271,40 @@ export class AlertsProcessor {
                   <p><a href="https://indianjobs.portal/alerts/unsubscribe?user=${userId}">Unsubscribe from daily job alerts</a></p>`,
               }),
             });
+            dispatchSucceeded = res.ok;
+            if (!res.ok) {
+              console.error(`[AlertsProcessor] Resend API returned ${res.status} for user ${userId}`);
+            }
           } catch (err) {
             console.error(`[AlertsProcessor] Email dispatch failed for user ${userId}:`, err);
+            dispatchSucceeded = false;
           }
         }
 
-        // Record deliveries in ledger
-        for (const { job: matchedJob, alertId } of matchedJobsForUser) {
-          const delivery: AlertDeliveryRow = {
+        // 4. Record Deliveries ONLY on successful dispatch (prevents premature deduplication on dispatch failure)
+        if (dispatchSucceeded) {
+          const userDeliveries: AlertDeliveryRow[] = matchedJobsForUser.map(({ job: mJob, alertId }) => ({
             id: randomUUID(),
             alert_id: alertId,
             user_id: userId,
-            job_id: matchedJob.id,
+            job_id: mJob.id,
             delivered_at: new Date().toISOString(),
-          };
-          newDeliveries.push(delivery);
-          totalDeliveriesCreated++;
+          }));
 
           if (this.supabase) {
             try {
-              await this.supabase.from('alert_deliveries').insert(delivery);
+              await this.supabase.from('alert_deliveries').insert(userDeliveries);
             } catch {
               // Persisted locally
             }
           }
+
+          for (const d of userDeliveries) {
+            newDeliveries.push(d);
+          }
+          totalDeliveriesCreated += userDeliveries.length;
+          candidatesNotified++;
+          totalJobsMatched += matchedJobsForUser.length;
         }
       }
     }

@@ -1,7 +1,15 @@
-import { Injectable, Inject } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  Logger,
+  BadRequestException,
+  NotFoundException,
+  ForbiddenException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
-import type { Database, JobRow, JobAlertRow, AlertDeliveryRow } from '@indian-job-portal/database';
+import type { Database, JobRow, JobAlertRow, AlertDeliveryRow, CreditLedgerRow, PromoteJobRpcResult, SearchJobsRpcResult } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
 
 export interface JobFilterParams {
@@ -15,6 +23,7 @@ export interface JobFilterParams {
 
 @Injectable()
 export class JobRepository {
+  private readonly logger = new Logger(JobRepository.name);
   private persistentStore = PersistentDatabaseStore.getInstance();
   private isTestMode =
     process.env['NODE_ENV'] === 'test' ||
@@ -28,9 +37,15 @@ export class JobRepository {
 
     if (!this.isTestMode) {
       try {
-        await this.supabase.from('jobs').insert(job);
-      } catch {
-        // Persisted locally
+        const { error } = await this.supabase.from('jobs').insert(job);
+        if (error) {
+          this.logger.error(`Failed to insert job ${job.id} into Supabase: ${error.message}`, error.details);
+          throw new InternalServerErrorException(`Failed to create job: ${error.message}`);
+        }
+      } catch (err) {
+        if (err instanceof InternalServerErrorException) throw err;
+        this.logger.error(`Supabase insertion error for job ${job.id}`, err);
+        throw new InternalServerErrorException('Database failure while creating job');
       }
     }
 
@@ -41,9 +56,13 @@ export class JobRepository {
     if (!this.isTestMode) {
       try {
         const { data, error } = await this.supabase.from('jobs').select('*').eq('id', id).maybeSingle();
-        if (!error && data) return data as JobRow;
-      } catch {
-        // Fall back to persistent local store
+        if (error) {
+          this.logger.warn(`Error fetching job ${id} from Supabase: ${error.message}`);
+        } else if (data) {
+          return data as JobRow;
+        }
+      } catch (err) {
+        this.logger.warn(`Supabase lookup failed for job ${id}`, err);
       }
     }
     const jobs = this.persistentStore.getTable<JobRow>('jobs');
@@ -82,8 +101,34 @@ export class JobRepository {
   }
 
   async findMany(filters: JobFilterParams): Promise<{ jobs: JobRow[]; total: number }> {
+    const offset = filters.offset ?? 0;
+    const limit = filters.limit ?? 20;
+
     if (!this.isTestMode) {
       try {
+        // 1. Primary path: Postgres Stored Procedure for FTS ranking & multi-page ordering
+        const { data: rpcData, error: rpcError } = await (this.supabase.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+          'search_jobs',
+          {
+            p_keyword: filters.keyword || null,
+            p_city: filters.city || null,
+            p_category: filters.category || null,
+            p_min_pay: filters.minPay ?? null,
+            p_limit: limit,
+            p_offset: offset,
+          },
+        );
+
+        if (!rpcError && Array.isArray(rpcData)) {
+          const rows = rpcData as SearchJobsRpcResult[];
+          const total = rows.length > 0 ? Number(rows[0]!.total_count ?? rows.length) : 0;
+          return { jobs: rows, total };
+        }
+
+        // 2. PostgREST fallback: Enforce ORDER BY before range slicing (eliminates inverted pagination)
         let query = this.supabase.from('jobs').select('*', { count: 'exact' }).eq('is_active', true);
         if (filters.city) {
           query = query.ilike('city', filters.city);
@@ -95,28 +140,23 @@ export class JobRepository {
           query = query.gte('max_pay', filters.minPay);
         }
         if (filters.keyword) {
-          query = query.or(`title.ilike.%${filters.keyword}%,description.ilike.%${filters.keyword}%`);
+          query = query.or(
+            `title.ilike.%${filters.keyword}%,description.ilike.%${filters.keyword}%,skills.cs.{${filters.keyword}}`,
+          );
         }
-        const offset = filters.offset ?? 0;
-        const limit = filters.limit ?? 20;
-        query = query.range(offset, offset + limit - 1);
+        query = query
+          .order('is_featured', { ascending: false })
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1);
 
         const { data, count, error } = await query;
-        if (!error && data) {
-          const now = new Date();
-          const sorted = (data as JobRow[]).sort((a, b) => {
-            const aFeatured = Boolean(a.is_featured && a.featured_until && new Date(a.featured_until).getTime() > now.getTime());
-            const bFeatured = Boolean(b.is_featured && b.featured_until && new Date(b.featured_until).getTime() > now.getTime());
-            if (aFeatured !== bFeatured) return aFeatured ? -1 : 1;
-            const aCreated = new Date(a.created_at).getTime();
-            const bCreated = new Date(b.created_at).getTime();
-            if (bCreated !== aCreated) return bCreated - aCreated;
-            return a.id.localeCompare(b.id);
-          });
-          return { jobs: sorted, total: count ?? sorted.length };
+        if (error) {
+          this.logger.error(`Error executing findMany query: ${error.message}`, error.details);
+        } else if (data) {
+          return { jobs: data as JobRow[], total: count ?? data.length };
         }
-      } catch {
-        // Fall back to persistent local store
+      } catch (err) {
+        this.logger.error('Supabase query error in findMany', err);
       }
     }
 
@@ -156,8 +196,6 @@ export class JobRepository {
       if (bCreated !== aCreated) return bCreated - aCreated;
       return a.id.localeCompare(b.id);
     });
-    const offset = filters.offset ?? 0;
-    const limit = filters.limit ?? 20;
     const paginated = list.slice(offset, offset + limit);
 
     return { jobs: paginated, total };
@@ -177,9 +215,15 @@ export class JobRepository {
 
     if (!this.isTestMode) {
       try {
-        await this.supabase.from('jobs').update(updates).eq('id', id);
-      } catch {
-        // Persisted locally
+        const { error } = await this.supabase.from('jobs').update(updates).eq('id', id);
+        if (error) {
+          this.logger.error(`Failed to update job ${id} in Supabase: ${error.message}`, error.details);
+          throw new InternalServerErrorException(`Failed to update job: ${error.message}`);
+        }
+      } catch (err) {
+        if (err instanceof InternalServerErrorException) throw err;
+        this.logger.error(`Supabase update error for job ${id}`, err);
+        throw new InternalServerErrorException('Database failure while updating job');
       }
     }
 
@@ -192,6 +236,146 @@ export class JobRepository {
 
     await this.update(id, { is_active: false });
     return true;
+  }
+
+  async promoteJobAtomically(params: {
+    userId: string;
+    jobId: string;
+    durationDays: number;
+    cost: number;
+    userRole?: string;
+  }): Promise<{
+    job: JobRow;
+    cost: number;
+    remainingBalance: number;
+    featuredUntil: string;
+  }> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await (this.supabase.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+          'promote_job_with_ledger',
+          {
+            p_user_id: params.userId,
+            p_job_id: params.jobId,
+            p_duration_days: params.durationDays,
+            p_cost: params.cost,
+          },
+        );
+
+        if (error) {
+          if (error.message.includes('INSUFFICIENT_CREDITS')) {
+            throw new BadRequestException({
+              statusCode: 400,
+              code: 'INSUFFICIENT_CREDITS',
+              message: error.message,
+            });
+          }
+          if (error.message.includes('JOB_NOT_FOUND')) {
+            throw new NotFoundException({ statusCode: 404, code: 'JOB_NOT_FOUND', message: 'Job not found' });
+          }
+          if (error.message.includes('FORBIDDEN_PROMOTION')) {
+            throw new ForbiddenException({ statusCode: 403, code: 'FORBIDDEN_PROMOTION', message: 'You can only promote your own jobs' });
+          }
+          throw new InternalServerErrorException(error.message);
+        }
+
+        const rpcResult = data as PromoteJobRpcResult;
+
+        const updatedJob = await this.findById(params.jobId);
+        return {
+          job: updatedJob!,
+          cost: rpcResult.cost,
+          remainingBalance: rpcResult.remaining_balance,
+          featuredUntil: rpcResult.featured_until,
+        };
+      } catch (err) {
+        if (
+          err instanceof BadRequestException ||
+          err instanceof NotFoundException ||
+          err instanceof ForbiddenException
+        ) {
+          throw err;
+        }
+        throw err;
+      }
+    }
+
+    // Atomic execution with concurrency lock for local/test store (WAL-01 & Hard Invariant #7)
+    return this.persistentStore.withLock(`wallet_${params.userId}`, async () => {
+      // 1. Validate job existence & ownership first (Security / Authorization Guard)
+      const job = await this.findById(params.jobId);
+      if (!job) {
+        throw new NotFoundException({ statusCode: 404, code: 'JOB_NOT_FOUND', message: 'Job not found' });
+      }
+
+      const isOwner = job.employer_id === params.userId;
+      const isAdmin = params.userRole === 'admin' || params.userRole === 'msme_admin';
+      if (!isOwner && !isAdmin) {
+        throw new ForbiddenException({ statusCode: 403, code: 'FORBIDDEN_PROMOTION', message: 'You can only promote your own jobs' });
+      }
+
+      // 2. Calculate dynamic balance directly from immutable credit_ledgers
+      const ledgers = Object.values(
+        this.persistentStore.getTable<CreditLedgerRow>('credit_ledgers'),
+      ).filter((entry) => entry.user_id === params.userId);
+
+      const currentBalance = ledgers.reduce((acc, entry) => acc + entry.amount, 0);
+      if (currentBalance < params.cost) {
+        throw new BadRequestException({
+          statusCode: 400,
+          code: 'INSUFFICIENT_CREDITS',
+          message: `Insufficient credits. Featuring this job for ${params.durationDays} days requires ${params.cost} credits, but current balance is ${currentBalance}.`,
+        });
+      }
+
+      // 3. Monotonic expiry calculation (stacks cleanly onto future expiry if currently active)
+      const now = new Date();
+      const currentExpiry =
+        job.featured_until && new Date(job.featured_until).getTime() > now.getTime()
+          ? new Date(job.featured_until)
+          : now;
+      const newFeaturedUntil = new Date(
+        currentExpiry.getTime() + params.durationDays * 24 * 60 * 60 * 1000,
+      ).toISOString();
+
+      // 4. Atomic staging with rollback guarantee
+      const ledgerId = `cld_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      const ledgerRow: CreditLedgerRow = {
+        id: ledgerId,
+        user_id: params.userId,
+        amount: -params.cost,
+        reason: `Featured job promotion: ${params.jobId} (${params.durationDays} days)`,
+        actor_id: params.userId,
+        created_at: new Date().toISOString(),
+      };
+
+      this.persistentStore.setRow('credit_ledgers', ledgerId, ledgerRow);
+
+      try {
+        const updatedJob = await this.update(params.jobId, {
+          is_featured: true,
+          featured_until: newFeaturedUntil,
+        });
+
+        if (!updatedJob) {
+          throw new InternalServerErrorException({ statusCode: 500, code: 'JOB_PROMOTION_UPDATE_FAILED', message: 'Failed to update job promotion state' });
+        }
+
+        return {
+          job: updatedJob,
+          cost: params.cost,
+          remainingBalance: currentBalance - params.cost,
+          featuredUntil: newFeaturedUntil,
+        };
+      } catch (err) {
+        // Rollback staged ledger debit immediately on failure
+        this.persistentStore.deleteRow('credit_ledgers', ledgerId);
+        throw err;
+      }
+    });
   }
 
   async createAlert(data: {
@@ -216,9 +400,15 @@ export class JobRepository {
     this.persistentStore.setRow('job_alerts', alertId, record);
     if (!this.isTestMode) {
       try {
-        await this.supabase.from('job_alerts').insert(record);
-      } catch {
-        // Persisted locally
+        const { error } = await this.supabase.from('job_alerts').insert(record);
+        if (error) {
+          this.logger.error(`Failed to insert job alert ${alertId} in Supabase: ${error.message}`, error.details);
+          throw new InternalServerErrorException(`Failed to save job alert: ${error.message}`);
+        }
+      } catch (err) {
+        if (err instanceof InternalServerErrorException) throw err;
+        this.logger.error(`Supabase insert error for job alert ${alertId}`, err);
+        throw new InternalServerErrorException('Database failure while creating job alert');
       }
     }
     return record;
@@ -233,9 +423,13 @@ export class JobRepository {
           .eq('user_id', userId)
           .eq('is_active', true)
           .order('created_at', { ascending: false });
-        if (!error && data) return data as JobAlertRow[];
-      } catch {
-        // Fall back
+        if (error) {
+          this.logger.warn(`Error fetching alerts for user ${userId}: ${error.message}`);
+        } else if (data) {
+          return data as JobAlertRow[];
+        }
+      } catch (err) {
+        this.logger.warn(`Supabase lookup failed for user alerts ${userId}`, err);
       }
     }
     const alerts = this.persistentStore.getTable<JobAlertRow>('job_alerts');
@@ -249,9 +443,13 @@ export class JobRepository {
           .from('job_alerts')
           .select('*')
           .eq('is_active', true);
-        if (!error && data) return data as JobAlertRow[];
-      } catch {
-        // Fall back
+        if (error) {
+          this.logger.warn(`Error fetching active alerts: ${error.message}`);
+        } else if (data) {
+          return data as JobAlertRow[];
+        }
+      } catch (err) {
+        this.logger.warn('Supabase lookup failed for active alerts', err);
       }
     }
     const alerts = this.persistentStore.getTable<JobAlertRow>('job_alerts');
@@ -267,9 +465,13 @@ export class JobRepository {
           .eq('user_id', userId)
           .eq('job_id', jobId)
           .maybeSingle();
-        if (!error && data) return true;
-      } catch {
-        // Fall back
+        if (error) {
+          this.logger.warn(`Error checking delivery for user ${userId} job ${jobId}: ${error.message}`);
+        } else if (data) {
+          return true;
+        }
+      } catch (err) {
+        this.logger.warn(`Supabase delivery check failed for user ${userId} job ${jobId}`, err);
       }
     }
     const deliveries = this.persistentStore.getTable<AlertDeliveryRow>('alert_deliveries');
@@ -288,9 +490,15 @@ export class JobRepository {
     this.persistentStore.setRow('alert_deliveries', deliveryId, record);
     if (!this.isTestMode) {
       try {
-        await this.supabase.from('alert_deliveries').insert(record);
-      } catch {
-        // Persisted locally
+        const { error } = await this.supabase.from('alert_deliveries').insert(record);
+        if (error) {
+          this.logger.error(`Failed to insert alert delivery ${deliveryId} in Supabase: ${error.message}`, error.details);
+          throw new InternalServerErrorException(`Failed to record delivery: ${error.message}`);
+        }
+      } catch (err) {
+        if (err instanceof InternalServerErrorException) throw err;
+        this.logger.error(`Supabase insert error for alert delivery ${deliveryId}`, err);
+        throw new InternalServerErrorException('Database failure while recording alert delivery');
       }
     }
     return record;

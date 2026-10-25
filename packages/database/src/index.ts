@@ -286,3 +286,16 @@ export type PaymentRow = Database['public']['Tables']['payments']['Row'];
 export type InstitutionSponsorshipRow = Database['public']['Tables']['institution_sponsorships']['Row'];
 export type JobAlertRow = Database['public']['Tables']['job_alerts']['Row'];
 export type AlertDeliveryRow = Database['public']['Tables']['alert_deliveries']['Row'];
+
+export interface PromoteJobRpcResult {
+  success: boolean;
+  cost: number;
+  remaining_balance: number;
+  featured_until: string;
+}
+
+export interface SearchJobsRpcResult extends JobRow {
+  total_count?: string | number;
+  is_currently_promoted?: boolean;
+  relevance_score?: number;
+}

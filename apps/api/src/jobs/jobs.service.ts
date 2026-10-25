@@ -341,45 +341,21 @@ export class JobsService {
     input: PromoteJobInput,
     userRole?: string,
   ): Promise<{ success: boolean; job: JobRecord; cost: number; remainingBalance: number }> {
-    const job = await this.jobRepository.findById(jobId);
-    if (!job) {
-      throw new NotFoundException('Job not found');
-    }
-
-    const isOwner = job.employer_id === userId;
-    const isAdmin = userRole === 'admin' || userRole === 'msme_admin';
-    if (!isOwner && !isAdmin) {
-      throw new ForbiddenException('You can only promote your own jobs');
-    }
-
     const cost = FEATURED_PROMOTION_PRICING[input.durationDays] || 50;
 
-    const deduction = await this.walletService.deductForFeaturedPromotion(
+    const result = await this.jobRepository.promoteJobAtomically({
       userId,
       jobId,
-      input.durationDays,
+      durationDays: input.durationDays,
       cost,
-    );
-
-    const now = new Date();
-    const currentExpiry =
-      job.featured_until && new Date(job.featured_until).getTime() > now.getTime()
-        ? new Date(job.featured_until)
-        : now;
-    const newFeaturedUntil = new Date(
-      currentExpiry.getTime() + input.durationDays * 24 * 60 * 60 * 1000,
-    ).toISOString();
-
-    const updated = await this.jobRepository.update(jobId, {
-      is_featured: true,
-      featured_until: newFeaturedUntil,
+      userRole,
     });
 
     return {
       success: true,
-      job: mapJobRowToRecord(updated!),
-      cost,
-      remainingBalance: deduction.remainingBalance,
+      job: mapJobRowToRecord(result.job),
+      cost: result.cost,
+      remainingBalance: result.remainingBalance,
     };
   }
 
