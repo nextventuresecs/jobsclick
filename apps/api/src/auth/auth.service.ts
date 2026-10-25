@@ -3,7 +3,6 @@ import { Injectable, BadRequestException, UnauthorizedException, Inject, Optiona
 import { SendOtpInput, VerifyOtpInput, AddEmailInput, VerifyEmailInput } from '@indian-job-portal/validation';
 import { captureException } from '../config/sentry.js';
 import { UserRepository } from '../database/repositories/user.repository.js';
-import type { UserRow } from '@indian-job-portal/database';
 import { Msg91SmsService } from './sms.service.js';
 import { WalletService } from '../wallet/wallet.service.js';
 
@@ -124,11 +123,13 @@ export class AuthService {
 
     if (!userRow) {
       const id = `usr_${phone}`;
+      // Prevent privilege escalation: self-signup cannot grant administrative roles
+      const initialRole = role === 'admin' || role === 'msme_admin' ? 'job_seeker' : role;
       userRow = {
         id,
         phone,
         email: null,
-        role,
+        role: initialRole,
         status: 'active',
         source: 'direct',
         created_by: null,
@@ -139,7 +140,7 @@ export class AuthService {
       await this.userRepository.save(userRow);
 
       // WAL-02: Auto-grant 10 free job applications to job seekers upon account creation
-      if (role === 'job_seeker' && this.walletService) {
+      if (initialRole === 'job_seeker' && this.walletService) {
         try {
           await this.walletService.ensureStarterCredits(id);
         } catch {
@@ -147,9 +148,8 @@ export class AuthService {
         }
       }
     } else {
-      const updates: Partial<UserRow> = { status: 'active' };
-      if (role) updates.role = role;
-      userRow = (await this.userRepository.update(userRow.id, updates)) || userRow;
+      // Existing user role is immutable on login; only status is updated
+      userRow = (await this.userRepository.update(userRow.id, { status: 'active' })) || userRow;
     }
 
     const user: UserSession = {

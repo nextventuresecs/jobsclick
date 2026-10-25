@@ -165,5 +165,32 @@ describe('Ticket T-06: MSG91 SMS Service & Turnstile Bot Challenge', () => {
       expect(verifyRes.accessToken).toBeDefined();
       expect(verifyRes.user.phone).toBe('9876543210');
     });
+
+    it('prevents privilege escalation: existing user cannot become admin by submitting role=admin on login', async () => {
+      const userRes = await authService.verifyOtp({
+        phone: '9876543219',
+        code: '123456',
+        role: 'job_seeker',
+      });
+      expect(userRes.user.role).toBe('job_seeker');
+
+      const attackRes = await authService.verifyOtp({
+        phone: '9876543219',
+        code: '123456',
+        role: 'admin',
+      });
+      expect(attackRes.user.role).toBe('job_seeker');
+      expect(attackRes.user.role).not.toBe('admin');
+    });
+
+    it('prevents privilege escalation: self-signup cannot create admin or msme_admin account', async () => {
+      const attackRes = await authService.verifyOtp({
+        phone: '9876543218',
+        code: '123456',
+        role: 'admin',
+      });
+      expect(attackRes.user.role).toBe('job_seeker');
+      expect(attackRes.user.role).not.toBe('admin');
+    });
   });
 });

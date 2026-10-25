@@ -27,6 +27,7 @@ describe('AdminController (e2e) - Epic 5 (Issues #21, #22, #23, #24)', () => {
     const res = await app.inject({
       method: 'PUT',
       url: '/admin/users/usr_seeker_100/status',
+      headers: { 'x-user-id': 'admin_root' },
       payload: { status: 'disabled' },
     });
 
@@ -50,6 +51,7 @@ describe('AdminController (e2e) - Epic 5 (Issues #21, #22, #23, #24)', () => {
     const getRes = await app.inject({
       method: 'GET',
       url: '/admin/audit-logs',
+      headers: { 'x-user-id': 'admin_root' },
     });
 
     expect(getRes.statusCode).toBe(200);

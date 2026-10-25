@@ -134,6 +134,10 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
       const res = await app.inject({
         method: 'POST',
         url: '/admin/broadcast/preview',
+        headers: {
+          'x-user-id': 'admin_state_officer_1',
+          'x-user-role': 'msme_admin',
+        },
         payload: {
           filters: { district: 'Bhopal', companySize: 'micro' },
           templateId: 'DLT_MSME_SUBSIDY_ALERT_EN',
@@ -178,6 +182,9 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
       const auditRes = await app.inject({
         method: 'GET',
         url: '/admin/audit-logs',
+        headers: {
+          'x-user-id': 'admin_state_officer_1',
+        },
       });
       const logs = JSON.parse(auditRes.payload);
       const broadcastLog = logs.find((l: { action: string }) => l.action === 'MSME_BROADCAST_DISPATCHED');
