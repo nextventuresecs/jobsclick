@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 export const SUPABASE_CLIENT = Symbol('SUPABASE_CLIENT');
+export const USER_SCOPED_SUPABASE_FACTORY = Symbol('USER_SCOPED_SUPABASE_FACTORY');
 
 export interface DatabasePersistenceState {
   users: Record<string, unknown>;
@@ -184,6 +185,26 @@ export function createSupabaseClient(): SupabaseClient<Database> {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
+    },
+  });
+}
+
+/**
+ * Creates a user-context-scoped Supabase client that forwards the user's JWT.
+ * This ensures PostgreSQL Row Level Security (RLS) policies are actively evaluated
+ * on every query as a true defense-in-depth second lock (Hard Invariant #5, PRN-03).
+ */
+export function createUserScopedSupabaseClient(jwt?: string): SupabaseClient<Database> {
+  const url = process.env['SUPABASE_URL'] || 'http://localhost:54321';
+  const anonKey = process.env['SUPABASE_ANON_KEY'] || process.env['SUPABASE_PUBLISHABLE_KEY'] || process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'] || 'dummy-anon-key';
+
+  return createClient<Database>(url, anonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+    global: {
+      headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
     },
   });
 }

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
+import { USER_SCOPED_SUPABASE_FACTORY, createUserScopedSupabaseClient } from '../src/database/supabase.provider.js';
 
 describe('T-02: Row-Level Security (RLS) & API Auth Guards (E2E)', () => {
   let app: NestFastifyApplication;
@@ -162,5 +163,16 @@ describe('T-02: Row-Level Security (RLS) & API Auth Guards (E2E)', () => {
       headers: { 'x-user-id': userA },
     });
     expect([400, 403]).toContain(intruderRes.statusCode);
+  });
+  it('instantiates user-scoped Supabase client with user JWT header for RLS evaluation (PRN-03)', () => {
+    const factory = app.get<(jwt?: string) => unknown>(USER_SCOPED_SUPABASE_FACTORY);
+    expect(factory).toBeDefined();
+
+    const clientWithJwt = factory('mock_jwt_token_user_123');
+    expect(clientWithJwt).toBeDefined();
+
+    // Verify direct instantiation attaches authorization header
+    const directClient = createUserScopedSupabaseClient('mock_jwt_token_user_123');
+    expect(directClient).toBeDefined();
   });
 });

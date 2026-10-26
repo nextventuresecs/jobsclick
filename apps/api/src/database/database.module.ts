@@ -1,5 +1,10 @@
 import { Module, Global } from '@nestjs/common';
-import { SUPABASE_CLIENT, createSupabaseClient } from './supabase.provider.js';
+import {
+  SUPABASE_CLIENT,
+  USER_SCOPED_SUPABASE_FACTORY,
+  createSupabaseClient,
+  createUserScopedSupabaseClient,
+} from './supabase.provider.js';
 import { UserRepository } from './repositories/user.repository.js';
 import { JobRepository } from './repositories/job.repository.js';
 import { ProfileRepository } from './repositories/profile.repository.js';
@@ -18,6 +23,10 @@ import { InquiryRepository } from './repositories/inquiry.repository.js';
       provide: SUPABASE_CLIENT,
       useFactory: () => createSupabaseClient(),
     },
+    {
+      provide: USER_SCOPED_SUPABASE_FACTORY,
+      useValue: (jwt?: string) => createUserScopedSupabaseClient(jwt),
+    },
     UserRepository,
     JobRepository,
     ProfileRepository,
@@ -31,6 +40,7 @@ import { InquiryRepository } from './repositories/inquiry.repository.js';
   ],
   exports: [
     SUPABASE_CLIENT,
+    USER_SCOPED_SUPABASE_FACTORY,
     UserRepository,
     JobRepository,
     ProfileRepository,
