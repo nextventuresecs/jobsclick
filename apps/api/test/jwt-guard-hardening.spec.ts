@@ -83,4 +83,19 @@ describe('SEC-02: Hardened JWT Guard and Secret Enforcement', () => {
       process.env['JWT_SECRET'] = originalSecret;
     }
   });
+
+  it('rejects x-user-id header bypass in development mode (STF-12)', () => {
+    const originalEnv = process.env['NODE_ENV'];
+    process.env['NODE_ENV'] = 'development';
+
+    try {
+      const guard = new JwtAuthGuard(reflector);
+      const mockReq: MockRequest = { headers: { 'x-user-id': 'usr_impersonator' }, user: null };
+      const mockContext = createMockContext(mockReq.headers, mockReq);
+
+      expect(() => guard.canActivate(mockContext)).toThrow(UnauthorizedException);
+    } finally {
+      process.env['NODE_ENV'] = originalEnv;
+    }
+  });
 });
