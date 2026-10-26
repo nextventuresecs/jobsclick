@@ -9,6 +9,15 @@ export type OtpVerifyResult =
   | { status: 'LOCKED_OUT'; remainingSeconds: number }
   | { status: 'INVALID'; attemptsRemaining: number };
 
+export interface AuthUserSession {
+  id: string;
+  phone: string;
+  email: string | null;
+  emailVerified: boolean;
+  role: 'employer' | 'intermediary' | 'job_seeker' | 'admin' | 'msme_admin';
+  status: 'invited' | 'active' | 'disabled';
+}
+
 @Injectable()
 export class OtpRedisService implements OnModuleDestroy {
   private readonly logger = new Logger(OtpRedisService.name);
@@ -213,5 +222,71 @@ export class OtpRedisService implements OnModuleDestroy {
       currentDailySpend: newSpend,
       overBudget: newSpend >= maxBudget,
     };
+  }
+
+  /**
+   * Stores active user session in Redis with 30-day TTL (replaces volatile in-memory Map).
+   */
+  async setSession(userId: string, session: AuthUserSession, ttlSeconds = 30 * 86400): Promise<void> {
+    const key = `auth:session:${userId}`;
+    await this.client.set(key, JSON.stringify(session), 'EX', ttlSeconds);
+  }
+
+  /**
+   * Fetches active user session from Redis.
+   */
+  async getSession(userId: string): Promise<AuthUserSession | null> {
+    const key = `auth:session:${userId}`;
+    const data = await this.client.get(key);
+    if (!data) return null;
+    try {
+      return JSON.parse(data) as AuthUserSession;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Invalidates user session across all instances/containers (Single Sign-Out).
+   */
+  async deleteSession(userId: string): Promise<void> {
+    const key = `auth:session:${userId}`;
+    await this.client.del(key);
+  }
+
+  /**
+   * Stores email verification token with 24-hour TTL (replaces volatile in-memory Map).
+   */
+  async setEmailVerificationToken(
+    token: string,
+    data: { userId: string; email: string },
+    ttlSeconds = 86400,
+  ): Promise<void> {
+    const key = `auth:email_verify:${token}`;
+    await this.client.set(key, JSON.stringify(data), 'EX', ttlSeconds);
+  }
+
+  /**
+   * Retrieves email verification token from Redis.
+   */
+  async getEmailVerificationToken(
+    token: string,
+  ): Promise<{ userId: string; email: string } | null> {
+    const key = `auth:email_verify:${token}`;
+    const data = await this.client.get(key);
+    if (!data) return null;
+    try {
+      return JSON.parse(data);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Burns email verification token after single use.
+   */
+  async deleteEmailVerificationToken(token: string): Promise<void> {
+    const key = `auth:email_verify:${token}`;
+    await this.client.del(key);
   }
 }

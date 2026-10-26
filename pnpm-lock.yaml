@@ -90,6 +90,12 @@ importers:
       '@upstash/qstash':
         specifier: ^2.7.20
         version: 2.12.0
+      '@upstash/ratelimit':
+        specifier: ^2.2.0
+        version: 2.2.0(@upstash/redis@1.40.0)
+      '@upstash/redis':
+        specifier: ^1.40.0
+        version: 1.40.0
       bullmq:
         specifier: ^6.3.15
         version: 6.3.15(ioredis@5.11.1)
@@ -1754,8 +1760,20 @@ packages:
     resolution: {integrity: sha512-0GxiUGqMU0qXJt58cBsiG3DP8lUmBaFo2vChtUX+CT7PnR3v/VGLLrzVP4K9r1lNiZXjHYefMBbPunplr09v6w==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
+  '@upstash/core-analytics@0.0.10':
+    resolution: {integrity: sha512-7qJHGxpQgQr9/vmeS1PktEwvNAF7TI4iJDi8Pu2CFZ9YUGHZH4fOP5TfYlZ4aVxfopnELiE4BS4FBjyK7V1/xQ==}
+    engines: {node: '>=16.0.0'}
+
   '@upstash/qstash@2.12.0':
     resolution: {integrity: sha512-LRFuMAqdDlVtCnDRLS00DM4lsE6JeP1A696lUcuUdWEXM9Sb1lhKYSuK2gHkG5VBxreR4QJNs909AGabAfSRdg==}
+
+  '@upstash/ratelimit@2.2.0':
+    resolution: {integrity: sha512-gSydXspG6TJKTh71/gGGv4IGDjD9rXglQfm2jAue2kh4bcfWtEAsG1NW4OqzZd/hubJPojsbOU6AMdS6Xqh0tQ==}
+    peerDependencies:
+      '@upstash/redis': ^1.38.2
+
+  '@upstash/redis@1.40.0':
+    resolution: {integrity: sha512-F6+V7Kof2McJtGWclusZLt7hBRmIMZg+albS32/5TuNRg/92FM2nkyKPY9wWEieMj9hjyUi4iURsN1djsHNbwA==}
 
   '@vitest/expect@2.1.9':
     resolution: {integrity: sha512-UJCIkTBenHeKT1TTlKMJWy1laZewsRIzYighyYiJKZreqtdxSos/S1t+ktRMQWu2CKqaarrkeszJx1cgC5tGZw==}
@@ -5444,10 +5462,23 @@ snapshots:
       '@typescript-eslint/types': 8.71.1
       eslint-visitor-keys: 5.0.1
 
+  '@upstash/core-analytics@0.0.10':
+    dependencies:
+      '@upstash/redis': 1.40.0
+
   '@upstash/qstash@2.12.0':
     dependencies:
       jose: 5.10.0
       neverthrow: 7.2.0
+      uncrypto: 0.1.3
+
+  '@upstash/ratelimit@2.2.0(@upstash/redis@1.40.0)':
+    dependencies:
+      '@upstash/core-analytics': 0.0.10
+      '@upstash/redis': 1.40.0
+
+  '@upstash/redis@1.40.0':
+    dependencies:
       uncrypto: 0.1.3
 
   '@vitest/expect@2.1.9':
