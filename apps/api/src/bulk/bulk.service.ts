@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
 import { BulkUploadInput, InviteWaveInput } from '@indian-job-portal/validation';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { parse as parseCsvSync } from 'csv-parse/sync';
 import { QstashService } from '../qstash/qstash.service.js';
 import { QueueService } from '../queue/queue.service.js';
 import type { TaskStatus } from '@indian-job-portal/database';
@@ -47,19 +48,28 @@ export interface InviteWaveRecord {
 }
 
 function parseCsv(csvText: string): Array<Record<string, string>> {
-  const lines = csvText.trim().split(/\r?\n/);
-  if (lines.length < 2) return [];
-  const headers = lines[0]!.split(',').map((h) => h.trim().replace(/^"|"$/g, ''));
-  const rows: Array<Record<string, string>> = [];
-  for (let i = 1; i < lines.length; i++) {
-    const values = lines[i]!.split(',').map((v) => v.trim().replace(/^"|"$/g, ''));
-    const obj: Record<string, string> = {};
-    headers.forEach((h, idx) => {
-      obj[h] = values[idx] || '';
-    });
-    rows.push(obj);
+  try {
+    return parseCsvSync(csvText, {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true,
+      relax_column_count: true,
+    }) as Array<Record<string, string>>;
+  } catch {
+    const lines = csvText.trim().split(/\r?\n/);
+    if (lines.length < 2) return [];
+    const headers = lines[0]!.split(',').map((h) => h.trim().replace(/^"|"$/g, ''));
+    const rows: Array<Record<string, string>> = [];
+    for (let i = 1; i < lines.length; i++) {
+      const values = lines[i]!.split(',').map((v) => v.trim().replace(/^"|"$/g, ''));
+      const obj: Record<string, string> = {};
+      headers.forEach((h, idx) => {
+        obj[h] = values[idx] || '';
+      });
+      rows.push(obj);
+    }
+    return rows;
   }
-  return rows;
 }
 
 @Injectable()
@@ -279,6 +289,14 @@ export class BulkService {
       .from('bulk_import_batches')
       .update({ csv_storage_path: storagePath })
       .eq('id', dbBatchId);
+
+    // PRD §8.1: Primary async processing via BullMQ worker queue in apps/worker
+    await this.queueService.publishBulkImportJob({
+      batchId: dbBatchId,
+      source: input.source,
+      entityType: input.entityType,
+      storagePath,
+    });
 
     const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
     const qstashResult = await this.qstashService.publishTask({
