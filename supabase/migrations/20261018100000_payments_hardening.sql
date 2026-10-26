@@ -1,6 +1,9 @@
 -- Migration: 20261018100000_payments_hardening.sql
 -- Ticket: Payment Flow Hardening (WAL-03 Hardening)
 -- Industry-grade Razorpay Payment lifecycle alignment and strict idempotency
+-- Zero-Downtime Guard: Set short lock_timeout to prevent lock-queue starvation on payments table
+SET LOCAL lock_timeout = '2s';
+SET LOCAL statement_timeout = '60s';
 
 -- 1. Ensure gateway columns exist
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS gateway_payment_id VARCHAR(255);
@@ -16,6 +19,7 @@ ALTER TABLE payments ADD COLUMN IF NOT EXISTS processed_by VARCHAR(100);
 --    'captured'   : Payment successfully settled and captured (funds confirmed)
 --    'refunded'   : Captured funds refunded back to customer
 --    'failed'     : Payment attempt failed / rejected by bank
+--    Zero-Downtime Rule: Applied NOT VALID first to avoid ACCESS EXCLUSIVE full-table scan.
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -24,11 +28,13 @@ BEGIN
     ) THEN
         ALTER TABLE payments 
         ADD CONSTRAINT chk_payments_status_enum 
-        CHECK (status IN ('created', 'authorized', 'captured', 'refunded', 'failed'));
+        CHECK (status IN ('created', 'authorized', 'captured', 'refunded', 'failed'))
+        NOT VALID;
     END IF;
 END $$;
 
 -- 4. Partial unique index to enforce strict idempotency and prevent double-application of gateway payments
+-- Note: When applying outside transactional migration blocks, append CONCURRENTLY.
 CREATE UNIQUE INDEX IF NOT EXISTS payments_gateway_payment_id_idx 
     ON payments (gateway_payment_id) 
     WHERE gateway_payment_id IS NOT NULL;

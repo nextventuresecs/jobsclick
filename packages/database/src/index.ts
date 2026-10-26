@@ -247,7 +247,7 @@ export interface Database {
         created_at: string;
         updated_at: string;
       }>;
-    job_alerts: TableDefinition<{
+      job_alerts: TableDefinition<{
         id: string;
         user_id: string;
         title: string;
@@ -263,6 +263,37 @@ export interface Database {
         user_id: string;
         job_id: string;
         delivered_at: string;
+      }>;
+      corporate_tie_ups: TableDefinition<{
+        id: string;
+        institution_id: string;
+        employer_id?: string | null;
+        company_name: string;
+        sector: string;
+        partnership_status: string;
+        preferred_trades: string[];
+        active_campus_drives: number;
+        total_offers_issued: number;
+        contact_person: string;
+        partnered_since: string;
+        created_by?: string | null;
+        created_at: string;
+        updated_at: string;
+      }>;
+      placement_applications: TableDefinition<{
+        id: string;
+        tie_up_id: string;
+        institution_id: string;
+        student_id: string;
+        job_id?: string | null;
+        job_title: string;
+        stage: 'applied' | 'shortlisted' | 'interview' | 'offered' | 'placed' | 'rejected';
+        offer_package?: string | null;
+        offer_letter_url?: string | null;
+        interview_date?: string | null;
+        rejection_reason?: string | null;
+        created_at: string;
+        updated_at: string;
       }>;
     };
     Views: Record<string, never>;
@@ -286,6 +317,8 @@ export type PaymentRow = Database['public']['Tables']['payments']['Row'];
 export type InstitutionSponsorshipRow = Database['public']['Tables']['institution_sponsorships']['Row'];
 export type JobAlertRow = Database['public']['Tables']['job_alerts']['Row'];
 export type AlertDeliveryRow = Database['public']['Tables']['alert_deliveries']['Row'];
+export type CorporateTieUpRow = Database['public']['Tables']['corporate_tie_ups']['Row'];
+export type PlacementApplicationRow = Database['public']['Tables']['placement_applications']['Row'];
 
 export interface PromoteJobRpcResult {
   success: boolean;

@@ -106,7 +106,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
     });
 
     it('GET /institutions/:id/sponsorship-quote returns the calculated quote over HTTP', async () => {
-      const instId = `inst_http_${Date.now()}`;
+      const instId = institutionUser.id;
       const res = await app.inject({
         method: 'GET',
         url: `/institutions/${instId}/sponsorship-quote?students=5000`,

@@ -2,6 +2,7 @@ import { Injectable, Inject } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, PaymentRow } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
+import { captureException } from '../../config/sentry.js';
 
 @Injectable()
 export class PaymentRepository {
@@ -39,8 +40,11 @@ export class PaymentRepository {
           created_at: record.created_at,
           updated_at: record.updated_at ?? record.created_at,
         });
-      } catch {
-        // Fallback maintained in persistentStore
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production') {
+          captureException(err as Error);
+          throw new Error(`Database persistence failure for payment: ${(err as Error).message}`);
+        }
       }
     }
 
@@ -146,68 +150,70 @@ export class PaymentRepository {
       metadata?: Record<string, unknown>;
     },
   ): Promise<{ updated: PaymentRow | null; alreadyCaptured: boolean; payment: PaymentRow | null }> {
-    const existing = await this.findById(id);
-    if (!existing) {
-      return { updated: null, alreadyCaptured: false, payment: null };
-    }
-
-    if (existing.status === 'captured') {
-      return { updated: null, alreadyCaptured: true, payment: existing };
-    }
-
-    if (existing.status !== 'created' && existing.status !== 'authorized') {
-      return { updated: null, alreadyCaptured: false, payment: existing };
-    }
-
-    const updatedRow: PaymentRow = {
-      ...existing,
-      gateway_payment_id: updates.gateway_payment_id,
-      gateway_signature: updates.gateway_signature ?? existing.gateway_signature,
-      invoice_number: updates.invoice_number,
-      status: 'captured',
-      processed_at: updates.processed_at,
-      processed_by: updates.processed_by,
-      metadata: updates.metadata ?? existing.metadata,
-      updated_at: new Date().toISOString(),
-    };
-
-    // 1. Supabase conditional update WHERE id = id AND (status = 'created' OR status = 'authorized')
-    if (!this.isTestMode) {
-      try {
-        const { data, error } = await this.supabase
-          .from('payments')
-          .update({
-            gateway_payment_id: updates.gateway_payment_id,
-            gateway_signature: updates.gateway_signature ?? existing.gateway_signature,
-            invoice_number: updates.invoice_number,
-            status: 'captured',
-            processed_at: updates.processed_at,
-            processed_by: updates.processed_by,
-            metadata: updates.metadata ?? existing.metadata,
-            updated_at: updatedRow.updated_at,
-          })
-          .eq('id', id)
-          .in('status', ['created', 'authorized'])
-          .select()
-          .maybeSingle();
-
-        if (error || !data) {
-          // Check if it was captured concurrently
-          const refetched = await this.findById(id);
-          return {
-            updated: null,
-            alreadyCaptured: refetched?.status === 'captured',
-            payment: refetched,
-          };
-        }
-      } catch {
-        // Fallback to local store atomic state check
+    return this.persistentStore.withLock(`payment_${id}`, async () => {
+      const existing = await this.findById(id);
+      if (!existing) {
+        return { updated: null, alreadyCaptured: false, payment: null };
       }
-    }
 
-    // 2. Synchronize to persistent store
-    this.persistentStore.setRow('payments', id, updatedRow);
-    return { updated: updatedRow, alreadyCaptured: false, payment: updatedRow };
+      if (existing.status === 'captured') {
+        return { updated: null, alreadyCaptured: true, payment: existing };
+      }
+
+      if (existing.status !== 'created' && existing.status !== 'authorized') {
+        return { updated: null, alreadyCaptured: false, payment: existing };
+      }
+
+      const updatedRow: PaymentRow = {
+        ...existing,
+        gateway_payment_id: updates.gateway_payment_id,
+        gateway_signature: updates.gateway_signature ?? existing.gateway_signature,
+        invoice_number: updates.invoice_number,
+        status: 'captured',
+        processed_at: updates.processed_at,
+        processed_by: updates.processed_by,
+        metadata: updates.metadata ?? existing.metadata,
+        updated_at: new Date().toISOString(),
+      };
+
+      // 1. Supabase conditional update WHERE id = id AND (status = 'created' OR status = 'authorized')
+      if (!this.isTestMode) {
+        try {
+          const { data, error } = await this.supabase
+            .from('payments')
+            .update({
+              gateway_payment_id: updates.gateway_payment_id,
+              gateway_signature: updates.gateway_signature ?? existing.gateway_signature,
+              invoice_number: updates.invoice_number,
+              status: 'captured',
+              processed_at: updates.processed_at,
+              processed_by: updates.processed_by,
+              metadata: updates.metadata ?? existing.metadata,
+              updated_at: updatedRow.updated_at,
+            })
+            .eq('id', id)
+            .in('status', ['created', 'authorized'])
+            .select()
+            .maybeSingle();
+
+          if (error || !data) {
+            // Check if it was captured concurrently
+            const refetched = await this.findById(id);
+            return {
+              updated: null,
+              alreadyCaptured: refetched?.status === 'captured',
+              payment: refetched,
+            };
+          }
+        } catch {
+          // Fallback to local store atomic state check
+        }
+      }
+
+      // 2. Synchronize to persistent store
+      this.persistentStore.setRow('payments', id, updatedRow);
+      return { updated: updatedRow, alreadyCaptured: false, payment: updatedRow };
+    });
   }
 
   async update(id: string, updates: Partial<PaymentRow>): Promise<PaymentRow> {

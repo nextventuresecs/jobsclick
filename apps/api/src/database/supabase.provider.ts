@@ -20,6 +20,8 @@ export interface DatabasePersistenceState {
   broadcast_deliveries: Record<string, unknown>;
   job_alerts: Record<string, unknown>;
   alert_deliveries: Record<string, unknown>;
+  corporate_tie_ups: Record<string, unknown>;
+  placement_applications: Record<string, unknown>;
 }
 
 export class PersistentDatabaseStore {
@@ -41,6 +43,8 @@ export class PersistentDatabaseStore {
     broadcast_deliveries: {},
     job_alerts: {},
     alert_deliveries: {},
+    corporate_tie_ups: {},
+    placement_applications: {},
   };
 
   private constructor() {
@@ -102,6 +106,8 @@ export class PersistentDatabaseStore {
           broadcast_deliveries: parsed.broadcast_deliveries || {},
           job_alerts: parsed.job_alerts || {},
           alert_deliveries: parsed.alert_deliveries || {},
+          corporate_tie_ups: parsed.corporate_tie_ups || {},
+          placement_applications: parsed.placement_applications || {},
         };
       }
     } catch {
@@ -133,6 +139,11 @@ export class PersistentDatabaseStore {
 
   public deleteRow(table: keyof DatabasePersistenceState, id: string): void {
     delete this.state[table][id];
+    this.save();
+  }
+
+  public clearTable(table: keyof DatabasePersistenceState): void {
+    this.state[table] = {};
     this.save();
   }
 }

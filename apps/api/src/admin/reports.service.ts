@@ -4,6 +4,56 @@ import type { Database, BusinessProfileRow, JobRow, ApplicationRow } from '@indi
 import { DistrictReportItem } from '@indian-job-portal/validation';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../database/supabase.provider.js';
 
+/**
+ * Statistical Disclosure Control (SDC):
+ * Primary and complementary cell suppression to prevent candidate deanonymization
+ * under PRD Invariant #1, Invariant #12, and DPDP Act 2023.
+ */
+export function applyStatisticalDisclosureControl(items: DistrictReportItem[]): DistrictReportItem[] {
+  const K_ANONYMITY_THRESHOLD = 5;
+
+  // 1. Identify primary suppressions for totalHires
+  const primarySuppressedIndices = new Set<number>();
+  items.forEach((item, index) => {
+    if (item.totalHires > 0 && item.totalHires < K_ANONYMITY_THRESHOLD) {
+      primarySuppressedIndices.add(index);
+    }
+  });
+
+  // 2. Complementary (Secondary) suppression:
+  // If exactly 1 cell is suppressed in the column, marginal total subtraction allows exact deduction.
+  // Suppress a secondary cell (the smallest unsuppressed non-zero cell).
+  const finalSuppressedIndices = new Set<number>(primarySuppressedIndices);
+  if (primarySuppressedIndices.size === 1) {
+    let minIndex = -1;
+    let minVal = Infinity;
+    items.forEach((item, index) => {
+      if (!primarySuppressedIndices.has(index) && item.totalHires > 0) {
+        if (item.totalHires < minVal) {
+          minVal = item.totalHires;
+          minIndex = index;
+        }
+      }
+    });
+    if (minIndex !== -1) {
+      finalSuppressedIndices.add(minIndex);
+    }
+  }
+
+  // 3. Format result with privacy-preserving display values & zero raw PII
+  return items.map((item, index) => {
+    const isSuppressed = finalSuppressedIndices.has(index);
+    return {
+      district: item.district,
+      onboardedMsmes: item.onboardedMsmes,
+      activeJobs: item.activeJobs,
+      totalHires: isSuppressed ? 0 : item.totalHires,
+      suppressedHires: isSuppressed,
+      displayHires: isSuppressed ? '<5' : String(item.totalHires),
+    };
+  });
+}
+
 @Injectable()
 export class ReportsService {
   private persistentStore = PersistentDatabaseStore.getInstance();
@@ -28,12 +78,13 @@ export class ReportsService {
         const client = this.supabase as unknown as { rpc: (fn: string) => Promise<{ data: unknown; error: unknown }> };
         const { data, error } = await client.rpc('get_district_employment_reports');
         if (!error && Array.isArray(data)) {
-          return data.map((row) => ({
+          const rawItems: DistrictReportItem[] = data.map((row) => ({
             district: String(row.district),
             onboardedMsmes: Number(row.onboarded_msmes || 0),
             activeJobs: Number(row.active_jobs || 0),
             totalHires: Number(row.total_hires || 0),
           }));
+          return applyStatisticalDisclosureControl(rawItems);
         }
       } catch {
         // Fall back to local persistent store calculation
@@ -95,6 +146,7 @@ export class ReportsService {
       };
     });
 
-    return report.sort((a, b) => a.district.localeCompare(b.district));
+    const sortedReport = report.sort((a, b) => a.district.localeCompare(b.district));
+    return applyStatisticalDisclosureControl(sortedReport);
   }
 }

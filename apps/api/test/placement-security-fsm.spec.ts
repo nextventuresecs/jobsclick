@@ -1,10 +1,12 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
+import { PlacementService } from '../src/placement/placement.service.js';
 
 describe('Ticket T-19: Adversarial Security, Multi-Tenant IDOR & FSM Audit (INT-04)', () => {
   let app: NestFastifyApplication;
+  let placementService: PlacementService;
 
   const instAHeaders = {
     authorization: 'Bearer jwt_session_inst-01_1792520000',
@@ -33,6 +35,11 @@ describe('Ticket T-19: Adversarial Security, Multi-Tenant IDOR & FSM Audit (INT-
 
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
+    placementService = app.get(PlacementService);
+  });
+
+  beforeEach(() => {
+    placementService.resetSeedData();
   });
 
   afterAll(async () => {

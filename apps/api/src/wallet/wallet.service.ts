@@ -165,27 +165,18 @@ export class WalletService {
     customCost?: number,
   ): Promise<{ success: boolean; cost: number; remainingBalance: number; jobId: string }> {
     const cost = customCost ?? this.getActionCost('FEATURE_JOB');
-    const { balance } = await this.getBalance(employerId);
 
-    if (balance < cost) {
-      throw new BadRequestException({
-        statusCode: 400,
-        code: 'INSUFFICIENT_CREDITS',
-        message: 'Insufficient credits to feature job. Please recharge your wallet.',
-      });
-    }
-
-    await this.recordTransaction({
-      userId: employerId,
-      amount: -cost,
-      reason: `Featured job posting: ${jobId}`,
-      actorId: employerId,
-    });
+    const result = await this.creditLedgerRepository.atomicDeduct(
+      employerId,
+      cost,
+      `Featured job posting: ${jobId}`,
+      employerId,
+    );
 
     return {
       success: true,
       cost,
-      remainingBalance: balance - cost,
+      remainingBalance: result.remainingBalance,
       jobId,
     };
   }

@@ -253,6 +253,49 @@ export class CreditLedgerRepository {
     });
   }
 
+  // Atomic Credit Deduction preventing TOCTOU Overdrafts (Hard Invariant #7)
+  async atomicDeduct(
+    userId: string,
+    amountToDeduct: number,
+    reason: string,
+    actorId?: string,
+  ): Promise<{ success: boolean; remainingBalance: number; row: CreditLedgerRow }> {
+    if (amountToDeduct <= 0) {
+      throw new BadRequestException('Deduction amount must be strictly positive');
+    }
+
+    return this.persistentStore.withLock(`credit_ledger_${userId}`, async () => {
+      const { balance } = await this.calculateBalance(userId);
+
+      if (balance < amountToDeduct) {
+        throw new BadRequestException({
+          statusCode: 400,
+          code: 'INSUFFICIENT_CREDITS',
+          message: 'Insufficient credits. Please recharge your credit wallet to continue applying.',
+        });
+      }
+
+      const now = new Date().toISOString();
+      const id = `cld_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      const row: CreditLedgerRow = {
+        id,
+        user_id: userId,
+        amount: -amountToDeduct,
+        reason,
+        actor_id: actorId ?? userId,
+        created_at: now,
+      };
+
+      await this.append(row);
+
+      return {
+        success: true,
+        remainingBalance: balance - amountToDeduct,
+        row,
+      };
+    });
+  }
+
   // Hard Invariant #7: Ledger entries are immutable (no UPDATE or DELETE)
   async update(_id: string, _updates: Partial<CreditLedgerRow>): Promise<never> {
     throw new BadRequestException('Credit ledger entries are immutable and cannot be updated or deleted');

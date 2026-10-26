@@ -8,6 +8,7 @@
     "dev": "pnpm --parallel --recursive run dev",
     "lint": "pnpm --recursive run lint",
     "test": "vitest run",
+    "audit:migrations": "vitest run apps/worker/test/audit-migrations.spec.ts",
     "typecheck": "pnpm --recursive run typecheck"
   },
   "devDependencies": {
