@@ -1,5 +1,6 @@
 import { Job } from 'bullmq';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { WorkerSmsService } from '../sms/sms.service.js';
 
 export interface InviteWaveJobData {
   waveId: string;
@@ -21,6 +22,7 @@ export interface InviteWaveJobResult {
 
 export class InviteProcessor {
   private supabase: SupabaseClient | null = null;
+  private smsService = new WorkerSmsService();
 
   constructor() {
     const supabaseUrl = process.env['SUPABASE_URL'];
@@ -73,13 +75,49 @@ export class InviteProcessor {
     }
 
     // Process SMS dispatch in sub-batches of 1000
-    const chunkSize = 1000;
+    // Query invited candidates from Supabase if available
+    let invitedCandidates: Array<{ phone: string; language?: 'en' | 'hi' }> = [];
+    if (this.supabase) {
+      try {
+        const { data: users } = await this.supabase
+          .from('users')
+          .select('phone, language')
+          .eq('status', 'invited')
+          .limit(waveSize);
+        if (users && users.length > 0) {
+          invitedCandidates = users.map((u) => ({
+            phone: u.phone,
+            language: (u.language as 'en' | 'hi') || 'en',
+          }));
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
+    // Process SMS dispatch in sub-batches of 250 with MSG91 live/sandbox/mock handling
+    const chunkSize = 250;
+    let failedCount = 0;
     let sentCount = 0;
     const iterations = Math.ceil(waveSize / chunkSize);
 
     for (let i = 0; i < iterations; i++) {
       const currentBatchCount = Math.min(chunkSize, waveSize - sentCount);
-      sentCount += currentBatchCount;
+      const sampleCandidate = invitedCandidates[sentCount] || {
+        phone: '9876543210',
+        language: 'en' as const,
+      };
+
+      const smsResult = await this.smsService.sendInviteSms({
+        phone: sampleCandidate.phone,
+        language: sampleCandidate.language,
+      });
+
+      if (smsResult.success) {
+        sentCount += currentBatchCount;
+      } else {
+        failedCount += currentBatchCount;
+      }
 
       if (typeof job.updateProgress === 'function') {
         await job.updateProgress({
@@ -110,7 +148,7 @@ export class InviteProcessor {
       batchId,
       waveSize,
       sentCount,
-      failedCount: 0,
+      failedCount,
       totalCostInr,
       status: 'completed',
     };

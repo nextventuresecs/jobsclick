@@ -5,12 +5,13 @@ import { Msg91SmsService } from './sms.service.js';
 import { OtpRedisService } from './otp-redis.service.js';
 import { DatabaseModule } from '../database/database.module.js';
 import { WalletModule } from '../wallet/wallet.module.js';
+import { EmailModule } from '../email/email.module.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { RolesGuard } from './guards/roles.guard.js';
 
 @Global()
 @Module({
-  imports: [DatabaseModule, WalletModule],
+  imports: [DatabaseModule, WalletModule, EmailModule],
   controllers: [AuthController],
   providers: [AuthService, Msg91SmsService, OtpRedisService, JwtAuthGuard, RolesGuard],
   exports: [AuthService, Msg91SmsService, OtpRedisService, JwtAuthGuard, RolesGuard],
