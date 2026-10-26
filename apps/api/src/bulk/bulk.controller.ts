@@ -92,7 +92,7 @@ export class BulkController {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async getQueueStatus(@Headers('accept') accept?: string, @Res({ passthrough: true }) res?: any) {
     if (accept && accept.includes('text/html') && res && typeof res.redirect === 'function') {
-      return res.redirect('/admin/queues/');
+      return res.redirect('/admin/queues/ui');
     }
     return this.bulkService.getQueueStatus();
   }

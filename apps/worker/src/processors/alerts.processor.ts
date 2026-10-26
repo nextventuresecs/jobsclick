@@ -31,6 +31,8 @@ interface LocalPersistenceState {
 }
 
 export class AlertsProcessor {
+  private static deliveredTupleLedger = new Set<string>();
+  private static inMemoryDeliveries = new Map<string, AlertDeliveryRow>();
   private supabase: SupabaseClient | null = null;
   private persistenceFilePath: string;
 
@@ -123,6 +125,7 @@ export class AlertsProcessor {
       activeAlerts = allAlerts.filter(
         (a) => a.is_active && (!candidateId || a.user_id === candidateId) && (!a.frequency || a.frequency === frequency),
       );
+  
     }
 
     if (job.data.jobs && job.data.jobs.length > 0) {
@@ -146,9 +149,17 @@ export class AlertsProcessor {
     }
 
     // Set of delivered tuples: user_id:job_id (Hard Invariant: deduplication ledger)
-    const deliveredSet = new Set<string>(
-      existingDeliveries.map((d) => `${d.user_id}:${d.job_id}`),
-    );
+    const deliveredSet = new Set<string>();
+    for (const d of existingDeliveries) {
+      deliveredSet.add(`${d.user_id}:${d.job_id}`);
+    }
+    for (const tuple of AlertsProcessor.deliveredTupleLedger) {
+      deliveredSet.add(tuple);
+    }
+    // Set of delivered tuples: user_id:job_id (Hard Invariant: deduplication ledger)
+
+
+
 
     // Group alerts by user
     const alertsByUser = new Map<string, JobAlertRow[]>();
@@ -301,6 +312,8 @@ export class AlertsProcessor {
 
           for (const d of userDeliveries) {
             newDeliveries.push(d);
+            AlertsProcessor.deliveredTupleLedger.add(`${d.user_id}:${d.job_id}`);
+            AlertsProcessor.inMemoryDeliveries.set(d.id, d);
           }
           totalDeliveriesCreated += userDeliveries.length;
           candidatesNotified++;

@@ -105,7 +105,7 @@ export class QueueService implements OnModuleDestroy {
 
     // Mount Bull-Board dashboard
     this.serverAdapter = new FastifyAdapter();
-    this.serverAdapter.setBasePath('/admin/queues');
+    this.serverAdapter.setBasePath('/admin/queues/ui');
 
     /* eslint-disable @typescript-eslint/no-explicit-any */
     createBullBoard({
@@ -279,7 +279,7 @@ export class QueueService implements OnModuleDestroy {
     return {
       provider: 'bullmq',
       queues: metrics,
-      uiPath: '/admin/queues',
+      uiPath: '/admin/queues/ui',
     };
   }
 
