@@ -346,7 +346,8 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
     });
 
     it('ensures featured jobs appear on Page 1 even when offset and limit pagination is applied', async () => {
-      // Create 8 jobs in Jabalpur with staggered timestamps
+      // Create 8 jobs in unique city with staggered timestamps
+      const uniqueCity = `Jabalpur_${Date.now()}`;
       const jabalpurJobIds: string[] = [];
       for (let i = 0; i < 8; i++) {
         const createRes = await app.inject({
@@ -357,8 +358,8 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
             title: `Logistics Dispatcher Grade ${i}`,
             description: 'Warehouse dispatch and inventory management.',
             category: 'logistics_supply',
-            city: 'Jabalpur',
-            district: 'Jabalpur',
+            city: uniqueCity,
+            district: uniqueCity,
             minPay: 16000,
             maxPay: 24000,
             openings: 1,
@@ -388,7 +389,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       // Request Page 1 with limit 3 (simulating a smaller page size)
       const page1Res = await app.inject({
         method: 'GET',
-        url: '/jobs?city=Jabalpur&limit=3&offset=0',
+        url: `/jobs?city=${uniqueCity}&limit=3&offset=0`,
       });
 
       expect(page1Res.statusCode).toBe(200);

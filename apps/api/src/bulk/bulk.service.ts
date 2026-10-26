@@ -690,7 +690,7 @@ export class BulkService {
       return {
         provider: 'bullmq',
         queues: liveMetrics.queues,
-        uiUrl: '/admin/queues/',
+        uiUrl: '/admin/queues/ui',
       };
     } catch {
       return {
@@ -700,7 +700,7 @@ export class BulkService {
           { name: 'invite-wave', waiting: 0, active: 0, completed: this.memWaves.size, failed: 0 },
           { name: 'pdf-generator', waiting: 0, active: 0, completed: 0, failed: 0 },
         ],
-        uiUrl: '/admin/queues/',
+        uiUrl: '/admin/queues/ui',
       };
     }
   }
