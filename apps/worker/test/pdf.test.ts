@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PdfGeneratorService } from '../src/pdf/pdf-generator.js';
+import { PdfGeneratorService, Semaphore } from '../src/pdf/pdf-generator.js';
 
 describe('PdfGeneratorService - Ticket T-09 (JS-03 & Hard Invariant #8a)', () => {
   it('generates valid vector PDF and serves from cache in under 500ms (AC #1)', async () => {
@@ -116,5 +116,28 @@ describe('PdfGeneratorService - Ticket T-09 (JS-03 & Hard Invariant #8a)', () =>
     // Explicit cache clear
     service.clearCache('seeker_cache_400');
     expect(service.getCached('seeker_cache_400')).toBeNull();
+  });
+
+  it('Semaphore strictly limits concurrency and queues waiting tasks in FIFO order (STF-09)', async () => {
+    const sem = new Semaphore(2);
+    let active = 0;
+    let maxObserved = 0;
+
+    const task = async (id: number) => {
+      const release = await sem.acquire();
+      active++;
+      if (active > maxObserved) maxObserved = active;
+      expect(active).toBeLessThanOrEqual(2);
+      await new Promise((r) => setTimeout(r, 20));
+      active--;
+      release();
+      return id;
+    };
+
+    const results = await Promise.all([task(1), task(2), task(3), task(4), task(5)]);
+    expect(results).toEqual([1, 2, 3, 4, 5]);
+    expect(maxObserved).toBe(2);
+    expect(sem.active).toBe(0);
+    expect(sem.waiting).toBe(0);
   });
 });
