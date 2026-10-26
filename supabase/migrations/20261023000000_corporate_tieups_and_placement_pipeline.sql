@@ -6,7 +6,7 @@
 CREATE TABLE IF NOT EXISTS corporate_tie_ups (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     institution_id UUID NOT NULL REFERENCES institution_profiles(id) ON DELETE CASCADE,
-    employer_id UUID REFERENCES employer_profiles(id) ON DELETE SET NULL,
+    employer_id UUID REFERENCES business_profiles(id) ON DELETE SET NULL,
     company_name VARCHAR(255) NOT NULL,
     sector VARCHAR(255) NOT NULL,
     partnership_status VARCHAR(50) NOT NULL DEFAULT 'mou_signed' 
@@ -113,9 +113,9 @@ CREATE POLICY corporate_tie_ups_employer_read_policy ON corporate_tie_ups
     FOR SELECT
     USING (
         EXISTS (
-            SELECT 1 FROM employer_profiles
-            WHERE employer_profiles.id = corporate_tie_ups.employer_id
-              AND employer_profiles.user_id = auth.uid()
+            SELECT 1 FROM business_profiles
+            WHERE business_profiles.id = corporate_tie_ups.employer_id
+              AND business_profiles.user_id = auth.uid()
         )
     );
 
@@ -166,17 +166,17 @@ CREATE POLICY placement_applications_employer_policy ON placement_applications
     USING (
         EXISTS (
             SELECT 1 FROM corporate_tie_ups
-            JOIN employer_profiles ON employer_profiles.id = corporate_tie_ups.employer_id
+            JOIN business_profiles ON business_profiles.id = corporate_tie_ups.employer_id
             WHERE corporate_tie_ups.id = placement_applications.tie_up_id
-              AND employer_profiles.user_id = auth.uid()
+              AND business_profiles.user_id = auth.uid()
         )
     )
     WITH CHECK (
         EXISTS (
             SELECT 1 FROM corporate_tie_ups
-            JOIN employer_profiles ON employer_profiles.id = corporate_tie_ups.employer_id
+            JOIN business_profiles ON business_profiles.id = corporate_tie_ups.employer_id
             WHERE corporate_tie_ups.id = placement_applications.tie_up_id
-              AND employer_profiles.user_id = auth.uid()
+              AND business_profiles.user_id = auth.uid()
         )
     );
 

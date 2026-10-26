@@ -34,11 +34,13 @@ CREATE INDEX IF NOT EXISTS idx_institution_inquiries_status
 ALTER TABLE institution_inquiries ENABLE ROW LEVEL SECURITY;
 
 -- Allow prospective students / public to submit inquiry forms
+DROP POLICY IF EXISTS institution_inquiries_insert_policy ON institution_inquiries;
 CREATE POLICY institution_inquiries_insert_policy ON institution_inquiries
     FOR INSERT
     WITH CHECK (true);
 
 -- Allow institution owners to view their institution's inquiries
+DROP POLICY IF EXISTS institution_inquiries_owner_select_policy ON institution_inquiries;
 CREATE POLICY institution_inquiries_owner_select_policy ON institution_inquiries
     FOR SELECT
     USING (
@@ -50,6 +52,7 @@ CREATE POLICY institution_inquiries_owner_select_policy ON institution_inquiries
     );
 
 -- Allow institution owners to update inquiry status (contacted, admitted, closed)
+DROP POLICY IF EXISTS institution_inquiries_owner_update_policy ON institution_inquiries;
 CREATE POLICY institution_inquiries_owner_update_policy ON institution_inquiries
     FOR UPDATE
     USING (

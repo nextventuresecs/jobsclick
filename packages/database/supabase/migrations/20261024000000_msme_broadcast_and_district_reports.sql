@@ -59,6 +59,7 @@ CREATE INDEX IF NOT EXISTS idx_applications_status_created
 ALTER TABLE broadcast_campaigns ENABLE ROW LEVEL SECURITY;
 ALTER TABLE broadcast_deliveries ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS broadcast_campaigns_admin_policy ON broadcast_campaigns;
 CREATE POLICY broadcast_campaigns_admin_policy ON broadcast_campaigns
     FOR ALL
     TO authenticated
@@ -75,6 +76,7 @@ CREATE POLICY broadcast_campaigns_admin_policy ON broadcast_campaigns
         )
     );
 
+DROP POLICY IF EXISTS broadcast_deliveries_admin_policy ON broadcast_deliveries;
 CREATE POLICY broadcast_deliveries_admin_policy ON broadcast_deliveries
     FOR ALL
     TO authenticated
