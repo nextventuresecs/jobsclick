@@ -32,5 +32,12 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "fast-uri@<2.4.8": ">=2.4.8",
+      "fast-uri@>=3.0.0 <3.1.9": ">=3.1.9",
+      "tinypool@<2.1.2": ">=2.1.2"
+    }
   }
 }
