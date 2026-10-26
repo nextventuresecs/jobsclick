@@ -118,4 +118,21 @@ export class ApplicationRepository {
 
     return updated;
   }
+
+  async findAll(limit = 1000): Promise<ApplicationRow[]> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await this.supabase
+          .from('applications')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(limit);
+        if (!error && data) return data as ApplicationRow[];
+      } catch {
+        // Fall back to persistent local store
+      }
+    }
+    const apps = this.persistentStore.getTable<ApplicationRow>('applications');
+    return Object.values(apps).slice(0, limit);
+  }
 }

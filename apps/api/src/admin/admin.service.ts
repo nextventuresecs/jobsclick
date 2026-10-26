@@ -1,6 +1,9 @@
-import { Injectable, BadRequestException, NotFoundException, Inject } from '@nestjs/common';
-import { AdminUserStatusInput, GenerateResumeInput } from '@indian-job-portal/validation';
+import { Injectable, BadRequestException, NotFoundException, Inject, Optional } from '@nestjs/common';
+import { AdminUserStatusInput, GenerateResumeInput, AdminExportQueryInput } from '@indian-job-portal/validation';
 import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
+import { UserRepository } from '../database/repositories/user.repository.js';
+import { JobRepository } from '../database/repositories/job.repository.js';
+import { ApplicationRepository } from '../database/repositories/application.repository.js';
 
 export interface AuditLogRecord {
   id: string;
@@ -27,6 +30,22 @@ export interface PrivacyDeletionRequestRecord {
   status: 'pending_processing' | 'completed';
 }
 
+function convertToCsv(data: Record<string, unknown>[]): string {
+  if (data.length === 0) return '';
+  const headers = Object.keys(data[0] || {});
+  const escapeCell = (val: unknown): string => {
+    if (val === null || val === undefined) return '';
+    const str = typeof val === 'object' ? JSON.stringify(val) : String(val);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+  const headerRow = headers.join(',');
+  const rows = data.map((row) => headers.map((h) => escapeCell(row[h])).join(','));
+  return [headerRow, ...rows].join('\n');
+}
+
 @Injectable()
 export class AdminService {
   private notifications = new Map<string, NotificationRecord[]>();
@@ -35,6 +54,9 @@ export class AdminService {
 
   constructor(
     @Inject(AuditLogRepository) private readonly auditLogRepo: AuditLogRepository,
+    @Optional() @Inject(UserRepository) private readonly userRepo?: UserRepository,
+    @Optional() @Inject(JobRepository) private readonly jobRepo?: JobRepository,
+    @Optional() @Inject(ApplicationRepository) private readonly applicationRepo?: ApplicationRepository,
   ) {}
 
   // Issue #21: Admin User Management
@@ -96,6 +118,95 @@ export class AdminService {
   // ADM-04 Helper: Record Data Export Action
   async logDataExport(adminId: string, meta: Record<string, unknown> = {}): Promise<AuditLogRecord> {
     return this.recordAuditLog(adminId, 'DATA_EXPORT_PERFORMED', meta);
+  }
+
+  // Issue #33 & ADM-04: Admin Data Export with Immutable Audit Logging
+  async exportData(
+    adminId: string,
+    query: AdminExportQueryInput,
+  ): Promise<{ success: boolean; entity: string; count: number; data?: Record<string, unknown>[]; csv?: string }> {
+    let rawRecords: Record<string, unknown>[] = [];
+
+    switch (query.entity) {
+      case 'users': {
+        const users = this.userRepo ? await this.userRepo.findAll() : [];
+        // Mask phone per Hard Invariant #1 while providing admin audit data
+        rawRecords = users.map((u) => ({
+          id: u.id,
+          role: u.role,
+          status: u.status,
+          phoneMasked: u.phone.replace(/(\d{2})\d{6}(\d{2})/, '$1******$2'),
+          source: u.source,
+          created_at: u.created_at,
+        }));
+        break;
+      }
+      case 'jobs': {
+        const result = this.jobRepo ? await this.jobRepo.findMany({ limit: 1000 }) : { jobs: [], total: 0 };
+        rawRecords = result.jobs.map((j) => ({
+          id: j.id,
+          employer_id: j.employer_id,
+          title: j.title,
+          category: j.category,
+          city: j.city,
+          state: j.state,
+          min_pay: j.min_pay,
+          max_pay: j.max_pay,
+          is_active: j.is_active,
+          created_at: j.created_at,
+        }));
+        break;
+      }
+      case 'applications': {
+        const apps = this.applicationRepo ? await this.applicationRepo.findAll() : [];
+        rawRecords = apps.map((a) => ({
+          id: a.id,
+          job_id: a.job_id,
+          applicant_id: a.applicant_id,
+          status: a.status,
+          created_at: a.created_at,
+        }));
+        break;
+      }
+      case 'audit_logs': {
+        const logs = await this.auditLogRepo.findAll();
+        rawRecords = logs.map((l) => ({
+          id: l.id,
+          actor_id: l.actor_id,
+          action: l.action,
+          meta: JSON.stringify(l.meta),
+          created_at: l.created_at,
+        }));
+        break;
+      }
+      default:
+        rawRecords = [];
+    }
+
+    // ADM-04 & Hard Invariant #6: Mandatory append-only audit log for data export
+    await this.logDataExport(adminId, {
+      entity: query.entity,
+      format: query.format,
+      recordCount: rawRecords.length,
+      timestamp: new Date().toISOString(),
+    });
+
+    if (query.format === 'csv') {
+      const csv = convertToCsv(rawRecords);
+      return {
+        success: true,
+        entity: query.entity,
+        count: rawRecords.length,
+        csv,
+      };
+    }
+
+    return {
+      success: true,
+      entity: query.entity,
+      count: rawRecords.length,
+      data: rawRecords,
+    };
   }
 
   // Issue #23: In-App Notifications (NOT-03)
