@@ -31,6 +31,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard.js';
 import { Public } from '../auth/decorators/public.decorator.js';
 import { CurrentUser, type AuthUser } from '../auth/decorators/current-user.decorator.js';
+import { RequireFeatureFlag } from '../auth/guards/feature-flag.guard.js';
 
 @Controller('jobs')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -99,6 +100,7 @@ export class JobsController {
 
   @Roles('employer', 'admin', 'msme_admin')
   @Post(':id/promote')
+  @RequireFeatureFlag('ENABLE_P2_FEATURED_PROMOTIONS')
   async promoteJob(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,

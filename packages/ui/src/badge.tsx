@@ -117,7 +117,7 @@ export const CATEGORY_CONFIGS: Record<JobCategory, CategoryTheme> = {
   },
 } as const;
 
-export const DEFAULT_CATEGORY_THEME: CategoryTheme = CATEGORY_CONFIGS.manufacturing;
+export const DEFAULT_CATEGORY_THEME: CategoryTheme = CATEGORY_CONFIGS.manufacturing!;
 
 export const getCategoryCardBorderClass = (category: JobCategory): string => {
   const theme = CATEGORY_CONFIGS[category] ?? DEFAULT_CATEGORY_THEME;

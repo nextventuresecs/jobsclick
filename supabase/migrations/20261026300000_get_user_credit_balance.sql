@@ -6,7 +6,7 @@ RETURNS JSONB
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
-SET search_path = public, auth
+SET search_path = public, pg_temp
 AS $$
     SELECT jsonb_build_object(
         'balance', COALESCE(SUM(amount), 0),
@@ -14,7 +14,8 @@ AS $$
         'credits_used', COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0)
     )
     FROM credit_ledgers
-    WHERE user_id = p_user_id;
+    WHERE user_id = p_user_id AND p_user_id IS NOT NULL;
 $$;
 
+REVOKE ALL ON FUNCTION get_user_credit_balance(UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION get_user_credit_balance(UUID) TO authenticated, service_role;

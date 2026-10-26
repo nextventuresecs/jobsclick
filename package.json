@@ -10,16 +10,18 @@
     "test": "vitest run",
     "audit:migrations": "vitest run apps/worker/test/audit-migrations.spec.ts",
     "sync:migrations": "node scripts/sync-migrations.js",
-    "typecheck": "pnpm --recursive run typecheck"
+    "typecheck": "pnpm --filter @indian-job-portal/database --filter @indian-job-portal/validation run build && pnpm --recursive run typecheck"
   },
   "devDependencies": {
     "@sentry/node": "^8.0.0",
+    "@types/pg": "^8.23.1",
     "@types/qrcode": "^1.5.5",
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "@upstash/qstash": "^2.7.20",
     "csv-parse": "^5.5.6",
     "eslint": "^9.0.0",
+    "pg": "^8.23.1",
     "prettier": "^3.3.0",
     "qrcode": "^1.5.3",
     "react": "^18.3.0",
