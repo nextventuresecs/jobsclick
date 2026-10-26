@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Body, Param, Headers, Inject, UsePipes, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Query, Headers, Inject, UsePipes, UseGuards } from '@nestjs/common';
 import { ZodValidationPipe, createZodDto } from 'nestjs-zod';
 import { AdminService } from './admin.service.js';
 import { BroadcastService } from './broadcast.service.js';
@@ -13,6 +13,7 @@ import {
   generateResumeSchema,
   costPreviewRequestSchema,
   dispatchBroadcastSchema,
+  adminExportQuerySchema,
 } from '@indian-job-portal/validation';
 
 export class AdminUserStatusDto extends createZodDto(adminUserStatusSchema) {}
@@ -21,6 +22,7 @@ export class PrivacyRequestDto extends createZodDto(privacyRequestSchema) {}
 export class GenerateResumeDto extends createZodDto(generateResumeSchema) {}
 export class CostPreviewRequestDto extends createZodDto(costPreviewRequestSchema) {}
 export class DispatchBroadcastDto extends createZodDto(dispatchBroadcastSchema) {}
+export class AdminExportQueryDto extends createZodDto(adminExportQuerySchema) {}
 
 @Controller()
 @UsePipes(ZodValidationPipe)
@@ -55,6 +57,18 @@ export class AdminController {
   ) {
     const callerId = user?.id || actorId || 'admin_root';
     return this.adminService.recordAuditLog(callerId, body.action, body.meta);
+  }
+
+  // Issue #33 & ADM-04: Data Export Restricted to Admin & Logged
+  @Get('admin/export')
+  @Roles('admin')
+  async exportData(
+    @CurrentUser() user: AuthUser,
+    @Headers('x-user-id') userId: string,
+    @Query() query: AdminExportQueryDto,
+  ) {
+    const adminId = user?.id || userId || 'admin_root';
+    return this.adminService.exportData(adminId, query);
   }
 
   // Issue #23: In-App Notifications (NOT-03)

@@ -76,4 +76,21 @@ export class UserRepository {
 
     return this.save(updated);
   }
+
+  async findAll(limit = 1000): Promise<UserRow[]> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await this.supabase
+          .from('users')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(limit);
+        if (!error && data) return data as UserRow[];
+      } catch {
+        // Fall back to persistent local store
+      }
+    }
+    const users = this.persistentStore.getTable<UserRow>('users');
+    return Object.values(users).slice(0, limit);
+  }
 }
