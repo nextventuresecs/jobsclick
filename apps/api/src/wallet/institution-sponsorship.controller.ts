@@ -19,6 +19,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard.js';
 import { CurrentUser, type AuthUser } from '../auth/decorators/current-user.decorator.js';
+import { RequireFeatureFlag } from '../auth/guards/feature-flag.guard.js';
 import { SponsorshipService } from './sponsorship.service.js';
 import { ProfileRepository } from '../database/repositories/profile.repository.js';
 
@@ -91,6 +92,7 @@ export class InstitutionSponsorshipController {
    */
   @Roles('institution', 'intermediary', 'admin')
   @Post(':id/sponsorship/activate')
+  @RequireFeatureFlag('ENABLE_P2_PAYMENTS')
   async activateSponsorship(
     @CurrentUser() user: AuthUser,
     @Param('id') id: string,

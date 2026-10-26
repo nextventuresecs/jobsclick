@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import * as fs from 'fs';
+import * as path from 'path';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
@@ -9,6 +11,16 @@ describe('JobsController (e2e) - Issues #13, #14, #15', () => {
   let applicationId: string;
 
   beforeAll(async () => {
+    const scratchFiles = [
+      path.resolve(process.cwd(), '.scratch/db-persistence.json'),
+      path.resolve(process.cwd(), 'apps/api/.scratch/db-persistence.json'),
+    ];
+    for (const f of scratchFiles) {
+      if (fs.existsSync(f)) {
+        try { fs.unlinkSync(f); } catch {} 
+      }
+    }
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();

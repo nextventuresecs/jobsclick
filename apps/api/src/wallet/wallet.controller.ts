@@ -32,6 +32,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard.js';
 import { CurrentUser, type AuthUser } from '../auth/decorators/current-user.decorator.js';
+import { RequireFeatureFlag } from '../auth/guards/feature-flag.guard.js';
 
 @Controller('wallet')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -42,8 +43,9 @@ export class WalletController {
     @Inject(PaymentService) private readonly paymentService: PaymentService,
   ) {}
 
-  // List available pre-configured credit packs
+  // List available pre-configured credit packs (P2 Recharge)
   @Get('packs')
+  @RequireFeatureFlag('ENABLE_P2_WALLET_RECHARGE')
   async getCreditPacks() {
     return Object.values(CREDIT_PACKS);
   }
@@ -56,12 +58,13 @@ export class WalletController {
 
   // Current user views their credit ledger history
   @Get('transactions')
-  async getTransactions(@CurrentUser() user: AuthUser) {
+  async getLedger(@CurrentUser() user: AuthUser) {
     return this.walletService.getLedger(user.id);
   }
 
   // Create Razorpay recharge order (WAL-03)
   @Post('recharge/create-order')
+  @RequireFeatureFlag('ENABLE_P2_PAYMENTS')
   async createRechargeOrder(
     @CurrentUser() user: AuthUser,
     @Body() body: CreatePaymentOrderInput,
@@ -72,6 +75,7 @@ export class WalletController {
 
   // Verify and capture direct client checkout payment (WAL-03)
   @Post('recharge/verify')
+  @RequireFeatureFlag('ENABLE_P2_PAYMENTS')
   async verifyPayment(
     @CurrentUser() user: AuthUser,
     @Body() body: VerifyPaymentInput,
@@ -102,6 +106,7 @@ export class WalletController {
 
   // Download / view structured GST Tax Invoice for successful payment (WAL-03)
   @Get('invoice/:paymentId')
+  @RequireFeatureFlag('ENABLE_P2_PAYMENTS')
   async getInvoice(
     @CurrentUser() user: AuthUser,
     @Param('paymentId') paymentId: string,
@@ -111,6 +116,7 @@ export class WalletController {
 
   // Render downloadable HTML GST Tax Invoice
   @Get('invoice/:paymentId/html')
+  @RequireFeatureFlag('ENABLE_P2_PAYMENTS')
   @Header('Content-Type', 'text/html')
   async getInvoiceHtml(
     @CurrentUser() user: AuthUser,
@@ -147,6 +153,7 @@ export class WalletController {
   // Employer features a job
   @Roles('employer', 'admin')
   @Post('feature-job')
+  @RequireFeatureFlag('ENABLE_P2_FEATURED_PROMOTIONS')
   async featureJob(@CurrentUser() user: AuthUser, @Body() body: FeatureJobInput) {
     const validated = featureJobSchema.parse(body);
     return this.walletService.featureJob(
