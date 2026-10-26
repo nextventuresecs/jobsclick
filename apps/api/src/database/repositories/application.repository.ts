@@ -14,7 +14,10 @@ export class ApplicationRepository {
   constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>) {}
 
   async create(application: ApplicationRow): Promise<ApplicationRow> {
-    this.persistentStore.setRow('applications', application.id, application);
+    if (this.isTestMode) {
+      this.persistentStore.setRow('applications', application.id, application);
+      return application;
+    }
 
     if (!this.isTestMode) {
       try {

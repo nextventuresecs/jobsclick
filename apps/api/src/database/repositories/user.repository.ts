@@ -40,7 +40,10 @@ export class UserRepository {
   }
 
   async save(user: UserRow): Promise<UserRow> {
-    this.persistentStore.setRow('users', user.id, user);
+    if (this.isTestMode) {
+      this.persistentStore.setRow('users', user.id, user);
+      return user;
+    }
 
     if (!this.isTestMode) {
       try {

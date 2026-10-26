@@ -23,7 +23,10 @@ export class AuditLogRepository {
 
   async append(record: AuditLogRow): Promise<AuditLogRow> {
     // 1. Always persist to resilient local state
-    this.persistentStore.setRow('audit_logs', record.id, record);
+    if (this.isTestMode) {
+      this.persistentStore.setRow('audit_logs', record.id, record);
+      return record;
+    }
 
     // 2. Persist to Supabase PostgreSQL table audit_logs
     if (!this.isTestMode) {
