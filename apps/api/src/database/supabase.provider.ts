@@ -110,6 +110,11 @@ export class PersistentDatabaseStore {
   }
 
   public save(): void {
+    if (process.env['NODE_ENV'] === 'production') {
+      throw new Error(
+        'PersistentDatabaseStore file persistence is disabled in production. Supabase PostgreSQL must be the sole source of truth.',
+      );
+    }
     try {
       fs.writeFileSync(this.filePath, JSON.stringify(this.state, null, 2), 'utf-8');
     } catch {

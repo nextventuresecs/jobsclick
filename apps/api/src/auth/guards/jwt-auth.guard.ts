@@ -12,7 +12,9 @@ import type { AuthUser } from '../decorators/current-user.decorator.js';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  private isTestMode = process.env['NODE_ENV'] === 'test' || process.env['NODE_ENV'] === 'development';
+  private get isTestMode(): boolean {
+    return process.env['NODE_ENV'] === 'test';
+  }
 
   constructor(@Inject(Reflector) private readonly reflector: Reflector) {}
 

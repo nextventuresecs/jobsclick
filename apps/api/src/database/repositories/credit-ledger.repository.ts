@@ -83,6 +83,176 @@ export class CreditLedgerRepository {
     };
   }
 
+  // WAL-02 & Hard Invariant #7: Atomic job application credit deduction with TOCTOU lock
+  async deductApplicationCreditAtomically(params: {
+    applicantId: string;
+    jobId: string;
+    jobTitle?: string;
+    cost: number;
+    isSponsored?: boolean;
+  }): Promise<{ success: boolean; remainingBalance: number; isSponsored: boolean }> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await (this.supabase.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+          'deduct_application_credit_with_ledger',
+          {
+            p_applicant_id: params.applicantId,
+            p_job_id: params.jobId,
+            p_job_title: params.jobTitle || params.jobId,
+            p_cost: params.cost,
+          },
+        );
+
+        if (error) {
+          if (error.message.includes('INSUFFICIENT_CREDITS')) {
+            throw new BadRequestException({
+              statusCode: 400,
+              code: 'INSUFFICIENT_CREDITS',
+              message: 'Insufficient credits. Please recharge your credit wallet to continue applying.',
+            });
+          }
+          throw new BadRequestException(error.message);
+        }
+
+        const res = data as { success: boolean; remaining_balance: number; is_sponsored: boolean };
+        return {
+          success: res.success,
+          remainingBalance: res.remaining_balance,
+          isSponsored: res.is_sponsored,
+        };
+      } catch (err) {
+        if (err instanceof BadRequestException) throw err;
+        // Fall back to local persistent store concurrency lock
+      }
+    }
+
+    // Atomic execution with concurrency lock for local/test store (WAL-01 & Hard Invariant #7)
+    return this.persistentStore.withLock(`wallet_${params.applicantId}`, async () => {
+      const { balance } = await this.calculateBalance(params.applicantId);
+
+      if (params.isSponsored) {
+        return {
+          success: true,
+          remainingBalance: balance,
+          isSponsored: true,
+        };
+      }
+
+      if (balance < params.cost) {
+        throw new BadRequestException({
+          statusCode: 400,
+          code: 'INSUFFICIENT_CREDITS',
+          message: 'Insufficient credits. Please recharge your credit wallet to continue applying.',
+        });
+      }
+
+      const id = `cld_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      const now = new Date().toISOString();
+      const debitRow: CreditLedgerRow = {
+        id,
+        user_id: params.applicantId,
+        amount: -params.cost,
+        reason: `Job application: ${params.jobTitle || params.jobId}`,
+        actor_id: params.applicantId,
+        created_at: now,
+      };
+
+      await this.append(debitRow);
+
+      return {
+        success: true,
+        remainingBalance: balance - params.cost,
+        isSponsored: false,
+      };
+    });
+  }
+
+  // Atomic employer candidate contact unlock (WAL-04, Invariant #7)
+  async unlockContactAtomically(params: {
+    employerId: string;
+    seekerId: string;
+    cost: number;
+  }): Promise<{ success: boolean; cost: number; remainingBalance: number; seekerId: string }> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await (this.supabase.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+          'unlock_contact_with_ledger',
+          {
+            p_employer_id: params.employerId,
+            p_seeker_id: params.seekerId,
+            p_cost: params.cost,
+          },
+        );
+
+        if (error) {
+          if (error.message.includes('INSUFFICIENT_CREDITS')) {
+            throw new BadRequestException({
+              statusCode: 400,
+              code: 'INSUFFICIENT_CREDITS',
+              message: 'Insufficient credits to unlock candidate contact. Please recharge your wallet.',
+            });
+          }
+          throw new BadRequestException(error.message);
+        }
+
+        const res = data as {
+          success: boolean;
+          cost: number;
+          remaining_balance: number;
+          seeker_id: string;
+        };
+        return {
+          success: res.success,
+          cost: res.cost,
+          remainingBalance: res.remaining_balance,
+          seekerId: res.seeker_id,
+        };
+      } catch (err) {
+        if (err instanceof BadRequestException) throw err;
+        // Fall back to local persistent store concurrency lock
+      }
+    }
+
+    // Atomic execution with concurrency lock for local/test store (WAL-04 & Hard Invariant #7)
+    return this.persistentStore.withLock(`wallet_${params.employerId}`, async () => {
+      const { balance } = await this.calculateBalance(params.employerId);
+
+      if (balance < params.cost) {
+        throw new BadRequestException({
+          statusCode: 400,
+          code: 'INSUFFICIENT_CREDITS',
+          message: 'Insufficient credits to unlock candidate contact. Please recharge your wallet.',
+        });
+      }
+
+      const id = `cld_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      const now = new Date().toISOString();
+      const debitRow: CreditLedgerRow = {
+        id,
+        user_id: params.employerId,
+        amount: -params.cost,
+        reason: `Candidate contact unlock: ${params.seekerId}`,
+        actor_id: params.employerId,
+        created_at: now,
+      };
+
+      await this.append(debitRow);
+
+      return {
+        success: true,
+        cost: params.cost,
+        remainingBalance: balance - params.cost,
+        seekerId: params.seekerId,
+      };
+    });
+  }
+
   // Hard Invariant #7: Ledger entries are immutable (no UPDATE or DELETE)
   async update(_id: string, _updates: Partial<CreditLedgerRow>): Promise<never> {
     throw new BadRequestException('Credit ledger entries are immutable and cannot be updated or deleted');

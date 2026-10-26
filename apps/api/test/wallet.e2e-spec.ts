@@ -224,4 +224,86 @@ describe('Ticket T-15: Credit Wallet Ledger & Dynamic Balance Engine (WAL-01, WA
     const historyPayload = JSON.parse(historyHttpRes.payload);
     expect(historyPayload.length).toBe(4); // 1 grant + 2 unlocks + 1 feature
   });
+
+  it('Ticket 03: Serializes concurrent application deductions and prevents double-spend / negative balance', async () => {
+    const concurrentCandidateId = `usr_concurrent_applicant_${Date.now()}`;
+    // Give candidate exactly 2 credits
+    await walletService.recordTransaction({
+      userId: concurrentCandidateId,
+      amount: 2,
+      reason: 'Starter grant for concurrency test',
+      actorId: concurrentCandidateId,
+    });
+
+    const { balance: startBal } = await walletService.getBalance(concurrentCandidateId);
+    expect(startBal).toBe(2);
+
+    // Launch 5 concurrent deductions simultaneously (cost = 1 each)
+    const deductionPromises = Array.from({ length: 5 }, (_, idx) =>
+      walletService.deductForJobApplication(
+        concurrentCandidateId,
+        `job_concurrent_${idx}`,
+        `Concurrent Job ${idx}`,
+      ).then(
+        (res) => ({ status: 'fulfilled', value: res }),
+        (err) => ({ status: 'rejected', reason: err }),
+      )
+    );
+
+    const outcomes = await Promise.all(deductionPromises);
+    const successes = outcomes.filter((o) => o.status === 'fulfilled');
+    const failures = outcomes.filter((o) => o.status === 'rejected');
+
+    // Exactly 2 must succeed, 3 must be rejected with INSUFFICIENT_CREDITS
+    expect(successes.length).toBe(2);
+    expect(failures.length).toBe(3);
+
+    // Final balance MUST be strictly 0, never negative!
+    const { balance: finalBal } = await walletService.getBalance(concurrentCandidateId);
+    expect(finalBal).toBe(0);
+  });
+
+  it('Ticket 04: Serializes concurrent candidate contact unlocks and prevents double-spend / overdraft', async () => {
+    walletService.setActionCost('UNLOCK_CANDIDATE_CONTACT', 5);
+    const concurrentEmployerId = `usr_emp_unlock_concurrent_${Date.now()}`;
+    // Employer has exactly 10 credits (unlock costs 5 credits each by default)
+    await walletService.grantCredits(
+      concurrentEmployerId,
+      10,
+      'Employer contact unlock concurrency budget',
+      'admin_qa',
+    );
+
+    const { balance: startBal } = await walletService.getBalance(concurrentEmployerId);
+    expect(startBal).toBe(10);
+
+    // Launch 4 concurrent contact unlock attempts simultaneously (cost = 5 each)
+    const unlockPromises = Array.from({ length: 4 }, (_, idx) =>
+      walletService.unlockCandidateContact(
+        concurrentEmployerId,
+        `usr_candidate_target_${idx}`,
+      ).then(
+        (res) => ({ status: 'fulfilled', value: res }),
+        (err) => ({ status: 'rejected', reason: err }),
+      )
+    );
+
+    const outcomes = await Promise.all(unlockPromises);
+    const successes = outcomes.filter((o) => o.status === 'fulfilled');
+    const failures = outcomes.filter((o) => o.status === 'rejected');
+
+    // Exactly 2 must succeed (consuming 10 credits total), and 2 must fail with INSUFFICIENT_CREDITS
+    expect(successes.length).toBe(2);
+    expect(failures.length).toBe(2);
+
+    // Verify rejection details
+    for (const fail of failures) {
+      const err = (fail as { status: 'rejected'; reason: Error }).reason;
+      expect(err.message).toMatch(/insufficient credits/i);
+    }
+
+    // Final balance MUST be strictly 0, never negative or overdrawn!
+    const { balance: finalBal } = await walletService.getBalance(concurrentEmployerId);
+    expect(finalBal).toBe(0);
+  });
 });

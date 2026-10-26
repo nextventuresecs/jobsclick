@@ -107,84 +107,55 @@ export class WalletService {
 
   // Deduct 1 credit for job application; 11th application prompts for recharge
   // Sponsored students receive unlimited applications without consuming individual wallet balance (WAL-05)
+  // Atomic execution eliminates TOCTOU balance races (Hard Invariant #7)
   async deductForJobApplication(
     applicantId: string,
     jobId: string,
     jobTitle?: string,
   ): Promise<{ success: boolean; remainingBalance: number; isSponsored?: boolean }> {
-    // WAL-05: Check if applicant is a sponsored candidate enrolled in a registered institution
+    let isSponsored = false;
     try {
       const seekerProfile = await this.profileRepository.findSeekerProfileByUserId(applicantId);
-      if (seekerProfile?.is_sponsored) {
-        const { balance } = await this.getBalance(applicantId);
-        return {
-          success: true,
-          remainingBalance: balance,
-          isSponsored: true,
-        };
-      }
+      isSponsored = Boolean(seekerProfile?.is_sponsored);
     } catch {
-      // Non-blocking fallback to standard wallet deduction
+      // Non-blocking fallback
+    }
+
+    if (isSponsored) {
+      const { balance } = await this.getBalance(applicantId);
+      return {
+        success: true,
+        remainingBalance: balance,
+        isSponsored: true,
+      };
     }
 
     // Ensure starter credits exist if candidate is fresh
     await this.ensureStarterCredits(applicantId);
 
-    const { balance } = await this.getBalance(applicantId);
     const requiredCredits = this.getActionCost('JOB_APPLICATION');
 
-    if (balance < requiredCredits) {
-      throw new BadRequestException({
-        statusCode: 400,
-        code: 'INSUFFICIENT_CREDITS',
-        message: 'Insufficient credits. Please recharge your credit wallet to continue applying.',
-      });
-    }
-
-    await this.recordTransaction({
-      userId: applicantId,
-      amount: -requiredCredits,
-      reason: `Job application: ${jobTitle || jobId}`,
-      actorId: applicantId,
-    });
-
-    return {
-      success: true,
-      remainingBalance: balance - requiredCredits,
+    return this.creditLedgerRepository.deductApplicationCreditAtomically({
+      applicantId,
+      jobId,
+      jobTitle,
+      cost: requiredCredits,
       isSponsored: false,
-    };
+    });
   }
 
-  // Employer unlocks candidate contact details
+  // Employer unlocks candidate contact details (WAL-04, Invariant #7)
   async unlockCandidateContact(
     employerId: string,
     seekerId: string,
     customCost?: number,
   ): Promise<{ success: boolean; cost: number; remainingBalance: number; seekerId: string }> {
     const cost = customCost ?? this.getActionCost('UNLOCK_CANDIDATE_CONTACT');
-    const { balance } = await this.getBalance(employerId);
-
-    if (balance < cost) {
-      throw new BadRequestException({
-        statusCode: 400,
-        code: 'INSUFFICIENT_CREDITS',
-        message: 'Insufficient credits to unlock candidate contact. Please recharge your wallet.',
-      });
-    }
-
-    await this.recordTransaction({
-      userId: employerId,
-      amount: -cost,
-      reason: `Candidate contact unlock: ${seekerId}`,
-      actorId: employerId,
-    });
-
-    return {
-      success: true,
-      cost,
-      remainingBalance: balance - cost,
+    return this.creditLedgerRepository.unlockContactAtomically({
+      employerId,
       seekerId,
-    };
+      cost,
+    });
   }
 
   // Employer features a job posting

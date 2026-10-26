@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
   canUserAccessRecord,
   canUserAccessApplication,
@@ -151,5 +153,38 @@ describe('Database Row Level Security (RLS) & Audit Policies', () => {
 
     // Admin can manage User A's alert
     expect(canUserManageJobAlert(adminId, 'admin', alert)).toBe(true);
+  });
+
+  describe('Ticket 02: Audit Remediation Performance Indexes Migration', () => {
+    it('defines foreign key and lookup indexes in migration DDL', () => {
+      const migrationPath = path.resolve(
+        __dirname,
+        '../supabase/migrations/20261026000000_audit_remediation_indexes.sql'
+      );
+      expect(fs.existsSync(migrationPath)).toBe(true);
+      const sql = fs.readFileSync(migrationPath, 'utf-8');
+
+      expect(sql).toContain('idx_jobs_employer_id ON jobs(employer_id)');
+      expect(sql).toContain('idx_audit_logs_created_at ON audit_logs(created_at DESC)');
+      expect(sql).toContain('idx_audit_logs_actor_id ON audit_logs(actor_id)');
+      expect(sql).toContain('idx_invitations_batch_id ON invitations(batch_id)');
+      expect(sql).toContain('idx_invitations_phone ON invitations(phone)');
+    });
+  });
+
+  describe('Ticket 04: Atomic Contact Unlock Procedure Migration', () => {
+    it('defines unlock_contact_with_ledger with advisory lock and dynamic balance check', () => {
+      const migrationPath = path.resolve(
+        __dirname,
+        '../supabase/migrations/20261026200000_atomic_contact_unlock_procedure.sql'
+      );
+      expect(fs.existsSync(migrationPath)).toBe(true);
+      const sql = fs.readFileSync(migrationPath, 'utf-8');
+
+      expect(sql).toContain('CREATE OR REPLACE FUNCTION unlock_contact_with_ledger');
+      expect(sql).toContain("pg_advisory_xact_lock(hashtext('wallet_' || p_employer_id::text))");
+      expect(sql).toContain('COALESCE(SUM(amount), 0) INTO v_current_balance');
+      expect(sql).toContain('INSUFFICIENT_CREDITS');
+    });
   });
 });
