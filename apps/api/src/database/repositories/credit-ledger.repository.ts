@@ -59,8 +59,30 @@ export class CreditLedgerRepository {
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }
 
-  // Hard Invariant #7 & WAL-01: Balance is dynamically calculated from ledger entries
+  // Hard Invariant #7 & WAL-01: Balance is dynamically calculated from ledger entries via PostgreSQL aggregate (STF-10)
   async calculateBalance(userId: string): Promise<{ balance: number; creditsAdded: number; creditsUsed: number }> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await (this.supabase.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{
+          data: { balance: number; credits_added: number; credits_used: number } | null;
+          error: { message: string } | null;
+        }>)('get_user_credit_balance', { p_user_id: userId });
+
+        if (!error && data) {
+          return {
+            balance: Number(data.balance ?? 0),
+            creditsAdded: Number(data.credits_added ?? 0),
+            creditsUsed: Number(data.credits_used ?? 0),
+          };
+        }
+      } catch {
+        // Fall back to persistent local store if remote DB unreachable
+      }
+    }
+
     const entries = await this.findByUserId(userId);
 
     let creditsAdded = 0;
