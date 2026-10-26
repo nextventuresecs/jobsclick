@@ -2,16 +2,33 @@
 -- Fix Dimension 2: Postgres Full-Text Search (FTS) & Multi-Page Ranking Procedure (PRD JOB-05 & Hard Invariant #5)
 -- Eliminates unindexed ilike table scans, pushes sorting before pagination, and supports skills search.
 
--- 1. Full-Text Search Generated Column on Jobs
+-- 1. Full-Text Search Column & Automatic Update Trigger on Jobs
 ALTER TABLE jobs
-    ADD COLUMN IF NOT EXISTS fts tsvector
-    GENERATED ALWAYS AS (
-        to_tsvector('english',
-            coalesce(title, '') || ' ' ||
-            coalesce(description, '') || ' ' ||
-            coalesce(array_to_string(skills, ' '), '')
-        )
-    ) STORED;
+    ADD COLUMN IF NOT EXISTS fts tsvector;
+
+CREATE OR REPLACE FUNCTION public.jobs_update_fts()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.fts := to_tsvector('english',
+        coalesce(NEW.title, '') || ' ' ||
+        coalesce(NEW.description, '') || ' ' ||
+        coalesce(array_to_string(NEW.skills, ' '), '')
+    );
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_jobs_update_fts ON jobs;
+CREATE TRIGGER trg_jobs_update_fts
+    BEFORE INSERT OR UPDATE ON jobs
+    FOR EACH ROW EXECUTE FUNCTION public.jobs_update_fts();
+
+-- Backfill existing rows if any
+UPDATE jobs SET fts = to_tsvector('english',
+    coalesce(title, '') || ' ' ||
+    coalesce(description, '') || ' ' ||
+    coalesce(array_to_string(skills, ' '), '')
+) WHERE fts IS NULL;
 
 -- 2. GIN Index for Sub-Millisecond Full-Text Keyword Search
 CREATE INDEX IF NOT EXISTS idx_jobs_fts ON jobs USING GIN (fts);
