@@ -120,6 +120,7 @@ export interface Database {
         sponsorship_expires_at?: string | null;
         total_sponsored_students?: number;
         annual_sponsorship_fee?: number;
+        cms_data?: Record<string, unknown> | null;
         source: string;
         created_by: string | null;
         updated_by: string | null;

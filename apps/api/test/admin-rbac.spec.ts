@@ -375,7 +375,10 @@ describe('AdminController RBAC & Authentication (STF-02)', () => {
         method: 'POST',
         url,
         headers: { authorization: adminToken },
-        payload,
+        payload: {
+          ...payload,
+          confirmationToken: 'CONFIRM_DISPATCH_RBAC_TOKEN_ADMIN',
+        },
       });
       expect(res.statusCode).toBe(201);
       const data = JSON.parse(res.payload);

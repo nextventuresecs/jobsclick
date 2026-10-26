@@ -125,6 +125,19 @@ export class PersistentDatabaseStore {
       );
     }
     try {
+      if (fs.existsSync(this.filePath)) {
+        try {
+          const onDisk = JSON.parse(fs.readFileSync(this.filePath, 'utf-8'));
+          if (onDisk.alert_deliveries) {
+            this.state.alert_deliveries = { ...onDisk.alert_deliveries, ...this.state.alert_deliveries };
+          }
+          if (onDisk.broadcast_deliveries) {
+            this.state.broadcast_deliveries = { ...onDisk.broadcast_deliveries, ...this.state.broadcast_deliveries };
+          }
+        } catch {
+          // ignore parse errors
+        }
+      }
       fs.writeFileSync(this.filePath, JSON.stringify(this.state, null, 2), 'utf-8');
     } catch {
       // ignore write errors in restricted environments
@@ -132,6 +145,18 @@ export class PersistentDatabaseStore {
   }
 
   public getTable<T = unknown>(table: keyof DatabasePersistenceState): Record<string, T> {
+    if (table === 'alert_deliveries' || table === 'broadcast_deliveries') {
+      try {
+        if (fs.existsSync(this.filePath)) {
+          const onDisk = JSON.parse(fs.readFileSync(this.filePath, 'utf-8'));
+          if (onDisk[table]) {
+            this.state[table] = { ...this.state[table], ...onDisk[table] };
+          }
+        }
+      } catch {
+        // ignore read errors
+      }
+    }
     return this.state[table] as Record<string, T>;
   }
 

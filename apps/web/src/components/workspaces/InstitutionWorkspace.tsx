@@ -207,7 +207,9 @@ export function InstitutionWorkspace() {
         <BulkUploadModal
           uploadState={bulkUpload}
           onDownloadTemplate={handleDownloadTemplate}
-          onDirectFileUpload={(f) => bulkUpload.handleDirectFileUpload(f)}
+          onDirectFileUpload={(f?: File) => {
+            void bulkUpload.handleDirectFileUpload(f);
+          }}
           onParseCsv={handleParseCsv}
           onExecuteImport={handleExecuteImport}
           onScheduleWave={handleScheduleWave}

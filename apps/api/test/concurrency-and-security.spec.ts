@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module.js';
 import { WalletService } from '../src/wallet/wallet.service.js';
 import { PaymentService } from '../src/wallet/payment.service.js';
 import { CreditLedgerRepository } from '../src/database/repositories/credit-ledger.repository.js';
+import { UserRepository } from '../src/database/repositories/user.repository.js';
 import { CREDIT_PACKS } from '@indian-job-portal/validation';
 import { BadRequestException } from '@nestjs/common';
 
@@ -48,6 +49,20 @@ describe('Concurrency & Security Verification Suite (Ticket T-16/T-17 Hardening)
     });
     const authDataB = authB.json();
     jwtTokenInstitutionB = authDataB.accessToken;
+
+    const userRepo = app.get(UserRepository);
+    await userRepo.save({
+      id: 'usr_+919999900000',
+      phone: '+919999900000',
+      email: null,
+      role: 'admin',
+      status: 'active',
+      source: 'seed',
+      created_by: null,
+      updated_by: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
 
     const authAdmin = await app.inject({
       method: 'POST',

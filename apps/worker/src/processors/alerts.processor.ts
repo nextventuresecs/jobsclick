@@ -311,13 +311,14 @@ export class AlertsProcessor {
 
     // Save to local store
     if (newDeliveries.length > 0) {
-      if (!localState.alert_deliveries) {
-        localState.alert_deliveries = {};
+      const freshState = this.readLocalState();
+      if (!freshState.alert_deliveries) {
+        freshState.alert_deliveries = {};
       }
       for (const d of newDeliveries) {
-        localState.alert_deliveries[d.id] = d;
+        freshState.alert_deliveries[d.id] = d;
       }
-      this.saveLocalState(localState);
+      this.saveLocalState(freshState);
     }
 
     return {
