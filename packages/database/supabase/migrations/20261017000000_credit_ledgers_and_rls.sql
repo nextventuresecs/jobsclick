@@ -36,17 +36,11 @@ ALTER TABLE credit_ledgers ENABLE ROW LEVEL SECURITY;
 -- 5. RLS Policies:
 -- Users can view only their own credit ledger entries
 DROP POLICY IF EXISTS credit_ledgers_own_select_policy ON credit_ledgers;
+DROP POLICY IF EXISTS credit_ledgers_select_policy ON credit_ledgers;
 CREATE POLICY credit_ledgers_own_select_policy ON credit_ledgers
-    FOR SELECT USING (auth.uid() = user_id);
-
--- Admins can view all credit ledger entries
-DROP POLICY IF EXISTS credit_ledgers_admin_select_policy ON credit_ledgers;
-CREATE POLICY credit_ledgers_admin_select_policy ON credit_ledgers
     FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM users
-            WHERE users.id = auth.uid() AND users.role = 'admin'
-        )
+        auth.uid() = user_id
+        OR EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role IN ('admin', 'msme_admin'))
     );
 
 -- Inserts are allowed by the authenticated user, actor, or admin
@@ -57,6 +51,6 @@ CREATE POLICY credit_ledgers_insert_policy ON credit_ledgers
         OR auth.uid()::text = actor_id
         OR EXISTS (
             SELECT 1 FROM users
-            WHERE users.id = auth.uid() AND users.role = 'admin'
+            WHERE users.id = auth.uid() AND role IN ('admin', 'msme_admin')
         )
     );

@@ -84,3 +84,7 @@ CREATE TRIGGER audit_log_immutable_update_trigger
 CREATE TRIGGER audit_log_immutable_delete_trigger
     BEFORE DELETE ON audit_logs
     FOR EACH ROW EXECUTE FUNCTION prevent_audit_log_modification();
+
+-- Hard Invariant #6: Prohibit UPDATE and DELETE on audit_logs at database role level
+REVOKE UPDATE, DELETE ON audit_logs FROM public, anon, authenticated, service_role;
+
