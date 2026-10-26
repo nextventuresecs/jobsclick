@@ -12,34 +12,32 @@ import {
 import { captureException } from '../config/sentry.js';
 import { UserRepository } from '../database/repositories/user.repository.js';
 import { Msg91SmsService } from './sms.service.js';
-import { OtpRedisService } from './otp-redis.service.js';
+import { OtpRedisService, AuthUserSession } from './otp-redis.service.js';
+import { RateLimitService } from './rate-limit.service.js';
 import { EmailService } from '../email/email.service.js';
 import { WalletService } from '../wallet/wallet.service.js';
 
-export interface UserSession {
-  id: string;
-  phone: string;
-  email: string | null;
-  emailVerified: boolean;
-  role: 'employer' | 'intermediary' | 'job_seeker' | 'admin' | 'msme_admin';
-  status: 'invited' | 'active' | 'disabled';
-}
+export type UserSession = AuthUserSession;
 
 @Injectable()
 export class AuthService {
-  private emailVerificationTokens = new Map<string, { userId: string; email: string }>();
-  private sessionCache = new Map<string, UserSession>();
+  // L1 ephemeral read cache; master truth is stored in distributed Redis
+  private readonly localSessionCache = new Map<string, UserSession>();
+  private readonly localTokenCache = new Map<string, { userId: string; email: string }>();
 
   private readonly otpRedisService: OtpRedisService;
+  private readonly rateLimitService: RateLimitService;
 
   constructor(
     @Inject(UserRepository) private readonly userRepository: UserRepository,
     @Inject(Msg91SmsService) private readonly smsService: Msg91SmsService,
     @Optional() @Inject(OtpRedisService) otpRedisService?: OtpRedisService,
+    @Optional() @Inject(RateLimitService) rateLimitService?: RateLimitService,
     @Optional() @Inject(WalletService) private readonly walletService?: WalletService,
     @Optional() @Inject(EmailService) private readonly emailService?: EmailService,
   ) {
     this.otpRedisService = otpRedisService ?? new OtpRedisService();
+    this.rateLimitService = rateLimitService ?? new RateLimitService(this.otpRedisService);
   }
 
   async sendOtp(
@@ -75,22 +73,22 @@ export class AuthService {
       );
     }
 
-    // 3. Sliding window IP rate limiter (20 requests/hour per network)
+    // 3. Sliding window IP rate limiter (20 requests/hour per network via @upstash/ratelimit)
     if (requestIp && requestIp !== '127.0.0.1' && requestIp !== '::1' && !requestIp.includes('localhost')) {
-      const ipCheck = await this.otpRedisService.checkIpRateLimit(requestIp, 20);
+      const ipCheck = await this.rateLimitService.checkIpRateLimit(requestIp, 20);
       if (!ipCheck.allowed) {
         throw new BadRequestException('Too many OTP requests from this network. Please try again later.');
       }
     }
 
-    // 4. Cool-down check: 60s between requests per phone
-    const cooldown = await this.otpRedisService.checkAndSetCooldown(phone, 60);
+    // 4. Cool-down check: 60s between requests per phone (AUTH-03 via @upstash/ratelimit)
+    const cooldown = await this.rateLimitService.checkCooldown(phone, 60);
     if (!cooldown.allowed) {
       throw new BadRequestException(`Please wait ${cooldown.remainingSeconds} seconds before requesting a new OTP`);
     }
 
-    // 5. Daily limit cap: max 10 requests per day per number
-    const daily = await this.otpRedisService.checkAndIncrementDailyLimit(phone, 10);
+    // 5. Daily limit cap: max 10 requests per day per number (AUTH-03 via @upstash/ratelimit)
+    const daily = await this.rateLimitService.checkDailyLimit(phone, 10);
     if (!daily.allowed) {
       captureException(new Error(`Daily OTP rate limit exceeded for ${phone} from IP ${requestIp || 'unknown'}`));
       throw new BadRequestException('Daily OTP request limit reached. Please try again tomorrow.');
@@ -194,7 +192,9 @@ export class AuthService {
       status: userRow.status,
     };
 
-    this.sessionCache.set(user.id, user);
+    // Store in distributed Redis cluster and sync L1 local cache
+    this.localSessionCache.set(user.id, user);
+    await this.otpRedisService.setSession(user.id, user);
 
     const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
     const nowSec = Math.floor(Date.now() / 1000);
@@ -232,13 +232,20 @@ export class AuthService {
     const token = `token_verify_${Date.now()}`;
     await this.userRepository.update(userId, { email: input.email });
 
-    const cached = this.sessionCache.get(userId);
+    let cached = this.localSessionCache.get(userId);
+    if (!cached) {
+      cached = (await this.otpRedisService.getSession(userId)) || undefined;
+    }
     if (cached) {
       cached.email = input.email;
       cached.emailVerified = false;
+      this.localSessionCache.set(userId, cached);
+      await this.otpRedisService.setSession(userId, cached);
     }
 
-    this.emailVerificationTokens.set(token, { userId, email: input.email });
+    this.localTokenCache.set(token, { userId, email: input.email });
+    await this.otpRedisService.setEmailVerificationToken(token, { userId, email: input.email });
+
     console.log(`[Resend Email] Verification link sent to ${input.email}: token=${token}`);
     if (this.emailService) {
       await this.emailService.sendVerificationEmail(input.email, token);
@@ -251,18 +258,29 @@ export class AuthService {
   }
 
   async verifyEmail(input: VerifyEmailInput): Promise<{ success: boolean; message: string }> {
-    const record = this.emailVerificationTokens.get(input.token);
+    let record = this.localTokenCache.get(input.token);
+    if (!record) {
+      record = (await this.otpRedisService.getEmailVerificationToken(input.token)) || undefined;
+    }
     if (!record) {
       throw new BadRequestException('Invalid or expired verification token');
     }
 
     await this.userRepository.update(record.userId, { email: record.email });
-    const cached = this.sessionCache.get(record.userId);
+
+    let cached = this.localSessionCache.get(record.userId);
+    if (!cached) {
+      cached = (await this.otpRedisService.getSession(record.userId)) || undefined;
+    }
     if (cached) {
       cached.emailVerified = true;
+      this.localSessionCache.set(record.userId, cached);
+      await this.otpRedisService.setSession(record.userId, cached);
     }
 
-    this.emailVerificationTokens.delete(input.token);
+    this.localTokenCache.delete(input.token);
+    await this.otpRedisService.deleteEmailVerificationToken(input.token);
+
     return {
       success: true,
       message: 'Email address successfully verified',
@@ -270,7 +288,8 @@ export class AuthService {
   }
 
   async signOutAll(userId: string): Promise<{ success: boolean; message: string }> {
-    this.sessionCache.delete(userId);
+    this.localSessionCache.delete(userId);
+    await this.otpRedisService.deleteSession(userId);
     console.log(`[Auth] Invalidated all active sessions for user ${userId}`);
     return {
       success: true,
@@ -279,12 +298,18 @@ export class AuthService {
   }
 
   getUserById(id: string): UserSession | undefined {
-    return this.sessionCache.get(id);
+    return this.localSessionCache.get(id);
   }
 
   async findUserById(id: string): Promise<UserSession | undefined> {
-    const cached = this.sessionCache.get(id);
-    if (cached) return cached;
+    const local = this.localSessionCache.get(id);
+    if (local) return local;
+
+    const fromRedis = await this.otpRedisService.getSession(id);
+    if (fromRedis) {
+      this.localSessionCache.set(id, fromRedis);
+      return fromRedis;
+    }
 
     const row = await this.userRepository.findById(id);
     if (!row) return undefined;
@@ -297,7 +322,8 @@ export class AuthService {
       role: row.role,
       status: row.status,
     };
-    this.sessionCache.set(id, session);
+    this.localSessionCache.set(id, session);
+    await this.otpRedisService.setSession(id, session);
     return session;
   }
 }

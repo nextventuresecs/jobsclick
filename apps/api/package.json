@@ -22,6 +22,8 @@
     "@sentry/node": "^8.0.0",
     "@supabase/supabase-js": "^2.45.0",
     "@upstash/qstash": "^2.7.20",
+    "@upstash/ratelimit": "^2.2.0",
+    "@upstash/redis": "^1.40.0",
     "bullmq": "^6.3.15",
     "csv-parse": "^5.5.6",
     "fastify": "^4.28.0",
