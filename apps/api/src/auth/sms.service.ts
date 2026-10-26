@@ -35,8 +35,29 @@ export class Msg91SmsService {
       templateConfig?.templateId ||
       'DLT_1001_OTP_EN';
 
-    // In test mode or when auth key is missing/dummy, bypass real outbound SMS
-    if (isTestMode || !authKey || authKey === 'dummy-msg91-key') {
+    // 1. Gateway mode selection: mock | sandbox | live
+    const gatewayMode =
+      process.env['SMS_GATEWAY_MODE'] ||
+      (authKey && authKey !== 'dummy-msg91-key'
+        ? (process.env['NODE_ENV'] === 'production' ? 'live' : 'sandbox')
+        : 'mock');
+
+    // 2. Reserved test QA whitelist range (+919876543210 through +919876543219)
+    // Only intercepts when not in live production mode
+    const isTestWhitelist = gatewayMode !== 'live' && phone.startsWith('987654321') && phone.length === 10;
+    if (isTestWhitelist) {
+      this.logger.log(
+        `[SMS Hook - QA Whitelist] OTP for +91${phone}: ${otp} (Static QA Bypass)`
+      );
+      return {
+        success: true,
+        message: 'OTP dispatched via MSG91 mock handler (QA whitelist)',
+        messageId: `qa_whitelist_${Date.now()}`,
+      };
+    }
+
+    // In test mode, mock mode, or missing credentials, log mock delivery
+    if (isTestMode || gatewayMode === 'mock' || !authKey || authKey === 'dummy-msg91-key') {
       this.logger.log(
         `[SMS Hook - MSG91 Mock] OTP for +91${phone}: ${otp} (Template: ${templateId})`
       );
@@ -44,6 +65,18 @@ export class Msg91SmsService {
         success: true,
         message: 'OTP dispatched via MSG91 mock handler',
         messageId: `mock_msg_${Date.now()}`,
+      };
+    }
+
+    // In sandbox mode (DLT template approval pending), log delivery and simulate success
+    if (gatewayMode === 'sandbox') {
+      this.logger.log(
+        `[SMS Hook - MSG91 Sandbox (DLT Pending)] OTP for +91${phone}: ${otp} (Template: ${templateId})`
+      );
+      return {
+        success: true,
+        message: 'OTP processed via MSG91 sandbox (DLT pending)',
+        messageId: `sandbox_msg_${Date.now()}`,
       };
     }
 

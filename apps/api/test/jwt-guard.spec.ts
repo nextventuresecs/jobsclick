@@ -10,6 +10,7 @@ describe('JwtAuthGuard Cryptographic Verification & Expiration (Issue #1)', () =
   const secret = 'jobsclick-jwt-secret-key-32-chars-min';
 
   beforeEach(() => {
+    process.env['JWT_SECRET'] = secret;
     reflector = new Reflector();
     guard = new JwtAuthGuard(reflector);
   });
@@ -112,5 +113,49 @@ describe('JwtAuthGuard Cryptographic Verification & Expiration (Issue #1)', () =
     const context = createMockContext({ authorization: `Bearer ${noSubToken}` });
     expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
     expect(() => guard.canActivate(context)).toThrow(/missing sub\/id/);
+  });
+
+  describe('STF-12: Zero Header Bypass Outside Test Mode', () => {
+    const originalEnv = process.env['NODE_ENV'];
+
+    it('rejects x-user-id header in development mode (STF-12)', () => {
+      process.env['NODE_ENV'] = 'development';
+      try {
+        const context = createMockContext({ 'x-user-id': 'usr_admin_bypass' });
+        expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
+      } finally {
+        process.env['NODE_ENV'] = originalEnv;
+      }
+    });
+
+    it('rejects x-user-id header in production mode (STF-12)', () => {
+      process.env['NODE_ENV'] = 'production';
+      try {
+        const context = createMockContext({ 'x-user-id': 'usr_admin_bypass' });
+        expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
+      } finally {
+        process.env['NODE_ENV'] = originalEnv;
+      }
+    });
+
+    it('rejects jwt_session_ mock tokens in development mode', () => {
+      process.env['NODE_ENV'] = 'development';
+      try {
+        const context = createMockContext({ authorization: 'Bearer jwt_session_admin_1790000000' });
+        expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
+      } finally {
+        process.env['NODE_ENV'] = originalEnv;
+      }
+    });
+
+    it('permits x-user-id header exclusively in test mode', () => {
+      process.env['NODE_ENV'] = 'test';
+      try {
+        const context = createMockContext({ 'x-user-id': 'usr_test_123' });
+        expect(guard.canActivate(context)).toBe(true);
+      } finally {
+        process.env['NODE_ENV'] = originalEnv;
+      }
+    });
   });
 });

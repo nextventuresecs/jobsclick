@@ -61,11 +61,13 @@ describe('PRD 14.1 Full Acceptance Walkthrough (Epic 6 Launch Readiness)', () =>
     });
     expect(verifyRes.statusCode).toBe(201);
 
+    const seekerId = `usr_walkthrough_${Date.now()}`;
+
     // Step 2: Candidate Profile Update with DPDP Consent
     const profileRes = await app.inject({
       method: 'PUT',
       url: '/profiles/seeker/me',
-      headers: { 'x-user-id': 'usr_walkthrough' },
+      headers: { 'x-user-id': seekerId },
       payload: {
         fullName: 'Sunil Verma',
         seekerType: 'individual',
@@ -101,7 +103,7 @@ describe('PRD 14.1 Full Acceptance Walkthrough (Epic 6 Launch Readiness)', () =>
     const applyRes = await app.inject({
       method: 'POST',
       url: `/jobs/${job.id}/apply`,
-      headers: { 'x-user-id': 'usr_walkthrough' },
+      headers: { 'x-user-id': seekerId },
     });
     expect(applyRes.statusCode).toBe(201);
 

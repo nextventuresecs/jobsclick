@@ -7,16 +7,24 @@ import {
   IndustryCategory,
   EmploymentType,
   ExperienceLevel,
+  PromoteJobInput,
+  CreateJobAlertInput,
+  JobAlertResponse,
+  FEATURED_PROMOTION_PRICING,
 } from '@indian-job-portal/validation';
 import { JobRepository } from '../database/repositories/job.repository.js';
 import { ApplicationRepository } from '../database/repositories/application.repository.js';
 import { ProfileRepository } from '../database/repositories/profile.repository.js';
+import { WalletService } from '../wallet/wallet.service.js';
 import type { JobRow, ApplicationRow } from '@indian-job-portal/database';
 
 export interface JobRecord extends CreateJobInput {
   id: string;
   employerId: string;
   isActive: boolean;
+  isFeatured?: boolean;
+  featuredUntil?: string | null;
+  isPromoted?: boolean;
   source: string;
   createdAt: string;
   updatedAt: string;
@@ -40,6 +48,11 @@ export interface ApplicationRecord {
 }
 
 function mapJobRowToRecord(row: JobRow): JobRecord {
+  const isPromoted = Boolean(
+    row.is_featured &&
+    row.featured_until &&
+    new Date(row.featured_until).getTime() > Date.now(),
+  );
   return {
     id: row.id,
     employerId: row.employer_id,
@@ -55,6 +68,9 @@ function mapJobRowToRecord(row: JobRow): JobRecord {
     state: row.state ?? '',
     openings: row.openings,
     skills: row.skills ?? [],
+    isFeatured: row.is_featured ?? false,
+    featuredUntil: row.featured_until ?? null,
+    isPromoted,
     isActive: row.is_active,
     source: row.source,
     createdAt: row.created_at,
@@ -68,6 +84,7 @@ export class JobsService {
     @Inject(JobRepository) private readonly jobRepository: JobRepository,
     @Inject(ApplicationRepository) private readonly applicationRepository: ApplicationRepository,
     @Inject(ProfileRepository) private readonly profileRepository: ProfileRepository,
+    @Inject(WalletService) private readonly walletService: WalletService,
   ) {}
 
   async createJob(employerId: string, input: CreateJobInput): Promise<JobRecord> {
@@ -177,6 +194,9 @@ export class JobsService {
     if (existingApp) {
       throw new BadRequestException('You have already applied to this job');
     }
+
+    // Deduct 1 credit for job application (WAL-02, Hard Invariant #7)
+    await this.walletService.deductForJobApplication(applicantId, jobId, job.title);
 
     const appId = `app_${jobId}_${applicantId}`;
     const now = new Date().toISOString();
@@ -313,5 +333,63 @@ export class JobsService {
     }
 
     return records;
+  }
+
+  async promoteJob(
+    userId: string,
+    jobId: string,
+    input: PromoteJobInput,
+    userRole?: string,
+  ): Promise<{ success: boolean; job: JobRecord; cost: number; remainingBalance: number }> {
+    const cost = FEATURED_PROMOTION_PRICING[input.durationDays] || 50;
+
+    const result = await this.jobRepository.promoteJobAtomically({
+      userId,
+      jobId,
+      durationDays: input.durationDays,
+      cost,
+      userRole,
+    });
+
+    return {
+      success: true,
+      job: mapJobRowToRecord(result.job),
+      cost: result.cost,
+      remainingBalance: result.remainingBalance,
+    };
+  }
+
+  async createJobAlert(userId: string, input: CreateJobAlertInput): Promise<JobAlertResponse> {
+    const row = await this.jobRepository.createAlert({
+      userId,
+      title: input.title,
+      filters: input.filters,
+      frequency: input.frequency,
+    });
+
+    return {
+      id: row.id,
+      userId: row.user_id,
+      title: row.title,
+      filters: row.filters,
+      frequency: row.frequency,
+      isActive: row.is_active,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  async getJobAlerts(userId: string): Promise<JobAlertResponse[]> {
+    const rows = await this.jobRepository.findAlertsByUserId(userId);
+    return rows.map((row) => ({
+      id: row.id,
+      userId: row.user_id,
+      title: row.title,
+      filters: row.filters,
+      frequency: row.frequency,
+      isActive: row.is_active,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
   }
 }

@@ -27,7 +27,7 @@ describe('AuthController (e2e) - Issues #6, #7, #8', () => {
     const res1 = await app.inject({
       method: 'POST',
       url: '/auth/send-otp',
-      payload: { phone: '9876543210' },
+      payload: { phone: '9876543299' },
     });
 
     expect(res1.statusCode).toBe(201);
@@ -39,7 +39,7 @@ describe('AuthController (e2e) - Issues #6, #7, #8', () => {
     const res2 = await app.inject({
       method: 'POST',
       url: '/auth/send-otp',
-      payload: { phone: '9876543210' },
+      payload: { phone: '9876543299' },
     });
 
     expect(res2.statusCode).toBe(400);
@@ -51,13 +51,13 @@ describe('AuthController (e2e) - Issues #6, #7, #8', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/auth/verify-otp',
-      payload: { phone: '9876543210', code: '123456', role: 'employer' },
+      payload: { phone: '9876543299', code: '123456', role: 'employer' },
     });
 
     expect(res.statusCode).toBe(201);
     const body = JSON.parse(res.payload);
     expect(body.accessToken).toBeDefined();
-    expect(body.user.phone).toBe('9876543210');
+    expect(body.user.phone).toBe('9876543299');
     expect(body.user.role).toBe('employer');
   });
 
@@ -65,7 +65,7 @@ describe('AuthController (e2e) - Issues #6, #7, #8', () => {
     const resAdd = await app.inject({
       method: 'POST',
       url: '/auth/email/add',
-      headers: { 'x-user-id': 'usr_9876543210' },
+      headers: { 'x-user-id': 'usr_9876543299' },
       payload: { email: 'employer@msme.in' },
     });
 
@@ -78,7 +78,7 @@ describe('AuthController (e2e) - Issues #6, #7, #8', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/auth/sign-out-all',
-      headers: { 'x-user-id': 'usr_9876543210' },
+      headers: { 'x-user-id': 'usr_9876543299' },
     });
 
     expect(res.statusCode).toBe(201);

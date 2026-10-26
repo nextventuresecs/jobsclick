@@ -22,6 +22,9 @@ export interface JobItem {
   readonly isUrgent?: boolean;
   readonly status?: 'active' | 'draft' | 'expired' | 'closed';
   readonly applicantCount?: number;
+  readonly isPromoted?: boolean;
+  readonly isFeatured?: boolean;
+  readonly featuredUntil?: string;
 }
 
 export const SAMPLE_JOBS: readonly JobItem[] = [

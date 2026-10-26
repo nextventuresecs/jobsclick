@@ -13,11 +13,22 @@ export interface DatabasePersistenceState {
   jobs: Record<string, unknown>;
   applications: Record<string, unknown>;
   audit_logs: Record<string, unknown>;
+  credit_ledgers: Record<string, unknown>;
+  payments: Record<string, unknown>;
+  institution_inquiries: Record<string, unknown>;
+  institution_sponsorships: Record<string, unknown>;
+  broadcast_campaigns: Record<string, unknown>;
+  broadcast_deliveries: Record<string, unknown>;
+  job_alerts: Record<string, unknown>;
+  alert_deliveries: Record<string, unknown>;
+  corporate_tie_ups: Record<string, unknown>;
+  placement_applications: Record<string, unknown>;
 }
 
 export class PersistentDatabaseStore {
   private static instance: PersistentDatabaseStore;
   private filePath: string;
+  private locks: Map<string, Promise<unknown>> = new Map();
   private state: DatabasePersistenceState = {
     users: {},
     job_seeker_profiles: {},
@@ -26,6 +37,16 @@ export class PersistentDatabaseStore {
     jobs: {},
     applications: {},
     audit_logs: {},
+    credit_ledgers: {},
+    payments: {},
+    institution_inquiries: {},
+    institution_sponsorships: {},
+    broadcast_campaigns: {},
+    broadcast_deliveries: {},
+    job_alerts: {},
+    alert_deliveries: {},
+    corporate_tie_ups: {},
+    placement_applications: {},
   };
 
   private constructor() {
@@ -48,6 +69,25 @@ export class PersistentDatabaseStore {
     return PersistentDatabaseStore.instance;
   }
 
+  public async withLock<T>(resourceId: string, fn: () => Promise<T>): Promise<T> {
+    const prev = this.locks.get(resourceId) || Promise.resolve();
+    let release: () => void;
+    const next = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.locks.set(resourceId, next);
+
+    try {
+      await prev;
+      return await fn();
+    } finally {
+      release!();
+      if (this.locks.get(resourceId) === next) {
+        this.locks.delete(resourceId);
+      }
+    }
+  }
+
   private load(): void {
     try {
       if (fs.existsSync(this.filePath)) {
@@ -61,6 +101,16 @@ export class PersistentDatabaseStore {
           jobs: parsed.jobs || {},
           applications: parsed.applications || {},
           audit_logs: parsed.audit_logs || {},
+          credit_ledgers: parsed.credit_ledgers || {},
+          payments: parsed.payments || {},
+          institution_inquiries: parsed.institution_inquiries || {},
+          institution_sponsorships: parsed.institution_sponsorships || {},
+          broadcast_campaigns: parsed.broadcast_campaigns || {},
+          broadcast_deliveries: parsed.broadcast_deliveries || {},
+          job_alerts: parsed.job_alerts || {},
+          alert_deliveries: parsed.alert_deliveries || {},
+          corporate_tie_ups: parsed.corporate_tie_ups || {},
+          placement_applications: parsed.placement_applications || {},
         };
       }
     } catch {
@@ -69,7 +119,25 @@ export class PersistentDatabaseStore {
   }
 
   public save(): void {
+    if (process.env['NODE_ENV'] === 'production') {
+      throw new Error(
+        'PersistentDatabaseStore file persistence is disabled in production. Supabase PostgreSQL must be the sole source of truth.',
+      );
+    }
     try {
+      if (fs.existsSync(this.filePath)) {
+        try {
+          const onDisk = JSON.parse(fs.readFileSync(this.filePath, 'utf-8'));
+          if (onDisk.alert_deliveries) {
+            this.state.alert_deliveries = { ...onDisk.alert_deliveries, ...this.state.alert_deliveries };
+          }
+          if (onDisk.broadcast_deliveries) {
+            this.state.broadcast_deliveries = { ...onDisk.broadcast_deliveries, ...this.state.broadcast_deliveries };
+          }
+        } catch {
+          // ignore parse errors
+        }
+      }
       fs.writeFileSync(this.filePath, JSON.stringify(this.state, null, 2), 'utf-8');
     } catch {
       // ignore write errors in restricted environments
@@ -77,6 +145,18 @@ export class PersistentDatabaseStore {
   }
 
   public getTable<T = unknown>(table: keyof DatabasePersistenceState): Record<string, T> {
+    if (table === 'alert_deliveries' || table === 'broadcast_deliveries') {
+      try {
+        if (fs.existsSync(this.filePath)) {
+          const onDisk = JSON.parse(fs.readFileSync(this.filePath, 'utf-8'));
+          if (onDisk[table]) {
+            this.state[table] = { ...this.state[table], ...onDisk[table] };
+          }
+        }
+      } catch {
+        // ignore read errors
+      }
+    }
     return this.state[table] as Record<string, T>;
   }
 
@@ -87,6 +167,11 @@ export class PersistentDatabaseStore {
 
   public deleteRow(table: keyof DatabasePersistenceState, id: string): void {
     delete this.state[table][id];
+    this.save();
+  }
+
+  public clearTable(table: keyof DatabasePersistenceState): void {
+    this.state[table] = {};
     this.save();
   }
 }

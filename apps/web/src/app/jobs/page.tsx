@@ -17,7 +17,9 @@ import {
   Clock,
   RotateCcw,
   SlidersHorizontal,
+  Sparkles,
 } from 'lucide-react';
+import { SaveSearchAlertModal } from '../../components/jobs/SaveSearchAlertModal';
 
 interface JobsPageProps {
   readonly searchParams?: {
@@ -72,6 +74,9 @@ interface RawJobsListResponse {
     readonly requirements?: readonly string[];
     readonly createdAt?: string;
     readonly expiryDate?: string;
+    readonly isFeatured?: boolean;
+    readonly isPromoted?: boolean;
+    readonly featuredUntil?: string;
   }[];
 }
 
@@ -106,6 +111,9 @@ interface RawJobsListResponse {
           requirements: Array.isArray(j.requirements) ? j.requirements : [],
           postedDate: j.createdAt ? new Date(j.createdAt).toLocaleDateString() : 'Recent',
           expiryDate: j.expiryDate || '',
+          isPromoted: j.isPromoted,
+          isFeatured: j.isFeatured,
+          featuredUntil: j.featuredUntil,
         }));
       }
     }
@@ -138,6 +146,13 @@ interface RawJobsListResponse {
       if (job.salaryMax < minPay) return false;
     }
     return true;
+  });
+
+  filteredJobs.sort((a, b) => {
+    const aPromoted = Boolean(a.isPromoted);
+    const bPromoted = Boolean(b.isPromoted);
+    if (aPromoted !== bPromoted) return aPromoted ? -1 : 1;
+    return 0;
   });
 
   return (
@@ -282,6 +297,11 @@ interface RawJobsListResponse {
                 Type: {employmentType}
               </span>
             )}
+            <SaveSearchAlertModal
+              currentKeyword={keyword}
+              currentCity={city}
+              currentCategory={category}
+            />
           </div>
         </div>
 
@@ -293,11 +313,19 @@ interface RawJobsListResponse {
               return (
                 <div
                   key={job.id}
-                  className={`bg-white rounded-2xl p-6 border border-gray-200 ${borderClass} hover:shadow-md transition-all flex flex-col justify-between`}
+                  className={`bg-white rounded-2xl p-6 border ${job.isPromoted ? 'border-amber-400 ring-2 ring-amber-300/50 bg-amber-50/20' : 'border-gray-200'} ${borderClass} hover:shadow-md transition-all flex flex-col justify-between`}
                 >
                   <div>
                     <div className="flex items-start justify-between gap-3 mb-3">
                       <div>
+                        {job.isPromoted && (
+                          <div className="mb-1.5">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
+                              <Sparkles className="w-3 h-3 text-amber-600 fill-amber-500" />
+                              Featured Opportunity
+                            </span>
+                          </div>
+                        )}
                         <span className="text-xs font-medium text-gray-500 block mb-0.5">
                           {job.companyName}
                         </span>

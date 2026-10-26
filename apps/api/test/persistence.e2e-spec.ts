@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
+import { PersistentDatabaseStore } from '../src/database/supabase.provider.js';
 
 describe('T-01: Database Persistence Across API Restarts (E2E)', () => {
   const createTestApp = async (): Promise<NestFastifyApplication> => {
@@ -144,5 +145,18 @@ describe('T-01: Database Persistence Across API Restarts (E2E)', () => {
     } finally {
       await app2.close();
     }
+  });
+
+  describe('Ticket 05: Fail-Fast in Production Mode', () => {
+    it('strictly prohibits PersistentDatabaseStore save() file fallback in production', () => {
+      const originalEnv = process.env['NODE_ENV'];
+      process.env['NODE_ENV'] = 'production';
+      try {
+        const store = PersistentDatabaseStore.getInstance();
+        expect(() => store.save()).toThrow(/disabled in production/);
+      } finally {
+        process.env['NODE_ENV'] = originalEnv;
+      }
+    });
   });
 });
