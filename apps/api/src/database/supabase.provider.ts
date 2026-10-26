@@ -15,6 +15,7 @@ export interface DatabasePersistenceState {
   audit_logs: Record<string, unknown>;
   credit_ledgers: Record<string, unknown>;
   payments: Record<string, unknown>;
+  institution_inquiries: Record<string, unknown>;
   institution_sponsorships: Record<string, unknown>;
   broadcast_campaigns: Record<string, unknown>;
   broadcast_deliveries: Record<string, unknown>;
@@ -38,6 +39,7 @@ export class PersistentDatabaseStore {
     audit_logs: {},
     credit_ledgers: {},
     payments: {},
+    institution_inquiries: {},
     institution_sponsorships: {},
     broadcast_campaigns: {},
     broadcast_deliveries: {},
@@ -101,6 +103,7 @@ export class PersistentDatabaseStore {
           audit_logs: parsed.audit_logs || {},
           credit_ledgers: parsed.credit_ledgers || {},
           payments: parsed.payments || {},
+          institution_inquiries: parsed.institution_inquiries || {},
           institution_sponsorships: parsed.institution_sponsorships || {},
           broadcast_campaigns: parsed.broadcast_campaigns || {},
           broadcast_deliveries: parsed.broadcast_deliveries || {},

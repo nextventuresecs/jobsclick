@@ -19,9 +19,19 @@ export interface ScopedApplicationRecord {
 
 export function canUserAccessApplication(
   requestorUserId: string,
-  application: ScopedApplicationRecord
+  application: ScopedApplicationRecord,
 ): boolean {
-  return requestorUserId === application.applicant_id || requestorUserId === application.job_employer_id;
+  return (
+    requestorUserId === application.applicant_id ||
+    requestorUserId === application.job_employer_id
+  );
+}
+
+export function canUserAccessInstitutionInquiry(
+  requestorUserId: string,
+  institutionOwnerUserId: string,
+): boolean {
+  return requestorUserId === institutionOwnerUserId;
 }
 
 export interface ScopedInstitutionRecord {

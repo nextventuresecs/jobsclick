@@ -231,6 +231,22 @@ export interface Database {
         created_at: string;
         updated_at?: string;
       }>;
+      institution_inquiries: TableDefinition<{
+        id: string;
+        institution_id: string;
+        student_name: string;
+        student_phone: string;
+        student_email?: string | null;
+        course_of_interest: string;
+        qualification?: string | null;
+        city?: string | null;
+        state?: string | null;
+        message?: string | null;
+        status: string;
+        source: string;
+        created_at: string;
+        updated_at: string;
+      }>;
       institution_sponsorships: TableDefinition<{
         id: string;
         institution_id: string;
@@ -314,6 +330,7 @@ export type BulkImportBatchRow = Database['public']['Tables']['bulk_import_batch
 export type InviteWaveRow = Database['public']['Tables']['invite_waves']['Row'];
 export type CreditLedgerRow = Database['public']['Tables']['credit_ledgers']['Row'];
 export type PaymentRow = Database['public']['Tables']['payments']['Row'];
+export type InstitutionInquiryRow = Database['public']['Tables']['institution_inquiries']['Row'];
 export type InstitutionSponsorshipRow = Database['public']['Tables']['institution_sponsorships']['Row'];
 export type JobAlertRow = Database['public']['Tables']['job_alerts']['Row'];
 export type AlertDeliveryRow = Database['public']['Tables']['alert_deliveries']['Row'];

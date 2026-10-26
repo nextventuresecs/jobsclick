@@ -9,6 +9,7 @@ import { CreditLedgerRepository } from './repositories/credit-ledger.repository.
 import { PaymentRepository } from './repositories/payment.repository.js';
 import { CorporateTieUpRepository } from './repositories/corporate-tie-up.repository.js';
 import { PlacementPipelineRepository } from './repositories/placement-pipeline.repository.js';
+import { InquiryRepository } from './repositories/inquiry.repository.js';
 
 @Global()
 @Module({
@@ -26,6 +27,7 @@ import { PlacementPipelineRepository } from './repositories/placement-pipeline.r
     PaymentRepository,
     CorporateTieUpRepository,
     PlacementPipelineRepository,
+    InquiryRepository,
   ],
   exports: [
     SUPABASE_CLIENT,
@@ -38,6 +40,7 @@ import { PlacementPipelineRepository } from './repositories/placement-pipeline.r
     PaymentRepository,
     CorporateTieUpRepository,
     PlacementPipelineRepository,
+    InquiryRepository,
   ],
 })
 export class DatabaseModule {}

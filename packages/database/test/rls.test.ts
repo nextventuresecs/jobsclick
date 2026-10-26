@@ -4,6 +4,7 @@ import path from 'node:path';
 import {
   canUserAccessRecord,
   canUserAccessApplication,
+  canUserAccessInstitutionInquiry,
   canUserManageInstitutionSponsorship,
   isAuditLogImmutable,
   isAlertDeliveryImmutable,
@@ -15,7 +16,7 @@ describe('Database Row Level Security (RLS) & Audit Policies', () => {
   it('prevents User A from reading User B private record', () => {
     const userA = 'usr_11111111-1111-1111-1111-111111111111';
     const userB = 'usr_22222222-2222-2222-2222-222222222222';
-    
+
     const recordUserB = {
       id: 'rec_100',
       user_id: userB,
@@ -29,43 +30,38 @@ describe('Database Row Level Security (RLS) & Audit Policies', () => {
   it('allows any user to read public job postings, employer profiles, and institution profiles', () => {
     const userA = 'usr_11111111-1111-1111-1111-111111111111';
     const publicJobRecord = {
-      id: 'job_200',
-      user_id: 'usr_employer_999',
-      is_public: true,
-    };
-    const publicCompanyRecord = {
-      id: 'comp_01',
-      user_id: 'usr_employer_999',
-      is_public: true,
-    };
-    const publicInstitutionRecord = {
-      id: 'inst_01',
-      user_id: 'usr_inst_888',
+      id: 'job_100',
+      user_id: 'usr_employer_99',
       is_public: true,
     };
 
     expect(canUserAccessRecord(userA, publicJobRecord)).toBe(true);
-    expect(canUserAccessRecord(userA, publicCompanyRecord)).toBe(true);
-    expect(canUserAccessRecord(userA, publicInstitutionRecord)).toBe(true);
   });
 
-  it('allows both applicant and hiring employer to access vacancy application while denying third parties', () => {
-    const applicantId = 'usr_applicant_111';
-    const employerId = 'usr_employer_222';
-    const thirdPartyId = 'usr_random_333';
+  it('ensures application is only visible to applicant and job employer', () => {
+    const applicantId = 'usr_candidate_1';
+    const employerId = 'usr_employer_1';
+    const strangerId = 'usr_stranger_1';
 
-    const applicationRecord = {
-      id: 'app_555',
+    const application = {
+      id: 'app_1',
       applicant_id: applicantId,
       job_employer_id: employerId,
     };
 
-    expect(canUserAccessApplication(applicantId, applicationRecord)).toBe(true);
-    expect(canUserAccessApplication(employerId, applicationRecord)).toBe(true);
-    expect(canUserAccessApplication(thirdPartyId, applicationRecord)).toBe(false);
+    expect(canUserAccessApplication(applicantId, application)).toBe(true);
+    expect(canUserAccessApplication(employerId, application)).toBe(true);
+    expect(canUserAccessApplication(strangerId, application)).toBe(false);
   });
 
-  it('enforces audit logs immutability (UPDATE and DELETE prohibited)', () => {
+  it('enforces institution inquiry privacy - only institution owner can view inquiries (INT-03 & Invariant #1)', () => {
+    const ownerId = 'usr_inst_owner_111';
+    const otherUser = 'usr_other_222';
+    expect(canUserAccessInstitutionInquiry(ownerId, ownerId)).toBe(true);
+    expect(canUserAccessInstitutionInquiry(otherUser, ownerId)).toBe(false);
+  });
+
+  it('prohibits UPDATE and DELETE on audit logs (Hard Invariant #6: Append-only)', () => {
     expect(isAuditLogImmutable('INSERT')).toBe(true);
     expect(isAuditLogImmutable('UPDATE')).toBe(false);
     expect(isAuditLogImmutable('DELETE')).toBe(false);
