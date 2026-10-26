@@ -33,7 +33,10 @@ export class JobRepository {
   constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>) {}
 
   async create(job: JobRow): Promise<JobRow> {
-    this.persistentStore.setRow('jobs', job.id, job);
+    if (this.isTestMode) {
+      this.persistentStore.setRow('jobs', job.id, job);
+      return job;
+    }
 
     if (!this.isTestMode) {
       try {
