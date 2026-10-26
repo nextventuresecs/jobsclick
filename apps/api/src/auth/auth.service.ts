@@ -13,6 +13,7 @@ import { captureException } from '../config/sentry.js';
 import { UserRepository } from '../database/repositories/user.repository.js';
 import { Msg91SmsService } from './sms.service.js';
 import { OtpRedisService } from './otp-redis.service.js';
+import { EmailService } from '../email/email.service.js';
 import { WalletService } from '../wallet/wallet.service.js';
 
 export interface UserSession {
@@ -36,6 +37,7 @@ export class AuthService {
     @Inject(Msg91SmsService) private readonly smsService: Msg91SmsService,
     @Optional() @Inject(OtpRedisService) otpRedisService?: OtpRedisService,
     @Optional() @Inject(WalletService) private readonly walletService?: WalletService,
+    @Optional() @Inject(EmailService) private readonly emailService?: EmailService,
   ) {
     this.otpRedisService = otpRedisService ?? new OtpRedisService();
   }
@@ -238,6 +240,9 @@ export class AuthService {
 
     this.emailVerificationTokens.set(token, { userId, email: input.email });
     console.log(`[Resend Email] Verification link sent to ${input.email}: token=${token}`);
+    if (this.emailService) {
+      await this.emailService.sendVerificationEmail(input.email, token);
+    }
 
     return {
       success: true,

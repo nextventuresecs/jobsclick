@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { JobRow, JobAlertRow, AlertDeliveryRow } from '@indian-job-portal/database';
+import { WorkerEmailService } from '../email/email.service.js';
 
 export interface AlertsJobData {
   timeframeHours?: number;
@@ -35,6 +36,7 @@ export class AlertsProcessor {
   private static inMemoryDeliveries = new Map<string, AlertDeliveryRow>();
   private supabase: SupabaseClient | null = null;
   private persistenceFilePath: string;
+  private emailService = new WorkerEmailService();
 
   constructor() {
     const supabaseUrl = process.env['SUPABASE_URL'];
@@ -253,44 +255,18 @@ export class AlertsProcessor {
         }
 
         const isTestEnv = process.env['NODE_ENV'] === 'test' || !process.env['RESEND_API_KEY'];
-
-        // 2. Bilingual Subject Resolution (Hard Invariant #8a - No hardcoded user-facing strings)
-        const subject = recipientLang === 'hi'
-          ? `आपकी जॉब अलर्ट सूचना (${matchedJobsForUser.length} नए मैच)`
-          : `Your Job Alert Digest (${matchedJobsForUser.length} new matches)`;
-
-        // 3. Dispatch Outbound Email Notification
         let dispatchSucceeded = isTestEnv;
-        if (!isTestEnv && recipientEmail) {
-          try {
-            const res = await fetch('https://api.resend.com/emails', {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${process.env['RESEND_API_KEY']}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                from: 'Indian Jobs Alerts <alerts@indianjobs.portal>',
-                to: recipientEmail,
-                subject,
-                headers: {
-                  'List-Unsubscribe': `<https://indianjobs.portal/alerts/unsubscribe?user=${userId}>`,
-                  'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-                },
-                html: `<h3>New Job Openings Matching Your Saved Alerts</h3>
-                  <ul>${matchedJobsForUser.map((m) => `<li><strong>${m.job.title}</strong> - ${m.job.city} (${m.job.min_pay}-${m.job.max_pay} INR)</li>`).join('')}</ul>
-                  <p><a href="https://indianjobs.portal/alerts/unsubscribe?user=${userId}">Unsubscribe from daily job alerts</a></p>`,
-              }),
-            });
-            dispatchSucceeded = res.ok;
-            if (!res.ok) {
-              console.error(`[AlertsProcessor] Resend API returned ${res.status} for user ${userId}`);
-            }
-          } catch (err) {
-            console.error(`[AlertsProcessor] Email dispatch failed for user ${userId}:`, err);
-            dispatchSucceeded = false;
-          }
+
+        if (recipientEmail) {
+          const emailRes = await this.emailService.sendAlertDigest(
+            recipientEmail,
+            matchedJobsForUser.map((m) => m.job),
+            userId,
+            recipientLang,
+          );
+          dispatchSucceeded = emailRes.success;
         }
+
 
         // 4. Record Deliveries ONLY on successful dispatch (prevents premature deduplication on dispatch failure)
         if (dispatchSucceeded) {
