@@ -42,13 +42,70 @@ export function ensureDevanagariFontsRegistered(): void {
   }
 }
 
+export class Semaphore {
+  private current: number = 0;
+  private queue: Array<() => void> = [];
+
+  constructor(public readonly max: number) {}
+
+  async acquire(): Promise<() => void> {
+    if (this.current < this.max) {
+      this.current++;
+      let released = false;
+      return () => {
+        if (!released) {
+          released = true;
+          this.release();
+        }
+      };
+    }
+
+    return new Promise<() => void>((resolve) => {
+      this.queue.push(() => {
+        this.current++;
+        let released = false;
+        resolve(() => {
+          if (!released) {
+            released = true;
+            this.release();
+          }
+        });
+      });
+    });
+  }
+
+  private release(): void {
+    this.current--;
+    const next = this.queue.shift();
+    if (next) {
+      next();
+    }
+  }
+
+  get active(): number {
+    return this.current;
+  }
+
+  get waiting(): number {
+    return this.queue.length;
+  }
+}
+
 export class PdfGeneratorService {
   private cache = new Map<string, { buffer: Buffer; cachedAt: number }>();
-  private activeConcurrency = 0;
-  private readonly maxConcurrency = 10;
+  private readonly semaphore: Semaphore;
 
-  constructor() {
+  constructor(maxConcurrency = 10) {
+    this.semaphore = new Semaphore(maxConcurrency);
     ensureDevanagariFontsRegistered();
+  }
+
+  get activeConcurrency(): number {
+    return this.semaphore.active;
+  }
+
+  get waitingConcurrency(): number {
+    return this.semaphore.waiting;
   }
 
   async generateSeekerPdf(data: SeekerPdfData): Promise<{ buffer: Buffer; fromCache: boolean; generationTimeMs: number }> {
@@ -64,12 +121,9 @@ export class PdfGeneratorService {
       };
     }
 
-    // 2. Concurrency cap check (Max 10 concurrent PDF generations)
-    if (this.activeConcurrency >= this.maxConcurrency) {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-    }
+    // 2. Strict FIFO Semaphore acquire (STF-09: bounded concurrency)
+    const release = await this.semaphore.acquire();
 
-    this.activeConcurrency++;
     try {
       ensureDevanagariFontsRegistered();
 
@@ -101,7 +155,7 @@ export class PdfGeneratorService {
         generationTimeMs: Date.now() - startTime,
       };
     } finally {
-      this.activeConcurrency--;
+      release();
     }
   }
 
