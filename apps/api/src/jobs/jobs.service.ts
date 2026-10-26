@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject, Logger } from '@nestjs/common';
 import {
   CreateJobInput,
   UpdateJobInput,
@@ -80,6 +80,7 @@ function mapJobRowToRecord(row: JobRow): JobRecord {
 
 @Injectable()
 export class JobsService {
+  private readonly logger = new Logger(JobsService.name);
   constructor(
     @Inject(JobRepository) private readonly jobRepository: JobRepository,
     @Inject(ApplicationRepository) private readonly applicationRepository: ApplicationRepository,
@@ -216,6 +217,9 @@ export class JobsService {
     await this.applicationRepository.create(appRow);
 
     const seekerProfile = await this.profileRepository.findSeekerProfileByUserId(applicantId);
+    if (!seekerProfile) {
+      this.logger.warn(`Applicant profile missing for user ${applicantId}; using generic applicant metadata without mock fallbacks`);
+    }
 
     return {
       id: appId,
@@ -226,10 +230,10 @@ export class JobsService {
       createdAt: now,
       applicantProfile: {
         seekerId: seekerProfile?.id || `seeker_${applicantId}`,
-        fullName: seekerProfile?.full_name || 'Anita Sharma',
-        seekerType: seekerProfile?.seeker_type || 'student',
-        city: seekerProfile?.city || 'Indore',
-        skills: seekerProfile?.skills || ['Tally', 'Accounting'],
+        fullName: seekerProfile?.full_name || 'Applicant',
+        seekerType: seekerProfile?.seeker_type || 'individual',
+        city: seekerProfile?.city || '',
+        skills: seekerProfile?.skills || [],
         // Hard Invariant #1: Phone & email explicitly excluded!
       },
     };
@@ -250,6 +254,9 @@ export class JobsService {
 
     for (const app of appRows) {
       const seekerProfile = await this.profileRepository.findSeekerProfileByUserId(app.applicant_id);
+      if (!seekerProfile) {
+        this.logger.warn(`Application ${app.id} references orphaned seeker profile for user ${app.applicant_id}`);
+      }
       records.push({
         id: app.id,
         jobId: app.job_id,
@@ -259,10 +266,10 @@ export class JobsService {
         createdAt: app.created_at,
         applicantProfile: {
           seekerId: seekerProfile?.id || `seeker_${app.applicant_id}`,
-          fullName: seekerProfile?.full_name || 'Anita Sharma',
-          seekerType: seekerProfile?.seeker_type || 'student',
-          city: seekerProfile?.city || 'Indore',
-          skills: seekerProfile?.skills || ['Tally', 'Accounting'],
+          fullName: seekerProfile?.full_name || 'Applicant',
+          seekerType: seekerProfile?.seeker_type || 'individual',
+          city: seekerProfile?.city || '',
+          skills: seekerProfile?.skills || [],
           // Hard Invariant #1: Phone & email explicitly excluded!
         },
       });
@@ -289,6 +296,9 @@ export class JobsService {
 
     const updated = await this.applicationRepository.updateStatus(applicationId, status);
     const seekerProfile = await this.profileRepository.findSeekerProfileByUserId(appRecord.applicant_id);
+    if (!seekerProfile) {
+      this.logger.warn(`Application ${applicationId} references orphaned seeker profile for user ${appRecord.applicant_id}`);
+    }
 
     return {
       id: updated!.id,
@@ -299,10 +309,10 @@ export class JobsService {
       createdAt: updated!.created_at,
       applicantProfile: {
         seekerId: seekerProfile?.id || `seeker_${appRecord.applicant_id}`,
-        fullName: seekerProfile?.full_name || 'Anita Sharma',
-        seekerType: seekerProfile?.seeker_type || 'student',
-        city: seekerProfile?.city || 'Indore',
-        skills: seekerProfile?.skills || ['Tally', 'Accounting'],
+        fullName: seekerProfile?.full_name || 'Applicant',
+        seekerType: seekerProfile?.seeker_type || 'individual',
+        city: seekerProfile?.city || '',
+        skills: seekerProfile?.skills || [],
         // Hard Invariant #1: Phone & email explicitly excluded!
       },
     };
