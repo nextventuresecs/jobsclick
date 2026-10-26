@@ -64,9 +64,12 @@ Before launching to live users, developers must configure 5 key external service
 3. Run the SQL migration scripts in sequence from `packages/database/supabase/migrations/`:
    - `20261008000000_init_schema.sql`
    - `20261008000001_db_schema_v1_rls.sql`
-4. Update `apps/api/.env`:
+4. Update `apps/api/.env` (Enforce Connection Pooler - PRN-08):
    ```env
-   DATABASE_URL=postgresql://postgres:your_password@db.your_supabase_ref.supabase.co:5432/postgres
+   # Transaction Pooler (Port 6543 with pgbouncer=true) for runtime application queries
+   DATABASE_URL=postgresql://postgres.your_supabase_ref:your_password@aws-0-ap-northeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true
+   # Direct Session Connection (Port 5432) strictly for running DDL migrations
+   DIRECT_URL=postgresql://postgres.your_supabase_ref:your_password@aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres
    SUPABASE_URL=https://your_supabase_ref.supabase.co
    SUPABASE_ANON_KEY=your_supabase_anon_key
    SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key

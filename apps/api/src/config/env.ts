@@ -33,6 +33,11 @@ const baseSchema = z.object({
   RAZORPAY_KEY_SECRET: z.string().optional(),
   RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
   ALLOW_TEST_PAYMENTS: z.coerce.boolean().default(false),
+  // Feature Flags (PRN-06: Scope Isolation for P2/P3 Modules)
+  ENABLE_P2_PAYMENTS: z.coerce.boolean().default(true),
+  ENABLE_P2_WALLET_RECHARGE: z.coerce.boolean().default(true),
+  ENABLE_P2_PLACEMENT_PIPELINE: z.coerce.boolean().default(true),
+  ENABLE_P2_FEATURED_PROMOTIONS: z.coerce.boolean().default(true),
 }).passthrough();
 
 export type EnvConfig = z.infer<typeof baseSchema>;
