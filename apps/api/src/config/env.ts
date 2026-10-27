@@ -100,7 +100,7 @@ export function validateEnv(): EnvConfig {
 
     if (missing.length > 0) {
       const msgs = missing.map(([name, , reason]) => `  - ${name}: ${reason}`);
-      throw new Error(`Missing or dummy required production environment variables:\n${msgs.join('\n')}`);
+      throw new Error(`Missing or dummy required production environment variables:\n${msgs.join('\n')}\n-> Ensure all production variables are set in your deployment environment.`);
     }
 
     // JWT_SECRET must have at least 32 characters in production
