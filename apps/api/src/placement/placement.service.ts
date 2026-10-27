@@ -237,6 +237,11 @@ export class PlacementService {
   }
 
   private seedInitialDataIfEmpty(): void {
+    // File-based seeding is disabled in production; Supabase is the sole source of truth.
+    if (process.env['NODE_ENV'] === 'production') {
+      return;
+    }
+
     const tieUpsTable = this.persistentStore.getTable<CorporateTieUp>('corporate_tie_ups');
     if (Object.keys(tieUpsTable).length === 0) {
       for (const t of SEED_TIE_UPS) {
