@@ -74,6 +74,12 @@ export class QueueService implements OnModuleDestroy {
           return Math.min(times * 200, 5000);
         },
       });
+
+      // Attach error handler to prevent unhandled EventEmitter error events from crashing Node
+      this.connection.on('error', (err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.warn('[QueueService] Redis connection warning:', msg);
+      });
     }
 
     const connOptions = this.connection as unknown as ConnectionOptions;
@@ -101,6 +107,19 @@ export class QueueService implements OnModuleDestroy {
     this.alertsQueue = new Queue(QUEUE_NAMES.ALERTS, {
       connection: connOptions,
       defaultJobOptions: DEFAULT_JOB_OPTIONS,
+    });
+
+    // Guard BullMQ queues against unhandled EventEmitter errors during startup
+    [
+      this.bulkImportQueue,
+      this.inviteWaveQueue,
+      this.pdfGeneratorQueue,
+      this.broadcastQueue,
+      this.alertsQueue,
+    ].forEach((q) => {
+      q.on('error', (err: Error) => {
+        console.warn(`[QueueService] ${q.name} queue connection warning: ${err.message}`);
+      });
     });
 
     // Mount Bull-Board dashboard

@@ -46,6 +46,12 @@ export class OtpRedisService implements OnModuleDestroy {
           return Math.min(times * 200, 5000);
         },
       });
+
+      // Prevent unhandled EventEmitter errors from terminating the Node process
+      this.client.on('error', (err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        this.logger.warn(`Redis connection warning: ${msg}`);
+      });
     }
   }
 

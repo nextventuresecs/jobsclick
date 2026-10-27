@@ -69,8 +69,9 @@ async function bootstrap() {
     console.warn('[Bull-Board] Failed to mount Bull-Board on Fastify:', err);
   }
 
-  await app.listen(env.PORT, '0.0.0.0');
-  console.log(`API running on http://localhost:${env.PORT}`);
+  const port = env.PORT;
+  await app.listen(port, '0.0.0.0');
+  console.log(`API running on http://0.0.0.0:${port}`);
 }
 
 bootstrap();
