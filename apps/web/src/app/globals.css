@@ -1,3 +1,31 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :lang(hi) {
+    font-family: var(--font-devanagari), 'Noto Sans Devanagari', 'Nirmala UI', system-ui, sans-serif;
+    letter-spacing: 0 !important;
+  }
+
+  :lang(hi) h1,
+  :lang(hi) h2,
+  :lang(hi) h3,
+  :lang(hi) h4,
+  :lang(hi) h5,
+  :lang(hi) h6 {
+    letter-spacing: 0 !important;
+    line-height: 1.35 !important;
+  }
+
+  :lang(hi) p,
+  :lang(hi) span,
+  :lang(hi) button,
+  :lang(hi) a,
+  :lang(hi) input,
+  :lang(hi) select,
+  :lang(hi) textarea,
+  :lang(hi) label {
+    letter-spacing: 0 !important;
+  }
+}

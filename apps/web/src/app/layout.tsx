@@ -3,9 +3,23 @@ import React from 'react';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, getLocale } from 'next-intl/server';
 import { headers } from 'next/headers';
+import { Inter, Noto_Sans_Devanagari } from 'next/font/google';
 
 import { ClientProviders } from '../components/ClientProviders';
 import { getServerSession } from '../lib/auth-session';
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+});
+
+const notoDevanagari = Noto_Sans_Devanagari({
+  subsets: ['devanagari'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-devanagari',
+  display: 'swap',
+});
 
 export const dynamic = 'force-dynamic';
 
@@ -46,7 +60,7 @@ export default async function RootLayout({
   const hiUrl = `${siteUrl}/hi${canonicalPath}`;
 
   return (
-    <html lang={locale}>
+    <html lang={locale} className={`${inter.variable} ${notoDevanagari.variable}`}>
       <head>
         <link rel="alternate" hrefLang="en" href={enUrl} />
         <link rel="alternate" hrefLang="hi" href={hiUrl} />
