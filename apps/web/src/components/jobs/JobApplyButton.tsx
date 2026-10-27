@@ -36,7 +36,7 @@ export function JobApplyButton({
       addToast({
         type: 'info',
         title: 'Sign In Required',
-        message: 'Please sign in or claim your verified candidate profile to apply directly.',
+        message: 'Please sign in with your mobile number to apply directly.',
       });
       return;
     }
@@ -76,7 +76,7 @@ export function JobApplyButton({
         addToast({
           type: 'success',
           title: 'Application Submitted Successfully!',
-          message: `Your verified profile for "${jobTitle}" has been sent to ${companyName}. Candidate phone and email remain masked per Hard Invariant #1.`,
+          message: `Your verified profile for "${jobTitle}" has been sent to ${companyName}. Your contact details remain protected and confidential.`,
         });
       } else {
         const errData = await res.json().catch(() => ({}));
@@ -97,12 +97,11 @@ export function JobApplyButton({
         }
       }
     } catch {
-      // In offline or simulator mode, record success state
       setHasApplied(true);
       addToast({
         type: 'success',
         title: 'Application Submitted Successfully!',
-        message: `Your verified profile for "${jobTitle}" has been sent to ${companyName}. Candidate phone and email remain masked per Hard Invariant #1.`,
+        message: `Your verified profile for "${jobTitle}" has been sent to ${companyName}. Your contact details remain protected and confidential.`,
       });
     } finally {
       setIsSubmitting(false);

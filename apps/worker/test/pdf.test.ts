@@ -109,7 +109,7 @@ describe('PdfGeneratorService - Ticket T-09 (JS-03 & Hard Invariant #8a)', () =>
     // Profile updated after cache generation -> cache invalidated
     const res2 = await service.generateSeekerPdf({
       ...data,
-      updatedAt: now + 5000,
+      updatedAt: Date.now() + 10000,
     });
     expect(res2.fromCache).toBe(false);
 

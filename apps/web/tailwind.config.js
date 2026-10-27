@@ -8,10 +8,14 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['var(--font-inter)', 'var(--font-devanagari)', 'system-ui', 'sans-serif'],
+        devanagari: ['var(--font-devanagari)', 'var(--font-inter)', 'sans-serif'],
+      },
       colors: {
         brand: {
-          orange: '#F97316',
-          'orange-hover': '#EA580C',
+          orange: '#C2410C',
+          'orange-hover': '#9A3412',
           'orange-light': '#FFF0E5',
           yellow: '#FBBF24',
           'yellow-light': '#FFFBEB',
@@ -23,8 +27,8 @@ module.exports = {
         gray: {
           light: '#E5E7EB',
           soft: '#F3F4F6',
-          text: '#6B7280',
-          muted: '#9CA3AF',
+          text: '#374151',
+          muted: '#6B7280',
           surface: '#F9FAFB',
         },
         success: '#15803D',

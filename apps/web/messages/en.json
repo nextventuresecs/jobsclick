@@ -353,7 +353,7 @@
     "labelAadhaarInput": "Aadhaar Number (Last 4 Digits Only)",
     "labelAadhaarHelp": "Hard Invariant #8: Full 12 digits never collected or stored.",
     "labelApaarInput": "APAAR Student ID (Optional)",
-    "labelDpdpCheckbox": "I hereby provide consent to process my profile data for employment matching under DPDP Act.",
+    "labelDpdpCheckbox": "I provide consent to use my verified profile for job matching under the DPDP Act. (Your phone and email remain completely private).",
     "cvHeading": "Verified Vector Resume",
     "downloadPdf": "Download Official PDF",
     "printResume": "Print Resume",

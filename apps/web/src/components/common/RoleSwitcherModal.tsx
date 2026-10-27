@@ -31,7 +31,7 @@ export function RoleSwitcherModal() {
     logout,
   } = useApp();
 
-  if (!isRoleSwitcherOpen) return null;
+  if (!isRoleSwitcherOpen || process.env.NODE_ENV === 'production') return null;
 
   const rolesList: readonly RoleOption[] = [
     {
@@ -67,7 +67,7 @@ export function RoleSwitcherModal() {
       subtitle: 'District Industries Centre (DIC) Facilitation Cell',
       description:
         'Verify enterprise Udyam certifications, monitor industrial employment metrics, and review business compliance.',
-      icon: <Building className="w-5 h-5 text-purple-600" />,
+      icon: <Building className="w-6 h-6 text-purple-600" />,
       color: 'border-purple-200 bg-purple-50/50 hover:bg-purple-50',
     },
     {
@@ -101,62 +101,66 @@ export function RoleSwitcherModal() {
           <button
             type="button"
             onClick={closeRoleSwitcher}
-            className="p-1 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-            aria-label="Close role switcher"
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            aria-label="Close"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Roles Grid */}
-        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-3.5">
-          {rolesList.map((item) => {
-            const isSelected = currentUserRole === item.role;
+        {/* Current Role Banner */}
+        {currentUserRole && (
+          <div className="mx-6 mt-4 p-3 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-between text-xs">
+            <span className="text-gray-600">
+              Active Session:{' '}
+              <strong className="text-gray-900 uppercase">{currentUserRole}</strong>
+            </span>
+            <button
+              type="button"
+              onClick={() => logout()}
+              className="text-red-600 hover:underline flex items-center gap-1 font-semibold"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              Reset
+            </button>
+          </div>
+        )}
+
+        {/* Role Options */}
+        <div className="p-6 space-y-3">
+          {rolesList.map((r) => {
+            const isSelected = currentUserRole === r.role;
             return (
-              <button
-                key={item.role}
-                type="button"
+              <div
+                key={r.role}
                 onClick={() => {
-                  loginAs(item.role);
+                  loginAs(r.role);
+                  closeRoleSwitcher();
                 }}
-                className={`p-4 rounded-xl border text-left transition-all relative cursor-pointer ${item.color} ${
-                  isSelected ? 'ring-2 ring-[#F97316] border-[#F97316]' : ''
+                className={`p-4 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${r.color} ${
+                  isSelected ? 'ring-2 ring-orange-500 font-semibold' : ''
                 }`}
               >
-                {isSelected && (
-                  <span className="absolute top-3 right-3 text-[10px] font-bold uppercase tracking-wider text-white bg-[#F97316] px-2 py-0.5 rounded-full">
-                    Active
-                  </span>
-                )}
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-white rounded-lg shadow-2xs border border-gray-100 shrink-0">
-                    {item.icon}
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900 text-sm">{item.title}</h4>
-                    <p className="text-[11px] text-gray-500">{item.subtitle}</p>
-                  </div>
+                <div className="p-2 rounded-lg bg-white shadow-2xs shrink-0 mt-0.5">
+                  {r.icon}
                 </div>
-                <p className="text-xs text-gray-600 leading-relaxed mt-2">{item.description}</p>
-              </button>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-gray-900">{r.title}</span>
+                    {isSelected && (
+                      <span className="text-[10px] font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">
+                        ACTIVE
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-700 mt-0.5 font-medium">{r.subtitle}</p>
+                  <p className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">
+                    {r.description}
+                  </p>
+                </div>
+              </div>
             );
           })}
-        </div>
-
-        {/* Guest sign out option */}
-        <div className="p-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => {
-              logout();
-              closeRoleSwitcher();
-            }}
-            className="inline-flex items-center gap-2 text-xs font-semibold text-gray-600 hover:text-red-600 transition-colors cursor-pointer"
-          >
-            <LogOut className="w-4 h-4" />
-            <span>Reset to Public Guest Mode (Signed Out)</span>
-          </button>
-          <span className="text-[11px] text-gray-400 font-mono">Demo Role Simulator</span>
         </div>
       </div>
     </div>

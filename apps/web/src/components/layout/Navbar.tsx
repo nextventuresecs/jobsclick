@@ -14,18 +14,11 @@ interface NavbarProps {
   readonly onOpenAuth?: (role?: string) => void;
 }
 
-const ROLE_SHORT_LABELS: Record<ClientRole, string> = {
-  jobseeker: 'Job Seeker',
-  employer: 'Employer',
-  institution: 'Institution',
-  msme_dept: 'MSME Dept',
-  platform_admin: 'Central Ops',
-};
-
 export const Navbar: React.FC<NavbarProps> = ({
   onOpenAuth,
 }) => {
   const t = useTranslations('Navigation');
+  const tRoles = useTranslations('Roles');
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -46,9 +39,16 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
   };
 
-
   const isActive = (path: string) => {
     return pathname === path || pathname.startsWith(`${path}/`);
+  };
+
+  const getRoleLabel = (role: ClientRole): string => {
+    if (role === 'jobseeker') return tRoles('jobseeker');
+    if (role === 'employer') return tRoles('employer');
+    if (role === 'institution') return tRoles('institution');
+    if (role === 'msme_dept') return tRoles('msmeDept');
+    return tRoles('admin');
   };
 
   return (
@@ -58,7 +58,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Zone 1: Brand Wordmark */}
           <Link
             href="/"
-            className="flex items-center text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-orange rounded-md shrink-0"
+            className="flex items-center text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C2410C] rounded-md shrink-0"
             aria-label="JobsClick Home"
           >
             <JobsClickLogo variant="full" size="md" />
@@ -70,8 +70,8 @@ export const Navbar: React.FC<NavbarProps> = ({
               href="/jobs"
               className={`whitespace-nowrap transition-colors py-1 ${
                 isActive('/jobs')
-                  ? 'text-brand-orange font-semibold border-b-2 border-brand-orange'
-                  : 'hover:text-brand-orange'
+                  ? 'text-[#C2410C] font-semibold border-b-2 border-[#C2410C]'
+                  : 'hover:text-[#C2410C]'
               }`}
             >
               {t('findJobs')}
@@ -80,28 +80,18 @@ export const Navbar: React.FC<NavbarProps> = ({
               href="/company"
               className={`whitespace-nowrap transition-colors py-1 ${
                 isActive('/company')
-                  ? 'text-brand-orange font-semibold border-b-2 border-brand-orange'
-                  : 'hover:text-brand-orange'
+                  ? 'text-[#C2410C] font-semibold border-b-2 border-[#C2410C]'
+                  : 'hover:text-[#C2410C]'
               }`}
             >
               {t('companies')}
             </Link>
             <Link
-              href="/workspace"
-              className={`whitespace-nowrap transition-colors py-1 ${
-                isActive('/workspace')
-                  ? 'text-brand-orange font-semibold border-b-2 border-brand-orange'
-                  : 'hover:text-brand-orange'
-              }`}
-            >
-              Dashboard
-            </Link>
-            <Link
               href="/how-it-works"
               className={`whitespace-nowrap transition-colors py-1 ${
                 isActive('/how-it-works')
-                  ? 'text-brand-orange font-semibold border-b-2 border-brand-orange'
-                  : 'hover:text-brand-orange'
+                  ? 'text-[#C2410C] font-semibold border-b-2 border-[#C2410C]'
+                  : 'hover:text-[#C2410C]'
               }`}
             >
               {t('howItWorks')}
@@ -110,11 +100,11 @@ export const Navbar: React.FC<NavbarProps> = ({
               href="/institutions"
               className={`whitespace-nowrap transition-colors py-1 ${
                 isActive('/institutions')
-                  ? 'text-brand-orange font-semibold border-b-2 border-brand-orange'
-                  : 'hover:text-brand-orange'
+                  ? 'text-[#C2410C] font-semibold border-b-2 border-[#C2410C]'
+                  : 'hover:text-[#C2410C]'
               }`}
             >
-              Institutions
+              {t('institutions')}
             </Link>
           </nav>
 
@@ -129,8 +119,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-orange-50 text-orange-950 border border-orange-200"
                 title="Current active workspace role"
               >
-                <ShieldCheck className="w-3.5 h-3.5 text-brand-orange" />
-                <span>Role: {ROLE_SHORT_LABELS[app.currentUserRole]}</span>
+                <ShieldCheck className="w-3.5 h-3.5 text-[#C2410C]" />
+                <span>{getRoleLabel(app.currentUserRole)}</span>
               </div>
             )}
 
@@ -138,17 +128,17 @@ export const Navbar: React.FC<NavbarProps> = ({
               <div className="flex items-center gap-2">
                 <Link
                   href="/workspace"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
                 >
                   <LayoutDashboard className="w-3.5 h-3.5" />
-                  <span>Workspace</span>
+                  <span>{t('myWorkspace')}</span>
                 </Link>
                 <button
                   type="button"
                   onClick={() => app.logout()}
-                  className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-gray-100 transition-colors"
-                  title="Sign Out"
-                  aria-label="Sign Out"
+                  className="p-2 text-gray-500 hover:text-red-600 rounded-lg hover:bg-gray-100 transition-colors"
+                  title={t('signOut')}
+                  aria-label={t('signOut')}
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
@@ -211,13 +201,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             {t('companies')}
           </Link>
           <Link
-            href="/workspace"
-            onClick={() => setMobileMenuOpen(false)}
-            className="block px-3 py-2 text-base font-medium text-gray-800 rounded-md hover:bg-gray-50"
-          >
-            Dashboard
-          </Link>
-          <Link
             href="/how-it-works"
             onClick={() => setMobileMenuOpen(false)}
             className="block px-3 py-2 text-base font-medium text-gray-800 rounded-md hover:bg-gray-50"
@@ -229,13 +212,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => setMobileMenuOpen(false)}
             className="block px-3 py-2 text-base font-medium text-gray-800 rounded-md hover:bg-gray-50"
           >
-            Institutions
+            {t('institutions')}
           </Link>
 
           <div className="pt-3 border-t border-gray-100 flex flex-col gap-2">
             {app?.isAuthenticated && app?.currentUserRole && (
               <div className="w-full text-center px-3 py-2 text-xs font-semibold text-orange-950 bg-orange-50 border border-orange-200 rounded-lg">
-                Role: {ROLE_SHORT_LABELS[app.currentUserRole]}
+                {getRoleLabel(app.currentUserRole)}
               </div>
             )}
 
@@ -244,9 +227,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <Link
                   href="/workspace"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="text-center px-3 py-2 text-sm font-semibold text-white bg-gray-900 rounded-lg"
+                  className="text-center px-3 py-2.5 text-sm font-semibold text-white bg-gray-900 rounded-lg"
                 >
-                  Workspace
+                  {t('myWorkspace')}
                 </Link>
                 <button
                   type="button"
@@ -254,9 +237,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                     setMobileMenuOpen(false);
                     app.logout();
                   }}
-                  className="text-center px-3 py-2 text-sm font-semibold text-red-600 bg-red-50 rounded-lg"
+                  className="text-center px-3 py-2.5 text-sm font-semibold text-red-600 bg-red-50 rounded-lg"
                 >
-                  Sign Out
+                  {t('signOut')}
                 </button>
               </div>
             ) : (
@@ -267,7 +250,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     setMobileMenuOpen(false);
                     handleOpenAuth('jobseeker');
                   }}
-                  className="w-full text-center px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                  className="w-full text-center px-3 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
                 >
                   {t('signIn')}
                 </button>

@@ -121,7 +121,7 @@ function PhoneOtpForm({
         </p>
       </div>
 
-      <div className="flex justify-center gap-2">
+      <div className="flex justify-center gap-1.5 sm:gap-2">
         {otp.map((digit, idx) => (
           <input
             key={idx}
@@ -131,7 +131,7 @@ function PhoneOtpForm({
             maxLength={1}
             value={digit}
             onChange={(e) => onOtpChange(idx, e.target.value)}
-            className="w-11 h-12 text-center text-lg font-bold font-mono rounded-xl border border-gray-300 focus:ring-2 focus:ring-orange-500 focus:outline-hidden"
+            className="w-9 h-11 sm:w-11 sm:h-12 text-center text-base sm:text-lg font-bold font-mono rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#C2410C] focus:outline-hidden"
           />
         ))}
       </div>
@@ -322,7 +322,7 @@ export function AuthModal() {
       setOtp(['', '', '', '', '', '']);
       addToast({
         type: 'info',
-        title: 'OTP Dispatched via MSG91',
+        title: 'Verification Code Sent',
         message: data.message || `Verification code sent to +91 ${parsedPhone.data}.`,
       });
     } catch (err) {
@@ -590,7 +590,7 @@ export function AuthModal() {
               }}
               className={`flex flex-col items-center justify-center p-2 rounded-xl border text-center transition-all cursor-pointer ${
                 selectedRole === 'jobseeker'
-                  ? 'bg-orange-500 text-white border-orange-600 shadow-sm'
+                  ? 'bg-[#C2410C] text-white border-[#9A3412] shadow-sm'
                   : 'bg-white text-gray-700 border-gray-200 hover:border-orange-300 hover:bg-orange-50/40'
               }`}
             >
@@ -606,7 +606,7 @@ export function AuthModal() {
               }}
               className={`flex flex-col items-center justify-center p-2 rounded-xl border text-center transition-all cursor-pointer ${
                 selectedRole === 'employer'
-                  ? 'bg-orange-500 text-white border-orange-600 shadow-sm'
+                  ? 'bg-[#C2410C] text-white border-[#9A3412] shadow-sm'
                   : 'bg-white text-gray-700 border-gray-200 hover:border-orange-300 hover:bg-orange-50/40'
               }`}
             >
@@ -622,7 +622,7 @@ export function AuthModal() {
               }}
               className={`flex flex-col items-center justify-center p-2 rounded-xl border text-center transition-all cursor-pointer ${
                 selectedRole === 'institution'
-                  ? 'bg-orange-500 text-white border-orange-600 shadow-sm'
+                  ? 'bg-[#C2410C] text-white border-[#9A3412] shadow-sm'
                   : 'bg-white text-gray-700 border-gray-200 hover:border-orange-300 hover:bg-orange-50/40'
               }`}
             >
@@ -645,7 +645,7 @@ export function AuthModal() {
           {/* ============================================================== */}
           {selectedRole === 'employer' && (
             <div className="space-y-4">
-              <div className="grid grid-cols-4 p-1 bg-gray-100 rounded-xl text-xs font-semibold text-gray-600">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 p-1 bg-gray-100 rounded-xl text-xs font-semibold text-gray-600">
                 {(['phone_otp', 'email_pwd', 'google', 'udyam'] as const).map((tab) => (
                   <button
                     key={tab}
