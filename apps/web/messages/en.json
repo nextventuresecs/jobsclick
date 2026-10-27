@@ -902,5 +902,11 @@
     "submitInquiry": "Submit Admission Inquiry",
     "inquirySuccess": "Inquiry Submitted Successfully!",
     "inquirySuccessDesc": "The college admissions desk has received your details and will contact you shortly."
+  },
+  "Errors": {
+    "title": "Something went wrong",
+    "description": "An unexpected error occurred. Our engineering team has been notified.",
+    "sectionError": "We encountered an issue loading this section.",
+    "tryAgain": "Try again"
   }
 }
