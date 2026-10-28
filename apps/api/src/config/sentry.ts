@@ -147,11 +147,10 @@ export function setupFastifySentry(fastify: FastifyInstance): void {
       () => {
         const traceData = Sentry.getTraceData();
         const traceId =
-          const traceId =
           getTraceIdFromTraceHeader(traceData['sentry-trace']) ||
           getTraceIdFromTraceHeader(rawTrace) ||
           crypto.randomUUID().replace(/-/g, '');
-        
+
         const context: RequestTraceContext = {
           traceId,
           sentryTrace: traceData['sentry-trace'] || rawTrace,
