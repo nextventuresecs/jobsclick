@@ -43,9 +43,17 @@ export async function fetchBusinessProfile(apiUrl: string, authHeader: string, u
   }
 }
 
-export async function fetchEmployerJobs(apiUrl: string, authHeader: string, userId: string) {
+export async function fetchEmployerJobs(
+  apiUrl: string,
+  authHeader: string,
+  userId: string,
+  companyId?: string,
+) {
   try {
-    const res = await fetch(`${apiUrl}/jobs`, {
+    const url = companyId
+      ? `${apiUrl}/jobs?companyId=${encodeURIComponent(companyId)}`
+      : `${apiUrl}/jobs`;
+    const res = await fetch(url, {
       headers: { Authorization: authHeader, 'x-user-id': userId },
     });
     return res.ok ? await res.json() : null;
