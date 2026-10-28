@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, InternalServerErrorException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, PaymentRow } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
@@ -8,44 +8,42 @@ import { captureException } from '../../config/sentry.js';
 export class PaymentRepository {
   private persistentStore = PersistentDatabaseStore.getInstance();
   private isTestMode =
-    process.env['NODE_ENV'] === 'test' ||
-    !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
-    process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key';
+    process.env['NODE_ENV'] !== 'production' &&
+    (process.env['NODE_ENV'] === 'test' ||
+      !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
+      process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key');
 
   constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>) {}
 
   async create(record: PaymentRow): Promise<PaymentRow> {
-    // 1. Persist to local store
-    this.persistentStore.setRow('payments', record.id, record);
+    if (this.isTestMode) {
+      this.persistentStore.setRow('payments', record.id, record);
+      return record;
+    }
 
-    // 2. Persist to Supabase if live credentials available
-    if (!this.isTestMode) {
-      try {
-        await this.supabase.from('payments').insert({
-          id: record.id,
-          user_id: record.user_id,
-          gateway_order_id: record.gateway_order_id,
-          gateway_payment_id: record.gateway_payment_id ?? null,
-          gateway_signature: record.gateway_signature ?? null,
-          pack_id: record.pack_id ?? null,
-          credits_added: record.credits_added ?? 0,
-          amount_inr: record.amount_inr,
-          tax_amount_inr: record.tax_amount_inr ?? 0,
-          currency: record.currency ?? 'INR',
-          invoice_number: record.invoice_number ?? null,
-          status: record.status,
-          metadata: record.metadata ?? {},
-          processed_at: record.processed_at ?? null,
-          processed_by: record.processed_by ?? null,
-          created_at: record.created_at,
-          updated_at: record.updated_at ?? record.created_at,
-        });
-      } catch (err) {
-        if (process.env['NODE_ENV'] === 'production') {
-          captureException(err as Error);
-          throw new Error(`Database persistence failure for payment: ${(err as Error).message}`);
-        }
-      }
+    const { error } = await this.supabase.from('payments').insert({
+      id: record.id,
+      user_id: record.user_id,
+      gateway_order_id: record.gateway_order_id,
+      gateway_payment_id: record.gateway_payment_id ?? null,
+      gateway_signature: record.gateway_signature ?? null,
+      pack_id: record.pack_id ?? null,
+      credits_added: record.credits_added ?? 0,
+      amount_inr: record.amount_inr,
+      tax_amount_inr: record.tax_amount_inr ?? 0,
+      currency: record.currency ?? 'INR',
+      invoice_number: record.invoice_number ?? null,
+      status: record.status,
+      metadata: record.metadata ?? {},
+      processed_at: record.processed_at ?? null,
+      processed_by: record.processed_by ?? null,
+      created_at: record.created_at,
+      updated_at: record.updated_at ?? record.created_at,
+    });
+
+    if (error) {
+      captureException(new Error(error.message));
+      throw new InternalServerErrorException(`Database persistence failure for payment: ${error.message}`);
     }
 
     return record;
@@ -58,13 +56,16 @@ export class PaymentRepository {
           .from('payments')
           .select('*')
           .eq('id', id)
-          .single();
+          .maybeSingle();
 
-        if (!error && data) {
-          return data as unknown as PaymentRow;
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
         }
-      } catch {
-        // Fallback
+        return (data as unknown as PaymentRow) || null;
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
 
@@ -81,11 +82,14 @@ export class PaymentRepository {
           .eq('gateway_order_id', orderId)
           .maybeSingle();
 
-        if (!error && data) {
-          return data as unknown as PaymentRow;
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
         }
-      } catch {
-        // Fallback
+        return (data as unknown as PaymentRow) || null;
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
 
@@ -103,11 +107,14 @@ export class PaymentRepository {
           .eq('gateway_payment_id', paymentId)
           .maybeSingle();
 
-        if (!error && data) {
-          return data as unknown as PaymentRow;
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
         }
-      } catch {
-        // Fallback
+        return (data as unknown as PaymentRow) || null;
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
 
@@ -125,11 +132,14 @@ export class PaymentRepository {
           .eq('user_id', userId)
           .order('created_at', { ascending: false });
 
-        if (!error && data && data.length > 0) {
-          return data as unknown as PaymentRow[];
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
         }
-      } catch {
-        // Fallback
+        return (data as unknown as PaymentRow[]) || [];
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
 
@@ -205,13 +215,17 @@ export class PaymentRepository {
               payment: refetched,
             };
           }
-        } catch {
-          // Fallback to local store atomic state check
+        } catch (err) {
+          if (process.env['NODE_ENV'] === 'production') {
+            throw new InternalServerErrorException(`Database error during payment capture: ${(err as Error).message}`);
+          }
         }
       }
 
-      // 2. Synchronize to persistent store
-      this.persistentStore.setRow('payments', id, updatedRow);
+      // 2. Synchronize to persistent store in test mode
+      if (this.isTestMode) {
+        this.persistentStore.setRow('payments', id, updatedRow);
+      }
       return { updated: updatedRow, alreadyCaptured: false, payment: updatedRow };
     });
   }
@@ -228,14 +242,14 @@ export class PaymentRepository {
       updated_at: new Date().toISOString(),
     };
 
-    this.persistentStore.setRow('payments', id, updated);
+    if (this.isTestMode) {
+      this.persistentStore.setRow('payments', id, updated);
+      return updated;
+    }
 
-    if (!this.isTestMode) {
-      try {
-        await this.supabase.from('payments').update(updates).eq('id', id);
-      } catch {
-        // Fallback
-      }
+    const { error } = await this.supabase.from('payments').update(updates).eq('id', id);
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
     }
 
     return updated;

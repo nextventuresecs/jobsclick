@@ -260,6 +260,9 @@ export class PlacementService {
   private async getAllTieUps(): Promise<CorporateTieUp[]> {
     // 1. First retrieve all from repository
     const rows = await this.tieUpRepo.findAll();
+    if (process.env['NODE_ENV'] === 'production') {
+      return rows.map(mapTieUpRowToDomain);
+    }
     // 2. Also check local persistent store for pre-seeded items
     const storeTable = this.persistentStore.getTable<CorporateTieUp>('corporate_tie_ups');
     const storeItems = Object.values(storeTable);
@@ -278,6 +281,9 @@ export class PlacementService {
 
   private async getAllApplications(): Promise<PlacementApplication[]> {
     const rows = await this.pipelineRepo.findAll();
+    if (process.env['NODE_ENV'] === 'production') {
+      return rows.map(mapAppRowToDomain);
+    }
     const storeTable = this.persistentStore.getTable<PlacementApplication>('placement_applications');
     const storeItems = Object.values(storeTable);
 
@@ -349,8 +355,10 @@ export class PlacementService {
 
     // 1. Delegate persistence to CorporateTieUpRepository (Supabase table corporate_tie_ups)
     await this.tieUpRepo.create(mapDomainToTieUpRow(newTieUp));
-    // 2. Also keep local persistent store updated for instant queries
-    this.persistentStore.setRow('corporate_tie_ups', newTieUp.id, newTieUp);
+    // 2. Also keep local persistent store updated for instant queries in non-production
+    if (process.env['NODE_ENV'] !== 'production') {
+      this.persistentStore.setRow('corporate_tie_ups', newTieUp.id, newTieUp);
+    }
 
     return newTieUp;
   }
@@ -432,8 +440,10 @@ export class PlacementService {
     for (const app of newBatch) {
       // 1. Delegate persistence to PlacementPipelineRepository (Supabase table placement_applications)
       await this.pipelineRepo.create(mapDomainToAppRow(app, partner.id));
-      // 2. Also keep local persistent store updated
-      this.persistentStore.setRow('placement_applications', app.id, app);
+      // 2. Also keep local persistent store updated in non-production
+      if (process.env['NODE_ENV'] !== 'production') {
+        this.persistentStore.setRow('placement_applications', app.id, app);
+      }
     }
 
     return newBatch;
@@ -505,7 +515,9 @@ export class PlacementService {
         offer_package: updated.offerPackage || null,
         interview_date: updated.interviewDate || null,
       });
-      this.persistentStore.setRow('placement_applications', applicationId, updated);
+      if (process.env['NODE_ENV'] !== 'production') {
+        this.persistentStore.setRow('placement_applications', applicationId, updated);
+      }
 
       // 4. Double-Placement Lock:
       // If student accepted an offer and reached 'placed', automatically lock/withdraw other active applications
@@ -520,7 +532,9 @@ export class PlacementService {
           await this.pipelineRepo.update(lockedApp.id, {
             stage: lockedApp.stage,
           });
-          this.persistentStore.setRow('placement_applications', lockedApp.id, lockedApp);
+          if (process.env['NODE_ENV'] !== 'production') {
+            this.persistentStore.setRow('placement_applications', lockedApp.id, lockedApp);
+          }
         }
       }
 

@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, InternalServerErrorException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, InstitutionInquiryRow } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
@@ -7,21 +7,22 @@ import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.j
 export class InquiryRepository {
   private persistentStore = PersistentDatabaseStore.getInstance();
   private isTestMode =
-    process.env['NODE_ENV'] === 'test' ||
-    !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
-    process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key';
+    process.env['NODE_ENV'] !== 'production' &&
+    (process.env['NODE_ENV'] === 'test' ||
+      !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
+      process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key');
 
   constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>) {}
 
   async saveInquiry(inquiry: InstitutionInquiryRow): Promise<InstitutionInquiryRow> {
-    this.persistentStore.setRow('institution_inquiries', inquiry.id, inquiry);
+    if (this.isTestMode) {
+      this.persistentStore.setRow('institution_inquiries', inquiry.id, inquiry);
+      return inquiry;
+    }
 
-    if (!this.isTestMode) {
-      try {
-        await this.supabase.from('institution_inquiries').upsert(inquiry);
-      } catch {
-        // Persisted in local store
-      }
+    const { error } = await this.supabase.from('institution_inquiries').upsert(inquiry);
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
     }
 
     return inquiry;
@@ -36,11 +37,14 @@ export class InquiryRepository {
           .eq('institution_id', institutionId)
           .order('created_at', { ascending: false });
 
-        if (!error && data) {
-          return data as unknown as InstitutionInquiryRow[];
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
         }
-      } catch {
-        // Fall back to persistent local store
+        return (data as unknown as InstitutionInquiryRow[]) || [];
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
 
@@ -59,11 +63,14 @@ export class InquiryRepository {
           .eq('id', id)
           .maybeSingle();
 
-        if (!error && data) {
-          return data as unknown as InstitutionInquiryRow;
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
         }
-      } catch {
-        // Fall back to persistent local store
+        return (data as unknown as InstitutionInquiryRow) || null;
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
 

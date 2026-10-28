@@ -1,4 +1,4 @@
-import { Injectable, Inject, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, CreditLedgerRow } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
@@ -7,30 +7,30 @@ import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.j
 export class CreditLedgerRepository {
   private persistentStore = PersistentDatabaseStore.getInstance();
   private isTestMode =
-    process.env['NODE_ENV'] === 'test' ||
-    !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
-    process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key';
+    process.env['NODE_ENV'] !== 'production' &&
+    (process.env['NODE_ENV'] === 'test' ||
+      !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
+      process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key');
 
   constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>) {}
 
   async append(record: CreditLedgerRow): Promise<CreditLedgerRow> {
-    // 1. Always persist to resilient local state
-    this.persistentStore.setRow('credit_ledgers', record.id, record);
+    if (this.isTestMode) {
+      this.persistentStore.setRow('credit_ledgers', record.id, record);
+      return record;
+    }
 
-    // 2. Persist to Supabase PostgreSQL table credit_ledgers
-    if (!this.isTestMode) {
-      try {
-        await this.supabase.from('credit_ledgers').insert({
-          id: record.id,
-          user_id: record.user_id,
-          amount: record.amount,
-          reason: record.reason,
-          actor_id: record.actor_id ?? null,
-          created_at: record.created_at,
-        });
-      } catch {
-        // Maintained in local persistent store if remote DB unreachable
-      }
+    const { error } = await this.supabase.from('credit_ledgers').insert({
+      id: record.id,
+      user_id: record.user_id,
+      amount: record.amount,
+      reason: record.reason,
+      actor_id: record.actor_id ?? null,
+      created_at: record.created_at,
+    });
+
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
     }
 
     return record;
@@ -45,11 +45,14 @@ export class CreditLedgerRepository {
           .eq('user_id', userId)
           .order('created_at', { ascending: false });
 
-        if (!error && data && data.length > 0) {
-          return data as unknown as CreditLedgerRow[];
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
         }
-      } catch {
-        // Fall back to persistent local store
+        return (data as unknown as CreditLedgerRow[]) || [];
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
 
@@ -71,15 +74,21 @@ export class CreditLedgerRepository {
           error: { message: string } | null;
         }>)('get_user_credit_balance', { p_user_id: userId });
 
-        if (!error && data) {
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+
+        if (data) {
           return {
             balance: Number(data.balance ?? 0),
             creditsAdded: Number(data.credits_added ?? 0),
             creditsUsed: Number(data.credits_used ?? 0),
           };
         }
-      } catch {
-        // Fall back to persistent local store if remote DB unreachable
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
 
@@ -147,7 +156,10 @@ export class CreditLedgerRepository {
         };
       } catch (err) {
         if (err instanceof BadRequestException) throw err;
-        // Fall back to local persistent store concurrency lock
+        if (process.env['NODE_ENV'] === 'production') {
+          throw new InternalServerErrorException(`Database error deducting credit: ${(err as Error).message}`);
+        }
+        // Fall back to local persistent store concurrency lock in non-production
       }
     }
 
@@ -237,7 +249,10 @@ export class CreditLedgerRepository {
         };
       } catch (err) {
         if (err instanceof BadRequestException) throw err;
-        // Fall back to local persistent store concurrency lock
+        if (process.env['NODE_ENV'] === 'production') {
+          throw new InternalServerErrorException(`Database error unlocking contact: ${(err as Error).message}`);
+        }
+        // Fall back to local persistent store concurrency lock in non-production
       }
     }
 
@@ -284,6 +299,56 @@ export class CreditLedgerRepository {
   ): Promise<{ success: boolean; remainingBalance: number; row: CreditLedgerRow }> {
     if (amountToDeduct <= 0) {
       throw new BadRequestException('Deduction amount must be strictly positive');
+    }
+
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await (this.supabase.rpc as unknown as (
+          fn: string,
+          args: Record<string, unknown>,
+        ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+          'deduct_application_credit_with_ledger',
+          {
+            p_applicant_id: userId,
+            p_job_id: 'generic_deduction',
+            p_job_title: reason,
+            p_cost: amountToDeduct,
+          },
+        );
+
+        if (error) {
+          if (error.message.includes('INSUFFICIENT_CREDITS')) {
+            throw new BadRequestException({
+              statusCode: 400,
+              code: 'INSUFFICIENT_CREDITS',
+              message: 'Insufficient credits. Please recharge your credit wallet to continue applying.',
+            });
+          }
+          throw new BadRequestException(error.message);
+        }
+
+        const res = data as { success: boolean; remaining_balance: number };
+        const now = new Date().toISOString();
+        const row: CreditLedgerRow = {
+          id: `cld_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+          user_id: userId,
+          amount: -amountToDeduct,
+          reason,
+          actor_id: actorId ?? userId,
+          created_at: now,
+        };
+
+        return {
+          success: res.success,
+          remainingBalance: res.remaining_balance,
+          row,
+        };
+      } catch (err) {
+        if (err instanceof BadRequestException) throw err;
+        if (process.env['NODE_ENV'] === 'production') {
+          throw new InternalServerErrorException(`Database error during credit deduction: ${(err as Error).message}`);
+        }
+      }
     }
 
     return this.persistentStore.withLock(`credit_ledger_${userId}`, async () => {

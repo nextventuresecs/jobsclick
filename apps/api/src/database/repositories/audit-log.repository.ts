@@ -1,4 +1,4 @@
-import { Injectable, Inject, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
@@ -15,32 +15,29 @@ export interface AuditLogRow {
 export class AuditLogRepository {
   private persistentStore = PersistentDatabaseStore.getInstance();
   private isTestMode =
-    process.env['NODE_ENV'] === 'test' ||
-    !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
-    process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key';
+    process.env['NODE_ENV'] !== 'production' &&
+    (process.env['NODE_ENV'] === 'test' ||
+      !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
+      process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key');
 
   constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>) {}
 
   async append(record: AuditLogRow): Promise<AuditLogRow> {
-    // 1. Always persist to resilient local state
     if (this.isTestMode) {
       this.persistentStore.setRow('audit_logs', record.id, record);
       return record;
     }
 
-    // 2. Persist to Supabase PostgreSQL table audit_logs
-    if (!this.isTestMode) {
-      try {
-        await this.supabase.from('audit_logs').insert({
-          id: record.id,
-          actor_id: record.actor_id,
-          action: record.action,
-          meta: record.meta,
-          created_at: record.created_at,
-        });
-      } catch {
-        // Maintained in persistent store if remote DB unreachable
-      }
+    const { error } = await this.supabase.from('audit_logs').insert({
+      id: record.id,
+      actor_id: record.actor_id,
+      action: record.action,
+      meta: record.meta,
+      created_at: record.created_at,
+    });
+
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
     }
 
     return record;
@@ -55,11 +52,14 @@ export class AuditLogRepository {
           .order('created_at', { ascending: false })
           .limit(limit);
 
-        if (!error && data && data.length > 0) {
-          return data as unknown as AuditLogRow[];
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
         }
-      } catch {
-        // Fall back to persistent local store
+        return (data as unknown as AuditLogRow[]) || [];
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
 
