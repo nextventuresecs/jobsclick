@@ -1,14 +1,16 @@
 import React from 'react';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import {
   CategoryBadge,
   getCategoryCardBorderClass,
   Button,
 } from '@indian-job-portal/ui';
-import type { JobCategory, IndustryCategory } from '@indian-job-portal/validation';
+import type { JobCategory } from '@indian-job-portal/validation';
 import { Navbar } from '../../../components/layout/Navbar';
 import { Footer } from '../../../components/layout/Footer';
-import { SAMPLE_JOBS, JobItem } from '../../../data/sampleJobs';
+import type { JobItem } from '../../../data/sampleJobs';
+import { mapApiJobToJobItem, type ApiJobPayload } from '../../../lib/job-mapper';
 import { JobApplyButton } from '../../../components/jobs/JobApplyButton';
 import {
   ArrowLeft,
@@ -23,6 +25,8 @@ import {
   Lock,
 } from 'lucide-react';
 
+export const revalidate = 30;
+
 interface JobDetailPageProps {
   readonly params: {
     readonly id: string;
@@ -33,63 +37,30 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
   const jobId = params.id;
   const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
 
-  let job: JobItem = SAMPLE_JOBS.find((j) => j.id === jobId) || {
-    ...SAMPLE_JOBS[0]!,
-    id: jobId,
-  };
-
-interface JobDetailApiResponse {
-  readonly id: string;
-  readonly title: string;
-  readonly companyName?: string;
-  readonly companyId?: string;
-  readonly city?: string;
-  readonly district?: string;
-  readonly state?: string;
-  readonly category?: IndustryCategory;
-  readonly employmentType?: JobItem['employmentType'];
-  readonly minPay?: number;
-  readonly maxPay?: number;
-  readonly openings?: number;
-  readonly experienceLevel?: JobItem['experienceLevel'];
-  readonly skills?: readonly string[];
-  readonly description?: string;
-  readonly requirements?: readonly string[];
-  readonly createdAt?: string;
-  readonly expiryDate?: string;
-}
+  let job: JobItem | null = null;
+  let isNotFound = false;
 
   try {
     const res = await fetch(`${apiUrl}/jobs/${jobId}`, {
-      next: { revalidate: 60 },
+      headers: { Accept: 'application/json' },
+      next: { revalidate: 30 },
     });
-    if (res.ok) {
-      const data = (await res.json()) as JobDetailApiResponse | null;
-      if (data && data.id) {
-        job = {
-          id: data.id,
-          title: data.title,
-          companyName: data.companyName || 'Verified Enterprise',
-          companyId: data.companyId || 'comp-01',
-          location: data.city || 'India',
-          district: data.district || data.city || 'National',
-          state: data.state || 'India',
-          category: data.category || 'manufacturing',
-          employmentType: data.employmentType || 'Full-time',
-          salaryMin: data.minPay || 18000,
-          salaryMax: data.maxPay || 30000,
-          openings: data.openings || 1,
-          experienceLevel: data.experienceLevel || 'Fresher',
-          skills: Array.isArray(data.skills) ? data.skills : [],
-          description: data.description || '',
-          requirements: Array.isArray(data.requirements) ? data.requirements : [],
-          postedDate: data.createdAt ? new Date(data.createdAt).toLocaleDateString() : 'Recent',
-          expiryDate: data.expiryDate || '2026-12-31',
-        };
+    if (res.status === 404 || !res.ok) {
+      isNotFound = true;
+    } else {
+      const data = (await res.json()) as ApiJobPayload | null;
+      if (!data || !data.id) {
+        isNotFound = true;
+      } else {
+        job = mapApiJobToJobItem(data);
       }
     }
   } catch {
-    // Graceful fallback to sample job
+    isNotFound = true;
+  }
+
+  if (isNotFound || !job) {
+    notFound();
   }
 
   // Google JobPosting JSON-LD Structured Data (Hard Invariant #9 / PRD 9)

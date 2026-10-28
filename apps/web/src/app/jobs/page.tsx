@@ -5,10 +5,11 @@ import {
   getCategoryCardBorderClass,
   Button,
 } from '@indian-job-portal/ui';
-import type { JobCategory, IndustryCategory } from '@indian-job-portal/validation';
+import type { JobCategory } from '@indian-job-portal/validation';
 import { Navbar } from '../../components/layout/Navbar';
 import { Footer } from '../../components/layout/Footer';
-import { SAMPLE_JOBS, JobItem } from '../../data/sampleJobs';
+import type { JobItem } from '../../data/sampleJobs';
+import { mapApiJobToJobItem, type ApiJobPayload } from '../../lib/job-mapper';
 import {
   Search,
   MapPin,
@@ -20,6 +21,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { SaveSearchAlertModal } from '../../components/jobs/SaveSearchAlertModal';
+
+export const revalidate = 30;
 
 interface JobsPageProps {
   readonly searchParams?: {
@@ -52,101 +55,35 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
   const minPay = searchParams?.minPay ? Number(searchParams.minPay) : 0;
   const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
 
-  let liveJobs: JobItem[] = [...SAMPLE_JOBS];
-
-interface RawJobsListResponse {
-  readonly jobs?: readonly {
-    readonly id: string;
-    readonly title: string;
-    readonly companyName?: string;
-    readonly companyId?: string;
-    readonly city?: string;
-    readonly district?: string;
-    readonly state?: string;
-    readonly category?: IndustryCategory;
-    readonly employmentType?: JobItem['employmentType'];
-    readonly minPay?: number;
-    readonly maxPay?: number;
-    readonly openings?: number;
-    readonly experienceLevel?: JobItem['experienceLevel'];
-    readonly skills?: readonly string[];
-    readonly description?: string;
-    readonly requirements?: readonly string[];
-    readonly createdAt?: string;
-    readonly expiryDate?: string;
-    readonly isFeatured?: boolean;
-    readonly isPromoted?: boolean;
-    readonly featuredUntil?: string;
-  }[];
-}
+  let liveJobs: JobItem[] = [];
 
   try {
     const queryParams = new URLSearchParams();
     if (keyword) queryParams.set('keyword', keyword);
     if (city) queryParams.set('city', city);
     if (category) queryParams.set('category', category);
+    if (minPay > 0) queryParams.set('minPay', String(minPay));
 
     const res = await fetch(`${apiUrl}/jobs?${queryParams.toString()}`, {
+      headers: {
+        Accept: 'application/json',
+      },
       next: { revalidate: 30 },
     });
     if (res.ok) {
-      const data = (await res.json()) as RawJobsListResponse | null;
-      if (data && Array.isArray(data.jobs) && data.jobs.length > 0) {
-        liveJobs = data.jobs.map((j) => ({
-          id: j.id,
-          title: j.title,
-          companyName: j.companyName || 'Verified Enterprise',
-          companyId: j.companyId || 'comp-01',
-          location: j.city || 'India',
-          district: j.district || j.city || 'National',
-          state: j.state || 'India',
-          category: j.category || 'manufacturing',
-          employmentType: j.employmentType || 'Full-time',
-          salaryMin: j.minPay || 18000,
-          salaryMax: j.maxPay || 30000,
-          openings: j.openings || 1,
-          experienceLevel: j.experienceLevel || 'Fresher',
-          skills: Array.isArray(j.skills) ? j.skills : [],
-          description: j.description || '',
-          requirements: Array.isArray(j.requirements) ? j.requirements : [],
-          postedDate: j.createdAt ? new Date(j.createdAt).toLocaleDateString() : 'Recent',
-          expiryDate: j.expiryDate || '',
-          isPromoted: j.isPromoted,
-          isFeatured: j.isFeatured,
-          featuredUntil: j.featuredUntil,
-        }));
+      const data = (await res.json()) as { readonly jobs?: readonly ApiJobPayload[] } | null;
+      if (data && Array.isArray(data.jobs)) {
+        liveJobs = data.jobs.map((j) => mapApiJobToJobItem(j));
       }
     }
   } catch {
-    // Graceful fallback to SAMPLE_JOBS
+    liveJobs = [];
   }
 
-  // Filter in-memory if API fell back to sample data
-  const filteredJobs = liveJobs.filter((job) => {
-    if (keyword) {
-      const q = keyword.toLowerCase();
-      const matchTitle = job.title.toLowerCase().includes(q);
-      const matchComp = job.companyName.toLowerCase().includes(q);
-      const matchSkill = job.skills.some((s) => s.toLowerCase().includes(q));
-      if (!matchTitle && !matchComp && !matchSkill) return false;
-    }
-    if (city) {
-      const c = city.toLowerCase();
-      const matchLoc = job.location.toLowerCase().includes(c);
-      const matchDist = job.district.toLowerCase().includes(c);
-      if (!matchLoc && !matchDist) return false;
-    }
-    if (category && category !== 'all') {
-      if (job.category !== category) return false;
-    }
-    if (employmentType && employmentType !== 'all') {
-      if (job.employmentType !== employmentType) return false;
-    }
-    if (minPay > 0) {
-      if (job.salaryMax < minPay) return false;
-    }
-    return true;
-  });
+  // Active listings from live API (apply client-side employmentType filter only if requested)
+  const filteredJobs = employmentType && employmentType !== 'all'
+    ? liveJobs.filter((job) => job.employmentType === employmentType)
+    : liveJobs;
 
   filteredJobs.sort((a, b) => {
     const aPromoted = Boolean(a.isPromoted);
