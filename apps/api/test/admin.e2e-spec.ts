@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
+import { UserRepository } from '../src/database/repositories/user.repository.js';
 
 describe('AdminController (e2e) - Epic 5 (Issues #21, #22, #23, #24)', () => {
   let app: NestFastifyApplication;
@@ -23,7 +24,21 @@ describe('AdminController (e2e) - Epic 5 (Issues #21, #22, #23, #24)', () => {
     await app.close();
   });
 
-  it('PUT /admin/users/:id/status - updates user account status (Issue #21)', async () => {
+  it('PUT /admin/users/:id/status - updates user account status and verifies persistence in UserRepository (Issue #21)', async () => {
+    const userRepo = app.get(UserRepository);
+    await userRepo.save({
+      id: 'usr_seeker_100',
+      phone: '9876543210',
+      email: null,
+      role: 'job_seeker',
+      status: 'active',
+      source: 'direct',
+      created_by: null,
+      updated_by: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+
     const res = await app.inject({
       method: 'PUT',
       url: '/admin/users/usr_seeker_100/status',
@@ -34,6 +49,21 @@ describe('AdminController (e2e) - Epic 5 (Issues #21, #22, #23, #24)', () => {
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.payload);
     expect(body.status).toBe('disabled');
+
+    // Assert database persistence
+    const updated = await userRepo.findById('usr_seeker_100');
+    expect(updated?.status).toBe('disabled');
+  });
+
+  it('PUT /admin/users/:id/status - fails closed with 404 NotFoundException for non-existent user ID', async () => {
+    const res = await app.inject({
+      method: 'PUT',
+      url: '/admin/users/non_existent_user_9999/status',
+      headers: { 'x-user-id': 'admin_root' },
+      payload: { status: 'disabled' },
+    });
+
+    expect(res.statusCode).toBe(404);
   });
 
   it('POST & GET /admin/audit-logs - records audit log entry (Issue #22)', async () => {

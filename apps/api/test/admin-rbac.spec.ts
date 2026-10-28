@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
+import { UserRepository } from '../src/database/repositories/user.repository.js';
 
 describe('AdminController RBAC & Authentication (STF-02)', () => {
   let app: NestFastifyApplication;
@@ -44,6 +45,21 @@ describe('AdminController RBAC & Authentication (STF-02)', () => {
 
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
+
+    // Seed target user for status update tests
+    const userRepo = app.get(UserRepository);
+    await userRepo.save({
+      id: 'usr_target_1',
+      phone: '9876543210',
+      email: 'target1@example.com',
+      role: 'job_seeker',
+      status: 'active',
+      source: 'web',
+      created_by: null,
+      updated_by: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
   });
 
   afterAll(async () => {
@@ -257,6 +273,34 @@ describe('AdminController RBAC & Authentication (STF-02)', () => {
       expect(res.statusCode).toBe(200);
       const data = JSON.parse(res.payload);
       expect(data.signups).toBeDefined();
+    });
+
+    it('computes live dynamic aggregate analytics from database state', async () => {
+      const userRepo = app.get(UserRepository);
+      const testId = `usr_dynamic_${Date.now()}`;
+      await userRepo.save({
+        id: testId,
+        phone: `987${Math.floor(1000000 + Math.random() * 9000000)}`,
+        email: null,
+        role: 'job_seeker',
+        status: 'active',
+        source: 'direct',
+        created_by: null,
+        updated_by: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      const res = await app.inject({
+        method: 'GET',
+        url,
+        headers: { authorization: adminToken },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const data = JSON.parse(res.payload);
+      expect(data.signups.total).toBeGreaterThanOrEqual(1);
+      expect(data.signups.seekerCount).toBeGreaterThanOrEqual(1);
     });
   });
 

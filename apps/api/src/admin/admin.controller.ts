@@ -37,8 +37,14 @@ export class AdminController {
   // Issue #21: Admin User Status Update
   @Put('admin/users/:id/status')
   @Roles('admin')
-  async updateUserStatus(@Param('id') id: string, @Body() body: AdminUserStatusDto) {
-    return this.adminService.updateUserStatus(id, body);
+  async updateUserStatus(
+    @CurrentUser() user: AuthUser,
+    @Headers('x-user-id') userIdHeader: string,
+    @Param('id') id: string,
+    @Body() body: AdminUserStatusDto,
+  ) {
+    const callerId = user?.id || userIdHeader || 'admin_root';
+    return this.adminService.updateUserStatus(id, body, callerId);
   }
 
   // Issue #22: Audit Log Append-Only
