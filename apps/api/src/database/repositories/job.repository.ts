@@ -1,6 +1,7 @@
 import {
   Injectable,
   Inject,
+  Optional,
   Logger,
   BadRequestException,
   NotFoundException,
@@ -34,7 +35,7 @@ export class JobRepository {
 
   constructor(
     @Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>,
-    isTestMode?: boolean,
+    @Optional() isTestMode?: boolean,
   ) {
     if (process.env['NODE_ENV'] !== 'production' && typeof isTestMode === 'boolean') {
       this.isTestMode = isTestMode;
