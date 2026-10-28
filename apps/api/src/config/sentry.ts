@@ -21,6 +21,26 @@ export interface RequestTraceContext {
 
 export const requestTraceStorage = new AsyncLocalStorage<RequestTraceContext>();
 
+function getTraceIdFromTraceHeader(value?: string): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const parts = value.split('-');
+
+  // W3C traceparent format: 00-<trace-id>-<span-id>-<flags>
+  if (parts.length >= 4 && parts[0] === '00' && parts[1]?.length === 32) {
+    return parts[1];
+  }
+
+  // Sentry trace format: <trace-id>-<span-id>-<sampled>
+  if (parts.length >= 3 && parts[0]?.length === 32) {
+    return parts[0];
+  }
+
+  return undefined;
+}
+
 /**
  * Get active request trace context from AsyncLocalStorage or Sentry global scope
  */
@@ -30,11 +50,12 @@ export function getCurrentTraceContext(): RequestTraceContext | undefined {
     return store;
   }
   const traceData = Sentry.getTraceData();
-  if (traceData['sentry-trace']) {
-    const traceId = traceData['sentry-trace'].split('-')[0] || '';
+  const sentryTrace = traceData['sentry-trace'];
+  if (sentryTrace) {
+    const traceId = getTraceIdFromTraceHeader(sentryTrace) || '';
     return {
       traceId,
-      sentryTrace: traceData['sentry-trace'],
+      sentryTrace,
       baggage: traceData['baggage'],
     };
   }
@@ -58,11 +79,12 @@ export function getTracePropagationHeaders(): {
     };
   }
   const traceData = Sentry.getTraceData();
-  if (traceData['sentry-trace']) {
+  const sentryTrace = traceData['sentry-trace'];
+  if (sentryTrace) {
     return {
-      sentryTrace: traceData['sentry-trace'],
+      sentryTrace,
       baggage: traceData['baggage'],
-      traceId: traceData['sentry-trace'].split('-')[0],
+      traceId: getTraceIdFromTraceHeader(sentryTrace),
     };
   }
   return {};
@@ -125,10 +147,11 @@ export function setupFastifySentry(fastify: FastifyInstance): void {
       () => {
         const traceData = Sentry.getTraceData();
         const traceId =
-          traceData['sentry-trace']?.split('-')[0] ||
-          rawTrace?.split('-')[0] ||
+          const traceId =
+          getTraceIdFromTraceHeader(traceData['sentry-trace']) ||
+          getTraceIdFromTraceHeader(rawTrace) ||
           crypto.randomUUID().replace(/-/g, '');
-
+        
         const context: RequestTraceContext = {
           traceId,
           sentryTrace: traceData['sentry-trace'] || rawTrace,
