@@ -125,6 +125,7 @@ export class JobsService {
       city: filters.city,
       category: filters.category,
       minPay: filters.minPay,
+      companyId: filters.companyId,
       limit: filters.limit,
       offset: filters.offset,
     });
@@ -197,7 +198,7 @@ export class JobsService {
     }
 
     // Deduct 1 credit for job application (WAL-02, Hard Invariant #7)
-    await this.walletService.deductForJobApplication(applicantId, jobId, job.title);
+    const deduction = await this.walletService.deductForJobApplication(applicantId, jobId, job.title);
 
     const appId = `app_${jobId}_${applicantId}`;
     const now = new Date().toISOString();
@@ -214,7 +215,23 @@ export class JobsService {
       updated_at: now,
     };
 
-    await this.applicationRepository.create(appRow);
+    try {
+      await this.applicationRepository.create(appRow);
+    } catch {
+      if (!deduction.isSponsored) {
+        try {
+          await this.walletService.recordTransaction({
+            userId: applicantId,
+            amount: 1,
+            reason: `Refund for failed application submission: ${job.title}`,
+            actorId: 'system',
+          });
+        } catch (refundErr) {
+          this.logger.error(`Failed to auto-refund credit for user ${applicantId}: ${refundErr}`);
+        }
+      }
+      throw new BadRequestException('Application creation failed or already submitted. Any charged credits were refunded.');
+    }
 
     const seekerProfile = await this.profileRepository.findSeekerProfileByUserId(applicantId);
     if (!seekerProfile) {

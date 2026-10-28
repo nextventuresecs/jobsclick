@@ -97,11 +97,10 @@ export function JobApplyButton({
         }
       }
     } catch {
-      setHasApplied(true);
       addToast({
-        type: 'success',
-        title: 'Application Submitted Successfully!',
-        message: `Your verified profile for "${jobTitle}" has been sent to ${companyName}. Your contact details remain protected and confidential.`,
+        type: 'error',
+        title: 'Application Submission Failed',
+        message: 'Could not connect to the network. Please check your internet connection and try again.',
       });
     } finally {
       setIsSubmitting(false);
