@@ -146,8 +146,8 @@ describe('Authentication Modal, Role Switcher & Workspaces - Feature 6', async (
 
   it('generates valid QR code data URLs for public employer and institution profiles', async () => {
     const QRCode = (await import('qrcode')).default;
-    const companyQr = await QRCode.toDataURL('https://jobsclick.in/company/comp-01', { width: 300 });
-    const instQr = await QRCode.toDataURL('https://jobsclick.in/institution/inst-01', { width: 300 });
+    const companyQr = await QRCode.toDataURL('https://jobsclick.live/company/comp-01', { width: 300 });
+    const instQr = await QRCode.toDataURL('https://jobsclick.live/institution/inst-01', { width: 300 });
 
     expect(companyQr).toContain('data:image/png;base64,');
     expect(instQr).toContain('data:image/png;base64,');

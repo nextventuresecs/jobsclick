@@ -4,7 +4,7 @@ import { AUTH_COOKIE_NAME, verifyToken } from './lib/auth-session';
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const siteUrl = process.env['NEXT_PUBLIC_APP_URL'] || 'https://jobsclick.in';
+  const siteUrl = process.env['NEXT_PUBLIC_APP_URL'] || 'https://jobsclick.live';
 
   // 1. Session resolution from secure HttpOnly cookie
   const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;

@@ -117,7 +117,7 @@ export default async function InstitutionsDirectoryPage({
           addressRegion: inst.district,
           addressCountry: 'IN',
         },
-        url: `https://jobsclick.in/institution/${inst.id}`,
+        url: `https://jobsclick.live/institution/${inst.id}`,
       },
     })),
   };
