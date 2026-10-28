@@ -1,7 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useTranslations } from 'next-intl';
+import { getTranslations } from 'next-intl/server';
 import {
   CategoryBadge,
   getCategoryCardBorderClass,
@@ -54,8 +54,8 @@ const CATEGORIES_LIST: readonly {
 ] as const;
 
 export default async function HomePage() {
-  const t = useTranslations('HomePage');
-  const catT = useTranslations('Categories');
+  const t = await getTranslations('HomePage');
+  const catT = await getTranslations('Categories');
   const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
 
   let featuredJobs: FeaturedJob[] = [];
