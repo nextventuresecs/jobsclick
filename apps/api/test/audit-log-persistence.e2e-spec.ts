@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
 import { AdminService } from '../src/admin/admin.service.js';
+import { UserRepository } from '../src/database/repositories/user.repository.js';
 
 describe('T-03: Persistent Immutable Audit Log Engine (E2E & Invariant #6)', () => {
   const createTestApp = async (): Promise<NestFastifyApplication> => {
@@ -49,6 +50,20 @@ describe('T-03: Persistent Immutable Audit Log Engine (E2E & Invariant #6)', () 
       expect(exportLog.action).toBe('DATA_EXPORT_PERFORMED');
 
       // 4. Status update
+      const userRepo = app.get(UserRepository);
+      await userRepo.save({
+        id: 'usr_candidate_t03',
+        phone: '9876543211',
+        email: 'candidate_t03@example.com',
+        role: 'job_seeker',
+        status: 'active',
+        source: 'web',
+        created_by: null,
+        updated_by: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
       const statusRes = await app.inject({
         method: 'PUT',
         url: '/admin/users/usr_candidate_t03/status',
