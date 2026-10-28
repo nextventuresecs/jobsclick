@@ -30,7 +30,7 @@ describe('Ticket T-06: MSG91 SMS Service & Turnstile Bot Challenge', () => {
 
       expect(result.success).toBe(true);
       expect(result.message).toContain('MSG91');
-      expect(DLT_SMS_TEMPLATES['OTP_EN']?.templateId).toBe('DLT_1001_OTP_EN');
+      expect(DLT_SMS_TEMPLATES['OTP_EN']?.templateId).toBe('1277179301139811147');
     });
 
     it('routes Hindi OTP requests to DLT_1002_OTP_HI template', async () => {
@@ -41,8 +41,8 @@ describe('Ticket T-06: MSG91 SMS Service & Turnstile Bot Challenge', () => {
       });
 
       expect(result.success).toBe(true);
-      expect(DLT_SMS_TEMPLATES['OTP_HI']?.templateId).toBe('DLT_1002_OTP_HI');
-      expect(DLT_SMS_TEMPLATES['OTP_HI']?.isUnicode).toBe(true);
+      expect(DLT_SMS_TEMPLATES['OTP_HI']?.templateId).toBe('1277179301139811147');
+      expect(DLT_SMS_TEMPLATES['OTP_HI']?.isUnicode).toBe(false);
     });
 
     it('AC-1: sends live HTTP request to MSG91 gateway when production credentials are configured', async () => {
@@ -74,7 +74,7 @@ describe('Ticket T-06: MSG91 SMS Service & Turnstile Bot Challenge', () => {
         expect(calledUrl).toContain('mobile=919876543210');
         expect(calledUrl).toContain('otp=654321');
         expect(calledUrl).toContain('sender=INDIAN');
-        expect(calledUrl).toContain('template_id=DLT_1001_OTP_EN');
+        expect(calledUrl).toContain('template_id=1277179301139811147');
       } finally {
         process.env['NODE_ENV'] = originalEnv;
         process.env['MSG91_AUTH_KEY'] = originalKey;

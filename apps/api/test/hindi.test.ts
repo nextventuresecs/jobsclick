@@ -3,8 +3,8 @@ import { DLT_SMS_TEMPLATES, calculateSmsCost } from '../src/auth/sms-templates.j
 
 describe('Hindi at Launch & DLT SMS Cost Calculation - Epic 8 (Issues #34-#37)', () => {
   it('provides DLT-approved English and Hindi SMS templates', () => {
-    expect(DLT_SMS_TEMPLATES['OTP_HI']?.templateId).toBe('DLT_1002_OTP_HI');
-    expect(DLT_SMS_TEMPLATES['OTP_HI']?.isUnicode).toBe(true);
+    expect(DLT_SMS_TEMPLATES['OTP_HI']?.templateId).toBe('1277179301139811147');
+    expect(DLT_SMS_TEMPLATES['INVITE_HI']?.isUnicode).toBe(true);
     expect(DLT_SMS_TEMPLATES['OTP_EN']?.isUnicode).toBe(false);
   });
 

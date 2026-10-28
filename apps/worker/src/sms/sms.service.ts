@@ -23,7 +23,7 @@ export class WorkerSmsService {
     const authKey = process.env['MSG91_AUTH_KEY'];
     const templateId =
       process.env['MSG91_INVITE_TEMPLATE_ID'] ||
-      (language === 'hi' ? 'DLT_2002_INVITE_HI' : 'DLT_2001_INVITE_EN');
+      (language === 'hi' ? '1277179291746795224' : '1277179291746795224');
 
     const gatewayMode =
       process.env['SMS_GATEWAY_MODE'] ||
@@ -70,6 +70,7 @@ export class WorkerSmsService {
         },
         body: JSON.stringify({
           template_id: templateId,
+          sender: 'JOBSCK',
           short_url: '0',
           recipients: [
             {

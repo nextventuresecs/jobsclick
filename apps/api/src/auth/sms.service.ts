@@ -26,14 +26,14 @@ export class Msg91SmsService {
     const { phone, otp, language = 'en' } = options;
     const isTestMode = process.env['NODE_ENV'] === 'test';
     const authKey = process.env['MSG91_AUTH_KEY'];
-    const senderId = process.env['MSG91_SENDER_ID'] || 'INDIAN';
+    const senderId = process.env['MSG91_SENDER_ID'] || 'JOBSCK';
 
     const templateKey = language === 'hi' ? 'OTP_HI' : 'OTP_EN';
     const templateConfig = DLT_SMS_TEMPLATES[templateKey];
     const templateId =
       process.env['MSG91_OTP_TEMPLATE_ID'] ||
       templateConfig?.templateId ||
-      'DLT_1001_OTP_EN';
+      '1277179301139811147';
 
     // 1. Gateway mode selection: mock | sandbox | live
     const gatewayMode =
@@ -87,6 +87,7 @@ export class Msg91SmsService {
       msg91Url.searchParams.set('authkey', authKey);
       msg91Url.searchParams.set('otp', otp);
       msg91Url.searchParams.set('sender', senderId);
+      msg91Url.searchParams.set('otp_expiry', '10');
 
       const response = await fetch(msg91Url.toString(), {
         method: 'POST',
