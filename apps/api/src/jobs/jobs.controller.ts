@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   Query,
+  Header,
   UsePipes,
   UseGuards,
   Inject,
@@ -48,6 +49,7 @@ export class JobsController {
 
   @Public()
   @Get()
+  @Header('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=59')
   async getJobs(@Query() query: JobFilterInput) {
     const validated = jobFilterSchema.parse(query);
     return this.jobsService.getJobs(validated);
@@ -77,6 +79,7 @@ export class JobsController {
 
   @Public()
   @Get(':id')
+  @Header('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=59')
   async getJobById(@Param('id') id: string) {
     return this.jobsService.getJobById(id);
   }

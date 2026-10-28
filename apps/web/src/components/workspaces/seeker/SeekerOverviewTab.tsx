@@ -5,12 +5,12 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { CategoryBadge, StatusBadge, getCategoryCardBorderClass } from '@indian-job-portal/ui';
 import type { ApplicationData } from '../../../data/sampleWorkspaces';
-import type { SAMPLE_JOBS } from '../../../data/sampleJobs';
+import type { JobItem } from '../../../data/sampleJobs';
 import { ShieldCheck, Building2, Calendar, MapPin, ArrowRight } from 'lucide-react';
 
 interface SeekerOverviewTabProps {
   readonly myApplications: readonly ApplicationData[];
-  readonly recommendedJobs: typeof SAMPLE_JOBS;
+  readonly recommendedJobs: readonly JobItem[];
   readonly onNavigateToApplications: () => void;
 }
 
@@ -61,33 +61,39 @@ export function SeekerOverviewTab({
           </button>
         </div>
 
-        <div className="space-y-3">
-          {myApplications.map((app) => (
-            <div
-              key={app.id}
-              className="p-4 rounded-xl border border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-            >
-              <div>
-                <h3 className="text-sm font-bold text-gray-900">{app.jobTitle}</h3>
-                <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1.5">
-                  <Building2 className="w-3.5 h-3.5 text-gray-400" />
-                  <span>{app.companyName}</span>
-                  <span>•</span>
-                  <span>{t('appliedOn')} {app.appliedDate}</span>
-                </p>
-                {app.interviewDate && (
-                  <p className="text-xs font-semibold text-blue-700 mt-1.5 flex items-center gap-1 bg-blue-50 px-2.5 py-1 rounded-md w-fit">
-                    <Calendar className="w-3.5 h-3.5" />
-                    <span>{t('interviewScheduled')} {app.interviewDate}</span>
+        {myApplications.length === 0 ? (
+          <div className="text-center py-6 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+            <p className="text-xs text-gray-500 font-medium">{t('noRecentApplications')}</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {myApplications.map((app) => (
+              <div
+                key={app.id}
+                className="p-4 rounded-xl border border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              >
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">{app.jobTitle}</h3>
+                  <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1.5">
+                    <Building2 className="w-3.5 h-3.5 text-gray-400" />
+                    <span>{app.companyName}</span>
+                    <span>•</span>
+                    <span>{t('appliedOn')} {app.appliedDate}</span>
                   </p>
-                )}
+                  {app.interviewDate && (
+                    <p className="text-xs font-semibold text-blue-700 mt-1.5 flex items-center gap-1 bg-blue-50 px-2.5 py-1 rounded-md w-fit">
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>{t('interviewScheduled')} {app.interviewDate}</span>
+                    </p>
+                  )}
+                </div>
+                <div className="shrink-0">
+                  <StatusBadge status={app.status} />
+                </div>
               </div>
-              <div className="shrink-0">
-                <StatusBadge status={app.status} />
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Recommended Jobs */}
@@ -106,37 +112,50 @@ export function SeekerOverviewTab({
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {recommendedJobs.map((job) => (
-            <div
-              key={job.id}
-              className={`bg-white rounded-xl border border-gray-200 p-4 shadow-2xs hover:shadow-md transition-all ${getCategoryCardBorderClass(
-                job.category
-              )} flex flex-col justify-between`}
+        {recommendedJobs.length === 0 ? (
+          <div className="text-center py-8 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+            <p className="text-sm text-gray-500 font-medium">{t('emptyFeaturedDesc')}</p>
+            <Link
+              href="/jobs"
+              className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#F97316] hover:underline"
             >
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <CategoryBadge category={job.category} />
-                  <span className="text-xs font-bold text-gray-900">
-                    ₹{(job.salaryMin / 1000).toFixed(0)}k - ₹{(job.salaryMax / 1000).toFixed(0)}k/mo
-                  </span>
-                </div>
-                <h3 className="text-sm font-bold text-gray-900 line-clamp-1">{job.title}</h3>
-                <p className="text-xs text-gray-500 mt-0.5">{job.companyName}</p>
-                <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
-                  <MapPin className="w-3 h-3" />
-                  <span>{job.location}</span>
-                </p>
-              </div>
-              <Link
-                href={`/jobs/${job.id}`}
-                className="mt-4 block text-center py-2 px-3 rounded-lg text-xs font-semibold text-[#F97316] bg-orange-50 hover:bg-orange-100 transition-colors"
+              <span>{t('browseAllJobs')}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {recommendedJobs.map((job) => (
+              <div
+                key={job.id}
+                className={`bg-white rounded-xl border border-gray-200 p-4 shadow-2xs hover:shadow-md transition-all ${getCategoryCardBorderClass(
+                  job.category
+                )} flex flex-col justify-between`}
               >
-                {t('viewDetailsApply')}
-              </Link>
-            </div>
-          ))}
-        </div>
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <CategoryBadge category={job.category} />
+                    <span className="text-xs font-bold text-gray-900">
+                      ₹{(job.salaryMin / 1000).toFixed(0)}k - ₹{(job.salaryMax / 1000).toFixed(0)}k/mo
+                    </span>
+                  </div>
+                  <h3 className="text-sm font-bold text-gray-900 line-clamp-1">{job.title}</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">{job.companyName}</p>
+                  <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
+                    <MapPin className="w-3 h-3" />
+                    <span>{job.location}</span>
+                  </p>
+                </div>
+                <Link
+                  href={`/jobs/${job.id}`}
+                  className="mt-4 block text-center py-2 px-3 rounded-lg text-xs font-semibold text-[#F97316] bg-orange-50 hover:bg-orange-100 transition-colors"
+                >
+                  {t('viewDetailsApply')}
+                </Link>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

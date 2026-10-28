@@ -3,34 +3,60 @@
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { useApp } from '../../../context/AppContext';
-import {
-  INITIAL_SEEKER_PROFILE,
-  INITIAL_APPLICATIONS,
+import type {
   SeekerProfileData,
   ApplicationData,
 } from '../../../data/sampleWorkspaces';
-import { SAMPLE_JOBS } from '../../../data/sampleJobs';
+import type { JobItem } from '../../../data/sampleJobs';
+import { mapApiJobToJobItem, type ApiJobPayload } from '../../../lib/job-mapper';
 import { jobSeekerProfileSchema } from '@indian-job-portal/validation';
 import { fetchSeekerProfile, fetchSeekerApplications, saveSeekerProfile } from './seekerApi';
 import { useSeekerProfileFormState } from './useSeekerProfileFormState';
+
+const defaultEmptySeekerProfile: SeekerProfileData = {
+  id: '',
+  name: '',
+  phone: '',
+  email: '',
+  seekerType: 'individual',
+  gender: 'Male',
+  dob: '',
+  address: '',
+  city: '',
+  district: '',
+  state: '',
+  pincode: '',
+  qualification: '',
+  institution: '',
+  graduationYear: '',
+  experienceYears: 0,
+  skills: [],
+  languages: [],
+  preferredCategories: [],
+  preferredLocations: [],
+  willingToRelocate: false,
+  completionPercentage: 0,
+  bio: '',
+  dpdpConsentGiven: false,
+  isOnboardingComplete: false,
+};
 
 export function useSeekerWorkspace() {
   const t = useTranslations('SeekerWorkspace');
   const { user, accessToken, addToast } = useApp();
   const [activeTab, setActiveTab] = useState<'overview' | 'applications' | 'profile' | 'cv-preview'>('overview');
-  const [profile, setProfile] = useState<SeekerProfileData>(INITIAL_SEEKER_PROFILE);
-  const [applications, setApplications] = useState<readonly ApplicationData[]>(INITIAL_APPLICATIONS);
-  const [isOnboardingComplete, setIsOnboardingComplete] = useState(profile.isOnboardingComplete);
+  const [profile, setProfile] = useState<SeekerProfileData>(defaultEmptySeekerProfile);
+  const [applications, setApplications] = useState<readonly ApplicationData[]>([]);
+  const [recommendedJobs, setRecommendedJobs] = useState<readonly JobItem[]>([]);
+  const [creditsBalance, setCreditsBalance] = useState<number | null>(null);
+  const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
 
   const { formData, updateField, syncFromProfile } = useSeekerProfileFormState(profile);
 
-  const myApplications = applications.filter((a) => a.candidateId === profile.id);
-  const recommendedJobs = SAMPLE_JOBS.filter((j) =>
-    profile.preferredCategories.includes(j.category)
-  ).slice(0, 3);
+  const myApplications = applications;
 
-  // Mount effect to fetch remote profile & applications
+  // Mount effect to fetch remote profile, applications, credit balance, & live recommendations
   useEffect(() => {
     let isMounted = true;
     const apiUrl =
@@ -42,30 +68,65 @@ export function useSeekerWorkspace() {
       : `Bearer jwt_session_${user?.id || 'usr_seeker_77'}_${Date.now()}`;
     const userId = user?.id || 'usr_seeker_77';
 
+    if (!user?.id && !accessToken) {
+      return () => { isMounted = false; };
+    }
+
+    const loadRecommendations = (category?: string) => {
+      const categoryParam = category ? `?category=${encodeURIComponent(category)}` : '';
+      fetch(`${apiUrl}/jobs${categoryParam}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((jobsData) => {
+          if (!isMounted || !jobsData?.jobs) return;
+          const mapped = jobsData.jobs.map((j: ApiJobPayload) => mapApiJobToJobItem(j));
+          setRecommendedJobs(mapped.slice(0, 3));
+        })
+        .catch(() => {});
+    };
+
+    // 1. Fetch Seeker Profile & trigger recommendations
     fetchSeekerProfile(apiUrl, authHeader, userId).then((data) => {
-      if (!data || !isMounted) return;
-      setProfile((prev) => ({
-        ...prev,
-        ...data,
-        skills: data.skills || prev.skills,
-        languages: data.languages || prev.languages,
-        preferredLocations: data.preferredLocations || prev.preferredLocations,
-      }));
-      syncFromProfile(data);
+      if (!isMounted) return;
+      if (data) {
+        setProfile((prev) => ({
+          ...prev,
+          ...data,
+          id: data.id || prev.id || userId,
+          skills: data.skills || prev.skills,
+          languages: data.languages || prev.languages,
+          preferredLocations: data.preferredLocations || prev.preferredLocations,
+        }));
+        if (data.isOnboardingComplete !== undefined) {
+          setIsOnboardingComplete(data.isOnboardingComplete);
+        }
+        syncFromProfile(data);
+        loadRecommendations(data.preferredCategories?.[0]);
+      } else {
+        loadRecommendations();
+      }
     });
 
+    // 2. Fetch Seeker Applications
     fetchSeekerApplications(apiUrl, authHeader, userId).then((mappedApps) => {
-      if (!isMounted || mappedApps.length === 0) return;
-      setApplications((prev) => {
-        const mappedIds = new Set(mappedApps.map((m) => m.id));
-        return [...mappedApps, ...prev.filter((p) => !mappedIds.has(p.id))];
-      });
+      if (!isMounted) return;
+      setApplications(mappedApps);
     });
+
+    // 3. Fetch Credit Ledger Balance
+    fetch(`${apiUrl}/wallet/balance`, {
+      headers: { Authorization: authHeader, 'x-user-id': userId },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((balanceData) => {
+        if (!isMounted || balanceData?.balance === undefined) return;
+        setCreditsBalance(balanceData.balance);
+      })
+      .catch(() => {});
 
     return () => {
       isMounted = false;
     };
-  }, [accessToken, user]);
+  }, [accessToken, user?.id]);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,6 +226,7 @@ export function useSeekerWorkspace() {
     profile,
     myApplications,
     recommendedJobs,
+    creditsBalance,
     isOnboardingComplete,
     isEditing,
     setIsEditing,
