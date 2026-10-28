@@ -18,6 +18,10 @@ export interface TraceContextPayload {
 
 let isInitialized = false;
 
+function sanitizeWorkerLog(message: string): string {
+  return sanitizeString(message);
+}
+
 /**
  * Initialize Sentry for Worker with DPDP and Indian Job Portal Zero-PII Invariants
  */
@@ -115,7 +119,9 @@ export function handleWorkerJobFailure(
 
   if (isExhausted) {
     console.error(
-      `[Worker - ${queueName}] Job ${job?.id} PERMANENTLY FAILED after ${attemptsMade}/${attempts} attempts: ${err.message}`
+      sanitizeWorkerLog(
+        `[Worker - ${queueName}] Job ${job?.id} PERMANENTLY FAILED after ${attemptsMade}/${attempts} attempts: ${err.message}`
+      )
     );
 
     if (process.env['SENTRY_DSN']) {
@@ -142,7 +148,9 @@ export function handleWorkerJobFailure(
 
   // Transient retry: record breadcrumb only, suppress exception alert to prevent notification fatigue
   console.warn(
-    `[Worker - ${queueName}] Job ${job?.id} transient failure (${attemptsMade}/${attempts}) - retrying via BullMQ backoff: ${err.message}`
+    sanitizeWorkerLog(
+      `[Worker - ${queueName}] Job ${job?.id} transient failure (${attemptsMade}/${attempts}) - retrying via BullMQ backoff: ${err.message}`
+    )
   );
 
   Sentry.addBreadcrumb({
