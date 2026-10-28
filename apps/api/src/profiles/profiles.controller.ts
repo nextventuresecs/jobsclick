@@ -28,11 +28,12 @@ import {
   UpdateInquiryStatusInput,
 } from '@indian-job-portal/validation';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
+import { RolesGuard, Roles } from '../auth/guards/roles.guard.js';
 import { Public } from '../auth/decorators/public.decorator.js';
 import { CurrentUser, type AuthUser } from '../auth/decorators/current-user.decorator.js';
 
 @Controller('profiles')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 @UsePipes(ZodValidationPipe)
 export class ProfilesController {
   constructor(
@@ -92,6 +93,12 @@ export class ProfilesController {
   }
 
   // Institution Profile Endpoints (INT-01)
+  @Roles('institution', 'intermediary', 'admin')
+  @Get('institution/students')
+  async getInstitutionStudents(@CurrentUser() user: AuthUser) {
+    return this.profilesService.getInstitutionStudents(user.id);
+  }
+
   @Get('institution/me')
   async getInstitutionProfileMe(@CurrentUser() user: AuthUser) {
     return this.profilesService.getInstitutionProfileMe(user.id);

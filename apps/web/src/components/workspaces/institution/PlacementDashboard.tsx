@@ -10,10 +10,6 @@ import type {
   PlacementApplicationRecord,
 } from '../../../data/sampleWorkspaces';
 import {
-  INITIAL_CORPORATE_TIEUPS,
-  INITIAL_PLACEMENT_APPLICATIONS,
-} from '../../../data/sampleWorkspaces';
-import {
   filterStudentsMultiSelect,
   maskContactNumber,
   maskEmailAddress,
@@ -76,7 +72,7 @@ export function PlacementDashboard({
   };
 
   // Corporate Tie-Ups state (lifted or local fallback)
-  const [localTieUps, setLocalTieUps] = useState<readonly CorporateTieUpData[]>(INITIAL_CORPORATE_TIEUPS);
+  const [localTieUps, setLocalTieUps] = useState<readonly CorporateTieUpData[]>([]);
   const tieUps = externalTieUps ?? localTieUps;
   const updateTieUps = (newTieUps: readonly CorporateTieUpData[]) => {
     if (onUpdateTieUps) {
@@ -87,9 +83,7 @@ export function PlacementDashboard({
   };
 
   // Placement Applications Pipeline state (lifted or local fallback)
-  const [localApplications, setLocalApplications] = useState<readonly PlacementApplicationRecord[]>(
-    INITIAL_PLACEMENT_APPLICATIONS,
-  );
+  const [localApplications, setLocalApplications] = useState<readonly PlacementApplicationRecord[]>([]);
   const applications = externalApplications ?? localApplications;
   const updateApplications = (newApps: readonly PlacementApplicationRecord[]) => {
     if (onUpdateApplications) {
@@ -117,7 +111,13 @@ export function PlacementDashboard({
 
   // Batch sharing modal state
   const [isShareBatchModalOpen, setIsShareBatchModalOpen] = useState(false);
-  const [shareCompanyId, setShareCompanyId] = useState(INITIAL_CORPORATE_TIEUPS[0]?.id ?? '');
+  const [shareCompanyId, setShareCompanyId] = useState(externalTieUps?.[0]?.id ?? '');
+
+  useEffect(() => {
+    if (!shareCompanyId && externalTieUps && externalTieUps.length > 0) {
+      setShareCompanyId(externalTieUps[0]!.id);
+    }
+  }, [externalTieUps, shareCompanyId]);
   const [shareDriveSubject, setShareDriveSubject] = useState('');
   const [batchSuccessMessage, setBatchSuccessMessage] = useState<string | null>(null);
 

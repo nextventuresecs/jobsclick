@@ -107,4 +107,26 @@ describe('ProfilesController (e2e) - Issues #9, #10, #11', () => {
     const instProfile = JSON.parse(updateRes.payload);
     expect(instProfile.institutionName).toBe('MP Engineering College');
   });
+
+  it('GET /profiles/institution/students - returns enrolled student roster with role authorization (INT-01, Invariant #5)', async () => {
+    // 1. As an institution/intermediary, fetch student roster
+    const res = await app.inject({
+      method: 'GET',
+      url: '/profiles/institution/students',
+      headers: { 'x-user-id': 'usr_inst_99' },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const data = JSON.parse(res.payload);
+    expect(Array.isArray(data)).toBe(true);
+
+    // 2. Role authorization check: non-institution (e.g. job_seeker) should receive 403 Forbidden
+    const forbiddenRes = await app.inject({
+      method: 'GET',
+      url: '/profiles/institution/students',
+      headers: { 'x-user-id': 'usr_seeker_77' },
+    });
+
+    expect(forbiddenRes.statusCode).toBe(403);
+  });
 });

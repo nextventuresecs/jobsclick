@@ -310,6 +310,19 @@ export class ProfilesService {
     }
   }
 
+  async getInstitutionStudents(userId: string): Promise<JobSeekerProfileRow[]> {
+    const institution = await this.profileRepository.findInstitutionProfileByUserId(userId);
+    const instId = institution?.id || `inst_${userId}`;
+    const instName = institution?.institution_name || '';
+
+    const students = await this.profileRepository.findStudentsByInstitution(instId);
+    if (students.length === 0 && instName) {
+      const byName = await this.profileRepository.findStudentsByInstitution(instName);
+      if (byName.length > 0) return byName;
+    }
+    return students;
+  }
+
   async getInstitutionProfileMe(userId: string): Promise<InstitutionProfileRecord> {
     const profile = await this.profileRepository.findInstitutionProfileByUserId(userId);
     if (!profile) {
