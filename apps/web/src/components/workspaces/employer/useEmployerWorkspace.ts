@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import type { CompanyItem } from '../../../data/sampleCompanies';
-import { SAMPLE_COMPANIES } from '../../../data/sampleCompanies';
+
 import type { JobItem } from '../../../data/sampleJobs';
-import { SAMPLE_JOBS } from '../../../data/sampleJobs';
+
 import type { ApplicationData } from '../../../data/sampleWorkspaces';
-import { INITIAL_APPLICATIONS } from '../../../data/sampleWorkspaces';
+
 import type { ApplicationStatus } from '@indian-job-portal/validation';
 import { udyamNumberSchema, createJobSchema } from '@indian-job-portal/validation';
 import { useCompanyProfileState } from './useCompanyProfileState';
@@ -22,7 +22,22 @@ interface UseEmployerWorkspaceProps {
 
 export function useEmployerWorkspace({ user, accessToken, addToast }: UseEmployerWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'post-job' | 'manage-jobs' | 'applicants' | 'qr-code' | 'profile'>('overview');
-  const [company, setCompany] = useState<CompanyItem>(SAMPLE_COMPANIES[0]!);
+  const [company, setCompany] = useState<CompanyItem>({
+    id: user?.id || '',
+    name: 'Enterprise',
+    sector: 'Manufacturing',
+    address: '',
+    city: '',
+    district: '',
+    state: '',
+    description: '',
+    ownershipType: 'Private Limited',
+    enterpriseSize: 'Small',
+    udyamNumber: '',
+    verified: false,
+    activeJobsCount: 0,
+    logoUrl: '/images/companies/company-placeholder.svg',
+  });
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(true);
   const [viewingApplicant, setViewingApplicant] = useState<ApplicationData | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -30,12 +45,8 @@ export function useEmployerWorkspace({ user, accessToken, addToast }: UseEmploye
   const { formData: editFormData, syncFromBusinessProfile, getUpdatedCompany } = useCompanyProfileState(company);
   const postJobState = useJobPostFormState(company);
 
-  const [companyJobs, setCompanyJobs] = useState<JobItem[]>(
-    SAMPLE_JOBS.filter((j) => j.companyId === company.id)
-  );
-  const [applicants, setApplicants] = useState<readonly ApplicationData[]>(
-    INITIAL_APPLICATIONS.filter((a) => a.companyId === company.id)
-  );
+  const [companyJobs, setCompanyJobs] = useState<JobItem[]>([]);
+  const [applicants, setApplicants] = useState<readonly ApplicationData[]>([]);
   const [applicantSearch, setApplicantSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
@@ -56,10 +67,10 @@ export function useEmployerWorkspace({ user, accessToken, addToast }: UseEmploye
 
   useEffect(() => {
     return loadEmployerWorkspaceData({
-      apiUrl, authHeader, userId, company, companyJobs,
+      apiUrl, authHeader, userId, company,
       setCompany, syncFromBusinessProfile, setCompanyJobs, setApplicants,
     });
-  }, [accessToken, user, company.name, company.id]);
+  }, [accessToken, user, company.id]);
 
   const handlePostJob = async (e: React.FormEvent) => {
     e.preventDefault();

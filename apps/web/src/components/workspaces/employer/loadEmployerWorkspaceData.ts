@@ -12,7 +12,7 @@ interface LoaderParams {
   authHeader: string;
   userId: string;
   company: CompanyItem;
-  companyJobs: JobItem[];
+  companyJobs?: JobItem[];
   setCompany: React.Dispatch<React.SetStateAction<CompanyItem>>;
   syncFromBusinessProfile: (busProfile: Record<string, string | undefined>) => void;
   setCompanyJobs: React.Dispatch<React.SetStateAction<JobItem[]>>;
@@ -20,7 +20,7 @@ interface LoaderParams {
 }
 
 export function loadEmployerWorkspaceData({
-  apiUrl, authHeader, userId, company, companyJobs,
+  apiUrl, authHeader, userId, company,
   setCompany, syncFromBusinessProfile, setCompanyJobs, setApplicants,
 }: LoaderParams) {
   let isMounted = true;
@@ -42,7 +42,7 @@ export function loadEmployerWorkspaceData({
     }
   });
 
-  fetchEmployerJobs(apiUrl, authHeader, userId).then(async (jobsData) => {
+  fetchEmployerJobs(apiUrl, authHeader, userId, company.id).then(async (jobsData) => {
     if (!isMounted || !jobsData?.jobs) return;
     const apiJobs: JobItem[] = jobsData.jobs.map((j: {
       id: string; title: string; category: JobItem['category']; employmentType?: JobItem['employmentType'];
@@ -59,16 +59,10 @@ export function loadEmployerWorkspaceData({
       applicantCount: 0, isUrgent: false,
     }));
 
-    if (apiJobs.length > 0) {
-      setCompanyJobs((prev) => {
-        const existingIds = new Set(apiJobs.map((j) => j.id));
-        return [...apiJobs, ...prev.filter((p) => !existingIds.has(p.id))];
-      });
-    }
+    setCompanyJobs(apiJobs);
 
-    const allJobsToCheck = [...apiJobs, ...companyJobs];
     const loadedApps: ApplicationData[] = [];
-    for (const j of allJobsToCheck.slice(0, 10)) {
+    for (const j of apiJobs.slice(0, 10)) {
       const appsList = await fetchJobApplications(apiUrl, authHeader, userId, j.id);
       for (const a of appsList) {
         loadedApps.push({
@@ -80,11 +74,8 @@ export function loadEmployerWorkspaceData({
         });
       }
     }
-    if (isMounted && loadedApps.length > 0) {
-      setApplicants((prev) => {
-        const loadedIds = new Set(loadedApps.map((a) => a.id));
-        return [...loadedApps, ...prev.filter((p) => !loadedIds.has(p.id))];
-      });
+    if (isMounted) {
+      setApplicants(loadedApps);
     }
   });
 

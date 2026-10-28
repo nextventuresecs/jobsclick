@@ -1,9 +1,11 @@
 import React from 'react';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { Navbar } from '../../../components/layout/Navbar';
 import { Footer } from '../../../components/layout/Footer';
 import { SAMPLE_COMPANIES, CompanyItem } from '../../../data/sampleCompanies';
-import { SAMPLE_JOBS } from '../../../data/sampleJobs';
+import type { JobItem } from '../../../data/sampleJobs';
+import { mapApiJobToJobItem, type ApiJobPayload } from '../../../lib/job-mapper';
 import {
   CategoryBadge,
   getCategoryCardBorderClass,
@@ -31,25 +33,22 @@ export default async function PublicCompanyPage({ params }: CompanyPageProps) {
   const companyId = params.id;
   const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
 
-  let company: CompanyItem = SAMPLE_COMPANIES.find((c) => c.id === companyId) || {
-    ...SAMPLE_COMPANIES[0]!,
-    id: companyId,
-  };
+  let company: CompanyItem | null = SAMPLE_COMPANIES.find((c) => c.id === companyId) || null;
 
-interface BusinessProfileApiResponse {
-  readonly companyName?: string;
-  readonly sector?: string;
-  readonly companySize?: CompanyItem['enterpriseSize'];
-  readonly ownershipType?: CompanyItem['ownershipType'];
-  readonly address?: string;
-  readonly city?: string;
-  readonly district?: string;
-  readonly state?: string;
-  readonly description?: string;
-  readonly udyamNumber?: string;
-  readonly verified?: boolean;
-  readonly activeJobsCount?: number;
-}
+  interface BusinessProfileApiResponse {
+    readonly companyName?: string;
+    readonly sector?: string;
+    readonly companySize?: CompanyItem['enterpriseSize'];
+    readonly ownershipType?: CompanyItem['ownershipType'];
+    readonly address?: string;
+    readonly city?: string;
+    readonly district?: string;
+    readonly state?: string;
+    readonly description?: string;
+    readonly udyamNumber?: string;
+    readonly verified?: boolean;
+    readonly activeJobsCount?: number;
+  }
 
   try {
     const res = await fetch(`${apiUrl}/profiles/business/${companyId}`, {
@@ -64,25 +63,41 @@ interface BusinessProfileApiResponse {
           sector: data.sector || 'Manufacturing',
           enterpriseSize: data.companySize || 'Small',
           ownershipType: data.ownershipType || 'Private Limited',
-          address: data.address || 'Industrial Zone',
-          city: data.city || 'India',
-          district: data.district || 'National',
-          state: data.state || 'India',
-          description: data.description || 'Verified Indian Enterprise.',
+          address: data.address || '',
+          city: data.city || '',
+          district: data.district || '',
+          state: data.state || '',
+          description: data.description || '',
           udyamNumber: data.udyamNumber || '',
-          verified: data.verified ?? true,
-          activeJobsCount: data.activeJobsCount || 1,
+          verified: data.verified ?? false,
+          activeJobsCount: data.activeJobsCount || 0,
         };
       }
     }
   } catch {
-    // Graceful fallback to sample data
+    // Graceful fallback to null or sample
   }
 
-  // Active jobs for this enterprise
-  const activeJobs = SAMPLE_JOBS.filter(
-    (j) => j.companyId === company.id || j.companyName.toLowerCase().includes(company.name.toLowerCase().slice(0, 5))
-  );
+  if (!company) {
+    notFound();
+  }
+
+  // Active jobs for this enterprise (live from API)
+  let activeJobs: JobItem[] = [];
+  try {
+    const jobsRes = await fetch(`${apiUrl}/jobs?companyId=${encodeURIComponent(companyId)}`, {
+      headers: { Accept: 'application/json' },
+      next: { revalidate: 30 },
+    });
+    if (jobsRes.ok) {
+      const jobsData = (await jobsRes.json()) as { readonly jobs?: readonly ApiJobPayload[] } | null;
+      if (jobsData && Array.isArray(jobsData.jobs)) {
+        activeJobs = jobsData.jobs.map((j) => mapApiJobToJobItem(j, company.name));
+      }
+    }
+  } catch {
+    activeJobs = [];
+  }
 
   // JSON-LD structured data for Google indexing (Hard Invariant #9 / EMP-02)
   const jsonLd = {
