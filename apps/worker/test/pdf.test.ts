@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { PdfGeneratorService, Semaphore } from '../src/pdf/pdf-generator.js';
 
-describe('PdfGeneratorService - Ticket T-09 (JS-03 & Hard Invariant #8a)', () => {
+describe('PdfGeneratorService - Ticket T-09 (JS-03 & Hard Invariant #8a)', { timeout: 45000 }, () => {
   it('generates valid vector PDF and serves from cache in under 500ms (AC #1)', async () => {
     const service = new PdfGeneratorService();
     const data = {

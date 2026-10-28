@@ -10,6 +10,7 @@ import {
 import type { IndustryCategory } from '@indian-job-portal/validation';
 import { Navbar } from '../components/layout/Navbar';
 import { Footer } from '../components/layout/Footer';
+import { mapApiJobToJobItem, type ApiJobPayload } from '../lib/job-mapper';
 import {
   Search,
   MapPin,
@@ -38,64 +39,7 @@ interface FeaturedJob {
   readonly postedDate: string;
 }
 
-const FEATURED_JOBS: readonly FeaturedJob[] = [
-  {
-    id: 'job-101',
-    title: 'CNC Machine Operator & Programmer',
-    companyName: 'Aarya Precision Engineering Pvt Ltd',
-    location: 'Bhosari Industrial Estate, Pune',
-    category: 'manufacturing',
-    employmentType: 'Full-time',
-    salaryMin: 22000,
-    salaryMax: 32000,
-    description:
-      'Expanding our precision automotive transmission machining line. Responsible for setting up and operating CNC milling/turning machines and dimensional quality inspections.',
-    skills: ['CNC Milling', 'VMC Operating', 'Blueprint Reading', 'Fanuc Controls'],
-    postedDate: '2 days ago',
-  },
-  {
-    id: 'job-102',
-    title: 'Junior React & Full Stack Developer',
-    companyName: 'Zenith Cloudworks Technologies',
-    location: 'HSR Layout, Bengaluru',
-    category: 'technology',
-    employmentType: 'Full-time',
-    salaryMin: 35000,
-    salaryMax: 55000,
-    description:
-      'Join our agile product team developing supply chain and enterprise portals. Build responsive UI components with Next.js, TypeScript, and Tailwind CSS.',
-    skills: ['React.js', 'TypeScript', 'Tailwind CSS', 'Node.js'],
-    postedDate: 'Just now',
-  },
-  {
-    id: 'job-103',
-    title: 'B2B Sales & Industrial Account Specialist',
-    companyName: 'Apex Industrial Supply Corp',
-    location: 'Okhla Industrial Area, New Delhi',
-    category: 'sales_operations',
-    employmentType: 'Full-time',
-    salaryMin: 28000,
-    salaryMax: 45000,
-    description:
-      'Drive regional distributor acquisition and direct sales of industrial fasteners, safety equipment, and precision tooling to manufacturing clusters.',
-    skills: ['B2B Sales', 'Client Acquisition', 'CRM Management', 'Field Sales'],
-    postedDate: '1 day ago',
-  },
-  {
-    id: 'job-104',
-    title: 'Warehouse Operations & Dispatch Supervisor',
-    companyName: 'GatiShakti Logistics Network',
-    location: 'Bhiwandi Logistics Hub, Thane',
-    category: 'logistics_supply',
-    employmentType: 'Shift-based',
-    salaryMin: 24000,
-    salaryMax: 36000,
-    description:
-      'Oversee inbound staging, pallet barcode scanning, inventory audits, and team shift allocations across our multi-client fulfillment warehouse.',
-    skills: ['Warehouse Ops', 'Inventory Management', 'Barcode Scanning', 'Dispatch'],
-    postedDate: '3 days ago',
-  },
-] as const;
+
 
 const CATEGORIES_LIST: readonly {
   readonly key: IndustryCategory;
@@ -109,9 +53,41 @@ const CATEGORIES_LIST: readonly {
   { key: 'healthcare_services', count: 96 },
 ] as const;
 
-export default function HomePage() {
+export default async function HomePage() {
   const t = useTranslations('HomePage');
   const catT = useTranslations('Categories');
+  const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
+
+  let featuredJobs: FeaturedJob[] = [];
+  try {
+    const res = await fetch(`${apiUrl}/jobs?limit=4`, {
+      headers: { Accept: 'application/json' },
+      next: { revalidate: 30 },
+    });
+    if (res.ok) {
+      const data = (await res.json()) as { readonly jobs?: readonly ApiJobPayload[] } | null;
+      if (data && Array.isArray(data.jobs)) {
+        featuredJobs = data.jobs.map((j) => {
+          const item = mapApiJobToJobItem(j);
+          return {
+            id: item.id,
+            title: item.title,
+            companyName: item.companyName,
+            location: item.location,
+            category: item.category,
+            employmentType: item.employmentType,
+            salaryMin: item.salaryMin,
+            salaryMax: item.salaryMax,
+            description: item.description,
+            skills: item.skills,
+            postedDate: new Date(item.postedDate).toLocaleDateString(),
+          };
+        });
+      }
+    }
+  } catch {
+    featuredJobs = [];
+  }
 
   const popularKeywords = [
     'CNC Machinist',
@@ -318,8 +294,9 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {FEATURED_JOBS.map((job) => {
+          {featuredJobs.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {featuredJobs.map((job) => {
               const borderClass = getCategoryCardBorderClass(job.category);
               return (
                 <div
@@ -391,7 +368,23 @@ export default function HomePage() {
                 </div>
               );
             })}
-          </div>
+            </div>
+          ) : (
+            <div className="text-center py-12 bg-white rounded-2xl border border-gray-200">
+              <Briefcase className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+              <h4 className="text-sm font-bold text-gray-900">{t('emptyFeaturedTitle')}</h4>
+              <p className="text-xs text-gray-500 max-w-sm mx-auto mt-1 mb-4">
+                {t('emptyFeaturedDesc')}
+              </p>
+              <Link
+                href="/jobs"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-brand-orange text-white hover:bg-brand-orange-hover transition-colors"
+              >
+                <span>{t('browseAllJobs')}</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          )}
         </section>
 
         {/* 4. MSME SPOTLIGHT */}
