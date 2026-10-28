@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type {
   StudentRecordData,
   InstitutionProfileData,
@@ -8,10 +8,7 @@ import type {
   PlacementApplicationRecord,
 } from '../../../data/sampleWorkspaces';
 import {
-  INITIAL_STUDENTS,
   INITIAL_INSTITUTION_PROFILE,
-  INITIAL_CORPORATE_TIEUPS,
-  INITIAL_PLACEMENT_APPLICATIONS,
 } from '../../../data/sampleWorkspaces';
 import { institutionProfileSchema } from '@indian-job-portal/validation';
 import { useInstitutionProfileState } from './useInstitutionProfileState';
@@ -19,7 +16,22 @@ import { useBulkUploadState } from './useBulkUploadState';
 import { parseCsvContent, downloadCsvTemplate } from './csvParser';
 import { createQuickStudent, filterStudentsList } from './studentUtils';
 
+interface ApiStudentRow {
+  readonly id: string;
+  readonly institution_id?: string;
+  readonly institution?: string;
+  readonly full_name?: string;
+  readonly phone?: string;
+  readonly qualification?: string;
+  readonly graduation_year?: string;
+  readonly skills?: readonly string[];
+  readonly source?: string;
+  readonly created_at?: string;
+}
+
 interface UseInstitutionWorkspaceProps {
+  readonly user?: { id?: string } | null;
+  readonly accessToken?: string | null;
   readonly addToast: (toast: {
     type: 'success' | 'error' | 'info';
     title: string;
@@ -38,7 +50,7 @@ export type InstitutionWorkspaceTab =
   | 'cms'
   | 'inquiries';
 
-export function useInstitutionWorkspace({ addToast }: UseInstitutionWorkspaceProps) {
+export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInstitutionWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<InstitutionWorkspaceTab>('overview');
   const [institution, setInstitution] =
     useState<InstitutionProfileData>(INITIAL_INSTITUTION_PROFILE);
@@ -48,11 +60,9 @@ export function useInstitutionWorkspace({ addToast }: UseInstitutionWorkspacePro
   const [isEditingProfile, setIsEditingProfile] = useState(false);
 
   const profileForm = useInstitutionProfileState(institution);
-  const [students, setStudents] = useState<readonly StudentRecordData[]>(INITIAL_STUDENTS);
-  const [tieUps, setTieUps] = useState<readonly CorporateTieUpData[]>(INITIAL_CORPORATE_TIEUPS);
-  const [applications, setApplications] = useState<readonly PlacementApplicationRecord[]>(
-    INITIAL_PLACEMENT_APPLICATIONS,
-  );
+  const [students, setStudents] = useState<readonly StudentRecordData[]>([]);
+  const [tieUps, setTieUps] = useState<readonly CorporateTieUpData[]>([]);
+  const [applications, setApplications] = useState<readonly PlacementApplicationRecord[]>([]);
   const [studentSearch, setStudentSearch] = useState('');
   const [streamFilter, setStreamFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -64,7 +74,100 @@ export function useInstitutionWorkspace({ addToast }: UseInstitutionWorkspacePro
   const [quickStream, setQuickStream] = useState('Mechanical Engineering (Diploma)');
   const [quickPassingYear, setQuickPassingYear] = useState('2026');
 
-  const bulkUpload = useBulkUploadState(institution.institutionName, addToast);
+  // Mount effect to fetch remote institution profile, students, corporate tie-ups & placement pipeline
+  useEffect(() => {
+    let isMounted = true;
+    if (!user?.id && !accessToken) return;
+
+    const apiUrl =
+      process.env['NEXT_PUBLIC_API_URL'] ||
+      process.env['API_URL'] ||
+      'http://localhost:3001';
+    const authHeader = accessToken
+      ? `Bearer ${accessToken}`
+      : `Bearer jwt_session_${user?.id}_${Date.now()}`;
+    const userId = user?.id || '';
+
+    // 1. Fetch Institution Profile
+    fetch(`${apiUrl}/profiles/institution/me`, {
+      headers: { Authorization: authHeader, 'x-user-id': userId },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!isMounted || !data) return;
+        setInstitution((prev) => ({
+          ...prev,
+          id: data.id || prev.id,
+          institutionName: data.institutionName || prev.institutionName,
+          institutionType: data.institutionType || prev.institutionType,
+          affiliation: data.affiliation || prev.affiliation,
+          address: data.address || prev.address,
+          city: data.city || prev.city,
+          district: data.district || prev.district,
+          state: data.state || prev.state,
+          pincode: data.pincode || prev.pincode,
+          contactPerson: data.contactPerson || prev.contactPerson,
+          contactPhone: data.contactPhone || prev.contactPhone,
+          contactEmail: data.contactEmail || prev.contactEmail,
+          isOnboardingComplete: true,
+        }));
+        setIsOnboardingComplete(true);
+      })
+      .catch(() => {});
+
+    // 2. Fetch Students Roster
+    fetch(`${apiUrl}/profiles/institution/students`, {
+      headers: { Authorization: authHeader, 'x-user-id': userId },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!isMounted || !Array.isArray(data)) return;
+        const mappedStudents: StudentRecordData[] = data.map((s: ApiStudentRow) => ({
+          id: s.id,
+          institutionId: s.institution_id || institution.id,
+          institutionName: s.institution || institution.institutionName,
+          studentName: s.full_name || 'Enrolled Student',
+          rollNumber: s.id?.slice(0, 10).toUpperCase() || 'ROLL-01',
+          phone: s.phone || '',
+          stream: s.qualification || 'Vocational Trade',
+          passingYear: s.graduation_year || '2026',
+          profileCompleted: Boolean(s.skills && s.skills.length > 0),
+          placementStatus: 'Available',
+          state: s.source === 'bulk_upload' ? 'invited' : 'active',
+          invitedAt: s.created_at?.split('T')[0] ?? new Date().toISOString().split('T')[0],
+        }));
+        setStudents(mappedStudents);
+      })
+      .catch(() => {});
+
+    // 3. Fetch Corporate Tie-Ups
+    fetch(`${apiUrl}/placement/tie-ups`, {
+      headers: { Authorization: authHeader, 'x-user-id': userId },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!isMounted || !Array.isArray(data)) return;
+        setTieUps(data);
+      })
+      .catch(() => {});
+
+    // 4. Fetch Placement Applications Pipeline
+    fetch(`${apiUrl}/placement/pipeline`, {
+      headers: { Authorization: authHeader, 'x-user-id': userId },
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!isMounted || !Array.isArray(data)) return;
+        setApplications(data);
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, [accessToken, user?.id, institution.id]);
+
+    const bulkUpload = useBulkUploadState(institution.institutionName, addToast);
   const filteredStudents = filterStudentsList(
     students,
     studentSearch,
