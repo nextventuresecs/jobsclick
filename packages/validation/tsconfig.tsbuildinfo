@@ -1,1 +1,1 @@
-{"root":["./src/admin.ts","./src/auth.ts","./src/bulk.ts","./src/index.ts","./src/institution-cms.ts","./src/jobs.ts","./src/placement-fsm.ts","./src/placement.ts","./src/profiles.ts","./src/resume.ts","./src/wallet.ts","./src/admin/broadcast.ts"],"version":"5.9.3"}
+{"root":["./src/admin.ts","./src/auth.ts","./src/bulk.ts","./src/index.ts","./src/institution-cms.ts","./src/jobs.ts","./src/placement-fsm.ts","./src/placement.ts","./src/profiles.ts","./src/resume.ts","./src/scrubber.ts","./src/wallet.ts","./src/admin/broadcast.ts"],"version":"5.9.3"}

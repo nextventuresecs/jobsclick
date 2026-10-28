@@ -17,6 +17,7 @@
     "@indian-job-portal/database": "workspace:*",
     "@indian-job-portal/validation": "workspace:*",
     "@react-pdf/renderer": "^3.4.0",
+    "@sentry/node": "^10.77.1",
     "@supabase/supabase-js": "^2.45.0",
     "@upstash/qstash": "^2.7.20",
     "bullmq": "^6.3.15",

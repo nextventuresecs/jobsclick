@@ -5,6 +5,7 @@ import IORedisMock from 'ioredis-mock';
 import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter.js';
 import { FastifyAdapter } from '@bull-board/fastify';
+import { getTracePropagationHeaders } from '../config/sentry.js';
 
 export const QUEUE_NAMES = {
   BULK_IMPORT: 'bulk-import',
@@ -140,6 +141,19 @@ export class QueueService implements OnModuleDestroy {
     /* eslint-enable @typescript-eslint/no-explicit-any */
   }
 
+  private enrichJobData<T extends Record<string, unknown>>(data: T): T & {
+    _traceContext?: { sentryTrace?: string; baggage?: string; traceId?: string };
+  } {
+    const traceHeaders = getTracePropagationHeaders();
+    if (traceHeaders.sentryTrace || traceHeaders.traceId) {
+      return {
+        ...data,
+        _traceContext: traceHeaders,
+      };
+    }
+    return data;
+  }
+
   async publishBulkImportJob(data: {
     batchId: string;
     source: string;
@@ -147,18 +161,20 @@ export class QueueService implements OnModuleDestroy {
     csvContent?: string;
     storagePath?: string;
     shouldSimulateFailure?: boolean;
+    _traceContext?: { sentryTrace?: string; baggage?: string; traceId?: string };
   }) {
+    const jobData = this.enrichJobData(data);
     if (this.isMock) {
       this.mockCounters[QUEUE_NAMES.BULK_IMPORT].waiting++;
-      return { id: `mock_${Date.now()}`, name: 'bulk-import', data } as unknown as Job;
+      return { id: `mock_${Date.now()}`, name: 'bulk-import', data: jobData } as unknown as Job;
     }
     try {
-      return await this.bulkImportQueue.add('bulk-import', data, DEFAULT_JOB_OPTIONS);
+      return await this.bulkImportQueue.add('bulk-import', jobData, DEFAULT_JOB_OPTIONS);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes('cmsgpack') || message.includes('lua')) {
         this.mockCounters[QUEUE_NAMES.BULK_IMPORT].waiting++;
-        return { id: `mock_${Date.now()}`, name: 'bulk-import', data } as unknown as Job;
+        return { id: `mock_${Date.now()}`, name: 'bulk-import', data: jobData } as unknown as Job;
       }
       throw err;
     }
@@ -170,18 +186,20 @@ export class QueueService implements OnModuleDestroy {
     waveSize: number;
     costPerSmsInr?: number;
     shouldSimulateFailure?: boolean;
+    _traceContext?: { sentryTrace?: string; baggage?: string; traceId?: string };
   }) {
+    const jobData = this.enrichJobData(data);
     if (this.isMock) {
       this.mockCounters[QUEUE_NAMES.INVITE_WAVE].waiting++;
-      return { id: `mock_${Date.now()}`, name: 'invite-wave', data } as unknown as Job;
+      return { id: `mock_${Date.now()}`, name: 'invite-wave', data: jobData } as unknown as Job;
     }
     try {
-      return await this.inviteWaveQueue.add('invite-wave', data, DEFAULT_JOB_OPTIONS);
+      return await this.inviteWaveQueue.add('invite-wave', jobData, DEFAULT_JOB_OPTIONS);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes('cmsgpack') || message.includes('lua')) {
         this.mockCounters[QUEUE_NAMES.INVITE_WAVE].waiting++;
-        return { id: `mock_${Date.now()}`, name: 'invite-wave', data } as unknown as Job;
+        return { id: `mock_${Date.now()}`, name: 'invite-wave', data: jobData } as unknown as Job;
       }
       throw err;
     }
@@ -195,18 +213,20 @@ export class QueueService implements OnModuleDestroy {
     skills: string[];
     updatedAt?: number;
     shouldSimulateFailure?: boolean;
+    _traceContext?: { sentryTrace?: string; baggage?: string; traceId?: string };
   }) {
+    const jobData = this.enrichJobData(data);
     if (this.isMock) {
       this.mockCounters[QUEUE_NAMES.PDF_GENERATOR].waiting++;
-      return { id: `mock_${Date.now()}`, name: 'generate-pdf', data } as unknown as Job;
+      return { id: `mock_${Date.now()}`, name: 'generate-pdf', data: jobData } as unknown as Job;
     }
     try {
-      return await this.pdfGeneratorQueue.add('generate-pdf', data, DEFAULT_JOB_OPTIONS);
+      return await this.pdfGeneratorQueue.add('generate-pdf', jobData, DEFAULT_JOB_OPTIONS);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes('cmsgpack') || message.includes('lua')) {
         this.mockCounters[QUEUE_NAMES.PDF_GENERATOR].waiting++;
-        return { id: `mock_${Date.now()}`, name: 'generate-pdf', data } as unknown as Job;
+        return { id: `mock_${Date.now()}`, name: 'generate-pdf', data: jobData } as unknown as Job;
       }
       throw err;
     }
@@ -224,29 +244,36 @@ export class QueueService implements OnModuleDestroy {
     templateId: string;
     variables: Record<string, string>;
     shouldSimulateFailure?: boolean;
+    _traceContext?: { sentryTrace?: string; baggage?: string; traceId?: string };
   }) {
+    const jobData = this.enrichJobData(data);
     if (this.isMock) {
       this.mockCounters[QUEUE_NAMES.BROADCAST].waiting++;
-      return { id: `mock_${Date.now()}`, name: 'broadcast-batch', data } as unknown as Job;
+      return { id: `mock_${Date.now()}`, name: 'broadcast-batch', data: jobData } as unknown as Job;
     }
     try {
-      return await this.broadcastQueue.add('broadcast-batch', data, DEFAULT_JOB_OPTIONS);
+      return await this.broadcastQueue.add('broadcast-batch', jobData, DEFAULT_JOB_OPTIONS);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes('cmsgpack') || message.includes('lua')) {
         this.mockCounters[QUEUE_NAMES.BROADCAST].waiting++;
-        return { id: `mock_${Date.now()}`, name: 'broadcast-batch', data } as unknown as Job;
+        return { id: `mock_${Date.now()}`, name: 'broadcast-batch', data: jobData } as unknown as Job;
       }
       throw err;
     }
   }
 
-  async publishAlertsJob(data: { timeframeHours?: number; candidateId?: string }): Promise<Job> {
+  async publishAlertsJob(data: {
+    timeframeHours?: number;
+    candidateId?: string;
+    _traceContext?: { sentryTrace?: string; baggage?: string; traceId?: string };
+  }): Promise<Job> {
     const jobName = `search-alerts-${Date.now()}`;
+    const jobData = this.enrichJobData(data);
     if (this.isMock) {
       this.mockCounters[QUEUE_NAMES.ALERTS].waiting++;
     }
-    return this.alertsQueue.add(jobName, data);
+    return this.alertsQueue.add(jobName, jobData);
   }
 
   async getLiveQueueMetrics(): Promise<LiveQueueStatusResponse> {

@@ -18,7 +18,7 @@ Spec: `docs/PRD.md` (v1.3) + `docs/decisions/001-client-decisions.md` (overrides
   - `packages/ui` shared components
 - Postgres/Supabase (RLS = second lock), Supabase Storage, Supabase phone OTP with custom SMS hook (MSG91), Upstash Redis (`@upstash/ratelimit`, BullMQ), Cloudflare Turnstile, Resend, Sentry.
 - PDF: `@react-pdf/renderer` (no headless browser). Search: Postgres FTS. QR: `qrcode`.
-- Docker yes. Kubernetes no. Terraform only if AWS chosen.
+- Docker yes. Kubernetes no. Deployment platform: Railway. Terraform only if AWS chosen.
 
 ## Hard invariants (never violate, test each)
 1. Employer/anyone never sees a job seeker's phone or email. Contact only via platform message.

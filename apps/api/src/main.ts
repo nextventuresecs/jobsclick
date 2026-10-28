@@ -1,16 +1,18 @@
+import './instrument.js';
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import multipart from '@fastify/multipart';
 import crypto from 'node:crypto';
 import { AppModule } from './app.module.js';
 import { validateEnv } from './config/env.js';
-import { initSentry } from './config/sentry.js';
+import { initSentry, setupFastifySentry } from './config/sentry.js';
 
 async function bootstrap() {
   const env = validateEnv();
   initSentry(env.SENTRY_DSN);
 
   const adapter = new FastifyAdapter();
+  setupFastifySentry(adapter.getInstance());
 
   // SEC-01: Administrative Queue Dashboard Guard
   adapter.getInstance().addHook('preHandler', async (req, reply) => {
