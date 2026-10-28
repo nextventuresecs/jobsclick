@@ -24,9 +24,12 @@ const notoDevanagari = Noto_Sans_Devanagari({
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  metadataBase: new URL(process.env['NEXT_PUBLIC_APP_URL'] || 'https://jobsclick.in'),
+  metadataBase: new URL(process.env['NEXT_PUBLIC_APP_URL'] || 'https://jobsclick.live'),
   title: 'JobsClick — National Job Portal for MSMEs & Skilled Workforce',
   description: 'Connecting India’s Skilled Workforce with Verified Opportunities across MSMEs and Enterprises.',
+  icons: {
+    icon: '/favicon.ico', // Path relative to the public folder
+  },
   alternates: {
     canonical: '/',
     languages: {
@@ -54,7 +57,7 @@ export default async function RootLayout({
     // Headers unavailable in current rendering phase
   }
 
-  const siteUrl = process.env['NEXT_PUBLIC_APP_URL'] || 'https://jobsclick.in';
+  const siteUrl = process.env['NEXT_PUBLIC_APP_URL'] || 'https://jobsclick.live';
   const canonicalPath = cleanPath === '/' ? '' : cleanPath;
   const enUrl = `${siteUrl}${canonicalPath || '/'}`;
   const hiUrl = `${siteUrl}/hi${canonicalPath}`;

@@ -32,11 +32,11 @@ export default function HowItWorksPage() {
     name: 'How JobsClick Works - Candidate, Employer, and Institution Workflows',
     description:
       'Step-by-step guide for blue and grey collar job seekers, MSME employers, and vocational colleges to connect directly without middlemen.',
-    url: 'https://jobsclick.in/how-it-works',
+    url: 'https://jobsclick.live/how-it-works',
     publisher: {
       '@type': 'Organization',
       name: 'JobsClick India',
-      url: 'https://jobsclick.in',
+      url: 'https://jobsclick.live',
     },
     mainEntity: [
       {
