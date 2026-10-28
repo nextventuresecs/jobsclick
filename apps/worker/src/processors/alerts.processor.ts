@@ -35,7 +35,7 @@ export class AlertsProcessor {
   private static deliveredTupleLedger = new Set<string>();
   private static inMemoryDeliveries = new Map<string, AlertDeliveryRow>();
   private supabase: SupabaseClient | null = null;
-  private persistenceFilePath: string;
+  private persistenceFilePath: string = '';
   private emailService = new WorkerEmailService();
 
   constructor() {
@@ -44,11 +44,21 @@ export class AlertsProcessor {
     if (supabaseUrl && supabaseKey && supabaseKey !== 'dummy-service-role-key') {
       this.supabase = createClient(supabaseUrl, supabaseKey);
     }
-    const scratchDir = path.resolve(process.cwd(), '.scratch');
-    this.persistenceFilePath = path.join(scratchDir, 'db-persistence.json');
+    if (process.env['NODE_ENV'] === 'production') {
+      this.persistenceFilePath = '';
+      if (!this.supabase) {
+        throw new Error('Supabase client connection is strictly required for AlertsProcessor in production mode.');
+      }
+    } else {
+      const scratchDir = path.resolve(process.cwd(), '.scratch');
+      this.persistenceFilePath = path.join(scratchDir, 'db-persistence.json');
+    }
   }
 
   private readLocalState(): LocalPersistenceState {
+    if (process.env['NODE_ENV'] === 'production' || !this.persistenceFilePath) {
+      return {};
+    }
     try {
       if (fs.existsSync(this.persistenceFilePath)) {
         return JSON.parse(fs.readFileSync(this.persistenceFilePath, 'utf-8'));
@@ -60,6 +70,9 @@ export class AlertsProcessor {
   }
 
   private saveLocalState(state: LocalPersistenceState): void {
+    if (process.env['NODE_ENV'] === 'production' || !this.persistenceFilePath) {
+      return;
+    }
     try {
       fs.writeFileSync(this.persistenceFilePath, JSON.stringify(state, null, 2), 'utf-8');
     } catch {
@@ -90,15 +103,21 @@ export class AlertsProcessor {
         if (candidateId) {
           alertQuery = alertQuery.eq('user_id', candidateId);
         }
-        const { data: alerts } = await alertQuery;
+        const { data: alerts, error: alertError } = await alertQuery;
+        if (alertError && process.env['NODE_ENV'] === 'production') {
+          throw new Error(`Database error fetching job alerts: ${alertError.message}`);
+        }
         activeAlerts = (alerts as JobAlertRow[]) || [];
 
         const cutoffTime = new Date(Date.now() - timeframeHours * 60 * 60 * 1000).toISOString();
-        const { data: jobs } = await this.supabase
+        const { data: jobs, error: jobError } = await this.supabase
           .from('jobs')
           .select('*')
           .eq('is_active', true)
           .gte('created_at', cutoffTime);
+        if (jobError && process.env['NODE_ENV'] === 'production') {
+          throw new Error(`Database error fetching recent jobs: ${jobError.message}`);
+        }
         recentJobs = (jobs as JobRow[]) || [];
 
         // Memory bounded: scope existing delivery lookup to active candidates rather than global table scan
@@ -113,10 +132,16 @@ export class AlertsProcessor {
             deliveriesQuery = deliveriesQuery.in('user_id', userIds);
           }
         }
-        const { data: deliveries } = await deliveriesQuery;
+        const { data: deliveries, error: delError } = await deliveriesQuery;
+        if (delError && process.env['NODE_ENV'] === 'production') {
+          throw new Error(`Database error fetching alert deliveries: ${delError.message}`);
+        }
         existingDeliveries = (deliveries as AlertDeliveryRow[]) || [];
-      } catch {
-        // Fall back to local state
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production') {
+          throw err;
+        }
+        // Fall back to local state in non-production
       }
     }
 
@@ -127,7 +152,6 @@ export class AlertsProcessor {
       activeAlerts = allAlerts.filter(
         (a) => a.is_active && (!candidateId || a.user_id === candidateId) && (!a.frequency || a.frequency === frequency),
       );
-  
     }
 
     if (job.data.jobs && job.data.jobs.length > 0) {
@@ -158,10 +182,6 @@ export class AlertsProcessor {
     for (const tuple of AlertsProcessor.deliveredTupleLedger) {
       deliveredSet.add(tuple);
     }
-    // Set of delivered tuples: user_id:job_id (Hard Invariant: deduplication ledger)
-
-
-
 
     // Group alerts by user
     const alertsByUser = new Map<string, JobAlertRow[]>();
@@ -267,7 +287,6 @@ export class AlertsProcessor {
           dispatchSucceeded = emailRes.success;
         }
 
-
         // 4. Record Deliveries ONLY on successful dispatch (prevents premature deduplication on dispatch failure)
         if (dispatchSucceeded) {
           const userDeliveries: AlertDeliveryRow[] = matchedJobsForUser.map(({ job: mJob, alertId }) => ({
@@ -280,9 +299,14 @@ export class AlertsProcessor {
 
           if (this.supabase) {
             try {
-              await this.supabase.from('alert_deliveries').insert(userDeliveries);
-            } catch {
-              // Persisted locally
+              const { error: insError } = await this.supabase.from('alert_deliveries').insert(userDeliveries);
+              if (insError && process.env['NODE_ENV'] === 'production') {
+                throw new Error(`Database error recording alert deliveries: ${insError.message}`);
+              }
+            } catch (err) {
+              if (process.env['NODE_ENV'] === 'production') {
+                throw err;
+              }
             }
           }
 
@@ -298,8 +322,8 @@ export class AlertsProcessor {
       }
     }
 
-    // Save to local store
-    if (newDeliveries.length > 0) {
+    // Save to local store in non-production
+    if (newDeliveries.length > 0 && process.env['NODE_ENV'] !== 'production') {
       const freshState = this.readLocalState();
       if (!freshState.alert_deliveries) {
         freshState.alert_deliveries = {};

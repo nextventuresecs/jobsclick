@@ -28,7 +28,7 @@ export interface DatabasePersistenceState {
 
 export class PersistentDatabaseStore {
   private static instance: PersistentDatabaseStore;
-  private filePath: string;
+  private filePath: string = '';
   private locks: Map<string, Promise<unknown>> = new Map();
   private state: DatabasePersistenceState = {
     users: {},
@@ -51,6 +51,10 @@ export class PersistentDatabaseStore {
   };
 
   private constructor() {
+    if (process.env['NODE_ENV'] === 'production') {
+      this.filePath = '';
+      return;
+    }
     const dir = path.resolve(process.cwd(), '.scratch');
     if (!fs.existsSync(dir)) {
       try {
@@ -90,8 +94,13 @@ export class PersistentDatabaseStore {
   }
 
   private load(): void {
+    if (process.env['NODE_ENV'] === 'production') {
+      throw new Error(
+        'PersistentDatabaseStore file loading is prohibited in production mode. Supabase PostgreSQL must be the sole authority.',
+      );
+    }
     try {
-      if (fs.existsSync(this.filePath)) {
+      if (this.filePath && fs.existsSync(this.filePath)) {
         const raw = fs.readFileSync(this.filePath, 'utf-8');
         const parsed = JSON.parse(raw);
         this.state = {
@@ -126,7 +135,7 @@ export class PersistentDatabaseStore {
       );
     }
     try {
-      if (fs.existsSync(this.filePath)) {
+      if (this.filePath && fs.existsSync(this.filePath)) {
         try {
           const onDisk = JSON.parse(fs.readFileSync(this.filePath, 'utf-8'));
           if (onDisk.alert_deliveries) {
@@ -139,16 +148,23 @@ export class PersistentDatabaseStore {
           // ignore parse errors
         }
       }
-      fs.writeFileSync(this.filePath, JSON.stringify(this.state, null, 2), 'utf-8');
+      if (this.filePath) {
+        fs.writeFileSync(this.filePath, JSON.stringify(this.state, null, 2), 'utf-8');
+      }
     } catch {
       // ignore write errors in restricted environments
     }
   }
 
   public getTable<T = unknown>(table: keyof DatabasePersistenceState): Record<string, T> {
+    if (process.env['NODE_ENV'] === 'production') {
+      throw new Error(
+        `PersistentDatabaseStore read operation on "${table}" is prohibited in production mode. Supabase PostgreSQL must be the sole authority.`,
+      );
+    }
     if (table === 'alert_deliveries' || table === 'broadcast_deliveries') {
       try {
-        if (fs.existsSync(this.filePath)) {
+        if (this.filePath && fs.existsSync(this.filePath)) {
           const onDisk = JSON.parse(fs.readFileSync(this.filePath, 'utf-8'));
           if (onDisk[table]) {
             this.state[table] = { ...this.state[table], ...onDisk[table] };
@@ -162,16 +178,31 @@ export class PersistentDatabaseStore {
   }
 
   public setRow<T = unknown>(table: keyof DatabasePersistenceState, id: string, row: T): void {
+    if (process.env['NODE_ENV'] === 'production') {
+      throw new Error(
+        `PersistentDatabaseStore write operation on "${table}" is prohibited in production mode. Supabase PostgreSQL must be the sole authority.`,
+      );
+    }
     (this.state[table] as Record<string, T>)[id] = row;
     this.save();
   }
 
   public deleteRow(table: keyof DatabasePersistenceState, id: string): void {
+    if (process.env['NODE_ENV'] === 'production') {
+      throw new Error(
+        `PersistentDatabaseStore delete operation on "${table}" is prohibited in production mode. Supabase PostgreSQL must be the sole authority.`,
+      );
+    }
     delete this.state[table][id];
     this.save();
   }
 
   public clearTable(table: keyof DatabasePersistenceState): void {
+    if (process.env['NODE_ENV'] === 'production') {
+      throw new Error(
+        `PersistentDatabaseStore clear operation on "${table}" is prohibited in production mode. Supabase PostgreSQL must be the sole authority.`,
+      );
+    }
     this.state[table] = {};
     this.save();
   }

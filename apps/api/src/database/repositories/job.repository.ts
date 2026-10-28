@@ -17,6 +17,7 @@ export interface JobFilterParams {
   city?: string;
   category?: string;
   minPay?: number;
+  companyId?: string;
   limit?: number;
   offset?: number;
 }
@@ -26,11 +27,19 @@ export class JobRepository {
   private readonly logger = new Logger(JobRepository.name);
   private persistentStore = PersistentDatabaseStore.getInstance();
   private isTestMode =
-    process.env['NODE_ENV'] === 'test' ||
-    !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
-    process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key';
+    process.env['NODE_ENV'] !== 'production' &&
+    (process.env['NODE_ENV'] === 'test' ||
+      !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
+      process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key');
 
-  constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>) {}
+  constructor(
+    @Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>,
+    isTestMode?: boolean,
+  ) {
+    if (process.env['NODE_ENV'] !== 'production' && typeof isTestMode === 'boolean') {
+      this.isTestMode = isTestMode;
+    }
+  }
 
   async create(job: JobRow): Promise<JobRow> {
     if (this.isTestMode) {
@@ -38,18 +47,16 @@ export class JobRepository {
       return job;
     }
 
-    if (!this.isTestMode) {
-      try {
-        const { error } = await this.supabase.from('jobs').insert(job);
-        if (error) {
-          this.logger.error(`Failed to insert job ${job.id} into Supabase: ${error.message}`, error.details);
-          throw new InternalServerErrorException(`Failed to create job: ${error.message}`);
-        }
-      } catch (err) {
-        if (err instanceof InternalServerErrorException) throw err;
-        this.logger.error(`Supabase insertion error for job ${job.id}`, err);
-        throw new InternalServerErrorException('Database failure while creating job');
+    try {
+      const { error } = await this.supabase.from('jobs').insert(job);
+      if (error) {
+        this.logger.error(`Failed to insert job ${job.id} into Supabase: ${error.message}`, error.details);
+        throw new InternalServerErrorException('DATABASE_ERROR');
       }
+    } catch (err) {
+      if (err instanceof InternalServerErrorException) throw err;
+      this.logger.error(`Supabase insertion error for job ${job.id}`, err);
+      throw new InternalServerErrorException('DATABASE_ERROR');
     }
 
     return job;
@@ -60,47 +67,18 @@ export class JobRepository {
       try {
         const { data, error } = await this.supabase.from('jobs').select('*').eq('id', id).maybeSingle();
         if (error) {
-          this.logger.warn(`Error fetching job ${id} from Supabase: ${error.message}`);
-        } else if (data) {
-          return data as JobRow;
+          this.logger.error(`Error fetching job ${id} from Supabase: ${error.message}`);
+          throw new InternalServerErrorException('DATABASE_ERROR');
         }
+        return (data as JobRow) || null;
       } catch (err) {
-        this.logger.warn(`Supabase lookup failed for job ${id}`, err);
+        if (err instanceof InternalServerErrorException) throw err;
+        this.logger.error(`Supabase lookup failed for job ${id}`, err);
+        throw new InternalServerErrorException('DATABASE_ERROR');
       }
     }
     const jobs = this.persistentStore.getTable<JobRow>('jobs');
-    if (jobs[id]) {
-      return jobs[id];
-    }
-
-    if (id.startsWith('job-')) {
-      const sampleJob: JobRow = {
-        id,
-        employer_id: 'comp-01',
-        title: id === 'job-101' ? 'CNC Machine Operator & Programmer' : `Position ${id}`,
-        description: 'MSME technical position for verified candidates.',
-        category: 'manufacturing',
-        employment_type: 'Full-time',
-        experience_level: '1-2 Years',
-        min_pay: 22000,
-        max_pay: 32000,
-        city: 'Pune',
-        district: 'Pune',
-        state: 'Maharashtra',
-        openings: 4,
-        skills: ['CNC Milling', 'Blueprint Reading'],
-        is_active: true,
-        source: 'sample_seed',
-        created_by: 'comp-01',
-        updated_by: 'comp-01',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      this.persistentStore.setRow('jobs', id, sampleJob);
-      return sampleJob;
-    }
-
-    return null;
+    return jobs[id] || null;
   }
 
   async findMany(filters: JobFilterParams): Promise<{ jobs: JobRow[]; total: number }> {
@@ -142,6 +120,9 @@ export class JobRepository {
         if (filters.minPay !== undefined) {
           query = query.gte('max_pay', filters.minPay);
         }
+        if (filters.companyId) {
+          query = query.eq('employer_id', filters.companyId);
+        }
         if (filters.keyword) {
           query = query.or(
             `title.ilike.%${filters.keyword}%,description.ilike.%${filters.keyword}%,skills.cs.{${filters.keyword}}`,
@@ -155,11 +136,13 @@ export class JobRepository {
         const { data, count, error } = await query;
         if (error) {
           this.logger.error(`Error executing findMany query: ${error.message}`, error.details);
-        } else if (data) {
-          return { jobs: data as JobRow[], total: count ?? data.length };
+          throw new InternalServerErrorException('DATABASE_ERROR');
         }
+        return { jobs: (data as JobRow[]) || [], total: count ?? (data?.length || 0) };
       } catch (err) {
+        if (err instanceof InternalServerErrorException) throw err;
         this.logger.error('Supabase query error in findMany', err);
+        throw new InternalServerErrorException('DATABASE_ERROR');
       }
     }
 
@@ -186,6 +169,9 @@ export class JobRepository {
 
     if (filters.minPay !== undefined) {
       list = list.filter((j) => (j.max_pay ?? 0) >= filters.minPay!);
+    }
+    if (filters.companyId) {
+      list = list.filter((j) => j.employer_id === filters.companyId);
     }
 
     const total = list.length;
@@ -214,20 +200,21 @@ export class JobRepository {
       updated_at: new Date().toISOString(),
     };
 
-    this.persistentStore.setRow('jobs', id, updated);
+    if (this.isTestMode) {
+      this.persistentStore.setRow('jobs', id, updated);
+      return updated;
+    }
 
-    if (!this.isTestMode) {
-      try {
-        const { error } = await this.supabase.from('jobs').update(updates).eq('id', id);
-        if (error) {
-          this.logger.error(`Failed to update job ${id} in Supabase: ${error.message}`, error.details);
-          throw new InternalServerErrorException(`Failed to update job: ${error.message}`);
-        }
-      } catch (err) {
-        if (err instanceof InternalServerErrorException) throw err;
-        this.logger.error(`Supabase update error for job ${id}`, err);
-        throw new InternalServerErrorException('Database failure while updating job');
+    try {
+      const { error } = await this.supabase.from('jobs').update(updates).eq('id', id);
+      if (error) {
+        this.logger.error(`Failed to update job ${id} in Supabase: ${error.message}`, error.details);
+        throw new InternalServerErrorException(`Failed to update job: ${error.message}`);
       }
+    } catch (err) {
+      if (err instanceof InternalServerErrorException) throw err;
+      this.logger.error(`Supabase update error for job ${id}`, err);
+      throw new InternalServerErrorException('Database failure while updating job');
     }
 
     return updated;
@@ -400,20 +387,23 @@ export class JobRepository {
       created_at: now,
       updated_at: now,
     };
-    this.persistentStore.setRow('job_alerts', alertId, record);
-    if (!this.isTestMode) {
-      try {
-        const { error } = await this.supabase.from('job_alerts').insert(record);
-        if (error) {
-          this.logger.error(`Failed to insert job alert ${alertId} in Supabase: ${error.message}`, error.details);
-          throw new InternalServerErrorException(`Failed to save job alert: ${error.message}`);
-        }
-      } catch (err) {
-        if (err instanceof InternalServerErrorException) throw err;
-        this.logger.error(`Supabase insert error for job alert ${alertId}`, err);
-        throw new InternalServerErrorException('Database failure while creating job alert');
-      }
+    if (this.isTestMode) {
+      this.persistentStore.setRow('job_alerts', alertId, record);
+      return record;
     }
+
+    try {
+      const { error } = await this.supabase.from('job_alerts').insert(record);
+      if (error) {
+        this.logger.error(`Failed to insert job alert ${alertId} in Supabase: ${error.message}`, error.details);
+        throw new InternalServerErrorException(`Failed to save job alert: ${error.message}`);
+      }
+    } catch (err) {
+      if (err instanceof InternalServerErrorException) throw err;
+      this.logger.error(`Supabase insert error for job alert ${alertId}`, err);
+      throw new InternalServerErrorException('Database failure while creating job alert');
+    }
+
     return record;
   }
 
@@ -427,12 +417,14 @@ export class JobRepository {
           .eq('is_active', true)
           .order('created_at', { ascending: false });
         if (error) {
-          this.logger.warn(`Error fetching alerts for user ${userId}: ${error.message}`);
-        } else if (data) {
-          return data as JobAlertRow[];
+          this.logger.error(`Error fetching alerts for user ${userId}: ${error.message}`);
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
         }
+        return (data as JobAlertRow[]) || [];
       } catch (err) {
-        this.logger.warn(`Supabase lookup failed for user alerts ${userId}`, err);
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
     const alerts = this.persistentStore.getTable<JobAlertRow>('job_alerts');
@@ -447,12 +439,14 @@ export class JobRepository {
           .select('*')
           .eq('is_active', true);
         if (error) {
-          this.logger.warn(`Error fetching active alerts: ${error.message}`);
-        } else if (data) {
-          return data as JobAlertRow[];
+          this.logger.error(`Error fetching active alerts: ${error.message}`);
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
         }
+        return (data as JobAlertRow[]) || [];
       } catch (err) {
-        this.logger.warn('Supabase lookup failed for active alerts', err);
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
     const alerts = this.persistentStore.getTable<JobAlertRow>('job_alerts');
@@ -469,12 +463,14 @@ export class JobRepository {
           .eq('job_id', jobId)
           .maybeSingle();
         if (error) {
-          this.logger.warn(`Error checking delivery for user ${userId} job ${jobId}: ${error.message}`);
-        } else if (data) {
-          return true;
+          this.logger.error(`Error checking delivery for user ${userId} job ${jobId}: ${error.message}`);
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
         }
+        return Boolean(data);
       } catch (err) {
-        this.logger.warn(`Supabase delivery check failed for user ${userId} job ${jobId}`, err);
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
     const deliveries = this.persistentStore.getTable<AlertDeliveryRow>('alert_deliveries');
@@ -490,24 +486,46 @@ export class JobRepository {
       job_id: jobId,
       delivered_at: new Date().toISOString(),
     };
-    this.persistentStore.setRow('alert_deliveries', deliveryId, record);
-    if (!this.isTestMode) {
-      try {
-        const { error } = await this.supabase.from('alert_deliveries').insert(record);
-        if (error) {
-          this.logger.error(`Failed to insert alert delivery ${deliveryId} in Supabase: ${error.message}`, error.details);
-          throw new InternalServerErrorException(`Failed to record delivery: ${error.message}`);
-        }
-      } catch (err) {
-        if (err instanceof InternalServerErrorException) throw err;
-        this.logger.error(`Supabase insert error for alert delivery ${deliveryId}`, err);
-        throw new InternalServerErrorException('Database failure while recording alert delivery');
-      }
+    if (this.isTestMode) {
+      this.persistentStore.setRow('alert_deliveries', deliveryId, record);
+      return record;
     }
+
+    try {
+      const { error } = await this.supabase.from('alert_deliveries').insert(record);
+      if (error) {
+        this.logger.error(`Failed to insert alert delivery ${deliveryId} in Supabase: ${error.message}`, error.details);
+        throw new InternalServerErrorException(`Failed to record delivery: ${error.message}`);
+      }
+    } catch (err) {
+      if (err instanceof InternalServerErrorException) throw err;
+      this.logger.error(`Supabase insert error for alert delivery ${deliveryId}`, err);
+      throw new InternalServerErrorException('Database failure while recording alert delivery');
+    }
+
     return record;
   }
 
   async findRecentlyCreatedJobs(since: Date): Promise<JobRow[]> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await this.supabase
+          .from('jobs')
+          .select('*')
+          .eq('is_active', true)
+          .gte('created_at', since.toISOString())
+          .order('created_at', { ascending: false });
+        if (error) {
+          this.logger.error(`Error fetching recent jobs: ${error.message}`);
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as JobRow[]) || [];
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
+      }
+    }
     const jobsMap = this.persistentStore.getTable<JobRow>('jobs');
     const jobs = Object.values(jobsMap).filter(
       (j) => j.is_active && new Date(j.created_at).getTime() >= since.getTime(),

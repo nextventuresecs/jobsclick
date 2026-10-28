@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ConflictException,
   UnprocessableEntityException,
+  InternalServerErrorException,
   Inject,
 } from '@nestjs/common';
 import { createHash } from 'crypto';
@@ -67,9 +68,10 @@ export class BroadcastService {
   private usedConfirmationTokens = new Set<string>();
 
   private isTestMode =
-    process.env['NODE_ENV'] === 'test' ||
-    !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
-    process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key';
+    process.env['NODE_ENV'] !== 'production' &&
+    (process.env['NODE_ENV'] === 'test' ||
+      !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
+      process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key');
 
   constructor(
     @Inject(QueueService) private readonly queueService: QueueService,
@@ -254,13 +256,13 @@ export class BroadcastService {
       };
 
       // 6. Persist campaign record
-      this.persistentStore.setRow('broadcast_campaigns', campaignId, campaignEntity);
-      if (!this.isTestMode) {
-        try {
-          const client = this.supabase as unknown as SupabaseClient;
-          await client.from('broadcast_campaigns').insert(campaignEntity);
-        } catch {
-          // Fall back to local persistent store
+      if (this.isTestMode) {
+        this.persistentStore.setRow('broadcast_campaigns', campaignId, campaignEntity);
+      } else {
+        const client = this.supabase as unknown as SupabaseClient;
+        const { error } = await client.from('broadcast_campaigns').insert(campaignEntity);
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
         }
       }
 
@@ -343,9 +345,14 @@ export class BroadcastService {
           .select('*')
           .eq('id', campaignId)
           .maybeSingle();
-        if (!error && data) return data as unknown as BroadcastCampaignEntity;
-      } catch {
-        // Fall back
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as unknown as BroadcastCampaignEntity) || null;
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
     const table = this.persistentStore.getTable<BroadcastCampaignEntity>('broadcast_campaigns');

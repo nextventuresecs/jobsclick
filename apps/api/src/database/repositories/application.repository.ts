@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, InternalServerErrorException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, ApplicationRow } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
@@ -7,9 +7,10 @@ import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.j
 export class ApplicationRepository {
   private persistentStore = PersistentDatabaseStore.getInstance();
   private isTestMode =
-    process.env['NODE_ENV'] === 'test' ||
-    !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
-    process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key';
+    process.env['NODE_ENV'] !== 'production' &&
+    (process.env['NODE_ENV'] === 'test' ||
+      !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
+      process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key');
 
   constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>) {}
 
@@ -19,12 +20,9 @@ export class ApplicationRepository {
       return application;
     }
 
-    if (!this.isTestMode) {
-      try {
-        await this.supabase.from('applications').insert(application);
-      } catch {
-        // Persisted locally
-      }
+    const { error } = await this.supabase.from('applications').insert(application);
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
     }
 
     return application;
@@ -38,9 +36,14 @@ export class ApplicationRepository {
           .select('*')
           .eq('id', id)
           .maybeSingle();
-        if (!error && data) return data as ApplicationRow;
-      } catch {
-        // Fall back to persistent local store
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as ApplicationRow) || null;
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
     const apps = this.persistentStore.getTable<ApplicationRow>('applications');
@@ -56,9 +59,14 @@ export class ApplicationRepository {
           .eq('job_id', jobId)
           .eq('applicant_id', applicantId)
           .maybeSingle();
-        if (!error && data) return data as ApplicationRow;
-      } catch {
-        // Fall back to persistent local store
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as ApplicationRow) || null;
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
     const apps = this.persistentStore.getTable<ApplicationRow>('applications');
@@ -74,9 +82,14 @@ export class ApplicationRepository {
           .from('applications')
           .select('*')
           .eq('job_id', jobId);
-        if (!error && data) return data as ApplicationRow[];
-      } catch {
-        // Fall back to persistent local store
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as ApplicationRow[]) || [];
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
     const apps = this.persistentStore.getTable<ApplicationRow>('applications');
@@ -90,9 +103,14 @@ export class ApplicationRepository {
           .from('applications')
           .select('*')
           .eq('applicant_id', applicantId);
-        if (!error && data) return data as ApplicationRow[];
-      } catch {
-        // Fall back to persistent local store
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as ApplicationRow[]) || [];
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
     const apps = this.persistentStore.getTable<ApplicationRow>('applications');
@@ -109,14 +127,14 @@ export class ApplicationRepository {
       updated_at: new Date().toISOString(),
     };
 
-    this.persistentStore.setRow('applications', id, updated);
+    if (this.isTestMode) {
+      this.persistentStore.setRow('applications', id, updated);
+      return updated;
+    }
 
-    if (!this.isTestMode) {
-      try {
-        await this.supabase.from('applications').update({ status }).eq('id', id);
-      } catch {
-        // Persisted locally
-      }
+    const { error } = await this.supabase.from('applications').update({ status, updated_at: updated.updated_at }).eq('id', id);
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
     }
 
     return updated;
@@ -130,9 +148,14 @@ export class ApplicationRepository {
           .select('*')
           .order('created_at', { ascending: false })
           .limit(limit);
-        if (!error && data) return data as ApplicationRow[];
-      } catch {
-        // Fall back to persistent local store
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as ApplicationRow[]) || [];
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
     const apps = this.persistentStore.getTable<ApplicationRow>('applications');

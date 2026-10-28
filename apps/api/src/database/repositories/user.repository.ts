@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, InternalServerErrorException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, UserRow } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
@@ -7,9 +7,10 @@ import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.j
 export class UserRepository {
   private persistentStore = PersistentDatabaseStore.getInstance();
   private isTestMode =
-    process.env['NODE_ENV'] === 'test' ||
-    !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
-    process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key';
+    process.env['NODE_ENV'] !== 'production' &&
+    (process.env['NODE_ENV'] === 'test' ||
+      !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
+      process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key');
 
   constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>) {}
 
@@ -17,9 +18,14 @@ export class UserRepository {
     if (!this.isTestMode) {
       try {
         const { data, error } = await this.supabase.from('users').select('*').eq('id', id).maybeSingle();
-        if (!error && data) return data as UserRow;
-      } catch {
-        // Fall back to persistent local store if database is unreachable
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as UserRow) || null;
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
     const users = this.persistentStore.getTable<UserRow>('users');
@@ -30,9 +36,14 @@ export class UserRepository {
     if (!this.isTestMode) {
       try {
         const { data, error } = await this.supabase.from('users').select('*').eq('phone', phone).maybeSingle();
-        if (!error && data) return data as UserRow;
-      } catch {
-        // Fall back to persistent local store
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as UserRow) || null;
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
     const users = this.persistentStore.getTable<UserRow>('users');
@@ -45,23 +56,21 @@ export class UserRepository {
       return user;
     }
 
-    if (!this.isTestMode) {
-      try {
-        await this.supabase.from('users').upsert({
-          id: user.id,
-          phone: user.phone,
-          email: user.email,
-          role: user.role,
-          status: user.status,
-          source: user.source,
-          created_by: user.created_by,
-          updated_by: user.updated_by,
-          created_at: user.created_at,
-          updated_at: user.updated_at,
-        });
-      } catch {
-        // Persisted locally
-      }
+    const { error } = await this.supabase.from('users').upsert({
+      id: user.id,
+      phone: user.phone,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+      source: user.source,
+      created_by: user.created_by,
+      updated_by: user.updated_by,
+      created_at: user.created_at,
+      updated_at: user.updated_at,
+    });
+
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
     }
 
     return user;
@@ -88,9 +97,14 @@ export class UserRepository {
           .select('*')
           .order('created_at', { ascending: false })
           .limit(limit);
-        if (!error && data) return data as UserRow[];
-      } catch {
-        // Fall back to persistent local store
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as UserRow[]) || [];
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
     const users = this.persistentStore.getTable<UserRow>('users');

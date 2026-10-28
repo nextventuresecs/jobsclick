@@ -1,4 +1,4 @@
-import { Injectable, ForbiddenException, Inject } from '@nestjs/common';
+import { Injectable, ForbiddenException, InternalServerErrorException, Inject } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, BusinessProfileRow, JobRow, ApplicationRow } from '@indian-job-portal/database';
 import { DistrictReportItem } from '@indian-job-portal/validation';
@@ -58,9 +58,10 @@ export function applyStatisticalDisclosureControl(items: DistrictReportItem[]): 
 export class ReportsService {
   private persistentStore = PersistentDatabaseStore.getInstance();
   private isTestMode =
-    process.env['NODE_ENV'] === 'test' ||
-    !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
-    process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key';
+    process.env['NODE_ENV'] !== 'production' &&
+    (process.env['NODE_ENV'] === 'test' ||
+      !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
+      process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key');
 
   constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>) {}
 
@@ -75,9 +76,12 @@ export class ReportsService {
 
     if (!this.isTestMode) {
       try {
-        const client = this.supabase as unknown as { rpc: (fn: string) => Promise<{ data: unknown; error: unknown }> };
+        const client = this.supabase as unknown as { rpc: (fn: string) => Promise<{ data: unknown; error: { message?: string } | null }> };
         const { data, error } = await client.rpc('get_district_employment_reports');
-        if (!error && Array.isArray(data)) {
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message || 'Error fetching district reports'}`);
+        }
+        if (Array.isArray(data)) {
           const rawItems: DistrictReportItem[] = data.map((row) => ({
             district: String(row.district),
             onboardedMsmes: Number(row.onboarded_msmes || 0),
@@ -86,8 +90,11 @@ export class ReportsService {
           }));
           return applyStatisticalDisclosureControl(rawItems);
         }
-      } catch {
-        // Fall back to local persistent store calculation
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
+        // Fall back to local persistent store calculation in non-production
       }
     }
 

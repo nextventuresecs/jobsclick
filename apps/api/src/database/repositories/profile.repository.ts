@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, InternalServerErrorException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type {
   Database,
@@ -13,9 +13,10 @@ import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.j
 export class ProfileRepository {
   private persistentStore = PersistentDatabaseStore.getInstance();
   private isTestMode =
-    process.env['NODE_ENV'] === 'test' ||
-    !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
-    process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key';
+    process.env['NODE_ENV'] !== 'production' &&
+    (process.env['NODE_ENV'] === 'test' ||
+      !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
+      process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key');
 
   constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>) {}
 
@@ -30,9 +31,14 @@ export class ProfileRepository {
           .select('*')
           .eq('user_id', userId)
           .maybeSingle();
-        if (!error && data) return data as JobSeekerProfileRow;
-      } catch {
-        // Fall back to persistent local store
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as JobSeekerProfileRow) || null;
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
     const profiles = this.persistentStore.getTable<JobSeekerProfileRow>('job_seeker_profiles');
@@ -47,9 +53,14 @@ export class ProfileRepository {
           .select('*')
           .eq('id', id)
           .maybeSingle();
-        if (!error && data) return data as JobSeekerProfileRow;
-      } catch {
-        // Fall back to persistent local store
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as JobSeekerProfileRow) || null;
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
     const profiles = this.persistentStore.getTable<JobSeekerProfileRow>('job_seeker_profiles');
@@ -57,14 +68,14 @@ export class ProfileRepository {
   }
 
   async saveSeekerProfile(profile: JobSeekerProfileRow): Promise<JobSeekerProfileRow> {
-    this.persistentStore.setRow('job_seeker_profiles', profile.id, profile);
+    if (this.isTestMode) {
+      this.persistentStore.setRow('job_seeker_profiles', profile.id, profile);
+      return profile;
+    }
 
-    if (!this.isTestMode) {
-      try {
-        await this.supabase.from('job_seeker_profiles').upsert(profile);
-      } catch {
-        // Persisted locally
-      }
+    const { error } = await this.supabase.from('job_seeker_profiles').upsert(profile);
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
     }
 
     return profile;
@@ -77,9 +88,14 @@ export class ProfileRepository {
           .from('job_seeker_profiles')
           .select('*')
           .or(`institution_id.eq.${institutionIdOrName},institution.eq.${institutionIdOrName}`);
-        if (!error && data) return data as unknown as JobSeekerProfileRow[];
-      } catch {
-        // Fall back to persistent local store
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as unknown as JobSeekerProfileRow[]) || [];
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
     const profiles = this.persistentStore.getTable<JobSeekerProfileRow>('job_seeker_profiles');
@@ -94,29 +110,31 @@ export class ProfileRepository {
     institutionIdOrName: string,
     isSponsored: boolean,
   ): Promise<number> {
-    const students = await this.findStudentsByInstitution(institutionIdOrName);
-    let count = 0;
-    const now = new Date().toISOString();
-
-    for (const student of students) {
-      student.is_sponsored = isSponsored;
-      student.updated_at = now;
-      this.persistentStore.setRow('job_seeker_profiles', student.id, student);
-      count++;
-    }
-
-    if (!this.isTestMode && students.length > 0) {
-      try {
-        await this.supabase
-          .from('job_seeker_profiles')
-          .update({ is_sponsored: isSponsored, updated_at: now })
-          .or(`institution_id.eq.${institutionIdOrName},institution.eq.${institutionIdOrName}`);
-      } catch {
-        // Fall back
+    if (this.isTestMode) {
+      const students = await this.findStudentsByInstitution(institutionIdOrName);
+      let count = 0;
+      const now = new Date().toISOString();
+      for (const student of students) {
+        student.is_sponsored = isSponsored;
+        student.updated_at = now;
+        this.persistentStore.setRow('job_seeker_profiles', student.id, student);
+        count++;
       }
+      return count;
     }
 
-    return count;
+    const now = new Date().toISOString();
+    const { data, error } = await this.supabase
+      .from('job_seeker_profiles')
+      .update({ is_sponsored: isSponsored, updated_at: now })
+      .or(`institution_id.eq.${institutionIdOrName},institution.eq.${institutionIdOrName}`)
+      .select('id');
+
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+    }
+
+    return data?.length || 0;
   }
 
   async markSeekerSponsored(
@@ -145,9 +163,14 @@ export class ProfileRepository {
           .select('*')
           .eq('user_id', userId)
           .maybeSingle();
-        if (!error && data) return data as BusinessProfileRow;
-      } catch {
-        // Fall back to persistent local store
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as BusinessProfileRow) || null;
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
     const profiles = this.persistentStore.getTable<BusinessProfileRow>('business_profiles');
@@ -162,9 +185,14 @@ export class ProfileRepository {
           .select('*')
           .eq('id', id)
           .maybeSingle();
-        if (!error && data) return data as BusinessProfileRow;
-      } catch {
-        // Fall back to persistent local store
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as BusinessProfileRow) || null;
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
     const profiles = this.persistentStore.getTable<BusinessProfileRow>('business_profiles');
@@ -172,14 +200,14 @@ export class ProfileRepository {
   }
 
   async saveBusinessProfile(profile: BusinessProfileRow): Promise<BusinessProfileRow> {
-    this.persistentStore.setRow('business_profiles', profile.id, profile);
+    if (this.isTestMode) {
+      this.persistentStore.setRow('business_profiles', profile.id, profile);
+      return profile;
+    }
 
-    if (!this.isTestMode) {
-      try {
-        await this.supabase.from('business_profiles').upsert(profile);
-      } catch {
-        // Persisted locally
-      }
+    const { error } = await this.supabase.from('business_profiles').upsert(profile);
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
     }
 
     return profile;
@@ -192,17 +220,22 @@ export class ProfileRepository {
   }): Promise<BusinessProfileRow[]> {
     if (!this.isTestMode) {
       try {
-        let query = this.supabase.from("business_profiles").select("*");
-        if (filters.district) query = query.ilike("district", filters.district);
-        if (filters.sector) query = query.ilike("sector", filters.sector);
-        if (filters.companySize) query = query.eq("company_size", filters.companySize);
+        let query = this.supabase.from('business_profiles').select('*');
+        if (filters.district) query = query.ilike('district', filters.district);
+        if (filters.sector) query = query.ilike('sector', filters.sector);
+        if (filters.companySize) query = query.eq('company_size', filters.companySize);
         const { data, error } = await query;
-        if (!error && data) return data as unknown as BusinessProfileRow[];
-      } catch {
-        // Fall back
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as unknown as BusinessProfileRow[]) || [];
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
-    const profiles = this.persistentStore.getTable<BusinessProfileRow>("business_profiles");
+    const profiles = this.persistentStore.getTable<BusinessProfileRow>('business_profiles');
     return Object.values(profiles).filter((p) => {
       if (filters.district && p.district?.toLowerCase() !== filters.district.toLowerCase()) return false;
       if (filters.sector && p.sector?.toLowerCase() !== filters.sector.toLowerCase()) return false;
@@ -214,13 +247,18 @@ export class ProfileRepository {
   async getAllBusinessProfiles(): Promise<BusinessProfileRow[]> {
     if (!this.isTestMode) {
       try {
-        const { data, error } = await this.supabase.from("business_profiles").select("*");
-        if (!error && data) return data as unknown as BusinessProfileRow[];
-      } catch {
-        // Fall back
+        const { data, error } = await this.supabase.from('business_profiles').select('*');
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as unknown as BusinessProfileRow[]) || [];
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
-    const profiles = this.persistentStore.getTable<BusinessProfileRow>("business_profiles");
+    const profiles = this.persistentStore.getTable<BusinessProfileRow>('business_profiles');
     return Object.values(profiles);
   }
 
@@ -235,9 +273,14 @@ export class ProfileRepository {
           .select('*')
           .eq('user_id', userId)
           .maybeSingle();
-        if (!error && data) return data as InstitutionProfileRow;
-      } catch {
-        // Fall back to persistent local store
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as InstitutionProfileRow) || null;
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
     const profiles = this.persistentStore.getTable<InstitutionProfileRow>('institution_profiles');
@@ -252,9 +295,14 @@ export class ProfileRepository {
           .select('*')
           .eq('id', id)
           .maybeSingle();
-        if (!error && data) return data as InstitutionProfileRow;
-      } catch {
-        // Fall back to persistent local store
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as InstitutionProfileRow) || null;
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
     const profiles = this.persistentStore.getTable<InstitutionProfileRow>('institution_profiles');
@@ -262,14 +310,14 @@ export class ProfileRepository {
   }
 
   async saveInstitutionProfile(profile: InstitutionProfileRow): Promise<InstitutionProfileRow> {
-    this.persistentStore.setRow('institution_profiles', profile.id, profile);
+    if (this.isTestMode) {
+      this.persistentStore.setRow('institution_profiles', profile.id, profile);
+      return profile;
+    }
 
-    if (!this.isTestMode) {
-      try {
-        await this.supabase.from('institution_profiles').upsert(profile);
-      } catch {
-        // Persisted locally
-      }
+    const { error } = await this.supabase.from('institution_profiles').upsert(profile);
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
     }
 
     return profile;
@@ -283,14 +331,14 @@ export class ProfileRepository {
   }
 
   async saveSponsorship(record: InstitutionSponsorshipRow): Promise<InstitutionSponsorshipRow> {
-    this.persistentStore.setRow('institution_sponsorships', record.id, record);
+    if (this.isTestMode) {
+      this.persistentStore.setRow('institution_sponsorships', record.id, record);
+      return record;
+    }
 
-    if (!this.isTestMode) {
-      try {
-        await this.supabase.from('institution_sponsorships').upsert(record);
-      } catch {
-        // Persisted locally
-      }
+    const { error } = await this.supabase.from('institution_sponsorships').upsert(record);
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
     }
 
     return record;
@@ -305,9 +353,14 @@ export class ProfileRepository {
           .eq('institution_id', institutionId)
           .order('created_at', { ascending: false });
 
-        if (!error && data) return data as unknown as InstitutionSponsorshipRow[];
-      } catch {
-        // Fallback
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as unknown as InstitutionSponsorshipRow[]) || [];
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
 
@@ -336,9 +389,14 @@ export class ProfileRepository {
           .eq('idempotency_key', key)
           .maybeSingle();
 
-        if (!error && data) return data as unknown as InstitutionSponsorshipRow;
-      } catch {
-        // Fallback
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as unknown as InstitutionSponsorshipRow) || null;
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
       }
     }
 
