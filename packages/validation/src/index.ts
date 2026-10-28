@@ -9,3 +9,4 @@ export * from './placement';
 export * from './placement-fsm';
 export * from './admin/broadcast';
 export * from './institution-cms';
+export * from './scrubber';

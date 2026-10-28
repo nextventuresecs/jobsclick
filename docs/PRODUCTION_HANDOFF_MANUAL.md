@@ -75,15 +75,39 @@ Before launching to live users, developers must configure 5 key external service
    SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
    ```
 
-### Step 2.5: Error Tracking & Monitoring (Sentry)
-*Why this is needed:* Captures server crashes, unhandled errors, and rate-limit violations in real time.
+### Step 2.5: Error Tracking, Distributed Tracing & Logging (Sentry v10+)
+*Why this is needed:* Captures server crashes, unhandled errors, distributed request-to-worker traces, and application logs in real time while enforcing Indian Digital Personal Data Protection (DPDP) and Zero-PII invariants.
 
 **Action Steps:**
-1. Create a project on [Sentry.io](https://sentry.io/).
-2. Copy your Project DSN URL.
-3. Update `.env`:
-   ```env
-   SENTRY_DSN=https://your_sentry_key@o0.ingest.sentry.io/000000
+1. Create 3 distinct projects in your [Sentry.io](https://sentry.io/) organization:
+   - `indian-job-portal-web` (Platform: Next.js)
+   - `indian-job-portal-api` (Platform: Node.js)
+   - `indian-job-portal-worker` (Platform: Node.js)
+2. Configure the corresponding DSNs in your environment variables:
+   - In `apps/web/.env.local`:
+     ```env
+     NEXT_PUBLIC_SENTRY_DSN=https://your_web_key@o0.ingest.sentry.io/000001
+     ```
+   - In `apps/api/.env`:
+     ```env
+     SENTRY_DSN=https://your_api_key@o0.ingest.sentry.io/000002
+     ```
+   - In `apps/worker/.env`:
+     ```env
+     SENTRY_DSN=https://your_worker_key@o0.ingest.sentry.io/000003
+     ```
+3. **Sentry Logs & Console Capture Configuration:**
+   - Both `apps/api` and `apps/worker` are initialized with `@sentry/node >= 10.77.0`, enabling Sentry Logs and `consoleLoggingIntegration({ levels: ['log', 'warn', 'error'] })`.
+   - All captured logs flow through universal `beforeSendLog: (log) => sanitizeLogRecord(log)`, guaranteeing that Indian phone numbers (+91), 12-digit Aadhaar numbers, OTP verification codes, and auth tokens are scrubbed before transport.
+   - For structured application logging:
+     ```typescript
+     import * as Sentry from '@sentry/node';
+     Sentry.logger.info('User triggered test log', { action: 'test_log' });
+     ```
+4. **Verification Suite:**
+   Run the dedicated Sentry telemetry and wire-scrubbing test suite:
+   ```bash
+   npx vitest run apps/web/test/sentry-observability.test.ts apps/api/test/sentry-telemetry.spec.ts apps/worker/test/sentry-worker-telemetry.spec.ts
    ```
 
 ---

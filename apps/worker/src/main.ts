@@ -1,14 +1,40 @@
+import './instrument.js';
 import { Worker, Queue, ConnectionOptions } from 'bullmq';
 import IORedis from 'ioredis';
 import IORedisMock from 'ioredis-mock';
 import { validateEnv, EnvConfig } from './config/env.js';
 import { getWorkerHealthStatus } from './health.js';
-import { initSentry, captureException } from './config/sentry.js';
-import { bulkImportProcessor } from './processors/import.processor.js';
-import { inviteWaveProcessor } from './processors/invite.processor.js';
-import { pdfGeneratorProcessor } from './processors/pdf.processor.js';
-import { broadcastProcessor } from './processors/broadcast.processor.js';
-import { alertsProcessor } from './processors/alerts.processor.js';
+import {
+  initSentry,
+  captureException,
+  wrapBullMQProcessor,
+  handleWorkerJobFailure,
+} from './config/sentry.js';
+import {
+  bulkImportProcessor,
+  BulkImportJobData,
+  BulkImportJobResult,
+} from './processors/import.processor.js';
+import {
+  inviteWaveProcessor,
+  InviteWaveJobData,
+  InviteWaveJobResult,
+} from './processors/invite.processor.js';
+import {
+  pdfGeneratorProcessor,
+  PdfJobData,
+  PdfJobResult,
+} from './processors/pdf.processor.js';
+import {
+  broadcastProcessor,
+  BroadcastBatchJobData,
+  BroadcastBatchJobResult,
+} from './processors/broadcast.processor.js';
+import {
+  alertsProcessor,
+  AlertsJobData,
+  AlertsJobResult,
+} from './processors/alerts.processor.js';
 
 export const QUEUE_NAMES = {
   BULK_IMPORT: 'bulk-import',
@@ -48,11 +74,11 @@ export function getRedisConnection(env: EnvConfig): IORedis {
 }
 
 export interface WorkerInstanceRegistry {
-  importWorker: Worker;
-  inviteWorker: Worker;
-  pdfWorker: Worker;
-  broadcastWorker: Worker;
-  alertsWorker: Worker;
+  importWorker: Worker<BulkImportJobData, BulkImportJobResult>;
+  inviteWorker: Worker<InviteWaveJobData, InviteWaveJobResult>;
+  pdfWorker: Worker<PdfJobData, PdfJobResult>;
+  broadcastWorker: Worker<BroadcastBatchJobData, BroadcastBatchJobResult>;
+  alertsWorker: Worker<AlertsJobData, AlertsJobResult>;
   importQueue: Queue;
   inviteQueue: Queue;
   pdfQueue: Queue;
@@ -93,12 +119,12 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
   });
 
   // 1. Bulk Import Processor Worker (Streaming CSV & User Creation)
-  const importWorker = new Worker(
+  const importWorker = new Worker<BulkImportJobData, BulkImportJobResult>(
     QUEUE_NAMES.BULK_IMPORT,
-    async (job) => {
+    wrapBullMQProcessor(QUEUE_NAMES.BULK_IMPORT, async (job) => {
       console.log(`[Worker - ${QUEUE_NAMES.BULK_IMPORT}] Starting Job ${job.id} (Attempt ${job.attemptsMade + 1}/3)...`);
       return bulkImportProcessor(job);
-    },
+    }),
     {
       connection: connOptions,
       concurrency: 5,
@@ -106,12 +132,12 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
   );
 
   // 2. Invite Wave Processor Worker (SMS Dispatch with Cost Preview)
-  const inviteWorker = new Worker(
+  const inviteWorker = new Worker<InviteWaveJobData, InviteWaveJobResult>(
     QUEUE_NAMES.INVITE_WAVE,
-    async (job) => {
+    wrapBullMQProcessor(QUEUE_NAMES.INVITE_WAVE, async (job) => {
       console.log(`[Worker - ${QUEUE_NAMES.INVITE_WAVE}] Starting Job ${job.id} (Attempt ${job.attemptsMade + 1}/3)...`);
       return inviteWaveProcessor(job);
-    },
+    }),
     {
       connection: connOptions,
       concurrency: 5,
@@ -119,12 +145,12 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
   );
 
   // 3. PDF Generator Processor Worker (Resume Vector Rendering)
-  const pdfWorker = new Worker(
+  const pdfWorker = new Worker<PdfJobData, PdfJobResult>(
     QUEUE_NAMES.PDF_GENERATOR,
-    async (job) => {
+    wrapBullMQProcessor(QUEUE_NAMES.PDF_GENERATOR, async (job) => {
       console.log(`[Worker - ${QUEUE_NAMES.PDF_GENERATOR}] Starting Job ${job.id} (Attempt ${job.attemptsMade + 1}/3)...`);
       return pdfGeneratorProcessor(job);
-    },
+    }),
     {
       connection: connOptions,
       concurrency: 10,
@@ -132,12 +158,12 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
   );
 
   // 4. Broadcast Processor Worker (MSME Department Bulk SMS Dispatch)
-  const broadcastWorker = new Worker(
+  const broadcastWorker = new Worker<BroadcastBatchJobData, BroadcastBatchJobResult>(
     QUEUE_NAMES.BROADCAST,
-    async (job) => {
+    wrapBullMQProcessor(QUEUE_NAMES.BROADCAST, async (job) => {
       console.log(`[Worker - ${QUEUE_NAMES.BROADCAST}] Starting Job ${job.id} (Attempt ${job.attemptsMade + 1}/3)...`);
       return broadcastProcessor(job);
-    },
+    }),
     {
       connection: connOptions,
       concurrency: 5,
@@ -145,12 +171,12 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
   );
 
   // 5. Alerts Processor Worker (Saved Job Alerts & Daily Digest Email)
-  const alertsWorker = new Worker(
+  const alertsWorker = new Worker<AlertsJobData, AlertsJobResult>(
     QUEUE_NAMES.ALERTS,
-    async (job) => {
+    wrapBullMQProcessor(QUEUE_NAMES.ALERTS, async (job) => {
       console.log(`[Worker - ${QUEUE_NAMES.ALERTS}] Starting Job ${job.id} (Attempt ${job.attemptsMade + 1}/3)...`);
       return alertsProcessor(job);
-    },
+    }),
     {
       connection: connOptions,
       concurrency: 5,
@@ -171,8 +197,7 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
     });
 
     instance.on('failed', (job, err) => {
-      console.error(`[Worker - ${name}] Job ${job?.id} FAILED (Attempt ${job?.attemptsMade}/${job?.opts.attempts}): ${err.message}`);
-      captureException(err);
+      handleWorkerJobFailure(name, job, err);
     });
 
     instance.on('error', (err) => {
