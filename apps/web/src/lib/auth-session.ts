@@ -1,244 +1,213 @@
+import crypto from 'node:crypto';
 import type { ClientRole } from '@indian-job-portal/validation';
-import { isClientRole, isUserRole, toClientRole } from '@indian-job-portal/validation';
-import { isStrictEnv } from '../config/env.js';
+import { toClientRole } from '@indian-job-portal/validation';
 
-export const AUTH_COOKIE_NAME = 'auth_token';
+export const SESSION_COOKIE_NAME =
+  process.env.NODE_ENV === 'production' ? '__Host-jc_session' : 'jc_session';
+
+export const AUTH_COOKIE_NAME = SESSION_COOKIE_NAME;
 
 export const AUTH_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: isStrictEnv(),
+  secure: process.env.NODE_ENV === 'production',
   sameSite: 'lax' as const,
   path: '/',
-  maxAge: 30 * 24 * 60 * 60, // 30 days
+  maxAge: 7 * 24 * 60 * 60, // 7 days
 };
 
-export interface AuthSessionUser {
-  id: string;
-  phone: string;
-  email: string | null;
-  emailVerified?: boolean;
-  role: string;
-  status: 'invited' | 'active' | 'disabled';
+const JWT_ISSUER = 'jobsclick-api';
+const JWT_AUDIENCE = 'jobsclick-web';
+
+export interface VerifiedSessionPayload {
+  readonly sub: string; // Strictly UUID from Postgres
+  readonly role:
+    | 'job_seeker'
+    | 'employer'
+    | 'institution_admin'
+    | 'intermediary'
+    | 'msme_admin'
+    | 'platform_admin'
+    | string;
+  readonly status: 'active' | 'invited' | 'disabled' | 'suspended';
+  readonly jti: string; // Session ID for server-side revocation
+  readonly iat: number;
+  readonly exp: number;
+  readonly iss: string;
+  readonly aud: string;
 }
 
-export interface VerifiedSession {
-  user: AuthSessionUser;
-  accessToken: string;
-  clientRole: ClientRole;
-  expiresAt?: number;
+export interface VerifiedSession extends VerifiedSessionPayload {
+  readonly user: {
+    readonly id: string;
+    readonly phone?: string;
+    readonly email?: string | null;
+    readonly role: string;
+    readonly status: string;
+  };
+  readonly accessToken: string;
+  readonly clientRole: ClientRole;
+  readonly expiresAt?: number;
 }
 
-function getJwtSecret(): string {
-  const secret = process.env['JWT_SECRET'];
+function getJwtSecret(): Buffer {
+  const secret = process.env.JWT_SECRET;
   if (!secret || secret.trim().length < 32) {
-    throw new Error('JWT_SECRET must be set and at least 32 characters in all environments');
-  }
-  return secret.trim();
-}
-
-function bufferToBase64Url(buffer: ArrayBuffer | Uint8Array): string {
-  const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (let i = 0; i < bytes.byteLength; i++) {
-    binary += String.fromCharCode(bytes[i]!);
-  }
-  return btoa(binary)
-    .replace(/=/g, '')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_');
-}
-
-function base64UrlToUint8Array(base64url: string): Uint8Array {
-  let base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
-  while (base64.length % 4) {
-    base64 += '=';
-  }
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
-  }
-  return bytes;
-}
-
-function toBase64Url(str: string): string {
-  const enc = new TextEncoder();
-  return bufferToBase64Url(enc.encode(str));
-}
-
-function fromBase64Url(base64url: string): string {
-  const bytes = base64UrlToUint8Array(base64url);
-  const dec = new TextDecoder();
-  return dec.decode(bytes);
-}
-
-async function signHmacSha256(data: string, secret: string): Promise<string> {
-  const enc = new TextEncoder();
-  const key = await globalThis.crypto.subtle.importKey(
-    'raw',
-    enc.encode(secret).buffer as ArrayBuffer,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  const sig = await globalThis.crypto.subtle.sign('HMAC', key, enc.encode(data).buffer as ArrayBuffer);
-  return bufferToBase64Url(sig);
-}
-
-async function verifyHmacSha256(data: string, signature: string, secret: string): Promise<boolean> {
-  try {
-    const enc = new TextEncoder();
-    const key = await globalThis.crypto.subtle.importKey(
-      'raw',
-      enc.encode(secret),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['verify']
+    if (process.env.NODE_ENV === 'test') {
+      return Buffer.from('jobsclick-jwt-secret-key-32-chars-min', 'utf-8');
+    }
+    throw new Error(
+      'CRITICAL BOOT ERROR: JWT_SECRET environment variable must be set and at least 32 characters long.'
     );
-    const sigBytes = base64UrlToUint8Array(signature);
-    return await globalThis.crypto.subtle.verify('HMAC', key, sigBytes.buffer as ArrayBuffer, enc.encode(data).buffer as ArrayBuffer);
-  } catch {
-    return false;
   }
+  return Buffer.from(secret, 'utf-8');
+}
+
+function base64UrlEncode(input: Buffer | string): string {
+  const buf = typeof input === 'string' ? Buffer.from(input, 'utf-8') : input;
+  return buf.toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+
+function base64UrlDecode(input: string): Buffer {
+  let str = input.replace(/-/g, '+').replace(/_/g, '/');
+  while (str.length % 4 !== 0) {
+    str += '=';
+  }
+  return Buffer.from(str, 'base64');
 }
 
 /**
- * Creates an HMAC-SHA256 cryptographically signed JWT token for long-lived session cookie.
+ * Signs a strict HS256 JWT with mandatory exp, iss, aud, and jti claims.
+ * Supports both VerifiedSessionPayload shapes and user objects for test compatibility.
  */
-export async function createSessionToken(
-  user: AuthSessionUser,
-  expiresInSeconds = 30 * 24 * 60 * 60
-): Promise<string> {
+export function signSessionToken(
+  payloadOrUser:
+    | Omit<VerifiedSessionPayload, 'iat' | 'exp' | 'iss' | 'aud'>
+    | { id: string; phone?: string; email?: string | null; role: string; status?: VerifiedSessionPayload['status']; jti?: string },
+  ttlSeconds = 60 * 60 * 24 * 7 // 7 days max
+): string {
   const secret = getJwtSecret();
-  const header = toBase64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const nowSec = Math.floor(Date.now() / 1000);
-  const payload = toBase64Url(
-    JSON.stringify({
-      sub: user.id,
-      id: user.id,
-      phone: user.phone,
-      email: user.email,
-      emailVerified: user.emailVerified,
-      role: user.role,
-      status: user.status,
-      iat: nowSec,
-      exp: nowSec + expiresInSeconds,
-    })
-  );
+  const now = Math.floor(Date.now() / 1000);
 
-  const signature = await signHmacSha256(`${header}.${payload}`, secret);
-  return `${header}.${payload}.${signature}`;
+  const sub = 'sub' in payloadOrUser ? payloadOrUser.sub : payloadOrUser.id;
+  const role = payloadOrUser.role as VerifiedSessionPayload['role'];
+  const status = payloadOrUser.status || 'active';
+  const jti = 'jti' in payloadOrUser && payloadOrUser.jti ? payloadOrUser.jti : crypto.randomUUID();
+
+  const header = { alg: 'HS256', typ: 'JWT' };
+  const fullPayload: VerifiedSessionPayload = {
+    sub,
+    role,
+    status,
+    jti,
+    iat: now,
+    exp: now + ttlSeconds,
+    iss: JWT_ISSUER,
+    aud: JWT_AUDIENCE,
+  };
+
+  const encodedHeader = base64UrlEncode(JSON.stringify(header));
+  const encodedPayload = base64UrlEncode(JSON.stringify(fullPayload));
+  const signingInput = `${encodedHeader}.${encodedPayload}`;
+
+  const signature = crypto
+    .createHmac('sha256', secret)
+    .update(signingInput)
+    .digest();
+
+  return `${signingInput}.${base64UrlEncode(signature)}`;
 }
 
+export const createSessionToken = signSessionToken;
+
 /**
- * Verifies a token's cryptographic signature, expiration, and resolves authenticated session.
+ * Strictly verifies an HS256 JWT.
+ * Rejects any legacy `jwt_session_*` tokens, missing `exp`, wrong alg, or disabled users.
  */
-export async function verifyToken(token?: string | null): Promise<VerifiedSession | null> {
+export function verifyToken(token: string | undefined | null): VerifiedSession | null {
   if (!token || typeof token !== 'string') return null;
 
-  const secret = getJwtSecret();
-
-  // 1. Standard JWT format: header.payload.signature
-  const parts = token.split('.');
-  if (parts.length === 3) {
-    const [headerB64, payloadB64, signature] = parts;
-    if (!headerB64 || !payloadB64 || !signature) return null;
-
-    const isValid = await verifyHmacSha256(`${headerB64}.${payloadB64}`, signature, secret);
-    if (!isValid) {
-      return null;
-    }
-
-    try {
-      const payloadJson = fromBase64Url(payloadB64);
-      const payload = JSON.parse(payloadJson);
-
-      if (typeof payload.exp === 'number') {
-        const nowSec = Math.floor(Date.now() / 1000);
-        if (payload.exp < nowSec) {
-          return null;
-        }
-      }
-
-      const id = payload.sub || payload.id;
-      if (!id) return null;
-
-      const rawRole =
-        payload.app_metadata?.role ||
-        payload.role ||
-        (id.includes('employer') ? 'employer' : 'job_seeker');
-
-      const user: AuthSessionUser = {
-        id,
-        phone: payload.phone || '',
-        email: payload.email || null,
-        emailVerified: Boolean(payload.emailVerified),
-        role: rawRole,
-        status: payload.status || 'active',
-      };
-
-      let clientRole: ClientRole = 'jobseeker';
-      if (isUserRole(user.role)) {
-        clientRole = toClientRole(user.role);
-      } else if (isClientRole(user.role)) {
-        clientRole = user.role;
-      }
-
-      return {
-        user,
-        accessToken: token,
-        clientRole,
-        expiresAt: payload.exp,
-      };
-    } catch {
-      return null;
-    }
+  // Hard reject legacy unsigned token format immediately
+  if (token.startsWith('jwt_session_')) {
+    return null;
   }
 
-  // 2. Legacy session token format: jwt_session_<userId>_<timestamp>
-  if (token.startsWith('jwt_session_')) {
-    const parts = token.split('_');
-    const timestampStr = parts[parts.length - 1];
-    const timestamp = Number(timestampStr);
-    const userId = parts.slice(2, parts.length - 1).join('_');
+  const parts = token.split('.');
+  if (parts.length !== 3) return null;
 
-    if (!userId) return null;
+  const [encodedHeader, encodedPayload, encodedSignature] = parts;
+  if (!encodedHeader || !encodedPayload || !encodedSignature) return null;
 
-    if (!isNaN(timestamp)) {
-      const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
-      if (Date.now() - timestamp > thirtyDaysMs) {
-        return null;
-      }
+  try {
+    const secret = getJwtSecret();
+    const headerJson = JSON.parse(base64UrlDecode(encodedHeader).toString('utf-8'));
+
+    if (headerJson?.alg !== 'HS256' || headerJson?.typ !== 'JWT') {
+      return null;
     }
 
-    let role: AuthSessionUser['role'] = 'job_seeker';
-    if (userId.includes('emp') || userId.includes('bus')) {
-      role = 'employer';
-    } else if (userId.includes('inst')) {
-      role = 'intermediary';
-    } else if (userId.includes('admin') || userId.includes('msme_admin')) {
-      role = 'admin';
+    const signingInput = `${encodedHeader}.${encodedPayload}`;
+    const expectedSig = crypto.createHmac('sha256', secret).update(signingInput).digest();
+    const actualSig = base64UrlDecode(encodedSignature);
+
+    if (
+      expectedSig.length !== actualSig.length ||
+      !crypto.timingSafeEqual(expectedSig, actualSig)
+    ) {
+      return null;
     }
 
-    const user: AuthSessionUser = {
-      id: userId,
-      phone: '9876543210',
-      email: null,
-      emailVerified: false,
-      role,
-      status: 'active',
-    };
+    const payload = JSON.parse(
+      base64UrlDecode(encodedPayload).toString('utf-8')
+    ) as Partial<VerifiedSessionPayload>;
 
-    const clientRole = isUserRole(role) ? toClientRole(role) : 'jobseeker';
+    const now = Math.floor(Date.now() / 1000);
 
-    return {
-      user,
+    // Require exp, iss, aud, sub, jti, role
+    if (
+      typeof payload.exp !== 'number' ||
+      payload.exp <= now ||
+      payload.iss !== JWT_ISSUER ||
+      payload.aud !== JWT_AUDIENCE ||
+      typeof payload.sub !== 'string' ||
+      !payload.sub ||
+      typeof payload.jti !== 'string' ||
+      !payload.role
+    ) {
+      return null;
+    }
+
+    // Block disabled or suspended users immediately
+    if (payload.status !== 'active') {
+      return null;
+    }
+
+    const rawRole = (payload.role as string) || 'job_seeker';
+    const clientRole = toClientRole(rawRole);
+    const sub = payload.sub;
+
+    const verifiedSession: VerifiedSession = {
+      sub,
+      role: rawRole,
+      status: payload.status,
+      jti: payload.jti,
+      iat: payload.iat ?? now,
+      exp: payload.exp,
+      iss: payload.iss,
+      aud: payload.aud,
+      user: {
+        id: sub,
+        role: rawRole,
+        status: payload.status,
+      },
       accessToken: token,
       clientRole,
+      expiresAt: payload.exp,
     };
-  }
 
-  return null;
+    return verifiedSession;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -248,10 +217,12 @@ export async function getServerSession(
   tokenOrCookieHeader?: string
 ): Promise<VerifiedSession | null> {
   if (tokenOrCookieHeader) {
-    if (tokenOrCookieHeader.includes('.') || tokenOrCookieHeader.startsWith('jwt_session_')) {
+    if (tokenOrCookieHeader.includes('.')) {
       return verifyToken(tokenOrCookieHeader);
     }
-    const match = tokenOrCookieHeader.match(new RegExp(`(?:^|;\\s*)${AUTH_COOKIE_NAME}=([^;]+)`));
+    const match = tokenOrCookieHeader.match(
+      new RegExp(`(?:^|;\\s*)(?:${SESSION_COOKIE_NAME}|${AUTH_COOKIE_NAME}|auth_token|jc_session)=([^;]+)`)
+    );
     if (match && match[1]) {
       return verifyToken(match[1]);
     }
@@ -261,7 +232,10 @@ export async function getServerSession(
     // @ts-expect-error next/headers type resolution in NodeNext
     const { cookies } = await import('next/headers');
     const cookieStore = cookies();
-    const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+    const token =
+      cookieStore.get(SESSION_COOKIE_NAME)?.value ||
+      cookieStore.get('auth_token')?.value ||
+      cookieStore.get('jc_session')?.value;
     if (!token) return null;
     return verifyToken(token);
   } catch {
