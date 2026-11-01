@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional, Inject } from '@nestjs/common';
+import { Injectable, Logger, Optional, Inject, BadRequestException } from '@nestjs/common';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import { OtpRedisService } from './otp-redis.service.js';
@@ -136,5 +136,30 @@ export class RateLimitService {
     }
 
     return this.otpRedisService.checkAndIncrementDailyLimit(phone, maxDaily);
+  }
+
+  /**
+   * Enforces all OTP abuse protection rate limits in sequence (AUTH-03):
+   * 1. Sliding window IP rate limit (20 req/hour)
+   * 2. 60-second cool-down per mobile number
+   * 3. Daily request cap (10 req/day per mobile number)
+   */
+  async checkAndIncrementOtpLimits(phone: string, clientIp?: string): Promise<void> {
+    if (clientIp && clientIp !== '127.0.0.1' && clientIp !== '::1' && !clientIp.includes('localhost')) {
+      const ipCheck = await this.checkIpRateLimit(clientIp, 20);
+      if (!ipCheck.allowed) {
+        throw new BadRequestException('Too many OTP requests from this network. Please try again later.');
+      }
+    }
+
+    const cooldown = await this.checkCooldown(phone, 60);
+    if (!cooldown.allowed) {
+      throw new BadRequestException(`Please wait ${cooldown.remainingSeconds} seconds before requesting a new OTP`);
+    }
+
+    const daily = await this.checkDailyLimit(phone, 10);
+    if (!daily.allowed) {
+      throw new BadRequestException('Daily OTP request limit reached. Please try again tomorrow.');
+    }
   }
 }

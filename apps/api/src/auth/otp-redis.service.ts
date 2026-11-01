@@ -146,6 +146,20 @@ export class OtpRedisService implements OnModuleDestroy {
     return { status: 'INVALID', attemptsRemaining: 3 - nextAttempts };
   }
 
+  async incrementAndGetAttempts(phone: string): Promise<number> {
+    const key = `auth:otp:${phone}`;
+    return this.client.hincrby(key, 'attempts', 1);
+  }
+
+  async clearOtp(phone: string): Promise<void> {
+    await this.client.del(`auth:otp:${phone}`);
+  }
+
+  async verifyOtpHash(phone: string, inputCode: string): Promise<boolean> {
+    const result = await this.verifyOtp(phone, inputCode);
+    return result.status === 'SUCCESS';
+  }
+
   /**
    * Enforces 60-second cooldown between outbound requests.
    */
@@ -294,5 +308,36 @@ export class OtpRedisService implements OnModuleDestroy {
   async deleteEmailVerificationToken(token: string): Promise<void> {
     const key = `auth:email_verify:${token}`;
     await this.client.del(key);
+  }
+
+  /**
+   * Saves email verification token with userId and email mapping (AUTH-04).
+   */
+  async saveEmailVerificationToken(
+    userId: string,
+    email: string,
+    token: string,
+    ttlSeconds = 86400,
+  ): Promise<void> {
+    await this.setEmailVerificationToken(token, { userId, email }, ttlSeconds);
+  }
+
+  /**
+   * Records a global revocation timestamp for a user (invalidates all previous JWTs).
+   */
+  async setRevokedTimestamp(userId: string, timestamp: number, ttlSeconds = 7 * 86400): Promise<void> {
+    const key = `auth:revocation:${userId}`;
+    await this.client.set(key, String(timestamp), 'EX', ttlSeconds);
+  }
+
+  /**
+   * Retrieves global revocation timestamp for a user.
+   */
+  async getRevokedTimestamp(userId: string): Promise<number | null> {
+    const key = `auth:revocation:${userId}`;
+    const data = await this.client.get(key);
+    if (!data) return null;
+    const parsed = parseInt(data, 10);
+    return isNaN(parsed) ? null : parsed;
   }
 }
