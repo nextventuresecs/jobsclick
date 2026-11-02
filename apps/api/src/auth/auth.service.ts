@@ -51,15 +51,7 @@ export interface VerifyOtpResult {
   };
 }
 
-/**
- * Principal-Engineer Architected AuthService
- *
- * Implements Platform Hard Invariants:
- * - Invariant #1: Privacy-first opaque UUID identifiers (Zero phone numbers in IDs or public claims).
- * - Invariant #4: Strict OTP abuse protections (Turnstile, 60s cooldown, 10/day cap, 20/hr IP limits).
- * - Invariant #5: Defense-in-depth authorization, zero privilege escalation, immutable assigned roles.
- * - Multi-tier distributed session caching (L1 local Map + L2 Redis cluster) with instantaneous revocation.
- */
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
@@ -91,11 +83,11 @@ export class AuthService {
    * Hard Invariant #4: Turnstile before send, per-number/device/IP limits, cool-down, daily cap.
    */
   async sendOtp(input: SendOtpInput, clientIp?: string): Promise<SendOtpResult> {
-    const isTestMode = process.env['NODE_ENV'] === 'test';
-    const secretKey = process.env['TURNSTILE_SECRET_KEY'];
+    const rawEnv = (process.env['NODE_ENV'] ?? '').trim().toLowerCase();
 
     // 1. Verify Cloudflare Turnstile bot challenge (bypassed in test mode or if token is explicitly mocked)
-    if (!isTestMode && (process.env['NODE_ENV'] === 'production' || (secretKey && secretKey !== 'dummy-turnstile-secret-key'))) {
+    const isDevOrTest = rawEnv === 'development' || rawEnv === 'test';
+    if (!isDevOrTest) {
       if (!input.turnstileToken) {
         throw new BadRequestException('Cloudflare Turnstile token is required');
       }
@@ -111,7 +103,8 @@ export class AuthService {
     }
 
     // 2. Enforce normalized phone & IP rate limits (sliding window IP, 60s cooldown, 10/day cap)
-    await this.rateLimitService.checkAndIncrementOtpLimits(input.phone, clientIp);
+    const limitResult = await this.rateLimitService.checkAndIncrementOtpLimits(input.phone, clientIp);
+    const uniqueMember = limitResult.uniqueMember;
 
     // 3. Generate cryptographically secure 6-digit OTP code (Zero predictable backdoors in production)
     const otpCode = this.otpGenerator.generate();
@@ -121,13 +114,22 @@ export class AuthService {
 
     // 5. Dispatch SMS via approved MSG91 DLT template (language-aware: EN or HI)
     // Never logs raw OTP code to stdout or monitoring in production
-    const smsResult = await this.smsService.sendOtp({
+    let smsResult: { success: boolean; message: string; messageId?: string };
+    try {
+      smsResult = await this.smsService.sendOtp({
       phone: input.phone,
       otp: otpCode,
       language: input.language || 'en',
     });
 
+    } catch {
+      await this.otpRedisService.releaseOtpLimits(input.phone, clientIp || '127.0.0.1', uniqueMember);
+      await this.otpRedisService.deleteOtp(input.phone);
+      throw new ServiceUnavailableException('Failed to deliver SMS. Please try again later.');
+    }
+
     if (!smsResult.success) {
+      await this.otpRedisService.releaseOtpLimits(input.phone, clientIp || '127.0.0.1', uniqueMember);
       await this.otpRedisService.deleteOtp(input.phone);
       throw new ServiceUnavailableException('Failed to deliver SMS. Please try again later.');
     }

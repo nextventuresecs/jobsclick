@@ -156,6 +156,7 @@ export class SmsService {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: form.toString(),
+        signal: AbortSignal.timeout(5000),
       });
 
       if (!res.ok) {

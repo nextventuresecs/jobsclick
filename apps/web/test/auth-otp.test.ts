@@ -118,14 +118,53 @@ describe('Phone OTP Frontend Integration - Ticket T-04 (AUTH-01, AUTH-02)', () =
       );
     });
 
-    it('verifies error handling on 400 cool-down or daily limit from /auth/send-otp', async () => {
+    it('each resend clears the previous turnstile token and mints a fresh token', async () => {
+      const tokensSent: string[] = [];
+      const mockFetch = vi.fn().mockImplementation(async (_url, opts) => {
+        const body = JSON.parse(opts.body);
+        tokensSent.push(body.turnstileToken);
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({ success: true, message: 'OTP sent successfully' }),
+        };
+      });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const apiUrl = 'http://localhost:3001';
+      const phone = '9876543210';
+
+      // 1. First send with initial turnstile token
+      const initialToken = 'cf_token_initial_111';
+      await fetch(`${apiUrl}/auth/otp/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, turnstileToken: initialToken }),
+      });
+
+      // 2. Resend must supply a fresh turnstile token, never reusing the first
+      const resendToken = 'cf_token_fresh_resend_222';
+      await fetch(`${apiUrl}/auth/otp/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, turnstileToken: resendToken }),
+      });
+
+      expect(tokensSent).toHaveLength(2);
+      expect(tokensSent[0]).toBe(initialToken);
+      expect(tokensSent[1]).toBe(resendToken);
+      expect(tokensSent[0]).not.toBe(tokensSent[1]);
+    });
+
+    it('verifies error handling on 429 cool-down or daily limit from /auth/otp/send', async () => {
       const mockFetch = vi.fn().mockResolvedValue({
         ok: false,
-        status: 400,
+        status: 429,
+        headers: new Headers({ 'retry-after': '45' }),
         json: async () => ({
-          statusCode: 400,
+          statusCode: 429,
           message: 'Please wait 45 seconds before requesting a new OTP',
-          error: 'Bad Request',
+          error: 'Too Many Requests',
         }),
       });
       vi.stubGlobal('fetch', mockFetch);

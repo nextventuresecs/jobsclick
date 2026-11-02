@@ -223,7 +223,7 @@ describe('Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E)'
   });
 
   describe('IndianPhoneSchema Normalization & Cooldown Rate-Limit Mapping (Uses ioredis-mock)', () => {
-    it('maps "+91 98765-43210" and "919876543210" to same rate limit cooldown key in ioredis-mock and blocks second request with COOLDOWN (400)', async () => {
+    it('maps "+91 98765-43210" and "919876543210" to same rate limit cooldown key in ioredis-mock and blocks second request with COOLDOWN (429)', async () => {
       // NOTE: This test runs against the in-memory ioredis-mock client active during test runs.
       const canonicalPhone = '9876543210';
       const formatA = '+91 98765-43210';
@@ -254,7 +254,8 @@ describe('Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E)'
         url: '/auth/send-otp',
         payload: { phone: formatB },
       });
-      expect(sendResB.statusCode).toBe(400);
+      expect(sendResB.statusCode).toBe(429);
+      expect(sendResB.headers['retry-after']).toBeDefined();
       const bodyB = sendResB.json();
       expect(bodyB.message).toMatch(/Please wait \d+ seconds before requesting a new OTP/);
 

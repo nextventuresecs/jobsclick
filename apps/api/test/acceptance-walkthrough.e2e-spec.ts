@@ -2,7 +2,10 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
+import { ThrottlerGuard } from '@nestjs/throttler';
+import { OtpRedisService } from '../src/auth/otp-redis.service.js';
 import { OtpGenerator } from '../src/auth/otp-generator.service.js';
+import { UserRepository } from '../src/database/repositories/user.repository.js';
 import { runLoadTestSimulation } from '../../../scripts/load-test.js';
 import { executeBackupRestoreDrill } from '../../../scripts/backup-restore.js';
 import { runSecurityChecklistScan } from '../../../scripts/security-scan.js';
@@ -14,6 +17,8 @@ describe('PRD 14.1 Full Acceptance Walkthrough (Epic 6 Launch Readiness)', () =>
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
+      .overrideGuard(ThrottlerGuard)
+      .useValue({ canActivate: () => true })
       .overrideProvider(OtpGenerator)
       .useValue({ generate: () => '123456' })
       .compile();
@@ -51,6 +56,13 @@ describe('PRD 14.1 Full Acceptance Walkthrough (Epic 6 Launch Readiness)', () =>
 
   it('runs complete end-to-end user workflow vs PRD 14.1 (Issue #29)', async () => {
     // Step 1: Candidate OTP authentication
+    await app.get(OtpRedisService).resetForTest('9876543210');
+    const userRepo = app.get(UserRepository);
+    const existing = await userRepo.findByPhone('9876543210');
+    if (existing) {
+      await userRepo.update(existing.id, { status: 'active' });
+    }
+
     const otpRes = await app.inject({
       method: 'POST',
       url: '/auth/send-otp',

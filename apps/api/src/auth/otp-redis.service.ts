@@ -1,8 +1,81 @@
 import crypto from 'node:crypto';
-import { Injectable, OnModuleDestroy, Logger } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger, ServiceUnavailableException } from '@nestjs/common';
 import IORedis from 'ioredis';
 import IORedisMock from 'ioredis-mock';
 import { maskPhone } from '../common/mask.js';
+import { normalizeIp } from '../common/ip-normalizer.js';
+
+export const CHECK_AND_INCREMENT_OTP_LIMITS_LUA = `
+local cooldownTtl = redis.call('TTL', KEYS[1])
+if cooldownTtl > 0 then
+  return {0, 'COOLDOWN', tostring(cooldownTtl), ''}
+end
+
+local currentDaily = tonumber(redis.call('GET', KEYS[2]) or '0')
+if currentDaily >= tonumber(ARGV[2]) then
+  local dailyTtl = redis.call('TTL', KEYS[2])
+  if dailyTtl < 0 then dailyTtl = 86400 end
+  return {0, 'DAILY', tostring(dailyTtl), ''}
+end
+
+local time = redis.call('TIME')
+local now = tonumber(time[1]) * 1000 + math.floor(tonumber(time[2]) / 1000)
+local oneHourAgo = now - 3600000
+redis.call('ZREMRANGEBYSCORE', KEYS[3], '-inf', oneHourAgo)
+local ipCount = redis.call('ZCARD', KEYS[3])
+if ipCount >= tonumber(ARGV[3]) then
+  return {0, 'IP', '3600', ''}
+end
+
+local ipPhoneDaily = tonumber(redis.call('GET', KEYS[4]) or '0')
+if ipPhoneDaily >= tonumber(ARGV[4]) then
+  local ipPhoneTtl = redis.call('TTL', KEYS[4])
+  if ipPhoneTtl < 0 then ipPhoneTtl = 86400 end
+  return {0, 'IP_PHONE', tostring(ipPhoneTtl), ''}
+end
+
+redis.call('SET', KEYS[1], '1', 'EX', tonumber(ARGV[1]))
+
+local newDaily = redis.call('INCR', KEYS[2])
+if newDaily == 1 then
+  redis.call('EXPIRE', KEYS[2], 86400)
+end
+
+local zsetMember = tostring(now) .. '_' .. tostring(ARGV[5])
+redis.call('ZADD', KEYS[3], now, zsetMember)
+redis.call('EXPIRE', KEYS[3], 3600)
+
+local newIpPhone = redis.call('INCR', KEYS[4])
+if newIpPhone == 1 then
+  redis.call('EXPIRE', KEYS[4], 86400)
+end
+
+return {1, 'OK', '0', zsetMember}
+`;
+
+export const RELEASE_OTP_LIMITS_LUA = `
+redis.call('DEL', KEYS[1])
+
+local daily = tonumber(redis.call('GET', KEYS[2]) or '0')
+if daily > 1 then
+  redis.call('DECR', KEYS[2])
+elseif daily == 1 then
+  redis.call('DEL', KEYS[2])
+end
+
+if ARGV[1] and ARGV[1] ~= '' then
+  redis.call('ZREM', KEYS[3], ARGV[1])
+end
+
+local ipPhone = tonumber(redis.call('GET', KEYS[4]) or '0')
+if ipPhone > 1 then
+  redis.call('DECR', KEYS[4])
+elseif ipPhone == 1 then
+  redis.call('DEL', KEYS[4])
+end
+
+return 1
+`;
 
 export type OtpVerifyResult =
   | { status: 'SUCCESS' }
@@ -25,17 +98,22 @@ export interface AuthUserSession {
   status: 'invited' | 'active' | 'disabled';
 }
 
+interface CustomRedisClient {
+  defineCommand?: (name: string, def: { numberOfKeys: number; lua: string }) => void;
+  checkAndIncrementOtpLimits?: (...args: (string | number)[]) => Promise<[number, string, string, string]>;
+  releaseOtpLimits?: (...args: string[]) => Promise<unknown>;
+}
+
 @Injectable()
-export class OtpRedisService implements OnModuleDestroy {
+export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(OtpRedisService.name);
   public readonly client: IORedis;
   private readonly isMock: boolean;
   private readonly pepper: string;
 
-  constructor() {
+    constructor(customClient?: IORedis) {
     this.isMock =
-      process.env['NODE_ENV'] === 'test' ||
-      Boolean(process.env['VITEST']) ||
+      process.env['USE_MOCK_REDIS'] === '1' ||
       process.env['USE_MOCK_REDIS'] === 'true';
 
     const rawEnv = (process.env['NODE_ENV'] ?? '').trim().toLowerCase();
@@ -51,18 +129,22 @@ export class OtpRedisService implements OnModuleDestroy {
     } else {
       this.pepper = pepper;
     }
-    const redisUrl = process.env['REDIS_URL'] || 'redis://localhost:6379';
+    const redisUrl = process.env['REDIS_URL'] || 'redis://127.0.0.1:6379';
 
-    if (this.isMock) {
+    if (customClient) {
+      this.client = customClient;
+    } else if (this.isMock) {
       this.client = new IORedisMock() as unknown as IORedis;
     } else {
       const isTls = redisUrl.startsWith('rediss://');
       this.client = new IORedis(redisUrl, {
-        maxRetriesPerRequest: null,
+        enableOfflineQueue: false,
+        commandTimeout: 1000,
+        maxRetriesPerRequest: 1,
         enableReadyCheck: false,
         tls: isTls ? {} : undefined,
-        retryStrategy(times) {
-          return Math.min(times * 200, 5000);
+        retryStrategy() {
+          return null;
         },
       });
 
@@ -71,6 +153,31 @@ export class OtpRedisService implements OnModuleDestroy {
         const msg = err instanceof Error ? err.message : String(err);
         this.logger.warn(`Redis connection warning: ${msg}`);
       });
+    }
+
+    try {
+      const customClient = this.client as unknown as CustomRedisClient;
+      if (typeof customClient.defineCommand === 'function') {
+        customClient.defineCommand('checkAndIncrementOtpLimits', {
+          numberOfKeys: 4,
+          lua: CHECK_AND_INCREMENT_OTP_LIMITS_LUA,
+        });
+
+        customClient.defineCommand('releaseOtpLimits', {
+          numberOfKeys: 4,
+          lua: RELEASE_OTP_LIMITS_LUA,
+        });
+      }
+    } catch (err) {
+      this.logger.warn(`Failed to register Redis custom commands: ${(err as Error).message}`);
+    }
+  }
+
+  async onModuleInit(): Promise<void> {
+    try {
+      await this.waitForReady(1500);
+    } catch (err) {
+      this.logger.warn(`Redis connection initialization warning: ${(err as Error).message}`);
     }
   }
 
@@ -82,6 +189,25 @@ export class OtpRedisService implements OnModuleDestroy {
     } catch {
       // Ignore disconnect errors during teardown
     }
+  }
+
+  async waitForReady(timeoutMs = 2000): Promise<void> {
+    if (this.isMock || this.client.status === 'ready') {
+      return;
+    }
+    return new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(`Redis client not ready after ${timeoutMs}ms (current status: ${this.client.status})`));
+      }, timeoutMs);
+      this.client.once('ready', () => {
+        clearTimeout(timer);
+        resolve();
+      });
+      this.client.once('error', (err: unknown) => {
+        clearTimeout(timer);
+        reject(err instanceof Error ? err : new Error(String(err)));
+      });
+    });
   }
 
   private hashOtp(code: string): string {
@@ -179,13 +305,11 @@ export class OtpRedisService implements OnModuleDestroy {
   }
 
   async resetForTest(phone: string): Promise<void> {
-    const dateStr = this.getDateKey();
-    await this.client.del(
-      `auth:otp:${phone}`,
-      `auth:cooldown:${phone}`,
-      `auth:lockout:${phone}`,
-      `auth:daily_count:${phone}:${dateStr}`,
-    );
+    await this.waitForReady(1500).catch(() => {});
+    const keys = await this.client.keys(`auth:*${phone}*`);
+    if (keys.length > 0) {
+      await this.client.del(...keys);
+    }
   }
 
   async verifyOtpHash(phone: string, inputCode: string): Promise<boolean> {
@@ -215,8 +339,7 @@ export class OtpRedisService implements OnModuleDestroy {
     phone: string,
     maxDaily = 10,
   ): Promise<{ allowed: boolean; count: number }> {
-    const dateStr = this.getDateKey();
-    const key = `auth:daily_count:${phone}:${dateStr}`;
+    const key = `auth:daily:${phone}`;
 
     const count = await this.client.incr(key);
     if (count === 1) {
@@ -233,7 +356,8 @@ export class OtpRedisService implements OnModuleDestroy {
     ip: string,
     maxPerHour = 20,
   ): Promise<{ allowed: boolean; count: number }> {
-    const key = `auth:ip_rate:${ip}`;
+    const normIp = normalizeIp(ip);
+    const key = `auth:ip_rate:${normIp}`;
     const now = Date.now();
     const oneHourAgo = now - 3600 * 1000;
 
@@ -247,6 +371,135 @@ export class OtpRedisService implements OnModuleDestroy {
     await this.client.zadd(key, now, `${now}_${Math.random()}`);
     await this.client.expire(key, 3600);
     return { allowed: true, count: count + 1 };
+  }
+
+  /**
+   * Atomic OTP abuse check and increment via Redis Lua script (AUTH-03, PR #97 B4).
+   * Atomically verifies:
+   * 1. 60-second cool-down per mobile number
+   * 2. Daily limit per mobile number (default 10)
+   * 3. Hourly sliding window rate limit per IP (default 200)
+   * 4. Daily limit per (IP, mobile number) pair (default 5)
+   *
+   * Only mutates Redis state if ALL checks pass!
+   */
+  async checkAndIncrementOtpLimits(
+    phone: string,
+    rawIp: string,
+    customMember?: string,
+  ): Promise<{
+    allowed: boolean;
+    reason: 'OK' | 'COOLDOWN' | 'DAILY' | 'IP' | 'IP_PHONE';
+    retryAfter: number;
+    uniqueMember: string;
+  }> {
+    if (!/^[6-9]\d{9}$/.test(phone)) {
+      throw new Error(`OtpRedisService requires a normalized 10-digit Indian phone number. Received: ${phone}`);
+    }
+
+    const normIp = normalizeIp(rawIp);
+    const cooldownKey = `auth:cooldown:${phone}`;
+    const dailyKey = `auth:daily:${phone}`;
+    const ipKey = `auth:ip_rate:${normIp}`;
+    const ipPhoneKey = `auth:ip_phone:${normIp}:${phone}`;
+
+    const cooldownSec = Number(process.env['OTP_COOLDOWN_SEC'] || 60);
+    const maxDaily = Number(process.env['OTP_PHONE_PER_DAY'] || 10);
+    const maxIpPerHour = Number(process.env['OTP_IP_PER_HOUR'] || 200);
+    const maxIpPhoneDaily = Number(process.env['OTP_IP_PHONE_PER_DAY'] || 5);
+    const nonce = customMember || crypto.randomBytes(8).toString('hex');
+
+    let res: [number, string, string, string];
+    try {
+      const customClient = this.client as unknown as CustomRedisClient;
+      if (typeof customClient.checkAndIncrementOtpLimits === 'function') {
+        res = (await customClient.checkAndIncrementOtpLimits(
+          cooldownKey,
+          dailyKey,
+          ipKey,
+          ipPhoneKey,
+          cooldownSec,
+          maxDaily,
+          maxIpPerHour,
+          maxIpPhoneDaily,
+          nonce,
+        )) as [number, string, string, string];
+      } else {
+        res = (await this.client.eval(
+          CHECK_AND_INCREMENT_OTP_LIMITS_LUA,
+          4,
+          cooldownKey,
+          dailyKey,
+          ipKey,
+          ipPhoneKey,
+          cooldownSec,
+          maxDaily,
+          maxIpPerHour,
+          maxIpPhoneDaily,
+          nonce,
+        )) as [number, string, string, string];
+      }
+    } catch (err) {
+      this.logger.error(`Redis failure during OTP rate check: ${(err as Error).message}`);
+      throw new ServiceUnavailableException('Authentication service temporarily unavailable. Please try again shortly.');
+    }
+
+    const allowed = Number(res[0]) === 1;
+    const reason = res[1] as 'OK' | 'COOLDOWN' | 'DAILY' | 'IP' | 'IP_PHONE';
+    const retryAfter = parseInt(res[2] || '0', 10);
+    const uniqueMember = res[3] || '';
+
+    if (!allowed) {
+      this.logger.warn(`OTP rate limit hit: reason=${reason}, retryAfter=${retryAfter}s, ip=${normIp}`);
+    }
+
+    return {
+      allowed,
+      reason,
+      retryAfter,
+      uniqueMember,
+    };
+  }
+
+  /**
+   * Releases OTP rate limits upon SMS delivery failure.
+   * Decrements daily counters and removes cooldown/IP member.
+   */
+  async releaseOtpLimits(phone: string, rawIp: string, uniqueMember?: string): Promise<void> {
+    if (!/^[6-9]\d{9}$/.test(phone)) {
+      return;
+    }
+
+    const normIp = normalizeIp(rawIp);
+    const cooldownKey = `auth:cooldown:${phone}`;
+    const dailyKey = `auth:daily:${phone}`;
+    const ipKey = `auth:ip_rate:${normIp}`;
+    const ipPhoneKey = `auth:ip_phone:${normIp}:${phone}`;
+
+    try {
+      const customClient = this.client as unknown as CustomRedisClient;
+      if (typeof customClient.releaseOtpLimits === 'function') {
+        await customClient.releaseOtpLimits(
+          cooldownKey,
+          dailyKey,
+          ipKey,
+          ipPhoneKey,
+          uniqueMember || '',
+        );
+      } else {
+        await this.client.eval(
+          RELEASE_OTP_LIMITS_LUA,
+          4,
+          cooldownKey,
+          dailyKey,
+          ipKey,
+          ipPhoneKey,
+          uniqueMember || '',
+        );
+      }
+    } catch (err) {
+      this.logger.error(`Failed to release OTP limits: ${(err as Error).message}`);
+    }
   }
 
   /**

@@ -1,8 +1,10 @@
 import { Controller, Post, Body, UseGuards, Inject } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { QstashSignatureGuard } from './qstash-signature.guard.js';
 import { PdfTaskService, GeneratePdfPayload } from './pdf-task.service.js';
 import { Public } from '../auth/decorators/public.decorator.js';
 
+@SkipThrottle()
 @Public()
 @Controller('webhooks/qstash')
 export class QstashWebhookController {

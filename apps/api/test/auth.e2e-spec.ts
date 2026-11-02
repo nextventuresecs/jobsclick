@@ -2,6 +2,8 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
+import { ThrottlerGuard } from '@nestjs/throttler';
+import { OtpRedisService } from '../src/auth/otp-redis.service.js';
 import { OtpGenerator } from '../src/auth/otp-generator.service.js';
 
 class MockOtpGenerator extends OtpGenerator {
@@ -18,6 +20,8 @@ describe('AuthController (e2e) - Issues #6, #7, #8', () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
+      .overrideGuard(ThrottlerGuard)
+      .useValue({ canActivate: () => true })
       .overrideProvider(OtpGenerator)
       .useClass(MockOtpGenerator)
       .compile();
@@ -35,6 +39,8 @@ describe('AuthController (e2e) - Issues #6, #7, #8', () => {
   });
 
   it('POST /auth/send-otp - sends OTP successfully and enforces cool-down', async () => {
+    await app.get(OtpRedisService).resetForTest('9876543299');
+
     const res1 = await app.inject({
       method: 'POST',
       url: '/auth/send-otp',
@@ -46,14 +52,14 @@ describe('AuthController (e2e) - Issues #6, #7, #8', () => {
     expect(body1.success).toBe(true);
     expect(body1.cooldownSeconds).toBe(60);
 
-    // Immediate second request should be blocked by cool-down
+    // Immediate second request should be blocked by cool-down (HTTP 429 per AUTH-03)
     const res2 = await app.inject({
       method: 'POST',
       url: '/auth/send-otp',
       payload: { phone: '9876543299' },
     });
 
-    expect(res2.statusCode).toBe(400);
+    expect(res2.statusCode).toBe(429);
     const body2 = JSON.parse(res2.payload);
     expect(body2.message).toContain('Please wait');
   });

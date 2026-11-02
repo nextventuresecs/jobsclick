@@ -12,6 +12,8 @@ import { PaymentRepository } from '../src/database/repositories/payment.reposito
 import { UserRepository } from '../src/database/repositories/user.repository.js';
 import type { JobSeekerProfileRow, InstitutionProfileRow } from '@indian-job-portal/database';
 import { ForbiddenException, BadRequestException } from '@nestjs/common';
+import { ThrottlerGuard } from '@nestjs/throttler';
+import { OtpRedisService } from '../src/auth/otp-redis.service.js';
 
 describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WAL-05, Section 10.1)', () => {
   let app: NestFastifyApplication;
@@ -27,6 +29,8 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
+      .overrideGuard(ThrottlerGuard)
+      .useValue({ canActivate: () => true })
       .overrideProvider(OtpGenerator)
       .useValue({ generate: () => '123456' })
       .compile();
@@ -333,6 +337,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
       });
 
       // 1. Authenticate owner
+      await app.get(OtpRedisService).resetForTest('9811122233');
       await app.inject({
         method: 'POST',
         url: '/auth/send-otp',
@@ -347,6 +352,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
       const ownerUserId = ownerAuthRes.json().user.id;
 
       // 2. Authenticate intruder
+      await app.get(OtpRedisService).resetForTest('9899900011');
       await app.inject({
         method: 'POST',
         url: '/auth/send-otp',

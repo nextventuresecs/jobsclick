@@ -1,7 +1,7 @@
 import {
   Body,
   Controller,
-  Ip,
+  Req,
   Post,
   UseGuards,
   BadRequestException,
@@ -11,6 +11,8 @@ import { AuthService } from './auth.service.js';
 import { Public } from './decorators/public.decorator.js';
 import { CurrentUser, AuthenticatedUser } from './decorators/current-user.decorator.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
+import type { FastifyRequest } from 'fastify';
+import { getClientIp } from '../common/ip-normalizer.js';
 import {
   SendOtpSchema,
   VerifyOtpSchema,
@@ -24,7 +26,8 @@ export class AuthController {
 
   @Public()
   @Post(['otp/send', 'send-otp'])
-  async sendOtp(@Body() rawBody: unknown, @Ip() clientIp: string) {
+  async sendOtp(@Body() rawBody: unknown, @Req() req: FastifyRequest) {
+    const clientIp = getClientIp(req);
     const parsed = SendOtpSchema.safeParse(rawBody);
     if (!parsed.success) {
       throw new BadRequestException(parsed.error.flatten());
@@ -34,7 +37,8 @@ export class AuthController {
 
   @Public()
   @Post(['otp/verify', 'verify-otp'])
-  async verifyOtp(@Body() rawBody: unknown, @Ip() clientIp: string) {
+  async verifyOtp(@Body() rawBody: unknown, @Req() req: FastifyRequest) {
+    const clientIp = getClientIp(req);
     const body = (rawBody && typeof rawBody === 'object' ? { ...rawBody } : {}) as Record<string, unknown>;
     if (!body['code'] && body['otp']) {
       body['code'] = body['otp'];

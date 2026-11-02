@@ -20,6 +20,9 @@ interface RequestWithRawBody extends FastifyRequest {
   rawBody?: string;
 }
 
+import { SkipThrottle } from '@nestjs/throttler';
+
+@SkipThrottle()
 @Public()
 @Controller()
 @RequireFeatureFlag('ENABLE_P2_PAYMENTS')
