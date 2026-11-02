@@ -23,7 +23,7 @@ export class OtpRedisService implements OnModuleDestroy {
   private readonly logger = new Logger(OtpRedisService.name);
   public readonly client: IORedis;
   private readonly isMock: boolean;
-  private readonly salt: string;
+  private readonly pepper: string;
 
   constructor() {
     this.isMock =
@@ -31,7 +31,19 @@ export class OtpRedisService implements OnModuleDestroy {
       Boolean(process.env['VITEST']) ||
       process.env['USE_MOCK_REDIS'] === 'true';
 
-    this.salt = process.env['OTP_SALT'] || 'indian-job-portal-otp-salt-secure';
+    const rawEnv = (process.env['NODE_ENV'] ?? '').trim().toLowerCase();
+    const isDevOrTest = rawEnv === 'development' || rawEnv === 'test';
+    const pepper = process.env['OTP_PEPPER'];
+
+    if (!pepper) {
+      if (isDevOrTest || this.isMock) {
+        this.pepper = crypto.randomBytes(32).toString('hex');
+      } else {
+        throw new Error('OTP_PEPPER environment variable must be set (min 32 chars)');
+      }
+    } else {
+      this.pepper = pepper;
+    }
     const redisUrl = process.env['REDIS_URL'] || 'redis://localhost:6379';
 
     if (this.isMock) {
@@ -41,7 +53,7 @@ export class OtpRedisService implements OnModuleDestroy {
       this.client = new IORedis(redisUrl, {
         maxRetriesPerRequest: null,
         enableReadyCheck: false,
-        tls: isTls ? { rejectUnauthorized: false } : undefined,
+        tls: isTls ? {} : undefined,
         retryStrategy(times) {
           return Math.min(times * 200, 5000);
         },
@@ -66,7 +78,7 @@ export class OtpRedisService implements OnModuleDestroy {
   }
 
   private hashOtp(code: string): string {
-    return crypto.createHmac('sha256', this.salt).update(code.trim()).digest('hex');
+    return crypto.createHmac('sha256', this.pepper).update(code.trim()).digest('hex');
   }
 
   private getDateKey(): string {

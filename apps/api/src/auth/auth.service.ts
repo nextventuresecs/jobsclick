@@ -5,7 +5,6 @@ import {
   Inject,
   Logger,
   Optional,
-  InternalServerErrorException,
   UnauthorizedException,
 } from '@nestjs/common';
 import crypto from 'node:crypto';
@@ -174,12 +173,7 @@ export class AuthService {
 
       // Transition 'invited' users (from bulk institution/MSME wave import) to 'active' on first login
       if (userRow.status === 'invited') {
-        const updated = await this.userRepository.update(userRow.id, { status: 'active' });
-      userRow = updated || userRow;
-    }
-
-    if (!userRow) {
-      throw new InternalServerErrorException('Failed to resolve authenticated user record');
+        userRow = (await this.userRepository.update(userRow.id, { status: 'active' })) || userRow;
       }
     } else {
       // 3. New User Registration: Generate opaque UUID to prevent phone number leakage (Invariant #1)
@@ -393,10 +387,7 @@ export class AuthService {
    * Generates a tamper-evident HS256 JWT using SHA-256 HMAC and cryptographically secure entropy.
    */
   private issueJwt(userId: string, role: string, status: string): string {
-    const secret =
-      process.env['JWT_SECRET'] ||
-      process.env['SUPABASE_SECRET_KEY'] ||
-      (process.env['NODE_ENV'] === 'test' ? 'jobsclick-jwt-secret-key-32-chars-min' : '');
+    const secret = process.env['JWT_SECRET'] ?? '';
 
     if (!secret || secret.length < 32) {
       throw new Error('JWT_SECRET is not properly configured: minimum 32 characters entropy required');

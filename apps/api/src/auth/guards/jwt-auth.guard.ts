@@ -4,6 +4,7 @@ import {
   CanActivate,
   ExecutionContext,
   UnauthorizedException,
+  ServiceUnavailableException,
   Inject,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
@@ -50,6 +51,11 @@ export class JwtAuthGuard implements CanActivate {
   }
 
   private verifyToken(token: string): AuthUser {
+    const verificationSecret = process.env['JWT_SECRET'] ?? '';
+    if (!verificationSecret) {
+      throw new ServiceUnavailableException('Authentication service is not properly configured: JWT_SECRET missing');
+    }
+
     // 1. Session token pattern: only permitted in test / dev mode
     if (this.isTestMode && token.startsWith('jwt_session_')) {
       const parts = token.split('_');
@@ -82,21 +88,6 @@ export class JwtAuthGuard implements CanActivate {
     }
 
     // Cryptographic signature verification with timing-safe comparison
-    const isProduction = process.env['NODE_ENV'] === 'production';
-    const secret = process.env['JWT_SECRET'] || process.env['SUPABASE_SECRET_KEY'];
-
-    if (!secret) {
-      if (isProduction) {
-        throw new UnauthorizedException('Authentication misconfigured: server JWT_SECRET is not set');
-      }
-      // Strictly rejected in production; in test only fall back to test-only key if not provided
-    }
-
-    const verificationSecret = secret || (this.isTestMode ? 'jobsclick-jwt-secret-key-32-chars-min' : '');
-    if (!verificationSecret) {
-      throw new UnauthorizedException('Server configuration error: missing JWT signing secret');
-    }
-
     const expectedSig = crypto
       .createHmac('sha256', verificationSecret)
       .update(`${headerB64}.${payloadB64}`)
