@@ -59,7 +59,7 @@ export class ProfilesService {
       return {
         id: `seeker_${userId}`,
         userId,
-        phone: user?.phone || '9876543210',
+        phone: user?.phone || '',
         email: user?.email || null,
         fullName: 'New Job Seeker',
         photoUrl: '',
@@ -87,7 +87,7 @@ export class ProfilesService {
     return {
       id: profile.id,
       userId: profile.user_id,
-      phone: user?.phone || '9876543210',
+      phone: user?.phone || '',
       email: user?.email || null,
       fullName: profile.full_name,
       photoUrl: profile.photo_url || '',
@@ -160,7 +160,7 @@ export class ProfilesService {
     return {
       id,
       userId,
-      phone: user?.phone || '9876543210',
+      phone: user?.phone || '',
       email: user?.email || null,
       ...input,
       completenessScore,
