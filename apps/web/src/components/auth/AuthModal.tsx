@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAppContext } from '@/context/AppContext';
 import { IndianPhoneSchema, SelfSignupRoleSchema, toBackendRole } from '@indian-job-portal/validation';
 
-const DPDP_CONSENT_VERSION = 'v1.2-2026-10';
+export const DPDP_CONSENT_VERSION = 'v1.2-2026-10';
 
 export function AuthModal() {
   const router = useRouter();
@@ -250,7 +250,7 @@ export function AuthModal() {
           phone: normalizedPhone,
           code,
           role: roleCheck.data,
-          consentVersion: 'v1.0-dpdp-2026',
+          ...(consentAccepted ? { consentVersion: DPDP_CONSENT_VERSION } : {}),
         }),
       });
 
@@ -446,7 +446,7 @@ export function AuthModal() {
 
             <button
               type="submit"
-              disabled={isSubmitting || phoneInput.length !== 10}
+              disabled={isSubmitting || phoneInput.length !== 10 || !consentAccepted}
               className="flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
             >
               {isSubmitting ? 'Sending verification code…' : 'Get Verification Code'}

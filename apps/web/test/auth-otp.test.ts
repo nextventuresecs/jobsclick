@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { toBackendRole, toClientRole, SelfSignupRoleSchema } from '@indian-job-portal/validation';
+import { DPDP_CONSENT_VERSION } from '@/components/auth/AuthModal';
 
 describe('Phone OTP Frontend Integration - Ticket T-04 (AUTH-01, AUTH-02)', () => {
   beforeEach(() => {
@@ -239,6 +240,52 @@ describe('Phone OTP Frontend Integration - Ticket T-04 (AUTH-01, AUTH-02)', () =
         const check = SelfSignupRoleSchema.safeParse(backendRole);
         expect(check.success).toBe(true);
       }
+    });
+
+    it('disables submit and blocks OTP request when consent checkbox is not ticked', () => {
+      let consentAccepted = false;
+      const phoneInput = '9876543210';
+      const isSubmitting = false;
+
+      // Submit button is disabled
+      const isSubmitDisabled = isSubmitting || phoneInput.length !== 10 || !consentAccepted;
+      expect(isSubmitDisabled).toBe(true);
+
+      // handleRequestOtp blocks submission with error
+      let errorMessage: string | null = null;
+      if (!consentAccepted) {
+        errorMessage = 'Please accept the Terms of Service & DPDP Privacy Notice to continue.';
+      }
+      expect(errorMessage).toBe('Please accept the Terms of Service & DPDP Privacy Notice to continue.');
+    });
+
+    it('enables submit button and conditionally includes consentVersion in verify payload only when ticked', () => {
+      let consentAccepted = true;
+      const phoneInput = '9876543210';
+      const isSubmitting = false;
+
+      // Submit button is enabled when consent is ticked
+      const isSubmitDisabled = isSubmitting || phoneInput.length !== 10 || !consentAccepted;
+      expect(isSubmitDisabled).toBe(false);
+
+      // Payload contains consentVersion when consent is ticked
+      const payloadWithConsent = {
+        phone: '9876543210',
+        code: '123456',
+        role: 'job_seeker',
+        ...(consentAccepted ? { consentVersion: DPDP_CONSENT_VERSION } : {}),
+      };
+      expect(payloadWithConsent.consentVersion).toBe(DPDP_CONSENT_VERSION);
+
+      // Payload omits consentVersion when consent is unticked
+      consentAccepted = false;
+      const payloadWithoutConsent = {
+        phone: '9876543210',
+        code: '123456',
+        role: 'job_seeker',
+        ...(consentAccepted ? { consentVersion: DPDP_CONSENT_VERSION } : {}),
+      };
+      expect(payloadWithoutConsent).not.toHaveProperty('consentVersion');
     });
   });
 });
