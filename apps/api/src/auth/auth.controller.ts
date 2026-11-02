@@ -56,6 +56,7 @@ export class AuthController {
     return this.authService.addEmail(user.id, parsed.data);
   }
 
+  @Public()
   @Post('email/verify')
   async verifyEmail(@Body('token') token: string) {
     if (!token) {

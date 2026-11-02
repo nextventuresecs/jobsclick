@@ -13,6 +13,8 @@ import { WalletModule } from './wallet/wallet.module.js';
 import { PlacementModule } from './placement/placement.module.js';
 import { EmailModule } from './email/email.module.js';
 import { FeatureFlagGuard } from './auth/guards/feature-flag.guard.js';
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
+import { RolesGuard } from './auth/guards/roles.guard.js';
 
 @Module({
   imports: [
@@ -33,6 +35,14 @@ import { FeatureFlagGuard } from './auth/guards/feature-flag.guard.js';
     {
       provide: APP_GUARD,
       useClass: FeatureFlagGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
     },
   ],
 })

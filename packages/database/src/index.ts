@@ -17,6 +17,7 @@ export interface Database {
         role: 'employer' | 'intermediary' | 'job_seeker' | 'admin' | 'msme_admin';
         status: 'invited' | 'active' | 'disabled';
         source: string;
+        token_version: number;
         created_by: string | null;
         updated_by: string | null;
         created_at: string;

@@ -1,7 +1,9 @@
 import { Controller, Post, Body, UseGuards, Inject } from '@nestjs/common';
 import { QstashSignatureGuard } from './qstash-signature.guard.js';
 import { PdfTaskService, GeneratePdfPayload } from './pdf-task.service.js';
+import { Public } from '../auth/decorators/public.decorator.js';
 
+@Public()
 @Controller('webhooks/qstash')
 export class QstashWebhookController {
   constructor(@Inject(PdfTaskService) private readonly pdfTaskService: PdfTaskService) {}

@@ -10,6 +10,12 @@ export type OtpVerifyResult =
   | { status: 'LOCKED_OUT'; remainingSeconds: number }
   | { status: 'INVALID'; attemptsRemaining: number };
 
+export interface UserAuthState {
+  role: 'employer' | 'intermediary' | 'job_seeker' | 'admin' | 'msme_admin';
+  status: 'invited' | 'active' | 'disabled';
+  tokenVersion: number;
+}
+
 export interface AuthUserSession {
   id: string;
   phone: string;
@@ -274,6 +280,27 @@ export class OtpRedisService implements OnModuleDestroy {
   /**
    * Stores active user session in Redis with 30-day TTL (replaces volatile in-memory Map).
    */
+  async setAuthState(userId: string, state: UserAuthState, ttlSeconds = 300): Promise<void> {
+    const key = 'auth:state:' + userId;
+    await this.client.set(key, JSON.stringify(state), 'EX', ttlSeconds);
+  }
+
+  async getAuthState(userId: string): Promise<UserAuthState | null> {
+    const key = 'auth:state:' + userId;
+    const data = await this.client.get(key);
+    if (!data) return null;
+    try {
+      return JSON.parse(data) as UserAuthState;
+    } catch {
+      return null;
+    }
+  }
+
+  async deleteAuthState(userId: string): Promise<void> {
+    const key = 'auth:state:' + userId;
+    await this.client.del(key);
+  }
+
   async setSession(userId: string, session: AuthUserSession, ttlSeconds = 30 * 86400): Promise<void> {
     const key = `auth:session:${userId}`;
     await this.client.set(key, JSON.stringify(session), 'EX', ttlSeconds);

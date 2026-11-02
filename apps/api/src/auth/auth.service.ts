@@ -23,6 +23,7 @@ export interface VerifyEmailInput {
 import { UserRepository } from '../database/repositories/user.repository.js';
 import { SmsService } from './sms.service.js';
 import { OtpRedisService, AuthUserSession } from './otp-redis.service.js';
+import { JwtService } from './jwt.service.js';
 import { RateLimitService } from './rate-limit.service.js';
 import { WalletService } from '../wallet/wallet.service.js';
 import { EmailService } from '../email/email.service.js';
@@ -63,9 +64,7 @@ export interface VerifyOtpResult {
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
-  // L1 ephemeral read-through cache for ultra-fast local evaluation
-  private readonly localSessionCache = new Map<string, UserSession>();
-  private readonly localTokenCache = new Map<string, { userId: string; email: string }>();
+  private readonly jwtService: JwtService;
 
   private readonly otpRedisService: OtpRedisService;
   private readonly rateLimitService: RateLimitService;
@@ -79,8 +78,10 @@ export class AuthService {
     @Optional() @Inject(WalletService) private readonly walletService?: WalletService,
     @Optional() @Inject(EmailService) private readonly emailService?: EmailService,
     @Optional() @Inject(OtpGenerator) otpGenerator: OtpGenerator = new OtpGenerator(),
+    @Optional() @Inject(JwtService) jwtService?: JwtService,
   ) {
     this.otpRedisService = otpRedisService ?? new OtpRedisService();
+    this.jwtService = jwtService ?? new JwtService();
     this.rateLimitService = rateLimitService ?? new RateLimitService(this.otpRedisService);
     this.otpGenerator = otpGenerator ?? new OtpGenerator();
   }
@@ -204,6 +205,7 @@ export class AuthService {
               role: safeRole,
               status: 'active',
               source: 'direct_web',
+              token_version: 0,
               created_by: null,
               updated_by: null,
               created_at: new Date().toISOString(),
@@ -229,11 +231,19 @@ export class AuthService {
     };
 
     // 5. Store session in distributed Redis cluster and sync L1 local cache
-    this.localSessionCache.set(session.id, session);
     await this.otpRedisService.setSession(session.id, session);
+    const tokenVersion = userRow.token_version ?? 0;
+    await this.otpRedisService.setAuthState(session.id, {
+      role: session.role,
+      status: session.status,
+      tokenVersion,
+    });
 
-    // 6. Issue cryptographically signed HS256 JWT
-    const accessToken = this.issueJwt(session.id, session.role, session.status);
+    // 6. Issue cryptographically signed HS256 JWT via JwtService with required claims
+    const accessToken = await this.jwtService.signAccessToken(session.id, tokenVersion, {
+      role: session.role,
+      status: session.status,
+    });
 
     return {
       success: true,
@@ -263,19 +273,13 @@ export class AuthService {
     const verificationToken = crypto.randomBytes(32).toString('hex');
     await this.userRepository.update(userId, { email });
 
-    // Update in-memory and Redis caches
-    let cached = this.localSessionCache.get(userId);
-    if (!cached) {
-      cached = (await this.otpRedisService.getSession(userId)) || undefined;
-    }
+    const cached = await this.otpRedisService.getSession(userId);
     if (cached) {
       cached.email = email;
       cached.emailVerified = false;
-      this.localSessionCache.set(userId, cached);
       await this.otpRedisService.setSession(userId, cached);
     }
 
-    this.localTokenCache.set(verificationToken, { userId, email });
     await this.otpRedisService.saveEmailVerificationToken(userId, email, verificationToken, 86400);
 
     // Dispatch transactional email via Resend if email service is active
@@ -295,10 +299,7 @@ export class AuthService {
    * Confirms secondary email ownership and burns the single-use token.
    */
   async verifyEmail(input: VerifyEmailInput | { token: string }): Promise<{ success: boolean; message: string }> {
-    let record = this.localTokenCache.get(input.token);
-    if (!record) {
-      record = (await this.otpRedisService.getEmailVerificationToken(input.token)) || undefined;
-    }
+    const record = await this.otpRedisService.getEmailVerificationToken(input.token);
 
     if (!record) {
       throw new BadRequestException('Invalid or expired verification token');
@@ -306,17 +307,12 @@ export class AuthService {
 
     await this.userRepository.update(record.userId, { email: record.email });
 
-    let cached = this.localSessionCache.get(record.userId);
-    if (!cached) {
-      cached = (await this.otpRedisService.getSession(record.userId)) || undefined;
-    }
+    const cached = await this.otpRedisService.getSession(record.userId);
     if (cached) {
       cached.emailVerified = true;
-      this.localSessionCache.set(record.userId, cached);
       await this.otpRedisService.setSession(record.userId, cached);
     }
 
-    this.localTokenCache.delete(input.token);
     await this.otpRedisService.deleteEmailVerificationToken(input.token);
 
     return {
@@ -334,11 +330,19 @@ export class AuthService {
    * Records a revocation timestamp in Redis so JwtAuthGuard invalidates all existing JWTs.
    */
   async revokeAllUserSessions(userId: string): Promise<{ success: boolean; message: string }> {
-    this.localSessionCache.delete(userId);
+    // 1. Atomically increment token_version in persistent database
+    const updatedUser = await this.userRepository.incrementTokenVersion(userId);
+
+    // 2. Refresh Redis auth state and delete session in that order
     await this.otpRedisService.deleteSession(userId);
+    await this.otpRedisService.setAuthState(userId, {
+      role: updatedUser.role,
+      status: updatedUser.status,
+      tokenVersion: updatedUser.token_version,
+    });
     await this.otpRedisService.setRevokedTimestamp(userId, Date.now());
 
-    this.logger.log(`[Auth] Revoked all active sessions for user ${userId}`);
+    this.logger.log(`[Auth] Revoked all active sessions for user ${userId} (new token_version: ${updatedUser.token_version})`);
     return {
       success: true,
       message: 'All active sessions have been revoked',
@@ -355,20 +359,16 @@ export class AuthService {
   /**
    * Fast synchronous lookup from L1 ephemeral cache.
    */
-  getUserById(id: string): UserSession | undefined {
-    return this.localSessionCache.get(id);
+  getUserById(_id: string): UserSession | undefined {
+    return undefined;
   }
 
   /**
-   * Multi-tier user session lookup: L1 Cache -> L2 Redis Session -> Persistent Repository.
+   * Multi-tier user session lookup: Redis Session -> Persistent Repository.
    */
   async findUserById(id: string): Promise<UserSession | undefined> {
-    const local = this.localSessionCache.get(id);
-    if (local) return local;
-
     const fromRedis = await this.otpRedisService.getSession(id);
     if (fromRedis) {
-      this.localSessionCache.set(id, fromRedis);
       return fromRedis;
     }
 
@@ -384,41 +384,14 @@ export class AuthService {
       status: row.status,
     };
 
-    this.localSessionCache.set(id, session);
     await this.otpRedisService.setSession(id, session);
     return session;
   }
 
   /**
-   * Generates a tamper-evident HS256 JWT using SHA-256 HMAC and cryptographically secure entropy.
+   * Issues JWT via JwtService with server state tokenVersion.
    */
-  private issueJwt(userId: string, role: string, status: string): string {
-    const secret = process.env['JWT_SECRET'] ?? '';
-
-    if (!secret || secret.length < 32) {
-      throw new Error('JWT_SECRET is not properly configured: minimum 32 characters entropy required');
-    }
-
-    const nowSec = Math.floor(Date.now() / 1000);
-    const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-    const payload = Buffer.from(
-      JSON.stringify({
-        sub: userId,
-        role,
-        status,
-        jti: crypto.randomUUID(),
-        iat: nowSec,
-        exp: nowSec + 7 * 24 * 60 * 60, // 7 days TTL
-        iss: 'jobsclick-api',
-        aud: 'jobsclick-web',
-      }),
-    ).toString('base64url');
-
-    const signature = crypto
-      .createHmac('sha256', secret)
-      .update(`${header}.${payload}`)
-      .digest('base64url');
-
-    return `${header}.${payload}.${signature}`;
+  async issueJwt(userId: string, role: string, status: string, tokenVersion = 0): Promise<string> {
+    return this.jwtService.signAccessToken(userId, tokenVersion, { role, status });
   }
 }

@@ -37,6 +37,7 @@ const baseSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   // Authentication & Administrative Security
   JWT_SECRET: z.string().optional(),
+  JWT_ACCESS_TOKEN_TTL_MINUTES: z.coerce.number().min(1).max(60).default(30),
   OTP_PEPPER: z.string().optional(),
   ADMIN_DASHBOARD_SECRET: z.string().optional(),
   // SMS gateway mode

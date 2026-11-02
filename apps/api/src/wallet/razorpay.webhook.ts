@@ -14,11 +14,13 @@ import type { FastifyRequest } from 'fastify';
 import { PaymentService } from './payment.service.js';
 import { captureException } from '../config/sentry.js';
 import { RequireFeatureFlag } from '../auth/guards/feature-flag.guard.js';
+import { Public } from '../auth/decorators/public.decorator.js';
 
 interface RequestWithRawBody extends FastifyRequest {
   rawBody?: string;
 }
 
+@Public()
 @Controller()
 @RequireFeatureFlag('ENABLE_P2_PAYMENTS')
 export class RazorpayWebhookController {

@@ -63,6 +63,7 @@ export class UserRepository {
       role: user.role,
       status: user.status,
       source: user.source,
+      token_version: user.token_version ?? 0,
       created_by: user.created_by,
       updated_by: user.updated_by,
       created_at: user.created_at,
@@ -96,6 +97,7 @@ export class UserRepository {
     status?: UserRow['status'];
     source?: string;
     email?: string | null;
+    token_version?: number;
   }): Promise<UserRow> {
     const now = new Date().toISOString();
     const newUser: UserRow = {
@@ -105,12 +107,47 @@ export class UserRepository {
       role: user.role,
       status: user.status || 'active',
       source: user.source || 'direct_web',
+      token_version: user.token_version ?? 0,
       created_by: null,
       updated_by: null,
       created_at: now,
       updated_at: now,
     };
     return this.save(newUser);
+  }
+
+  async incrementTokenVersion(id: string): Promise<UserRow> {
+    if (!this.isTestMode) {
+      try {
+        const rpcClient = this.supabase as unknown as {
+          rpc: (name: string, params: Record<string, unknown>) => {
+            maybeSingle: () => Promise<{ data: unknown; error: { message: string } | null }>;
+          };
+        };
+        const { data, error } = await rpcClient
+          .rpc('increment_token_version', { p_user_id: id })
+          .maybeSingle();
+
+        if (!error && data) {
+          return data as UserRow;
+        }
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
+      }
+    }
+
+    const existing = await this.findById(id);
+    if (!existing) {
+      throw new InternalServerErrorException(`User not found: ${id}`);
+    }
+    const nextVersion = (existing.token_version ?? 0) + 1;
+    const updated = await this.update(id, { token_version: nextVersion });
+    if (!updated) {
+      throw new InternalServerErrorException(`Failed to increment token_version for ${id}`);
+    }
+    return updated;
   }
 
   async updateStatus(id: string, status: UserRow['status']): Promise<UserRow> {

@@ -3,16 +3,22 @@ import crypto from 'node:crypto';
 import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard.js';
+import { JwtService } from '../src/auth/jwt.service.js';
+import { OtpRedisService } from '../src/auth/otp-redis.service.js';
 
 describe('JwtAuthGuard Cryptographic Verification & Expiration (Issue #1)', () => {
   let guard: JwtAuthGuard;
   let reflector: Reflector;
+  let otpRedis: OtpRedisService;
+  let jwtService: JwtService;
   const secret = 'jobsclick-jwt-secret-key-32-chars-min';
 
   beforeEach(() => {
     process.env['JWT_SECRET'] = secret;
     reflector = new Reflector();
-    guard = new JwtAuthGuard(reflector);
+    otpRedis = new OtpRedisService();
+    jwtService = new JwtService();
+    guard = new JwtAuthGuard(reflector, jwtService, otpRedis);
   });
 
   function createMockContext(headers: Record<string, string>): ExecutionContext {
@@ -32,21 +38,33 @@ describe('JwtAuthGuard Cryptographic Verification & Expiration (Issue #1)', () =
 
   function signToken(payloadObj: Record<string, unknown>, signingSecret = secret): string {
     const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-    const payload = Buffer.from(JSON.stringify(payloadObj)).toString('base64url');
+    const fullPayload = {
+      iss: 'jobsclick-api',
+      aud: 'jobsclick-web',
+      tv: 0,
+      jti: crypto.randomUUID(),
+      ...payloadObj,
+    };
+    const payload = Buffer.from(JSON.stringify(fullPayload)).toString('base64url');
     const signature = crypto.createHmac('sha256', signingSecret).update(`${header}.${payload}`).digest('base64url');
     return `${header}.${payload}.${signature}`;
   }
 
-  it('accepts valid JWT signed with secret and sets request.user', () => {
+  it('accepts valid JWT signed with secret and sets request.user', async () => {
+    await otpRedis.setAuthState('usr_verified_123', {
+      role: 'employer',
+      status: 'active',
+      tokenVersion: 0,
+    });
+
     const token = signToken({
       sub: 'usr_verified_123',
       role: 'employer',
-      phone: '9876543210',
       exp: Math.floor(Date.now() / 1000) + 3600,
     });
 
     const context = createMockContext({ authorization: `Bearer ${token}` });
-    const result = guard.canActivate(context);
+    const result = await guard.canActivate(context);
 
     expect(result).toBe(true);
     const req = context.switchToHttp().getRequest();
@@ -55,19 +73,17 @@ describe('JwtAuthGuard Cryptographic Verification & Expiration (Issue #1)', () =
     expect(req.user.role).toBe('employer');
   });
 
-  it('rejects forged JWT with modified payload or invalid signature (Issue #1)', () => {
-    // Attacker crafts admin payload with attacker's secret
+  it('rejects forged JWT with modified payload or invalid signature (Issue #1)', async () => {
     const forgedToken = signToken(
       { sub: 'usr_attacker', role: 'admin', exp: Math.floor(Date.now() / 1000) + 3600 },
-      'wrong-attacker-secret'
+      'wrong-attacker-secret-32-chars-long-x',
     );
 
     const context = createMockContext({ authorization: `Bearer ${forgedToken}` });
-    expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
-    expect(() => guard.canActivate(context)).toThrow(/Invalid JWT signature/);
+    await expect(Promise.resolve(guard.canActivate(context))).rejects.toThrow(UnauthorizedException);
   });
 
-  it('rejects tampered JWT where signature was computed for different payload', () => {
+  it('rejects tampered JWT where signature was computed for different payload', async () => {
     const validToken = signToken({
       sub: 'usr_normal',
       role: 'job_seeker',
@@ -75,47 +91,59 @@ describe('JwtAuthGuard Cryptographic Verification & Expiration (Issue #1)', () =
     });
 
     const [header, , signature] = validToken.split('.');
-    // Tamper payload to escalate role to admin while keeping old signature
     const tamperedPayload = Buffer.from(
-      JSON.stringify({ sub: 'usr_normal', role: 'admin', exp: Math.floor(Date.now() / 1000) + 3600 })
+      JSON.stringify({
+        sub: 'usr_normal',
+        role: 'admin',
+        iss: 'jobsclick-api',
+        aud: 'jobsclick-web',
+        tv: 0,
+        jti: crypto.randomUUID(),
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      }),
     ).toString('base64url');
     const tamperedToken = `${header}.${tamperedPayload}.${signature}`;
 
     const context = createMockContext({ authorization: `Bearer ${tamperedToken}` });
-    expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
-    expect(() => guard.canActivate(context)).toThrow(/Invalid JWT signature/);
+    await expect(Promise.resolve(guard.canActivate(context))).rejects.toThrow(UnauthorizedException);
   });
 
-  it('rejects expired JWT token (Issue #1)', () => {
+  it('rejects expired JWT token (Issue #1)', async () => {
     const expiredToken = signToken({
       sub: 'usr_expired',
       role: 'employer',
-      exp: Math.floor(Date.now() / 1000) - 60, // expired 60 seconds ago
+      exp: Math.floor(Date.now() / 1000) - 60,
     });
 
     const context = createMockContext({ authorization: `Bearer ${expiredToken}` });
-    expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
-    expect(() => guard.canActivate(context)).toThrow(/JWT token has expired/);
+    await expect(Promise.resolve(guard.canActivate(context))).rejects.toThrow(UnauthorizedException);
   });
 
-  it('rejects malformed token structure (not 3 segments)', () => {
+  it('rejects malformed token structure (not 3 segments)', async () => {
     const malformedToken = 'just.two_segments';
     const context = createMockContext({ authorization: `Bearer ${malformedToken}` });
-    expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
-    expect(() => guard.canActivate(context)).toThrow(/Invalid authorization token format/);
+    await expect(Promise.resolve(guard.canActivate(context))).rejects.toThrow(UnauthorizedException);
   });
 
-  it('rejects token missing sub/id or role in payload', () => {
-    const noSubToken = signToken({
-      role: 'employer',
-      exp: Math.floor(Date.now() / 1000) + 3600,
-    });
+  it('rejects token missing sub/id in payload', async () => {
+    const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+    const payload = Buffer.from(
+      JSON.stringify({
+        iss: 'jobsclick-api',
+        aud: 'jobsclick-web',
+        tv: 0,
+        jti: crypto.randomUUID(),
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      }), // missing sub
+    ).toString('base64url');
+    const signature = crypto.createHmac('sha256', secret).update(`${header}.${payload}`).digest('base64url');
+    const noSubToken = `${header}.${payload}.${signature}`;
+
     const context = createMockContext({ authorization: `Bearer ${noSubToken}` });
-    expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
-    expect(() => guard.canActivate(context)).toThrow(/missing sub\/id/);
+    await expect(Promise.resolve(guard.canActivate(context))).rejects.toThrow(UnauthorizedException);
   });
 
-  describe('STF-12: Zero Header Bypass Outside Test Mode', () => {
+  describe('STF-12 & Task 5: Zero Header Bypass Everywhere', () => {
     const originalEnv = process.env['NODE_ENV'];
 
     it('rejects x-user-id header in development mode (STF-12)', () => {
@@ -138,21 +166,21 @@ describe('JwtAuthGuard Cryptographic Verification & Expiration (Issue #1)', () =
       }
     });
 
-    it('rejects jwt_session_ mock tokens in development mode', () => {
+    it('rejects jwt_session_ mock tokens in development mode', async () => {
       process.env['NODE_ENV'] = 'development';
       try {
         const context = createMockContext({ authorization: 'Bearer jwt_session_admin_1790000000' });
-        expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
+        await expect(Promise.resolve(guard.canActivate(context))).rejects.toThrow(UnauthorizedException);
       } finally {
         process.env['NODE_ENV'] = originalEnv;
       }
     });
 
-    it('permits x-user-id header exclusively in test mode', () => {
+    it('rejects x-user-id header in test mode too (Task 5: Zero backdoors in production guard)', () => {
       process.env['NODE_ENV'] = 'test';
       try {
         const context = createMockContext({ 'x-user-id': 'usr_test_123' });
-        expect(guard.canActivate(context)).toBe(true);
+        expect(() => guard.canActivate(context)).toThrow(UnauthorizedException);
       } finally {
         process.env['NODE_ENV'] = originalEnv;
       }

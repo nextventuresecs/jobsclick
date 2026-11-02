@@ -10,6 +10,7 @@ import { WalletModule } from '../wallet/wallet.module.js';
 import { EmailModule } from '../email/email.module.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { RolesGuard } from './guards/roles.guard.js';
+import { JwtService } from './jwt.service.js';
 
 @Global()
 @Module({
@@ -17,6 +18,7 @@ import { RolesGuard } from './guards/roles.guard.js';
   controllers: [AuthController],
   providers: [
     AuthService,
+    JwtService,
     SmsService,
     Msg91SmsService,
     OtpRedisService,
@@ -27,6 +29,7 @@ import { RolesGuard } from './guards/roles.guard.js';
   ],
   exports: [
     AuthService,
+    JwtService,
     SmsService,
     Msg91SmsService,
     OtpRedisService,
