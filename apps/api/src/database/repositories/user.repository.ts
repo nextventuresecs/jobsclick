@@ -89,6 +89,46 @@ export class UserRepository {
     return this.save(updated);
   }
 
+  async create(user: {
+    id?: string;
+    phone: string;
+    role: UserRow['role'];
+    status?: UserRow['status'];
+    source?: string;
+    email?: string | null;
+  }): Promise<UserRow> {
+    const now = new Date().toISOString();
+    const newUser: UserRow = {
+      id: user.id || crypto.randomUUID(),
+      phone: user.phone,
+      email: user.email ?? null,
+      role: user.role,
+      status: user.status || 'active',
+      source: user.source || 'direct_web',
+      created_by: null,
+      updated_by: null,
+      created_at: now,
+      updated_at: now,
+    };
+    return this.save(newUser);
+  }
+
+  async updateStatus(id: string, status: UserRow['status']): Promise<UserRow> {
+    const updated = await this.update(id, { status });
+    if (!updated) {
+      throw new InternalServerErrorException(`Failed to update status for user ${id}`);
+    }
+    return updated;
+  }
+
+  async updatePendingEmail(id: string, email: string): Promise<UserRow> {
+    const updated = await this.update(id, { email });
+    if (!updated) {
+      throw new InternalServerErrorException(`Failed to update email for user ${id}`);
+    }
+    return updated;
+  }
+
   async findAll(limit = 1000): Promise<UserRow[]> {
     if (!this.isTestMode) {
       try {

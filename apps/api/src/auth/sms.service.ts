@@ -15,8 +15,9 @@ export interface SmsResponse {
 }
 
 @Injectable()
-export class Msg91SmsService {
-  private readonly logger = new Logger(Msg91SmsService.name);
+
+export class SmsService {
+  private readonly logger = new Logger(SmsService.name);
 
   /**
    * Dispatches OTP SMS through MSG91 gateway using approved DLT template IDs.
@@ -179,3 +180,6 @@ export class Msg91SmsService {
     }
   }
 }
+
+
+export { SmsService as Msg91SmsService };
