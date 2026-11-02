@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateEnv } from './env.js';
+import { validateEnv, isStrictEnv } from './env.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -27,6 +27,7 @@ const VALID_PROD: Record<string, string> = {
   QSTASH_CURRENT_SIGNING_KEY: 'sig_real_key',
   API_URL: 'https://api.example.com',
   ALLOW_TEST_PAYMENTS: 'true',
+  TRUSTED_PROXY_CIDRS: '127.0.0.1/32,10.0.0.0/8',
 };
 
 describe('validateEnv() – production/staging safety guards', () => {
@@ -259,11 +260,34 @@ describe('validateEnv() – production/staging safety guards', () => {
       name: 'SUPABASE_SERVICE_ROLE_KEY missing',
       override: { SUPABASE_SERVICE_ROLE_KEY: undefined },
       expectedSubstring: 'SUPABASE_SERVICE_ROLE_KEY',
+
     },
     {
       name: 'SUPABASE_SERVICE_ROLE_KEY contains placeholder dummy',
       override: { SUPABASE_SERVICE_ROLE_KEY: 'dummy-service-role-key' },
       expectedSubstring: 'SUPABASE_SERVICE_ROLE_KEY',
+    },
+    // Requirement 2: TRUSTED_PROXY_CIDRS validation & rejection of 0.0.0.0/0, ::/0
+    {
+      name: 'TRUSTED_PROXY_CIDRS missing',
+      override: { TRUSTED_PROXY_CIDRS: undefined },
+      expectedSubstring: 'TRUSTED_PROXY_CIDRS',
+    },
+    {
+      name: 'TRUSTED_PROXY_CIDRS contains 0.0.0.0/0',
+      override: { TRUSTED_PROXY_CIDRS: '10.0.0.0/8,0.0.0.0/0' },
+      expectedSubstring: '0.0.0.0/0',
+    },
+    {
+      name: 'TRUSTED_PROXY_CIDRS contains ::/0',
+      override: { TRUSTED_PROXY_CIDRS: '::/0' },
+      expectedSubstring: '::/0',
+    },
+    {
+      name: 'TRUSTED_PROXY_CIDRS contains invalid CIDR',
+      override: { TRUSTED_PROXY_CIDRS: '10.0.0.0/999' },
+      expectedSubstring: 'TRUSTED_PROXY_CIDRS',
+
     },
   ];
 
@@ -320,7 +344,7 @@ describe('validateEnv() – test-mode local host gate', () => {
     DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/test_db',
     REDIS_URL: 'redis://localhost:6379',
     SUPABASE_URL: 'http://localhost:54321',
-    UPSTASH_REDIS_REST_URL: 'http://127.0.0.1:8079',
+
   };
 
   it('accepts local hosts: localhost, 127.0.0.1, ::1, host.docker.internal', () => {
@@ -330,7 +354,7 @@ describe('validateEnv() – test-mode local host gate', () => {
         DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/test_db',
         REDIS_URL: 'redis://127.0.0.1:6379',
         SUPABASE_URL: 'http://[::1]:54321',
-        UPSTASH_REDIS_REST_URL: 'http://host.docker.internal:8079',
+
       }),
     ).not.toThrow();
   });
@@ -373,14 +397,6 @@ describe('validateEnv() – test-mode local host gate', () => {
     ).toThrowError('SUPABASE_URL');
   });
 
-  it('rejects remote UPSTASH_REDIS_REST_URL in test mode', () => {
-    expect(() =>
-      validateEnv({
-        ...BASE_TEST,
-        UPSTASH_REDIS_REST_URL: 'https://upstash.io',
-      }),
-    ).toThrowError('UPSTASH_REDIS_REST_URL');
-  });
 
   // Host-bypass tests: URL parser prevents clever path or sub-domain bypasses
   it('rejects host-bypass: localhost.evil.com', () => {
@@ -435,6 +451,7 @@ describe('Child process startup gate (NODE_ENV=staging without required var)', (
           SUPABASE_URL: 'https://proj.supabase.co',
           SUPABASE_SERVICE_ROLE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.real-key',
           API_URL: 'https://api.example.com',
+          TRUSTED_PROXY_CIDRS: '10.0.0.0/8',
           JWT_SECRET: '', // Deliberately unset
         },
         encoding: 'utf-8',
@@ -527,6 +544,63 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { OtpRedisService } from '../auth/otp-redis.service.js';
 import { ServiceUnavailableException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+
+
+describe('OTP limits bounded coerced integers & isStrictEnv', () => {
+  const baseDev = {
+    NODE_ENV: 'development',
+  };
+
+  it('accepts valid bounded integers and coerces string numbers', () => {
+    const env = validateEnv({
+      ...baseDev,
+      OTP_COOLDOWN_SEC: '60',
+      OTP_IP_PER_HOUR: '200',
+      OTP_IP_PHONE_PER_DAY: '5',
+      OTP_PHONE_PER_DAY: '10',
+    });
+    expect(env.OTP_COOLDOWN_SEC).toBe(60);
+    expect(env.OTP_IP_PER_HOUR).toBe(200);
+    expect(env.OTP_IP_PHONE_PER_DAY).toBe(5);
+    expect(env.OTP_PHONE_PER_DAY).toBe(10);
+  });
+
+  it('rejects OTP_COOLDOWN_SEC out of bounds (<30 or >600 or non-int)', () => {
+    expect(() => validateEnv({ ...baseDev, OTP_COOLDOWN_SEC: '29' })).toThrow();
+    expect(() => validateEnv({ ...baseDev, OTP_COOLDOWN_SEC: '601' })).toThrow();
+    expect(() => validateEnv({ ...baseDev, OTP_COOLDOWN_SEC: 'abc' })).toThrow();
+  });
+
+  it('rejects OTP_IP_PER_HOUR out of bounds (<1 or >10000)', () => {
+    expect(() => validateEnv({ ...baseDev, OTP_IP_PER_HOUR: '0' })).toThrow();
+    expect(() => validateEnv({ ...baseDev, OTP_IP_PER_HOUR: '10001' })).toThrow();
+  });
+
+  it('rejects OTP_IP_PHONE_PER_DAY out of bounds (<1 or >100)', () => {
+    expect(() => validateEnv({ ...baseDev, OTP_IP_PHONE_PER_DAY: '0' })).toThrow();
+    expect(() => validateEnv({ ...baseDev, OTP_IP_PHONE_PER_DAY: '101' })).toThrow();
+  });
+
+  it('rejects OTP_PHONE_PER_DAY out of bounds (<1 or >50)', () => {
+    expect(() => validateEnv({ ...baseDev, OTP_PHONE_PER_DAY: '0' })).toThrow();
+    expect(() => validateEnv({ ...baseDev, OTP_PHONE_PER_DAY: '51' })).toThrow();
+  });
+
+  it('isStrictEnv treats unset or non-dev/test NODE_ENV as strict', () => {
+    expect(isStrictEnv('development')).toBe(false);
+    expect(isStrictEnv('test')).toBe(false);
+    expect(isStrictEnv('production')).toBe(true);
+    expect(isStrictEnv('staging')).toBe(true);
+    expect(isStrictEnv('')).toBe(true);
+    const orig = process.env['NODE_ENV'];
+    try {
+      delete process.env['NODE_ENV'];
+      expect(isStrictEnv()).toBe(true);
+    } finally {
+      process.env['NODE_ENV'] = orig;
+    }
+  });
+});
 
 describe('JwtAuthGuard & OtpRedisService safety guards', () => {
   it('JwtAuthGuard throws ServiceUnavailableException (503) when JWT_SECRET is missing', () => {

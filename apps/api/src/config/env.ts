@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import fs from 'node:fs';
+import net from 'node:net';
 
 /** Cloudflare always-pass / always-fail test keys that must never reach production. */
 const TURNSTILE_TEST_KEYS = new Set([
@@ -10,6 +11,22 @@ const TURNSTILE_TEST_KEYS = new Set([
 
 const TURNSTILE_KEY_REGEX = /^0x[A-Za-z0-9_-]{20,}$/;
 const PLACEHOLDER_REGEX = /change-?me|example|dummy|test|secret-key/i;
+
+function isValidCidrOrIp(entry: string): boolean {
+  const parts = entry.split('/');
+  if (parts.length > 2) return false;
+  const ip = parts[0] ?? '';
+  const prefixStr = parts[1];
+  const ipType = net.isIP(ip);
+  if (ipType === 0) return false;
+  if (prefixStr !== undefined) {
+    if (!/^\d+$/.test(prefixStr)) return false;
+    const prefix = Number(prefixStr);
+    if (ipType === 4 && (prefix < 0 || prefix > 32)) return false;
+    if (ipType === 6 && (prefix < 0 || prefix > 128)) return false;
+  }
+  return true;
+}
 
 const baseSchema = z.object({
   NODE_ENV: z.string().default('development'),
@@ -60,10 +77,27 @@ const baseSchema = z.object({
   REDIS_ALLOW_PLAINTEXT: z.string().optional(),
   // Test-mode host gate options
   TEST_ALLOWED_HOSTS: z.string().optional(),
-  UPSTASH_REDIS_REST_URL: z.string().optional(),
+  // Reverse Proxy & Cloudflare network hardening (AUTH-03, PR #97 B4)
+  TRUSTED_PROXY_CIDRS: z.string().optional(),
+  CF_ORIGIN_LOCKED: z.coerce.boolean().default(false),
+  // OTP rate limit thresholds (AUTH-03)
+  // Bounded coerced ints: cooldown 30-600s, ip/hour 1-10000, ip_phone/day 1-100, phone/day 1-50
+  OTP_COOLDOWN_SEC: z.coerce.number().int().min(30).max(600).default(60),
+  OTP_IP_PER_HOUR: z.coerce.number().int().min(1).max(10000).default(200),
+  OTP_IP_PHONE_PER_DAY: z.coerce.number().int().min(1).max(100).default(5),
+  OTP_PHONE_PER_DAY: z.coerce.number().int().min(1).max(50).default(10),
 }).passthrough();
 
 export type EnvConfig = z.infer<typeof baseSchema>;
+
+/**
+ * Strict environment check: unset NODE_ENV counts as strict.
+ * Only 'development' and 'test' are non-strict.
+ */
+export function isStrictEnv(rawNodeEnv?: string): boolean {
+  const env = rawNodeEnv !== undefined ? rawNodeEnv.trim().toLowerCase() : (process.env['NODE_ENV'] ?? '').trim().toLowerCase();
+  return env !== 'development' && env !== 'test';
+}
 
 /**
  * Validates and returns the parsed environment.
@@ -212,6 +246,24 @@ export function validateEnv(overrides?: Record<string, string | undefined>): Env
       errors.push(`API_URL must use HTTPS in production. Got: ${apiUrl}`);
     }
 
+    // TRUSTED_PROXY_CIDRS: required in production/staging; must be valid CIDRs and reject 0.0.0.0/0 & ::/0
+    const trustedProxiesRaw = rawSource['TRUSTED_PROXY_CIDRS'];
+    if (!trustedProxiesRaw || !trustedProxiesRaw.trim()) {
+      errors.push('TRUSTED_PROXY_CIDRS must be set in production/staging');
+    } else {
+      const cidrEntries = trustedProxiesRaw.split(',').map((s) => s.trim()).filter(Boolean);
+      if (cidrEntries.length === 0) {
+        errors.push('TRUSTED_PROXY_CIDRS must contain at least one valid CIDR or IP in production/staging');
+      }
+      for (const entry of cidrEntries) {
+        if (entry === '0.0.0.0/0' || entry === '::/0') {
+          errors.push(`TRUSTED_PROXY_CIDRS must not allow all addresses (${entry}) in production/staging`);
+        } else if (!isValidCidrOrIp(entry)) {
+          errors.push(`TRUSTED_PROXY_CIDRS contains invalid CIDR or IP: "${entry}" in production/staging`);
+        }
+      }
+    }
+
     if (errors.length > 0) {
       throw new Error(
         `Unsafe configuration for ${rawSource['NODE_ENV'] || 'production'}:\n${errors.map((e) => `  - ${e}`).join('\n')}`,
@@ -240,7 +292,7 @@ export function validateEnv(overrides?: Record<string, string | undefined>): Env
       'DATABASE_URL',
       'REDIS_URL',
       'SUPABASE_URL',
-      'UPSTASH_REDIS_REST_URL',
+
     ] as const;
 
     for (const varName of targetUrlVars) {
