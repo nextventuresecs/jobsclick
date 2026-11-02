@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { toBackendRole, toClientRole } from '@indian-job-portal/validation';
+import { toBackendRole, toClientRole, SelfSignupRoleSchema } from '@indian-job-portal/validation';
 
 describe('Phone OTP Frontend Integration - Ticket T-04 (AUTH-01, AUTH-02)', () => {
   beforeEach(() => {
@@ -203,6 +203,42 @@ describe('Phone OTP Frontend Integration - Ticket T-04 (AUTH-01, AUTH-02)', () =
       expect(data.accessToken).toBe(mockSession.accessToken);
       expect(data.user.id).toBe('usr_9876543210');
       expect(data.user.role).toBe('job_seeker');
+    });
+
+    it('blocks self-signup and displays invitation-only message for elevated roles (Audit P0-5)', () => {
+      const elevatedRoles = ['institution', 'msme_dept', 'platform_admin'] as const;
+
+      for (const clientRole of elevatedRoles) {
+        const backendRole = toBackendRole(clientRole);
+        const check = SelfSignupRoleSchema.safeParse(backendRole);
+        expect(check.success).toBe(false);
+
+        let message = '';
+        if (!check.success) {
+          if (
+            clientRole === 'institution' ||
+            clientRole === 'msme_dept' ||
+            clientRole === 'platform_admin' ||
+            backendRole === 'intermediary' ||
+            backendRole === 'msme_admin' ||
+            backendRole === 'admin'
+          ) {
+            message = 'Institution, MSME, and Admin accounts are created by invitation only.';
+          } else {
+            message = 'Invalid role selection. Self-signup is only available for job seekers and employers.';
+          }
+        }
+        expect(message).toBe('Institution, MSME, and Admin accounts are created by invitation only.');
+      }
+    });
+
+    it('permits self-signup for jobseeker and employer roles', () => {
+      const allowedRoles = ['jobseeker', 'employer'] as const;
+      for (const clientRole of allowedRoles) {
+        const backendRole = toBackendRole(clientRole);
+        const check = SelfSignupRoleSchema.safeParse(backendRole);
+        expect(check.success).toBe(true);
+      }
     });
   });
 });

@@ -4,6 +4,7 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { AppModule } from '../src/app.module.js';
 import { OtpGenerator } from '../src/auth/otp-generator.service.js';
 import { ProfileRepository } from '../src/database/repositories/profile.repository.js';
+import { UserRepository } from '../src/database/repositories/user.repository.js';
 
 describe('Ticket T-18: Institution Public Page CMS & Inquiry Routing (INT-02, INT-03)', () => {
   let app: NestFastifyApplication;
@@ -29,6 +30,33 @@ describe('Ticket T-18: Institution Public Page CMS & Inquiry Routing (INT-02, IN
     await app.getHttpAdapter().getInstance().ready();
 
     profileRepo = app.get(ProfileRepository);
+    const userRepo = app.get(UserRepository);
+
+    // Pre-seed institution users (elevated role intermediary cannot be self-signed up)
+    await userRepo.save({
+      id: 'usr_inst_cms_19',
+      phone: '9876543219',
+      email: null,
+      role: 'intermediary',
+      status: 'active',
+      source: 'seed',
+      created_by: null,
+      updated_by: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    await userRepo.save({
+      id: 'usr_inst_cms_other',
+      phone: '9111122222',
+      email: null,
+      role: 'intermediary',
+      status: 'active',
+      source: 'seed',
+      created_by: null,
+      updated_by: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
 
     // 1. Authenticate institution user
     await app.inject({
@@ -41,8 +69,7 @@ describe('Ticket T-18: Institution Public Page CMS & Inquiry Routing (INT-02, IN
       url: '/auth/verify-otp',
       payload: {
         phone: '+919876543219',
-        otp: '123456',
-        role: 'intermediary',
+        code: '123456',
       },
     });
     const instData = instAuth.json();
@@ -92,8 +119,7 @@ describe('Ticket T-18: Institution Public Page CMS & Inquiry Routing (INT-02, IN
       url: '/auth/verify-otp',
       payload: {
         phone: '+919111122222',
-        otp: '123456',
-        role: 'intermediary',
+        code: '123456',
       },
     });
     const otherData = otherAuth.json();

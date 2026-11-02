@@ -15,6 +15,7 @@ import {
   VerifyOtpInput,
   AddEmailInput,
   UserRole,
+  SELF_SIGNUP_ROLES,
 } from '@indian-job-portal/validation';
 export interface VerifyEmailInput {
   token: string;
@@ -181,12 +182,11 @@ export class AuthService {
       // 3. New User Registration: Generate opaque UUID to prevent phone number leakage (Invariant #1)
       const opaqueUserId = crypto.randomUUID();
 
-      // Prevent privilege escalation: Self-signup cannot grant administrative roles
+      // Prevent privilege escalation: Self-signup strictly allows ONLY job_seeker or employer (Audit P0-5)
       const requestedRole = input.role as string;
-      const safeRole: UserRow['role'] =
-        requestedRole === 'admin' || requestedRole === 'msme_admin' || requestedRole === 'platform_admin'
-          ? 'job_seeker'
-          : (input.role as UserRow['role']) || 'job_seeker';
+      const safeRole: UserRow['role'] = (SELF_SIGNUP_ROLES as readonly string[]).includes(requestedRole)
+        ? (requestedRole as 'job_seeker' | 'employer')
+        : 'job_seeker';
 
       userRow =
         typeof this.userRepository.create === 'function'

@@ -182,7 +182,7 @@ describe('validateEnv() – production/staging safety guards', () => {
     },
     {
       name: 'TURNSTILE_SECRET_KEY does not match /^0x[A-Za-z0-9_-]{20,}$/',
-      override: { TURNSTILE_SECRET_KEY: 'not_starting_with_0x_key_123456789' },
+      override: { TURNSTILE_SECRET_KEY: 'not_starting_with_0x_key_999888777' },
       expectedSubstring: 'TURNSTILE_SECRET_KEY',
     },
 
@@ -430,7 +430,7 @@ describe('Child process startup gate (NODE_ENV=staging without required var)', (
           REDIS_URL: 'rediss://redis.example.com:6379',
           OTP_PEPPER: 'b8eLqRnYs3wGxMoZfUvJiKb8eLqRnYs3',
           SMS_GATEWAY_MODE: 'live',
-          MSG91_AUTH_KEY: 'msg91_live_auth_key_12345678',
+          MSG91_AUTH_KEY: 'msg91_live_auth_key_88877766',
           TURNSTILE_SECRET_KEY: '0x4AAAAAAABBBCCCDDDEEEFFF12345',
           SUPABASE_URL: 'https://proj.supabase.co',
           SUPABASE_SERVICE_ROLE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.real-key',

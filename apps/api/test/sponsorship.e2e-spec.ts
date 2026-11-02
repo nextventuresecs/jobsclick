@@ -9,6 +9,7 @@ import { WalletService } from '../src/wallet/wallet.service.js';
 import { PaymentService } from '../src/wallet/payment.service.js';
 import { ProfileRepository } from '../src/database/repositories/profile.repository.js';
 import { PaymentRepository } from '../src/database/repositories/payment.repository.js';
+import { UserRepository } from '../src/database/repositories/user.repository.js';
 import type { JobSeekerProfileRow, InstitutionProfileRow } from '@indian-job-portal/database';
 import { ForbiddenException, BadRequestException } from '@nestjs/common';
 
@@ -42,6 +43,21 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
     paymentService = app.get(PaymentService);
     profileRepo = app.get(ProfileRepository);
     paymentRepo = app.get(PaymentRepository);
+    const userRepo = app.get(UserRepository);
+
+    // Pre-seed institution user (elevated role intermediary cannot be self-signed up)
+    await userRepo.save({
+      id: 'usr_inst_sponsorship',
+      phone: '9999988888',
+      email: null,
+      role: 'intermediary',
+      status: 'active',
+      source: 'seed',
+      created_by: null,
+      updated_by: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
 
     // Create auth token for institution (intermediary)
     await app.inject({
@@ -54,8 +70,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
       url: '/auth/verify-otp',
       payload: {
         phone: '+919999988888',
-        otp: '123456',
-        role: 'intermediary',
+        code: '123456',
       },
     });
     const authData = authRes.json();
@@ -290,6 +305,33 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
       const ownerPhone = '+919811122233';
       const intruderPhone = '+919899900011';
 
+      // Pre-seed owner and intruder as intermediary institutions
+      const uRepo = app.get(UserRepository);
+      await uRepo.save({
+        id: `usr_owner_${Date.now()}`,
+        phone: ownerPhone.replace(/\D/g, '').slice(-10),
+        email: null,
+        role: 'intermediary',
+        status: 'active',
+        source: 'seed',
+        created_by: null,
+        updated_by: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+      await uRepo.save({
+        id: `usr_intruder_${Date.now()}`,
+        phone: intruderPhone.replace(/\D/g, '').slice(-10),
+        email: null,
+        role: 'intermediary',
+        status: 'active',
+        source: 'seed',
+        created_by: null,
+        updated_by: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
       // 1. Authenticate owner
       await app.inject({
         method: 'POST',
@@ -299,7 +341,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
       const ownerAuthRes = await app.inject({
         method: 'POST',
         url: '/auth/verify-otp',
-        payload: { phone: ownerPhone, otp: '123456', role: 'institution' },
+        payload: { phone: ownerPhone, code: '123456' },
       });
       const ownerToken = ownerAuthRes.json().accessToken;
       const ownerUserId = ownerAuthRes.json().user.id;
@@ -313,7 +355,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
       const intruderAuthRes = await app.inject({
         method: 'POST',
         url: '/auth/verify-otp',
-        payload: { phone: intruderPhone, otp: '123456', role: 'institution' },
+        payload: { phone: intruderPhone, code: '123456' },
       });
       const intruderToken = intruderAuthRes.json().accessToken;
       const intruderUserId = intruderAuthRes.json().user.id;

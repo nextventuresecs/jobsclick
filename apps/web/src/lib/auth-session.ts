@@ -1,22 +1,29 @@
-import crypto from 'node:crypto';
+import crypto from 'crypto';
 import type { ClientRole } from '@indian-job-portal/validation';
 import { toClientRole } from '@indian-job-portal/validation';
 
-export const SESSION_COOKIE_NAME =
-  process.env.NODE_ENV === 'production' ? '__Host-jc_session' : 'jc_session';
-
-export const AUTH_COOKIE_NAME = SESSION_COOKIE_NAME;
+export const AUTH_COOKIE_NAME = 'auth_token';
+export const SESSION_COOKIE_NAME = AUTH_COOKIE_NAME;
 
 export const AUTH_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
+  secure: process.env['NODE_ENV'] === 'production',
   sameSite: 'lax' as const,
   path: '/',
-  maxAge: 7 * 24 * 60 * 60, // 7 days
+  maxAge: 30 * 24 * 60 * 60, // 30 days
 };
 
 const JWT_ISSUER = 'jobsclick-api';
 const JWT_AUDIENCE = 'jobsclick-web';
+
+export interface AuthSessionUser {
+  readonly id: string;
+  readonly phone?: string;
+  readonly email?: string | null;
+  readonly emailVerified?: boolean;
+  readonly role: string;
+  readonly status: 'invited' | 'active' | 'disabled' | 'suspended';
+}
 
 export interface VerifiedSessionPayload {
   readonly sub: string; // Strictly UUID from Postgres
@@ -37,22 +44,16 @@ export interface VerifiedSessionPayload {
 }
 
 export interface VerifiedSession extends VerifiedSessionPayload {
-  readonly user: {
-    readonly id: string;
-    readonly phone?: string;
-    readonly email?: string | null;
-    readonly role: string;
-    readonly status: string;
-  };
+  readonly user: AuthSessionUser;
   readonly accessToken: string;
   readonly clientRole: ClientRole;
   readonly expiresAt?: number;
 }
 
 function getJwtSecret(): Buffer {
-  const secret = process.env.JWT_SECRET;
+  const secret = process.env['JWT_SECRET'];
   if (!secret || secret.trim().length < 32) {
-    if (process.env.NODE_ENV === 'test') {
+    if (process.env['NODE_ENV'] === 'test') {
       return Buffer.from('jobsclick-jwt-secret-key-32-chars-min', 'utf-8');
     }
     throw new Error(
@@ -83,7 +84,7 @@ export function signSessionToken(
   payloadOrUser:
     | Omit<VerifiedSessionPayload, 'iat' | 'exp' | 'iss' | 'aud'>
     | { id: string; phone?: string; email?: string | null; role: string; status?: VerifiedSessionPayload['status']; jti?: string },
-  ttlSeconds = 60 * 60 * 24 * 7 // 7 days max
+  ttlSeconds = 30 * 24 * 60 * 60 // 30 days
 ): string {
   const secret = getJwtSecret();
   const now = Math.floor(Date.now() / 1000);
@@ -221,7 +222,7 @@ export async function getServerSession(
       return verifyToken(tokenOrCookieHeader);
     }
     const match = tokenOrCookieHeader.match(
-      new RegExp(`(?:^|;\\s*)(?:${SESSION_COOKIE_NAME}|${AUTH_COOKIE_NAME}|auth_token|jc_session)=([^;]+)`)
+      new RegExp(`(?:^|;\\s*)(?:${AUTH_COOKIE_NAME}|${SESSION_COOKIE_NAME}|jc_session)=([^;]+)`)
     );
     if (match && match[1]) {
       return verifyToken(match[1]);
@@ -233,8 +234,8 @@ export async function getServerSession(
     const { cookies } = await import('next/headers');
     const cookieStore = cookies();
     const token =
+      cookieStore.get(AUTH_COOKIE_NAME)?.value ||
       cookieStore.get(SESSION_COOKIE_NAME)?.value ||
-      cookieStore.get('auth_token')?.value ||
       cookieStore.get('jc_session')?.value;
     if (!token) return null;
     return verifyToken(token);

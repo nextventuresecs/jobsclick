@@ -36,35 +36,32 @@ describe('Concurrency & Security Verification Suite (Ticket T-16/T-17 Hardening)
     paymentService = app.get(PaymentService);
     ledgerRepo = app.get(CreditLedgerRepository);
 
-    // Setup Auth Users
-    await app.inject({
-      method: 'POST',
-      url: '/auth/send-otp',
-      payload: { phone: '9111122222' },
-    });
-    const authA = await app.inject({
-      method: 'POST',
-      url: '/auth/verify-otp',
-      payload: { phone: '+919111122222', code: '123456', role: 'intermediary' },
-    });
-    const authDataA = authA.json();
-    jwtTokenInstitutionA = authDataA.accessToken;
-    institutionAId = authDataA.user.id;
-
-    await app.inject({
-      method: 'POST',
-      url: '/auth/send-otp',
-      payload: { phone: '9333344444' },
-    });
-    const authB = await app.inject({
-      method: 'POST',
-      url: '/auth/verify-otp',
-      payload: { phone: '+919333344444', code: '123456', role: 'intermediary' },
-    });
-    const authDataB = authB.json();
-    jwtTokenInstitutionB = authDataB.accessToken;
-
+    // Setup Auth Users (Pre-seed elevated roles; self-signup is strictly job_seeker/employer)
     const userRepo = app.get(UserRepository);
+    await userRepo.save({
+      id: 'usr_inst_a',
+      phone: '9111122222',
+      email: null,
+      role: 'intermediary',
+      status: 'active',
+      source: 'seed',
+      created_by: null,
+      updated_by: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    await userRepo.save({
+      id: 'usr_inst_b',
+      phone: '9333344444',
+      email: null,
+      role: 'intermediary',
+      status: 'active',
+      source: 'seed',
+      created_by: null,
+      updated_by: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
     await userRepo.save({
       id: 'usr_+919999900000',
       phone: '9999900000',
@@ -81,12 +78,39 @@ describe('Concurrency & Security Verification Suite (Ticket T-16/T-17 Hardening)
     await app.inject({
       method: 'POST',
       url: '/auth/send-otp',
+      payload: { phone: '9111122222' },
+    });
+    const authA = await app.inject({
+      method: 'POST',
+      url: '/auth/verify-otp',
+      payload: { phone: '+919111122222', code: '123456' },
+    });
+    const authDataA = authA.json();
+    jwtTokenInstitutionA = authDataA.accessToken;
+    institutionAId = authDataA.user.id;
+
+    await app.inject({
+      method: 'POST',
+      url: '/auth/send-otp',
+      payload: { phone: '9333344444' },
+    });
+    const authB = await app.inject({
+      method: 'POST',
+      url: '/auth/verify-otp',
+      payload: { phone: '+919333344444', code: '123456' },
+    });
+    const authDataB = authB.json();
+    jwtTokenInstitutionB = authDataB.accessToken;
+
+    await app.inject({
+      method: 'POST',
+      url: '/auth/send-otp',
       payload: { phone: '9999900000' },
     });
     const authAdmin = await app.inject({
       method: 'POST',
       url: '/auth/verify-otp',
-      payload: { phone: '+919999900000', code: '123456', role: 'admin' },
+      payload: { phone: '+919999900000', code: '123456' },
     });
     const authDataAdmin = authAdmin.json();
     jwtTokenAdmin = authDataAdmin.accessToken;

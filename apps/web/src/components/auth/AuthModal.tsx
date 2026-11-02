@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppContext } from '@/context/AppContext';
-import { IndianPhoneSchema, SelfSignupRoleSchema } from '@indian-job-portal/validation';
+import { IndianPhoneSchema, SelfSignupRoleSchema, toBackendRole } from '@indian-job-portal/validation';
 
 const DPDP_CONSENT_VERSION = 'v1.2-2026-10';
 
@@ -215,9 +215,21 @@ export function AuthModal() {
       return;
     }
 
-    const roleCheck = SelfSignupRoleSchema.safeParse(selectedRole);
+    const backendRole = toBackendRole(selectedRole);
+    const roleCheck = SelfSignupRoleSchema.safeParse(backendRole);
     if (!roleCheck.success) {
-      setErrorMessage('Invalid role selection.');
+      if (
+        (selectedRole as string) === 'institution' ||
+        (selectedRole as string) === 'msme_dept' ||
+        (selectedRole as string) === 'platform_admin' ||
+        backendRole === 'intermediary' ||
+        backendRole === 'msme_admin' ||
+        backendRole === 'admin'
+      ) {
+        setErrorMessage('Institution, MSME, and Admin accounts are created by invitation only.');
+      } else {
+        setErrorMessage('Invalid role selection. Self-signup is only available for job seekers and employers.');
+      }
       return;
     }
 
@@ -230,7 +242,7 @@ export function AuthModal() {
     try {
       setIsSubmitting(true);
 
-      // 1. Verify OTP against NestJS backend
+      // 1. Verify OTP against NestJS backend (strict schema payload)
       const verifyRes = await fetch(`${apiBaseUrl}/auth/otp/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -238,8 +250,7 @@ export function AuthModal() {
           phone: normalizedPhone,
           code,
           role: roleCheck.data,
-          consentVersion: DPDP_CONSENT_VERSION,
-          consentTimestamp: new Date().toISOString(),
+          consentVersion: 'v1.0-dpdp-2026',
         }),
       });
 

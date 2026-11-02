@@ -38,6 +38,7 @@ export class AuthController {
     const body = (rawBody && typeof rawBody === 'object' ? { ...rawBody } : {}) as Record<string, unknown>;
     if (!body['code'] && body['otp']) {
       body['code'] = body['otp'];
+      delete body['otp'];
     }
     const parsed = VerifyOtpSchema.safeParse(body);
     if (!parsed.success) {
