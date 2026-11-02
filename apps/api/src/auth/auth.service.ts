@@ -5,6 +5,7 @@ import {
   Inject,
   Logger,
   Optional,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import crypto from 'node:crypto';
@@ -24,6 +25,8 @@ import { OtpRedisService, AuthUserSession } from './otp-redis.service.js';
 import { RateLimitService } from './rate-limit.service.js';
 import { WalletService } from '../wallet/wallet.service.js';
 import { EmailService } from '../email/email.service.js';
+import { OtpGenerator } from './otp-generator.service.js';
+import { maskPhone } from '../common/mask.js';
 export type UserSession = AuthUserSession;
 
 export interface SendOtpResult {
@@ -65,6 +68,7 @@ export class AuthService {
 
   private readonly otpRedisService: OtpRedisService;
   private readonly rateLimitService: RateLimitService;
+  private readonly otpGenerator: OtpGenerator;
 
   constructor(
     @Inject(UserRepository) private readonly userRepository: UserRepository,
@@ -73,9 +77,11 @@ export class AuthService {
     @Optional() @Inject(RateLimitService) rateLimitService?: RateLimitService,
     @Optional() @Inject(WalletService) private readonly walletService?: WalletService,
     @Optional() @Inject(EmailService) private readonly emailService?: EmailService,
+    @Optional() @Inject(OtpGenerator) otpGenerator: OtpGenerator = new OtpGenerator(),
   ) {
     this.otpRedisService = otpRedisService ?? new OtpRedisService();
     this.rateLimitService = rateLimitService ?? new RateLimitService(this.otpRedisService);
+    this.otpGenerator = otpGenerator ?? new OtpGenerator();
   }
 
   /**
@@ -84,7 +90,6 @@ export class AuthService {
    */
   async sendOtp(input: SendOtpInput, clientIp?: string): Promise<SendOtpResult> {
     const isTestMode = process.env['NODE_ENV'] === 'test';
-    const isTestWhitelist = input.phone.startsWith('987654321') && input.phone.length === 10;
     const secretKey = process.env['TURNSTILE_SECRET_KEY'];
 
     // 1. Verify Cloudflare Turnstile bot challenge (bypassed in test mode or if token is explicitly mocked)
@@ -107,20 +112,23 @@ export class AuthService {
     await this.rateLimitService.checkAndIncrementOtpLimits(input.phone, clientIp);
 
     // 3. Generate cryptographically secure 6-digit OTP code (Zero predictable backdoors in production)
-    const otpCode = isTestMode || isTestWhitelist
-      ? '123456'
-      : crypto.randomInt(100000, 1000000).toString();
+    const otpCode = this.otpGenerator.generate();
 
     // 4. Store salted HMAC hash in Redis cluster with 5-minute (300s) TTL
     await this.otpRedisService.storeOtp(input.phone, otpCode, 300);
 
     // 5. Dispatch SMS via approved MSG91 DLT template (language-aware: EN or HI)
     // Never logs raw OTP code to stdout or monitoring in production
-    await this.smsService.sendOtp({
+    const smsResult = await this.smsService.sendOtp({
       phone: input.phone,
       otp: otpCode,
       language: input.language || 'en',
     });
+
+    if (!smsResult.success) {
+      await this.otpRedisService.deleteOtp(input.phone);
+      throw new ServiceUnavailableException('Failed to deliver SMS. Please try again later.');
+    }
 
     return {
       success: true,
@@ -135,15 +143,12 @@ export class AuthService {
    * performs privilege escalation prevention, and issues a tamper-evident HS256 JWT.
    */
   async verifyOtp(input: VerifyOtpInput, _clientIp?: string): Promise<VerifyOtpResult> {
-    const isTestMode = process.env['NODE_ENV'] === 'test';
-    const isTestWhitelist = input.phone.startsWith('987654321') && input.phone.length === 10;
-
     // 1. Atomically verify OTP with brute-force attempt lockout guard
     const verifyResult = await this.otpRedisService.verifyOtp(input.phone, input.code);
 
     if (verifyResult.status === 'LOCKED_OUT') {
       const waitMinutes = Math.max(1, Math.ceil(verifyResult.remainingSeconds / 60));
-      this.logger.warn(`Locked out OTP verification attempt on normalized phone: ${input.phone.slice(-4)}`);
+      this.logger.warn(`Locked out OTP verification attempt on normalized phone: ${maskPhone(input.phone)}`);
       throw new UnauthorizedException(
         `Maximum OTP verification attempts exceeded. Locked for ${waitMinutes} minutes.`,
       );
@@ -156,10 +161,7 @@ export class AuthService {
     }
 
     if (verifyResult.status === 'EXPIRED') {
-      // Allow QA test whitelist range or Vitest harness to use deterministic fallback
-      if (!((isTestMode || isTestWhitelist) && input.code === '123456')) {
-        throw new UnauthorizedException('Invalid or expired OTP code');
-      }
+      throw new UnauthorizedException('Invalid or expired OTP code');
     }
 
     // 2. Query persistent database by normalized 10-digit phone number
@@ -321,6 +323,10 @@ export class AuthService {
       success: true,
       message: 'Email address successfully verified',
     };
+  }
+
+  async verifyEmailToken(token: string): Promise<{ success: boolean; message: string }> {
+    return this.verifyEmail({ token });
   }
 
   /**

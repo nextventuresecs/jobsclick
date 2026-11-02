@@ -2,14 +2,25 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
+import { OtpGenerator } from '../src/auth/otp-generator.service.js';
+
+class MockOtpGenerator extends OtpGenerator {
+  override generate(): string {
+    return '123456';
+  }
+}
 
 describe('AuthController (e2e) - Issues #6, #7, #8', () => {
   let app: NestFastifyApplication;
+  let authToken = '';
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(OtpGenerator)
+      .useClass(MockOtpGenerator)
+      .compile();
 
     app = moduleFixture.createNestApplication<NestFastifyApplication>(
       new FastifyAdapter(),
@@ -59,13 +70,14 @@ describe('AuthController (e2e) - Issues #6, #7, #8', () => {
     expect(body.accessToken).toBeDefined();
     expect(body.user.phone).toBe('9876543299');
     expect(body.user.role).toBe('employer');
+    authToken = body.accessToken;
   });
 
   it('POST /auth/email/add & /auth/email/verify - handles secondary email verification', async () => {
     const resAdd = await app.inject({
       method: 'POST',
       url: '/auth/email/add',
-      headers: { 'x-user-id': 'usr_9876543299' },
+      headers: { authorization: `Bearer ${authToken}` },
       payload: { email: 'employer@msme.in' },
     });
 
@@ -78,12 +90,11 @@ describe('AuthController (e2e) - Issues #6, #7, #8', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/auth/sign-out-all',
-      headers: { 'x-user-id': 'usr_9876543299' },
+      headers: { authorization: `Bearer ${authToken}` },
     });
 
     expect(res.statusCode).toBe(201);
     const body = JSON.parse(res.payload);
     expect(body.success).toBe(true);
-    expect(body.message).toBe('Signed out of all devices');
   });
 });

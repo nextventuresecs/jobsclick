@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
+import { OtpGenerator } from '../src/auth/otp-generator.service.js';
 import { WalletService } from '../src/wallet/wallet.service.js';
 import { PaymentService } from '../src/wallet/payment.service.js';
 import { CreditLedgerRepository } from '../src/database/repositories/credit-ledger.repository.js';
@@ -22,7 +23,10 @@ describe('Concurrency & Security Verification Suite (Ticket T-16/T-17 Hardening)
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(OtpGenerator)
+      .useValue({ generate: () => '123456' })
+      .compile();
 
     app = moduleFixture.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
     await app.init();
@@ -33,6 +37,11 @@ describe('Concurrency & Security Verification Suite (Ticket T-16/T-17 Hardening)
     ledgerRepo = app.get(CreditLedgerRepository);
 
     // Setup Auth Users
+    await app.inject({
+      method: 'POST',
+      url: '/auth/send-otp',
+      payload: { phone: '9111122222' },
+    });
     const authA = await app.inject({
       method: 'POST',
       url: '/auth/verify-otp',
@@ -42,6 +51,11 @@ describe('Concurrency & Security Verification Suite (Ticket T-16/T-17 Hardening)
     jwtTokenInstitutionA = authDataA.accessToken;
     institutionAId = authDataA.user.id;
 
+    await app.inject({
+      method: 'POST',
+      url: '/auth/send-otp',
+      payload: { phone: '9333344444' },
+    });
     const authB = await app.inject({
       method: 'POST',
       url: '/auth/verify-otp',
@@ -53,7 +67,7 @@ describe('Concurrency & Security Verification Suite (Ticket T-16/T-17 Hardening)
     const userRepo = app.get(UserRepository);
     await userRepo.save({
       id: 'usr_+919999900000',
-      phone: '+919999900000',
+      phone: '9999900000',
       email: null,
       role: 'admin',
       status: 'active',
@@ -64,6 +78,11 @@ describe('Concurrency & Security Verification Suite (Ticket T-16/T-17 Hardening)
       updated_at: new Date().toISOString(),
     });
 
+    await app.inject({
+      method: 'POST',
+      url: '/auth/send-otp',
+      payload: { phone: '9999900000' },
+    });
     const authAdmin = await app.inject({
       method: 'POST',
       url: '/auth/verify-otp',

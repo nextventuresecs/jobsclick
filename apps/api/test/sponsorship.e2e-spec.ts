@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
+import { OtpGenerator } from '../src/auth/otp-generator.service.js';
 import { SponsorshipService } from '../src/wallet/sponsorship.service.js';
 import { WalletService } from '../src/wallet/wallet.service.js';
 import { PaymentService } from '../src/wallet/payment.service.js';
@@ -24,7 +25,10 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(OtpGenerator)
+      .useValue({ generate: () => '123456' })
+      .compile();
 
     app = moduleFixture.createNestApplication<NestFastifyApplication>(
       new FastifyAdapter(),
@@ -40,6 +44,11 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
     paymentRepo = app.get(PaymentRepository);
 
     // Create auth token for institution (intermediary)
+    await app.inject({
+      method: 'POST',
+      url: '/auth/send-otp',
+      payload: { phone: '+919999988888' },
+    });
     const authRes = await app.inject({
       method: 'POST',
       url: '/auth/verify-otp',
@@ -282,6 +291,11 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
       const intruderPhone = '+919899900011';
 
       // 1. Authenticate owner
+      await app.inject({
+        method: 'POST',
+        url: '/auth/send-otp',
+        payload: { phone: ownerPhone },
+      });
       const ownerAuthRes = await app.inject({
         method: 'POST',
         url: '/auth/verify-otp',
@@ -291,6 +305,11 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
       const ownerUserId = ownerAuthRes.json().user.id;
 
       // 2. Authenticate intruder
+      await app.inject({
+        method: 'POST',
+        url: '/auth/send-otp',
+        payload: { phone: intruderPhone },
+      });
       const intruderAuthRes = await app.inject({
         method: 'POST',
         url: '/auth/verify-otp',

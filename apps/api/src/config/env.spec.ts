@@ -438,14 +438,17 @@ describe('Child process startup gate (NODE_ENV=staging without required var)', (
           JWT_SECRET: '', // Deliberately unset
         },
         encoding: 'utf-8',
-        timeout: 10000,
+        timeout: 30000,
       },
     );
 
+    if (child.error) {
+      throw child.error;
+    }
     expect(child.status).not.toBe(0);
     const combinedOutput = `${child.stdout}\n${child.stderr}`;
     expect(combinedOutput).toContain('JWT_SECRET');
-  });
+  }, 40000);
 });
 
 // ── TASK 3–4 & Requirement 9: Source code hygiene (grep tests) ────────

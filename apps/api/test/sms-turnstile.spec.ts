@@ -3,21 +3,48 @@ import { Msg91SmsService } from '../src/auth/sms.service.js';
 import { AuthService } from '../src/auth/auth.service.js';
 import { BadRequestException } from '@nestjs/common';
 import { DLT_SMS_TEMPLATES } from '../src/auth/sms-templates.js';
+import { UserRepository } from '../src/database/repositories/user.repository.js';
+import { OtpGenerator } from '../src/auth/otp-generator.service.js';
+import { OtpRedisService } from '../src/auth/otp-redis.service.js';
+
+class DeterministicOtpGenerator extends OtpGenerator {
+  override generate(): string {
+    return '123456';
+  }
+}
 
 describe('Ticket T-06: MSG91 SMS Service & Turnstile Bot Challenge', () => {
   let smsService: Msg91SmsService;
   let authService: AuthService;
+  let otpRedisService: OtpRedisService;
   const mockUserRepository = {
     findByPhone: vi.fn(),
     findById: vi.fn(),
     save: vi.fn(),
     update: vi.fn(),
+    create: vi.fn(),
   };
 
   beforeEach(() => {
     vi.restoreAllMocks();
     smsService = new Msg91SmsService();
-    authService = new AuthService(mockUserRepository as unknown as UserRepository, smsService);
+    otpRedisService = new OtpRedisService();
+    authService = new AuthService(
+      mockUserRepository as unknown as UserRepository,
+      smsService,
+      otpRedisService,
+      undefined,
+      undefined,
+      undefined,
+      new DeterministicOtpGenerator(),
+    );
+
+    mockUserRepository.create.mockImplementation(async (data: { phone: string; role?: string }) => ({
+      id: `usr_${Date.now()}`,
+      phone: data.phone,
+      role: data.role || 'job_seeker',
+      status: 'active',
+    }));
   });
 
   describe('Msg91SmsService & DLT Template Routing', () => {
@@ -72,9 +99,16 @@ describe('Ticket T-06: MSG91 SMS Service & Turnstile Bot Challenge', () => {
         const calledUrl = mockFetch.mock.calls[0][0] as string;
         expect(calledUrl).toContain('https://control.msg91.com/api/v5/otp');
         expect(calledUrl).toContain('mobile=919876543210');
-        expect(calledUrl).toContain('otp=654321');
-        expect(calledUrl).toContain('sender=INDIAN');
+        expect(calledUrl).not.toContain('otp=');
+        expect(calledUrl).not.toContain('authkey=');
         expect(calledUrl).toContain('template_id=1277179301139811147');
+
+        const requestInit = mockFetch.mock.calls[0][1] as RequestInit;
+        const headers = requestInit.headers as Record<string, string>;
+        expect(headers['authkey']).toBe('live-msg91-key-secret');
+        const body = JSON.parse(requestInit.body as string);
+        expect(body.otp).toBe('654321');
+        expect(body.sender).toBe('INDIAN');
       } finally {
         process.env['NODE_ENV'] = originalEnv;
         process.env['MSG91_AUTH_KEY'] = originalKey;
@@ -150,7 +184,8 @@ describe('Ticket T-06: MSG91 SMS Service & Turnstile Bot Challenge', () => {
   });
 
   describe('Test Mode Invariants (AC-3)', () => {
-    it('supports 123456 demo code and bypasses SMS delivery in test mode', async () => {
+    it('verifies code after sendOtp when OtpGenerator returns known code', async () => {
+      await otpRedisService.resetForTest('9876543210');
       const sendRes = await authService.sendOtp({
         phone: '9876543210',
       });
@@ -167,6 +202,15 @@ describe('Ticket T-06: MSG91 SMS Service & Turnstile Bot Challenge', () => {
     });
 
     it('prevents privilege escalation: existing user cannot become admin by submitting role=admin on login', async () => {
+      await otpRedisService.resetForTest('9876543219');
+      mockUserRepository.findByPhone.mockResolvedValueOnce({
+        id: 'usr-19',
+        phone: '9876543219',
+        role: 'job_seeker',
+        status: 'active',
+      });
+
+      await authService.sendOtp({ phone: '9876543219' });
       const userRes = await authService.verifyOtp({
         phone: '9876543219',
         code: '123456',
@@ -174,6 +218,15 @@ describe('Ticket T-06: MSG91 SMS Service & Turnstile Bot Challenge', () => {
       });
       expect(userRes.user.role).toBe('job_seeker');
 
+      await otpRedisService.resetForTest('9876543219');
+      mockUserRepository.findByPhone.mockResolvedValueOnce({
+        id: 'usr-19',
+        phone: '9876543219',
+        role: 'job_seeker',
+        status: 'active',
+      });
+
+      await authService.sendOtp({ phone: '9876543219' });
       const attackRes = await authService.verifyOtp({
         phone: '9876543219',
         code: '123456',
@@ -184,6 +237,16 @@ describe('Ticket T-06: MSG91 SMS Service & Turnstile Bot Challenge', () => {
     });
 
     it('prevents privilege escalation: self-signup cannot create admin or msme_admin account', async () => {
+      await otpRedisService.resetForTest('9876543218');
+      mockUserRepository.findByPhone.mockResolvedValue(null);
+      mockUserRepository.create.mockResolvedValue({
+        id: 'usr-new-18',
+        phone: '9876543218',
+        role: 'job_seeker',
+        status: 'active',
+      });
+
+      await authService.sendOtp({ phone: '9876543218' });
       const attackRes = await authService.verifyOtp({
         phone: '9876543218',
         code: '123456',

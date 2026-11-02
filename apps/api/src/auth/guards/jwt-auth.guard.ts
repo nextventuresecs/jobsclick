@@ -160,7 +160,6 @@ export class JwtAuthGuard implements CanActivate {
     return {
       id: userId,
       role,
-      phone: '9876543210',
       email: null,
     };
   }

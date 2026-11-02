@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
+import { OtpGenerator } from '../src/auth/otp-generator.service.js';
 import { ProfileRepository } from '../src/database/repositories/profile.repository.js';
 
 describe('Ticket T-18: Institution Public Page CMS & Inquiry Routing (INT-02, INT-03)', () => {
@@ -15,7 +16,10 @@ describe('Ticket T-18: Institution Public Page CMS & Inquiry Routing (INT-02, IN
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(OtpGenerator)
+      .useValue({ generate: () => '123456' })
+      .compile();
 
     app = moduleFixture.createNestApplication<NestFastifyApplication>(
       new FastifyAdapter(),
@@ -27,6 +31,11 @@ describe('Ticket T-18: Institution Public Page CMS & Inquiry Routing (INT-02, IN
     profileRepo = app.get(ProfileRepository);
 
     // 1. Authenticate institution user
+    await app.inject({
+      method: 'POST',
+      url: '/auth/send-otp',
+      payload: { phone: '9876543219' },
+    });
     const instAuth = await app.inject({
       method: 'POST',
       url: '/auth/verify-otp',
@@ -73,6 +82,11 @@ describe('Ticket T-18: Institution Public Page CMS & Inquiry Routing (INT-02, IN
     });
 
     // 2. Authenticate second institution user for multi-tenancy verification
+    await app.inject({
+      method: 'POST',
+      url: '/auth/send-otp',
+      payload: { phone: '9111122222' },
+    });
     const otherAuth = await app.inject({
       method: 'POST',
       url: '/auth/verify-otp',

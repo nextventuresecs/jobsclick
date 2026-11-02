@@ -52,6 +52,7 @@ export class ProfilesService {
 
   async getSeekerProfileMe(userId: string): Promise<SeekerProfileRecord> {
     const profile = await this.profileRepository.findSeekerProfileByUserId(userId);
+    // TODO(Step 7): Return NotFoundException for unknown user IDs once auth session management seeds or resolves users properly.
     const user = await this.userRepository.findById(userId);
 
     if (!profile) {

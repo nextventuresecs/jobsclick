@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
+import { OtpGenerator } from '../src/auth/otp-generator.service.js';
 import { runLoadTestSimulation } from '../../../scripts/load-test.js';
 import { executeBackupRestoreDrill } from '../../../scripts/backup-restore.js';
 import { runSecurityChecklistScan } from '../../../scripts/security-scan.js';
@@ -12,7 +13,10 @@ describe('PRD 14.1 Full Acceptance Walkthrough (Epic 6 Launch Readiness)', () =>
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(OtpGenerator)
+      .useValue({ generate: () => '123456' })
+      .compile();
 
     app = moduleFixture.createNestApplication<NestFastifyApplication>(
       new FastifyAdapter(),

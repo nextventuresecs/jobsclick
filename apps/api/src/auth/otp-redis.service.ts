@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { Injectable, OnModuleDestroy, Logger } from '@nestjs/common';
 import IORedis from 'ioredis';
 import IORedisMock from 'ioredis-mock';
+import { maskPhone } from '../common/mask.js';
 
 export type OtpVerifyResult =
   | { status: 'SUCCESS' }
@@ -150,7 +151,7 @@ export class OtpRedisService implements OnModuleDestroy {
       await this.client.del(key);
       const lockoutSeconds = 900;
       await this.client.set(`auth:lockout:${phone}`, '1', 'EX', lockoutSeconds);
-      this.logger.warn(`[Brute-Force Guard] 3 invalid OTP attempts on +91${phone}. Locked out for 15m.`);
+      this.logger.warn(`[Brute-Force Guard] 3 invalid OTP attempts on ${maskPhone(phone)}. Locked out for 15m.`);
       return { status: 'LOCKED_OUT', remainingSeconds: lockoutSeconds };
     }
 
@@ -165,6 +166,20 @@ export class OtpRedisService implements OnModuleDestroy {
 
   async clearOtp(phone: string): Promise<void> {
     await this.client.del(`auth:otp:${phone}`);
+  }
+
+  async deleteOtp(phone: string): Promise<void> {
+    await this.clearOtp(phone);
+  }
+
+  async resetForTest(phone: string): Promise<void> {
+    const dateStr = this.getDateKey();
+    await this.client.del(
+      `auth:otp:${phone}`,
+      `auth:cooldown:${phone}`,
+      `auth:lockout:${phone}`,
+      `auth:daily_count:${phone}:${dateStr}`,
+    );
   }
 
   async verifyOtpHash(phone: string, inputCode: string): Promise<boolean> {
