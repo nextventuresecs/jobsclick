@@ -247,6 +247,51 @@ describe('User Mutations, Concurrency & Security Hardening (Real PostgreSQL & Re
       expect(dbRows?.[0].id).toBe(firstId);
     });
 
+    
+    it('repo-level: an existing disabled user stays disabled and keeps role and token_version after a concurrent create', async () => {
+      const phone = generatePhone();
+      // 1. Create a disabled user with elevated role
+      const initial = await userRepo.create({
+        phone,
+        role: 'employer',
+        status: 'disabled',
+      });
+      // Bump token_version
+      await userRepo.incrementTokenVersion(initial.id);
+      await userRepo.incrementTokenVersion(initial.id);
+      await userRepo.incrementTokenVersion(initial.id);
+      await userRepo.incrementTokenVersion(initial.id);
+      const withTv = await userRepo.incrementTokenVersion(initial.id);
+      expect(withTv.token_version).toBe(5);
+      expect(withTv.status).toBe('disabled');
+      expect(withTv.role).toBe('employer');
+
+      // 2. Perform concurrent create calls attempting to create as active job_seeker
+      const concurrentAttempts = await Promise.all(
+        Array.from({ length: 5 }, () =>
+          userRepo.create({
+            phone,
+            role: 'job_seeker',
+            status: 'active',
+          }),
+        ),
+      );
+
+      // 3. Verify all attempts return the existing user with unchanged attributes
+      for (const res of concurrentAttempts) {
+        expect(res.id).toBe(initial.id);
+        expect(res.status).toBe('disabled');
+        expect(res.role).toBe('employer');
+        expect(res.token_version).toBe(5);
+      }
+
+      // 4. Verify in DB directly
+      const fetched = await userRepo.findById(initial.id);
+      expect(fetched?.status).toBe('disabled');
+      expect(fetched?.role).toBe('employer');
+      expect(fetched?.token_version).toBe(5);
+    });
+
     it('api-level: 20 parallel verifyOtp submissions with valid OTP result in exactly 1 success and 19 rejections (atomic OTP burn)', async () => {
       const phone = generatePhone();
       const code = '765432';

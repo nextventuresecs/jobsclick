@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Put, Body, Param, Query, Headers, Inject, UsePipes, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Body, Param, Query, Inject, UsePipes, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ZodValidationPipe, createZodDto } from 'nestjs-zod';
 import { AdminService } from './admin.service.js';
 import { BroadcastService } from './broadcast.service.js';
@@ -39,14 +40,14 @@ export class AdminController {
   // Issue #21 & P0-8: Admin User Role Update
   @Put('admin/users/:id/role')
   @Roles('admin')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   async updateUserRole(
     @CurrentUser() user: AuthUser,
-    @Headers('x-user-id') userIdHeader: string,
     @Param('id') id: string,
     @Body() body: AdminUserRoleDto,
   ) {
-    const callerId = user?.id || userIdHeader || 'admin_root';
-    return this.adminService.updateUserRole(id, body.role, callerId);
+    const callerId = user?.id || 'admin_root';
+    return this.adminService.updateUserRole(id, body.role, callerId, body.reason);
   }
 
   // Issue #21: Admin User Status Update
@@ -54,11 +55,10 @@ export class AdminController {
   @Roles('admin')
   async updateUserStatus(
     @CurrentUser() user: AuthUser,
-    @Headers('x-user-id') userIdHeader: string,
     @Param('id') id: string,
     @Body() body: AdminUserStatusDto,
   ) {
-    const callerId = user?.id || userIdHeader || 'admin_root';
+    const callerId = user?.id || 'admin_root';
     return this.adminService.updateUserStatus(id, body, callerId);
   }
 
@@ -73,10 +73,9 @@ export class AdminController {
   @Roles('admin')
   async createAuditLog(
     @CurrentUser() user: AuthUser,
-    @Headers('x-user-id') actorId: string,
     @Body() body: AuditLogDto,
   ) {
-    const callerId = user?.id || actorId || 'admin_root';
+    const callerId = user?.id || 'admin_root';
     return this.adminService.recordAuditLog(callerId, body.action, body.meta);
   }
 
@@ -85,10 +84,9 @@ export class AdminController {
   @Roles('admin')
   async exportData(
     @CurrentUser() user: AuthUser,
-    @Headers('x-user-id') userId: string,
     @Query() query: AdminExportQueryDto,
   ) {
-    const adminId = user?.id || userId || 'admin_root';
+    const adminId = user?.id || 'admin_root';
     return this.adminService.exportData(adminId, query);
   }
 
@@ -96,19 +94,17 @@ export class AdminController {
   @Get('notifications')
   async getNotifications(
     @CurrentUser() user: AuthUser,
-    @Headers('x-user-id') userId: string,
   ) {
-    const callerId = user?.id || userId || 'usr_seeker_1';
+    const callerId = user?.id || 'usr_seeker_1';
     return this.adminService.getNotifications(callerId);
   }
 
   @Put('notifications/:id/read')
   async markNotificationRead(
     @CurrentUser() user: AuthUser,
-    @Headers('x-user-id') userId: string,
     @Param('id') id: string,
   ) {
-    const callerId = user?.id || userId || 'usr_seeker_1';
+    const callerId = user?.id || 'usr_seeker_1';
     return this.adminService.markNotificationRead(callerId, id);
   }
 
@@ -116,10 +112,9 @@ export class AdminController {
   @Post('privacy/request-deletion')
   async requestAccountDeletion(
     @CurrentUser() user: AuthUser,
-    @Headers('x-user-id') userId: string,
     @Body() body: PrivacyRequestDto,
   ) {
-    const callerId = user?.id || userId || 'usr_seeker_1';
+    const callerId = user?.id || 'usr_seeker_1';
     return this.adminService.requestAccountDeletion(callerId, body.reason);
   }
 
@@ -147,13 +142,11 @@ export class AdminController {
   @Roles('admin', 'msme_admin')
   async dispatchBroadcast(
     @CurrentUser() user: AuthUser,
-    @Headers('x-user-id') userId: string,
-    @Headers('x-user-role') role: string,
     @Body() body: DispatchBroadcastDto,
   ) {
     const actor = {
-      id: user?.id || userId || 'admin_root',
-      role: user?.role || role || 'admin',
+      id: user?.id || 'admin_root',
+      role: user?.role || 'admin',
     };
     return this.broadcastService.dispatchBroadcast(actor, body);
   }
@@ -163,12 +156,10 @@ export class AdminController {
   @Roles('admin', 'msme_admin')
   async getDistrictEmploymentReports(
     @CurrentUser() user: AuthUser,
-    @Headers('x-user-id') userId: string,
-    @Headers('x-user-role') role: string,
   ) {
     const actor = {
-      id: user?.id || userId || 'admin_root',
-      role: user?.role || role || 'admin',
+      id: user?.id || 'admin_root',
+      role: user?.role || 'admin',
     };
     return this.reportsService.getDistrictEmploymentReports(actor);
   }

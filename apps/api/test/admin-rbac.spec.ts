@@ -148,6 +148,70 @@ describe('AdminController RBAC & Authentication (STF-02)', () => {
   // ---------------------------------------------------------------------------
   // 2. GET /admin/audit-logs (admin only)
   // ---------------------------------------------------------------------------
+  
+  // ---------------------------------------------------------------------------
+  // 1b. PUT /admin/users/:id/role (admin only, audited, role allowlist, no self-change)
+  // ---------------------------------------------------------------------------
+  describe('PUT /admin/users/:id/role', () => {
+    it('rejects non-admin role with 403', async () => {
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/admin/users/${targetUserId}/role`,
+        headers: { authorization: seekerToken },
+        payload: { role: 'employer' },
+      });
+      expect(res.statusCode).toBe(403);
+    });
+
+    it('rejects self role change with 400', async () => {
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/admin/users/${adminId}/role`,
+        headers: { authorization: adminToken },
+        payload: { role: 'employer' },
+      });
+      expect(res.statusCode).toBe(400);
+      const data = JSON.parse(res.payload);
+      expect(data.message).toContain('Admins cannot change their own role');
+    });
+
+    it('rejects invalid role with 400', async () => {
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/admin/users/${targetUserId}/role`,
+        headers: { authorization: adminToken },
+        payload: { role: 'superadmin' },
+      });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('allows valid admin to change another user role and writes audit log row', async () => {
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/admin/users/${targetUserId}/role`,
+        headers: { authorization: adminToken },
+        payload: { role: 'employer', reason: 'Promoted to verified employer' },
+      });
+      expect(res.statusCode).toBe(200);
+
+      // Verify audit log row was written
+      const auditRes = await app.inject({
+        method: 'GET',
+        url: '/admin/audit-logs',
+        headers: { authorization: adminToken },
+      });
+      expect(auditRes.statusCode).toBe(200);
+      const logs = JSON.parse(auditRes.payload);
+      const roleLog = logs.find(
+        (l: { action: string; meta?: { targetUserId?: string } }) =>
+          l.action === 'USER_ROLE_UPDATED' && l.meta?.targetUserId === targetUserId,
+      );
+      expect(roleLog).toBeDefined();
+      expect(roleLog.meta.newRole).toBe('employer');
+      expect(roleLog.meta.reason).toBe('Promoted to verified employer');
+    });
+  });
+
   describe('GET /admin/audit-logs', () => {
     const url = '/admin/audit-logs';
 

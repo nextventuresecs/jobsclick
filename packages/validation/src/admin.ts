@@ -6,6 +6,7 @@ export const adminUserStatusSchema = z.object({
 
 export const adminUserRoleSchema = z.object({
   role: z.enum(['job_seeker', 'employer', 'admin', 'msme_admin']),
+  reason: z.string().optional(),
 });
 
 export const auditLogSchema = z.object({

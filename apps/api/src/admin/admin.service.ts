@@ -63,16 +63,45 @@ export class AdminService {
     userId: string,
     role: AdminUserRoleInput['role'],
     actorId?: string,
+    reason?: string,
   ): Promise<{ userId: string; role: string }> {
+    const ALLOWED_ROLES = ['job_seeker', 'employer', 'admin', 'msme_admin'];
+    if (!ALLOWED_ROLES.includes(role)) {
+      throw new BadRequestException(`Invalid role: ${role}. Allowed roles are ${ALLOWED_ROLES.join(', ')}`);
+    }
+
+    const caller = actorId || 'admin_root';
+    if (caller === userId) {
+      throw new BadRequestException('Admins cannot change their own role');
+    }
+
+    let previousRole = 'job_seeker';
     if (this.userRepo) {
       const existing = await this.userRepo.findById(userId);
       if (!existing) {
         throw new NotFoundException(`User with ID ${userId} not found`);
       }
+      previousRole = existing.role;
+
+      // Prevent demoting the last remaining active admin
+      if (existing.role === 'admin' && role !== 'admin') {
+        const allUsers = await this.userRepo.findAll(5000);
+        const adminCount = allUsers.filter((u) => u.role === 'admin' && u.status === 'active').length;
+        if (adminCount <= 1) {
+          throw new BadRequestException('Cannot demote the last remaining admin');
+        }
+      }
+
       await this.userRepo.updateRole(userId, role);
     }
-    const caller = actorId || 'admin_root';
-    await this.recordAuditLog(caller, 'USER_ROLE_UPDATED', { targetUserId: userId, newRole: role });
+
+    await this.recordAuditLog(caller, 'USER_ROLE_UPDATED', {
+      targetUserId: userId,
+      oldRole: previousRole,
+      newRole: role,
+      reason: reason || 'Administrative role modification',
+    });
+
     return { userId, role };
   }
 
