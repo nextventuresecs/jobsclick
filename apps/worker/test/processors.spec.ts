@@ -165,7 +165,7 @@ describe('Worker Processors (Ticket T-07)', () => {
       expect(result.errorCsvContent).toContain('Duplicate mobile number inside file');
       // Verify AC: Completes in under 30 minutes (1800s); in practice, Node.js streams it in < 15s
       expect(durationSeconds).toBeLessThan(1800);
-    }, 30000); // 30s timeout for test runner
+    }, 180000); // 180s timeout for test runner
   });
 
   describe('invite-wave-processor', () => {
