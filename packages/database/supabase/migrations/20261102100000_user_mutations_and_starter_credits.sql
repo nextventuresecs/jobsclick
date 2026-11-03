@@ -118,5 +118,41 @@ CREATE TRIGGER trg_users_auto_grant_starter_credits
   FOR EACH ROW
   EXECUTE FUNCTION trigger_auto_grant_starter_credits();
 
--- 8. Column privileges: Deny direct modification of users table by anon or authenticated roles
-REVOKE UPDATE ON users FROM anon, authenticated;
+-- 8. Database trigger: Automatically increment token_version on role or status change
+CREATE OR REPLACE FUNCTION trigger_auto_bump_token_version()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF (OLD.status IS DISTINCT FROM NEW.status OR OLD.role IS DISTINCT FROM NEW.role) THEN
+    NEW.token_version := COALESCE(OLD.token_version, 0) + 1;
+    NEW.updated_at := NOW();
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION trigger_auto_bump_token_version() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION trigger_auto_bump_token_version() TO service_role;
+
+DROP TRIGGER IF EXISTS trg_users_bump_token_version ON users;
+CREATE TRIGGER trg_users_bump_token_version
+  BEFORE UPDATE OF status, role ON users
+  FOR EACH ROW
+  EXECUTE FUNCTION trigger_auto_bump_token_version();
+
+-- 9. Fix credit_ledgers INSERT policy: Remove user-controlled insert backdoor
+-- Invariant: Ledger entries derive exclusively from backend service_role / triggers. Direct client inserts are forbidden.
+DROP POLICY IF EXISTS credit_ledgers_insert_policy ON credit_ledgers;
+
+-- 10. Table Privileges: Strictly REVOKE all direct table operations from anon & authenticated
+REVOKE ALL ON users FROM anon, authenticated;
+REVOKE ALL ON credit_ledgers FROM anon, authenticated;
+REVOKE INSERT, UPDATE, DELETE, SELECT ON users FROM anon, authenticated;
+REVOKE INSERT, UPDATE, DELETE, SELECT ON credit_ledgers FROM anon, authenticated;
+
+-- Ensure service_role maintains full procedural access
+GRANT ALL ON users TO service_role;
+GRANT ALL ON credit_ledgers TO service_role;

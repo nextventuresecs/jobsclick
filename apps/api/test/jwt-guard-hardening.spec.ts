@@ -30,8 +30,9 @@ describe('SEC-02: Hardened JWT Guard and Secret Enforcement', () => {
   let otpRedis: OtpRedisService;
   let jwtService: JwtService;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     otpRedis = new OtpRedisService();
+    await otpRedis.waitForReady();
     jwtService = new JwtService();
   });
 

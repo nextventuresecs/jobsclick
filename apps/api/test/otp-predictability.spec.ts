@@ -27,7 +27,7 @@ describe('Audit P0-3: Predictable OTP Removal and OTP Security Lockdown', () => 
     }
   }
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     const moduleRef: TestingModule = await Test.createTestingModule({
       imports: [DatabaseModule],
       providers: [
@@ -48,11 +48,15 @@ describe('Audit P0-3: Predictable OTP Removal and OTP Security Lockdown', () => 
     userRepo = moduleRef.get<UserRepository>(UserRepository);
     await otpRedisService.waitForReady();
 
-    // Reset rate-limits and pre-create users in repo
+    for (const phone of testWhitelistPhones) {
+      await userRepo.create({ phone, role: 'job_seeker' });
+    }
+  });
+
+  beforeEach(async () => {
     await otpRedisService.client.del('auth:verify_ip_rate:127.0.0.1');
     for (const phone of testWhitelistPhones) {
       await otpRedisService.resetForTest(phone);
-      await userRepo.create({ phone, role: 'job_seeker' });
     }
   });
 

@@ -202,8 +202,13 @@ export class AuthService {
       });
     }
 
-    // Touch last login timestamp
-    await this.userRepository.touchLastLogin(userRow.id).catch(() => {});
+    // Touch last login timestamp safely
+    if (typeof this.userRepository.touchLastLogin === 'function') {
+      const res = this.userRepository.touchLastLogin(userRow.id);
+      if (res && typeof res.catch === 'function') {
+        await res.catch(() => {});
+      }
+    }
 
     // 4. Construct unified UserSession with authentic emailVerified flag from DB
     const isEmailVerified = Boolean((userRow as Record<string, unknown>)['email_verified_at']);

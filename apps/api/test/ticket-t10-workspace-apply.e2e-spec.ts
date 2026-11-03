@@ -1,3 +1,4 @@
+import { UserRepository } from '../src/database/repositories/user.repository.js';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -6,6 +7,8 @@ import { AppModule } from '../src/app.module.js';
 describe('Ticket T-10 E2E: Wire Workspace Forms & 1-Click Apply to API', () => {
   let app: NestFastifyApplication;
   let postedJobId: string;
+  let employerUserId: string;
+  let seekerUserId: string;
   let applicationRowId: string;
 
   beforeAll(async () => {
@@ -19,6 +22,14 @@ describe('Ticket T-10 E2E: Wire Workspace Forms & 1-Click Apply to API', () => {
 
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
+
+    const userRepo = app.get(UserRepository);
+    const empPhone = '98' + Math.floor(10000000 + Math.random() * 90000000);
+    const seekerPhone = '98' + Math.floor(10000000 + Math.random() * 90000000);
+    const empUser = await userRepo.create({ phone: empPhone, role: 'employer', status: 'active' });
+    const seekerUser = await userRepo.create({ phone: seekerPhone, role: 'job_seeker', status: 'active' });
+    employerUserId = empUser.id;
+    seekerUserId = seekerUser.id;
   });
 
   afterAll(async () => {
@@ -29,7 +40,7 @@ describe('Ticket T-10 E2E: Wire Workspace Forms & 1-Click Apply to API', () => {
     const postRes = await app.inject({
       method: 'POST',
       url: '/jobs',
-      headers: { 'x-user-id': 'usr_employer_t10' },
+      headers: { 'x-user-id': employerUserId, 'x-user-role': 'employer' },
       payload: {
         title: 'CNC Turner Specialist',
         description: 'Operate CNC Lathe and maintain tight tolerances (+/- 5 microns) on automotive shafts.',
@@ -58,7 +69,7 @@ describe('Ticket T-10 E2E: Wire Workspace Forms & 1-Click Apply to API', () => {
     const putProfileRes = await app.inject({
       method: 'PUT',
       url: '/profiles/seeker/me',
-      headers: { 'x-user-id': 'usr_seeker_t10' },
+      headers: { 'x-user-id': seekerUserId, 'x-user-role': 'job_seeker' },
       payload: {
         fullName: 'Rahul S. Sharma',
         seekerType: 'individual',
@@ -92,7 +103,7 @@ describe('Ticket T-10 E2E: Wire Workspace Forms & 1-Click Apply to API', () => {
     const refreshProfileRes = await app.inject({
       method: 'GET',
       url: '/profiles/seeker/me',
-      headers: { 'x-user-id': 'usr_seeker_t10' },
+      headers: { 'x-user-id': seekerUserId, 'x-user-role': 'job_seeker' },
     });
 
     expect(refreshProfileRes.statusCode).toBe(200);
@@ -106,14 +117,14 @@ describe('Ticket T-10 E2E: Wire Workspace Forms & 1-Click Apply to API', () => {
     const applyRes = await app.inject({
       method: 'POST',
       url: `/jobs/${postedJobId}/apply`,
-      headers: { 'x-user-id': 'usr_seeker_t10' },
+      headers: { 'x-user-id': seekerUserId, 'x-user-role': 'job_seeker' },
     });
 
     expect(applyRes.statusCode).toBe(201);
     const appData = JSON.parse(applyRes.payload);
     expect(appData.id).toBeDefined();
     expect(appData.jobId).toBe(postedJobId);
-    expect(appData.applicantId).toBe('usr_seeker_t10');
+    expect(appData.applicantId).toBe(seekerUserId);
     expect(appData.status).toBe('applied');
     applicationRowId = appData.id;
 
@@ -121,7 +132,7 @@ describe('Ticket T-10 E2E: Wire Workspace Forms & 1-Click Apply to API', () => {
     const dupRes = await app.inject({
       method: 'POST',
       url: `/jobs/${postedJobId}/apply`,
-      headers: { 'x-user-id': 'usr_seeker_t10' },
+      headers: { 'x-user-id': seekerUserId, 'x-user-role': 'job_seeker' },
     });
     expect(dupRes.statusCode).toBe(400);
     expect(JSON.parse(dupRes.payload).message).toContain('already applied');
@@ -131,7 +142,7 @@ describe('Ticket T-10 E2E: Wire Workspace Forms & 1-Click Apply to API', () => {
     const listRes = await app.inject({
       method: 'GET',
       url: `/jobs/${postedJobId}/applications`,
-      headers: { 'x-user-id': 'usr_employer_t10' },
+      headers: { 'x-user-id': employerUserId, 'x-user-role': 'employer' },
     });
 
     expect(listRes.statusCode).toBe(200);
@@ -153,7 +164,7 @@ describe('Ticket T-10 E2E: Wire Workspace Forms & 1-Click Apply to API', () => {
     const myAppsRes = await app.inject({
       method: 'GET',
       url: '/jobs/applications/my',
-      headers: { 'x-user-id': 'usr_seeker_t10' },
+      headers: { 'x-user-id': seekerUserId, 'x-user-role': 'job_seeker' },
     });
 
     expect(myAppsRes.statusCode).toBe(200);

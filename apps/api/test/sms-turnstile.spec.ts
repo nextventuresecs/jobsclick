@@ -23,17 +23,18 @@ describe('Ticket T-06: MSG91 SMS Service & Turnstile Bot Challenge', () => {
     save: vi.fn(),
     update: vi.fn(),
     create: vi.fn(),
+    touchLastLogin: vi.fn().mockResolvedValue(undefined),
   };
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.restoreAllMocks();
     smsService = new Msg91SmsService();
     otpRedisService = new OtpRedisService();
+    await otpRedisService.waitForReady();
     authService = new AuthService(
       mockUserRepository as unknown as UserRepository,
       smsService,
       otpRedisService,
-      undefined,
       undefined,
       undefined,
       new DeterministicOtpGenerator(),

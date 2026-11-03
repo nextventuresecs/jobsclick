@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { describe, it, expect } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -51,10 +52,12 @@ describe('T-03: Persistent Immutable Audit Log Engine (E2E & Invariant #6)', () 
 
       // 4. Status update
       const userRepo = app.get(UserRepository);
+      const candidateId = crypto.randomUUID();
+      const candidatePhone = '98' + Math.floor(10000000 + Math.random() * 90000000);
       await userRepo.save({
-        id: 'usr_candidate_t03',
-        phone: '9876543211',
-        email: 'candidate_t03@example.com',
+        id: candidateId,
+        phone: candidatePhone,
+        email: `candidate_${candidateId}@example.com`,
         role: 'job_seeker',
         status: 'active',
         source: 'web',
@@ -66,7 +69,7 @@ describe('T-03: Persistent Immutable Audit Log Engine (E2E & Invariant #6)', () 
 
       const statusRes = await app.inject({
         method: 'PUT',
-        url: '/admin/users/usr_candidate_t03/status',
+        url: `/admin/users/${candidateId}/status`,
         headers: { 'x-user-id': 'usr_admin_t03' },
         payload: { status: 'disabled' },
       });

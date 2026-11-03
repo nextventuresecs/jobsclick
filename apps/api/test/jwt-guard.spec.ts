@@ -13,10 +13,11 @@ describe('JwtAuthGuard Cryptographic Verification & Expiration (Issue #1)', () =
   let jwtService: JwtService;
   const secret = 'jobsclick-jwt-secret-key-32-chars-min';
 
-  beforeEach(() => {
+  beforeEach(async () => {
     process.env['JWT_SECRET'] = secret;
     reflector = new Reflector();
     otpRedis = new OtpRedisService();
+    await otpRedis.waitForReady();
     jwtService = new JwtService();
     guard = new JwtAuthGuard(reflector, jwtService, otpRedis);
   });

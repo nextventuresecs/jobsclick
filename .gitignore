@@ -40,3 +40,5 @@ scratch/
 *.rdb
 dump.rdb
 
+
+supabase/.branches/

@@ -48,11 +48,11 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
     profileRepo = app.get(ProfileRepository);
     paymentRepo = app.get(PaymentRepository);
     const userRepo = app.get(UserRepository);
-
-    // Pre-seed institution user (elevated role intermediary cannot be self-signed up)
+    const instPhone = '98' + Math.floor(10000000 + Math.random() * 90000000);
+    const instUserId = crypto.randomUUID();
     await userRepo.save({
-      id: 'usr_inst_sponsorship',
-      phone: '9999988888',
+      id: instUserId,
+      phone: instPhone,
       email: null,
       role: 'intermediary',
       status: 'active',
@@ -67,19 +67,19 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
     await app.inject({
       method: 'POST',
       url: '/auth/send-otp',
-      payload: { phone: '+919999988888' },
+      payload: { phone: instPhone },
     });
     const authRes = await app.inject({
       method: 'POST',
       url: '/auth/verify-otp',
       payload: {
-        phone: '+919999988888',
+        phone: instPhone,
         code: '123456',
       },
     });
     const authData = authRes.json();
     jwtToken = authData.accessToken;
-    institutionUser = authData.user;
+    institutionUser = authData.user || { id: instUserId, phone: instPhone, role: 'intermediary' };
   });
 
   afterAll(async () => {
@@ -157,8 +157,8 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
   describe('AC #2: When an institution pays the annual fee, all enrolled students are marked as sponsored', () => {
     it('activates annual sponsorship and marks all enrolled candidates as sponsored', async () => {
       const institutionId = `inst_activation_${Date.now()}`;
-      const student1UserId = `std_usr_1_${Date.now()}`;
-      const student2UserId = `std_usr_2_${Date.now()}`;
+      const student1UserId = crypto.randomUUID();
+      const student2UserId = crypto.randomUUID();
 
       // Create owning institution profile linked to the test auth user
       await profileRepo.saveInstitutionProfile({
@@ -243,7 +243,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
 
   describe('AC #3: Sponsored candidates do not hit the 10-application cap', () => {
     it('allows non-sponsored seekers 10 free applications, then blocks 11th application', async () => {
-      const nonSponsoredUser = `usr_nonsponsored_${Date.now()}`;
+      const nonSponsoredUser = crypto.randomUUID();
 
       // Candidate applies 10 times with starter credits (WAL-02)
       for (let i = 1; i <= 10; i++) {
@@ -271,7 +271,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
     });
 
     it('allows sponsored candidates unlimited applications past the cap without deducting wallet credits', async () => {
-      const sponsoredUser = `usr_sponsored_vip_${Date.now()}`;
+      const sponsoredUser = crypto.randomUUID();
       const instId = `inst_vip_${Date.now()}`;
 
       // Create sponsored student profile
@@ -306,13 +306,13 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
 
   describe('AC #4: Multi-Tenant Ownership Checks (Controller & Service Level Gates)', () => {
     it('rejects cross-tenant activation when an unauthorized institution attempts to activate another institution', async () => {
-      const ownerPhone = '+919811122233';
-      const intruderPhone = '+919899900011';
+      const ownerPhone = '98' + Math.floor(10000000 + Math.random() * 90000000);
+      const intruderPhone = '98' + Math.floor(10000000 + Math.random() * 90000000);
 
       // Pre-seed owner and intruder as intermediary institutions
       const uRepo = app.get(UserRepository);
       await uRepo.save({
-        id: `usr_owner_${Date.now()}`,
+        id: crypto.randomUUID(),
         phone: ownerPhone.replace(/\D/g, '').slice(-10),
         email: null,
         role: 'intermediary',
@@ -324,7 +324,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
         updated_at: new Date().toISOString(),
       });
       await uRepo.save({
-        id: `usr_intruder_${Date.now()}`,
+        id: crypto.randomUUID(),
         phone: intruderPhone.replace(/\D/g, '').slice(-10),
         email: null,
         role: 'intermediary',
@@ -436,7 +436,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
   describe('AC #5: Concurrency & Transaction/Lock Serialization (WAL-05 Idempotency)', () => {
     it('serializes concurrent activations and prevents duplicate sponsorship rows or double updates', async () => {
       const concurrentInstId = `inst_concurrent_${Date.now()}`;
-      const ownerUser = `usr_concurrent_owner_${Date.now()}`;
+      const ownerUser = crypto.randomUUID();
 
       // Create owning institution profile
       await profileRepo.saveInstitutionProfile({
@@ -454,7 +454,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
       for (let i = 1; i <= 3; i++) {
         await profileRepo.saveSeekerProfile({
           id: `jsp_c_${Date.now()}_${i}`,
-          user_id: `usr_c_${Date.now()}_${i}`,
+          user_id: crypto.randomUUID(),
           full_name: `Student C${i}`,
           institution_id: concurrentInstId,
           is_sponsored: false,
@@ -513,7 +513,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
   describe('AC #6: Payment Verification & Webhook Idempotency (WAL-05 & WAL-03)', () => {
     it('processes payment webhook idempotently and enforces payment verification on sponsorship activation', async () => {
       const webhookSecret = process.env['RAZORPAY_WEBHOOK_SECRET'] || 'dummy_razorpay_webhook_secret';
-      const instUserId = `usr_inst_pay_${Date.now()}`;
+      const instUserId = crypto.randomUUID();
       const instId = `inst_pay_${Date.now()}`;
 
       // Create institution profile

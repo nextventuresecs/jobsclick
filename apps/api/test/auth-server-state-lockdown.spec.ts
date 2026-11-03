@@ -240,7 +240,7 @@ describe('Server-Side State Validation & Session Revocation (P0-8, PR #97 B2)', 
   // 2. Cross-Instance Sign-Out-All
   describe('Cross-Instance Single Sign-Out (Instance A -> Instance B)', () => {
     it('login on instance A, sign-out-all on A, replay old token on instance B => 401', async () => {
-      const phone = '987' + Math.floor(1000000 + Math.random() * 9000000);
+      const phone = '9' + Math.floor(100000000 + Math.random() * 900000000);
       await otpRedisA.storeOtp(phone, '123456');
 
       // 1. Verify OTP on Instance A to obtain valid access token
@@ -280,12 +280,60 @@ describe('Server-Side State Validation & Session Revocation (P0-8, PR #97 B2)', 
       });
       expect(checkResB2.statusCode).toBe(401);
     });
+    it('fresh login after sign-out-all => succeeds with new token and 200', async () => {
+      const phone = '9' + Math.floor(100000000 + Math.random() * 900000000);
+      await otpRedisA.storeOtp(phone, '123456');
+
+      const verifyRes1 = await appA.inject({
+        method: 'POST',
+        url: '/auth/otp/verify',
+        remoteAddress: '198.51.100.99',
+        payload: { phone, code: '123456', role: 'employer' },
+      });
+      expect([200, 201]).toContain(verifyRes1.statusCode);
+      const { accessToken: oldToken } = JSON.parse(verifyRes1.payload);
+
+      const signOutRes = await appA.inject({
+        method: 'POST',
+        url: '/auth/sign-out-all',
+        headers: { authorization: `Bearer ${oldToken}` },
+      });
+      expect([200, 201]).toContain(signOutRes.statusCode);
+
+      const failRes = await appA.inject({
+        method: 'POST',
+        url: '/auth/email/add',
+        headers: { authorization: `Bearer ${oldToken}` },
+        payload: { email: `old_${phone}@example.com` },
+      });
+      expect(failRes.statusCode).toBe(401);
+
+      await otpRedisA.storeOtp(phone, '654321');
+      const verifyRes2 = await appA.inject({
+        method: 'POST',
+        url: '/auth/otp/verify',
+        remoteAddress: '198.51.100.99',
+        payload: { phone, code: '654321', role: 'employer' },
+      });
+      expect([200, 201]).toContain(verifyRes2.statusCode);
+      const { accessToken: newToken } = JSON.parse(verifyRes2.payload);
+      expect(newToken).toBeDefined();
+      expect(newToken).not.toBe(oldToken);
+
+      const successRes = await appB.inject({
+        method: 'POST',
+        url: '/auth/email/add',
+        headers: { authorization: `Bearer ${newToken}` },
+        payload: { email: `fresh_${phone}@example.com` },
+      });
+      expect([200, 201]).toContain(successRes.statusCode);
+    });
   });
 
   // 3. Account Disabling
   describe('Account Disabling across instances', () => {
     it('disable the user in DB (token_version bump); old token => 401 on both instances', async () => {
-      const phone = '987' + Math.floor(1000000 + Math.random() * 9000000);
+      const phone = '9' + Math.floor(100000000 + Math.random() * 900000000);
       const user = await userRepoA.create({
         phone,
         role: 'employer',
@@ -325,12 +373,53 @@ describe('Server-Side State Validation & Session Revocation (P0-8, PR #97 B2)', 
       });
       expect(resB2.statusCode).toBe(401);
     });
+    it('admin disable endpoint triggers automatic token_version bump via DB trigger => 401', async () => {
+      const adminPhone = '9' + Math.floor(100000000 + Math.random() * 900000000);
+      const userPhone = '9' + Math.floor(100000000 + Math.random() * 900000000);
+      const admin = await userRepoA.create({ phone: adminPhone, role: 'admin', status: 'active' });
+      const victim = await userRepoA.create({ phone: userPhone, role: 'employer', status: 'active' });
+
+      const adminToken = await jwtServiceA.signAccessToken(admin.id, admin.token_version ?? 0, { role: 'admin' });
+      const victimToken = await jwtServiceA.signAccessToken(victim.id, victim.token_version ?? 0);
+      await otpRedisA.setAuthState(admin.id, { role: 'admin', status: 'active', tokenVersion: admin.token_version ?? 0 });
+      await otpRedisA.setAuthState(victim.id, { role: 'employer', status: 'active', tokenVersion: victim.token_version ?? 0 });
+
+      const res1 = await appA.inject({
+        method: 'POST',
+        url: '/auth/email/add',
+        headers: { authorization: `Bearer ${victimToken}` },
+        payload: { email: `v_${userPhone}@example.com` },
+      });
+      expect([200, 201]).toContain(res1.statusCode);
+
+      const disableRes = await appA.inject({
+        method: 'PUT',
+        url: `/admin/users/${victim.id}/status`,
+        headers: { authorization: `Bearer ${adminToken}` },
+        payload: { status: 'disabled' },
+      });
+      expect(disableRes.statusCode).toBe(200);
+
+      const updatedVictim = await userRepoA.findById(victim.id);
+      expect(updatedVictim?.status).toBe('disabled');
+      expect(updatedVictim?.token_version).toBe((victim.token_version ?? 0) + 1);
+
+      await otpRedisA.deleteAuthState(victim.id);
+
+      const res2 = await appA.inject({
+        method: 'POST',
+        url: '/auth/email/add',
+        headers: { authorization: `Bearer ${victimToken}` },
+        payload: { email: `v2_${userPhone}@example.com` },
+      });
+      expect(res2.statusCode).toBe(401);
+    });
   });
 
   // 4. Server-Side Role Enforcement & Dynamic Demotion
   describe('Server-Side Dynamic Role Mutation', () => {
     it('change user role in DB; next request uses NEW role (admin-only route returns 403 after demotion)', async () => {
-      const phone = '987' + Math.floor(1000000 + Math.random() * 9000000);
+      const phone = '9' + Math.floor(100000000 + Math.random() * 900000000);
       const adminUser = await userRepoA.create({
         phone,
         role: 'admin',
@@ -353,20 +442,36 @@ describe('Server-Side State Validation & Session Revocation (P0-8, PR #97 B2)', 
       await supabaseA.from('users').update({ role: 'job_seeker' }).eq('id', adminUser.id);
       await otpRedisA.deleteAuthState(adminUser.id);
 
-      // Next request with UNCHANGED token to admin-only endpoint MUST return 403
+      // Next request with UNCHANGED token returns 401 because DB trigger trg_users_bump_token_version auto-bumps token_version on role update
       const adminRes2 = await appA.inject({
         method: 'GET',
         url: '/admin/metrics',
         headers: { authorization: `Bearer ${token}` },
       });
-      expect(adminRes2.statusCode).toBe(403);
+      expect(adminRes2.statusCode).toBe(401);
+
+      // Re-fetch user to verify trigger incremented token_version
+      const updatedUser = await userRepoA.findById(adminUser.id);
+      expect(updatedUser?.role).toBe('job_seeker');
+      expect(updatedUser?.token_version).toBe((adminUser.token_version ?? 0) + 1);
+
+      // Fresh token issued with new role and updated token_version hits 403 on admin-only route
+      const newRoleToken = await jwtServiceA.signAccessToken(adminUser.id, updatedUser!.token_version, { role: 'job_seeker' });
+      await otpRedisA.setAuthState(adminUser.id, { role: 'job_seeker', status: 'active', tokenVersion: updatedUser!.token_version });
+
+      const adminRes3 = await appA.inject({
+        method: 'GET',
+        url: '/admin/metrics',
+        headers: { authorization: `Bearer ${newRoleToken}` },
+      });
+      expect(adminRes3.statusCode).toBe(403);
     });
   });
 
   // 5. Fail-Closed Redis Outage
   describe('Fail-Closed Under Redis Outage', () => {
     it('redis failure => 503 Service Unavailable, never 200 and never 401-then-allow', async () => {
-      const phone = '987' + Math.floor(1000000 + Math.random() * 9000000);
+      const phone = '9' + Math.floor(100000000 + Math.random() * 900000000);
       const user = await userRepoA.create({
         phone,
         role: 'job_seeker',

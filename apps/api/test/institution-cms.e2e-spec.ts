@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -13,6 +14,7 @@ describe('Ticket T-18: Institution Public Page CMS & Inquiry Routing (INT-02, IN
   let instUserId: string;
   let institutionId: string;
   let otherToken: string;
+  let otherUserId: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -31,11 +33,15 @@ describe('Ticket T-18: Institution Public Page CMS & Inquiry Routing (INT-02, IN
 
     profileRepo = app.get(ProfileRepository);
     const userRepo = app.get(UserRepository);
+    const instPhone = '98' + Math.floor(10000000 + Math.random() * 90000000);
+    const otherPhone = '98' + Math.floor(10000000 + Math.random() * 90000000);
+    instUserId = crypto.randomUUID();
+    otherUserId = crypto.randomUUID();
 
     // Pre-seed institution users (elevated role intermediary cannot be self-signed up)
     await userRepo.save({
-      id: 'usr_inst_cms_19',
-      phone: '9876543219',
+      id: instUserId,
+      phone: instPhone,
       email: null,
       role: 'intermediary',
       status: 'active',
@@ -46,8 +52,8 @@ describe('Ticket T-18: Institution Public Page CMS & Inquiry Routing (INT-02, IN
       updated_at: new Date().toISOString(),
     });
     await userRepo.save({
-      id: 'usr_inst_cms_other',
-      phone: '9111122222',
+      id: otherUserId,
+      phone: otherPhone,
       email: null,
       role: 'intermediary',
       status: 'active',
@@ -62,20 +68,20 @@ describe('Ticket T-18: Institution Public Page CMS & Inquiry Routing (INT-02, IN
     await app.inject({
       method: 'POST',
       url: '/auth/send-otp',
-      payload: { phone: '9876543219' },
+      payload: { phone: instPhone },
     });
     const instAuth = await app.inject({
       method: 'POST',
       url: '/auth/verify-otp',
       payload: {
-        phone: '+919876543219',
+        phone: instPhone,
         code: '123456',
       },
     });
     const instData = instAuth.json();
     instToken = instData.accessToken;
     instUserId = instData.user.id;
-    institutionId = `inst_${instUserId}`;
+    institutionId = crypto.randomUUID();
 
     // Create an institution profile record
     await profileRepo.saveInstitutionProfile({
@@ -112,23 +118,23 @@ describe('Ticket T-18: Institution Public Page CMS & Inquiry Routing (INT-02, IN
     await app.inject({
       method: 'POST',
       url: '/auth/send-otp',
-      payload: { phone: '9111122222' },
+      payload: { phone: otherPhone },
     });
     const otherAuth = await app.inject({
       method: 'POST',
       url: '/auth/verify-otp',
       payload: {
-        phone: '+919111122222',
+        phone: otherPhone,
         code: '123456',
       },
     });
     const otherData = otherAuth.json();
     otherToken = otherData.accessToken;
-    const otherUserId = otherData.user.id;
+    otherUserId = otherData.user.id;
 
     // Create competitor institution profile
     await profileRepo.saveInstitutionProfile({
-      id: `inst_${otherUserId}`,
+      id: crypto.randomUUID(),
       user_id: otherUserId,
       institution_name: 'Competitor College Indore',
       institution_type: 'engineering',

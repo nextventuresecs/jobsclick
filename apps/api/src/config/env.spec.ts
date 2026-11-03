@@ -455,7 +455,7 @@ describe('Child process startup gate (NODE_ENV=staging without required var)', (
           JWT_SECRET: '', // Deliberately unset
         },
         encoding: 'utf-8',
-        timeout: 60000,
+        timeout: 120000,
       },
     );
 

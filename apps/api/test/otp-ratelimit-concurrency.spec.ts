@@ -107,11 +107,19 @@ describe('OTP Rate Limiting & Concurrency Lockdown (Atomic Redis & Two-Instance)
   });
 
   beforeEach(async () => {
-    const ipKeys = await redisClientA.keys('auth:ip_rate:*');
-    if (ipKeys.length > 0) await redisClientA.del(...ipKeys);
-    const verifyIpKeys = await redisClientA.keys('auth:verify_ip_rate:*');
-    if (verifyIpKeys.length > 0) await redisClientA.del(...verifyIpKeys);
-    // Only delete keys registered for this test suite
+    const patterns = [
+      'auth:ip:*',
+      'auth:ip_phone:*',
+      'auth:cooldown:*',
+      'auth:daily:*',
+      'auth:verify_ip:*',
+      'auth:ip_rate:*',
+      'auth:verify_ip_rate:*',
+    ];
+    for (const pattern of patterns) {
+      const keys = await redisClientA.keys(pattern);
+      if (keys.length > 0) await redisClientA.del(...keys);
+    }
     if (trackedKeys.size > 0) {
       await redisClientA.del(...Array.from(trackedKeys));
     }

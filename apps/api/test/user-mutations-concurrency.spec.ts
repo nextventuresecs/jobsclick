@@ -137,11 +137,15 @@ describe('User Mutations, Concurrency & Security Hardening (Real PostgreSQL & Re
       await pgClient.connect();
 
       try {
+        const phone = generatePhone();
         await pgClient.query(`
           CREATE OR REPLACE FUNCTION trigger_simulated_abort()
           RETURNS TRIGGER AS $$
           BEGIN
-            RAISE EXCEPTION 'Simulated trigger abort';
+            IF NEW.phone = '${phone}' THEN
+              RAISE EXCEPTION 'Simulated trigger abort';
+            END IF;
+            RETURN NEW;
           END;
           $$ LANGUAGE plpgsql;
 
@@ -151,7 +155,6 @@ describe('User Mutations, Concurrency & Security Hardening (Real PostgreSQL & Re
           EXECUTE FUNCTION trigger_simulated_abort();
         `);
 
-        const phone = generatePhone();
         await expect(userRepo.create({ phone, role: 'job_seeker' })).rejects.toThrow();
 
         // Verify that user row was NOT created

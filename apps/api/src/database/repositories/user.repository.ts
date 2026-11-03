@@ -302,7 +302,7 @@ export class UserRepository implements IUserRepository {
       .single();
 
     if (error) {
-      throw new InternalServerErrorException(`Database error: failed to save user`);
+      throw new InternalServerErrorException(`Database error: failed to save user: ${error.message} (${error.code || ''})`);
     }
     return data as UserRow;
   }
