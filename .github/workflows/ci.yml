@@ -31,7 +31,6 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
       JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
       OTP_PEPPER: super-secret-otp-pepper-at-least-32-characters-long
-      SMS_GATEWAY_MODE: mock
       TRUSTED_PROXY_CIDRS: 127.0.0.1/32,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
 
     steps:

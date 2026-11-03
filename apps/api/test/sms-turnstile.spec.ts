@@ -80,6 +80,7 @@ describe('Ticket T-06: MSG91 SMS Service & Turnstile Bot Challenge', () => {
 
       try {
         process.env['NODE_ENV'] = 'production';
+        process.env['SMS_GATEWAY_MODE'] = 'live';
         process.env['MSG91_AUTH_KEY'] = 'live-msg91-key-secret';
         process.env['MSG91_SENDER_ID'] = 'INDIAN';
 
@@ -114,6 +115,7 @@ describe('Ticket T-06: MSG91 SMS Service & Turnstile Bot Challenge', () => {
         process.env['NODE_ENV'] = originalEnv;
         process.env['MSG91_AUTH_KEY'] = originalKey;
         process.env['MSG91_SENDER_ID'] = originalSender;
+        delete process.env['SMS_GATEWAY_MODE'];
       }
     });
   });
