@@ -69,7 +69,7 @@ export class AdminService {
       if (!existing) {
         throw new NotFoundException(`User with ID ${userId} not found`);
       }
-      await this.userRepo.update(userId, { status: input.status });
+      await this.userRepo.updateStatus(userId, input.status);
     }
     const caller = actorId || 'admin_root';
     await this.recordAuditLog(caller, 'USER_STATUS_UPDATED', { targetUserId: userId, newStatus: input.status });

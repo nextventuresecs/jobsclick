@@ -1,4 +1,5 @@
 export * from './rls-helper.js';
+export const STARTER_CREDIT_AMOUNT = 10;
 
 export type TableDefinition<T> = {
   Row: T;
@@ -14,6 +15,8 @@ export interface Database {
         id: string;
         phone: string;
         email: string | null;
+        pending_email?: string | null;
+        email_verified_at?: string | null;
         role: 'employer' | 'intermediary' | 'job_seeker' | 'admin' | 'msme_admin';
         status: 'invited' | 'active' | 'disabled';
         source: string;
