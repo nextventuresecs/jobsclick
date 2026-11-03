@@ -8,6 +8,7 @@ import { RolesGuard, Roles } from '../auth/guards/roles.guard.js';
 import { CurrentUser, type AuthUser } from '../auth/decorators/current-user.decorator.js';
 import {
   adminUserStatusSchema,
+  adminUserRoleSchema,
   auditLogSchema,
   privacyRequestSchema,
   generateResumeSchema,
@@ -17,6 +18,7 @@ import {
 } from '@indian-job-portal/validation';
 
 export class AdminUserStatusDto extends createZodDto(adminUserStatusSchema) {}
+export class AdminUserRoleDto extends createZodDto(adminUserRoleSchema) {}
 export class AuditLogDto extends createZodDto(auditLogSchema) {}
 export class PrivacyRequestDto extends createZodDto(privacyRequestSchema) {}
 export class GenerateResumeDto extends createZodDto(generateResumeSchema) {}
@@ -33,6 +35,19 @@ export class AdminController {
     @Inject(BroadcastService) private readonly broadcastService: BroadcastService,
     @Inject(ReportsService) private readonly reportsService: ReportsService,
   ) {}
+
+  // Issue #21 & P0-8: Admin User Role Update
+  @Put('admin/users/:id/role')
+  @Roles('admin')
+  async updateUserRole(
+    @CurrentUser() user: AuthUser,
+    @Headers('x-user-id') userIdHeader: string,
+    @Param('id') id: string,
+    @Body() body: AdminUserRoleDto,
+  ) {
+    const callerId = user?.id || userIdHeader || 'admin_root';
+    return this.adminService.updateUserRole(id, body.role, callerId);
+  }
 
   // Issue #21: Admin User Status Update
   @Put('admin/users/:id/status')

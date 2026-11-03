@@ -7,9 +7,6 @@ import { JwtService } from '../src/auth/jwt.service.js';
 import { UserRepository } from '../src/database/repositories/user.repository.js';
 import { OtpRedisService } from '../src/auth/otp-redis.service.js';
 import { SignJWT } from 'jose';
-import { SUPABASE_CLIENT } from '../src/database/supabase.provider.js';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '@indian-job-portal/database';
 import crypto from 'node:crypto';
 
 describe('Server-Side State Validation & Session Revocation (P0-8, PR #97 B2)', () => {
@@ -19,7 +16,6 @@ describe('Server-Side State Validation & Session Revocation (P0-8, PR #97 B2)', 
   let userRepoA: UserRepository;
   let otpRedisA: OtpRedisService;
   let jwtServiceA: JwtService;
-  let supabaseA: SupabaseClient<Database>;
 
   beforeAll(async () => {
     // Instance A
@@ -35,7 +31,6 @@ describe('Server-Side State Validation & Session Revocation (P0-8, PR #97 B2)', 
     userRepoA = moduleFixtureA.get<UserRepository>(UserRepository);
     otpRedisA = moduleFixtureA.get<OtpRedisService>(OtpRedisService);
     jwtServiceA = moduleFixtureA.get<JwtService>(JwtService);
-    supabaseA = moduleFixtureA.get<SupabaseClient<Database>>(SUPABASE_CLIENT);
 
     // Clear test IP rate limit keys from redis
     await otpRedisA.client.del('auth:verify:ip:127.0.0.1');
@@ -418,51 +413,67 @@ describe('Server-Side State Validation & Session Revocation (P0-8, PR #97 B2)', 
 
   // 4. Server-Side Role Enforcement & Dynamic Demotion
   describe('Server-Side Dynamic Role Mutation', () => {
-    it('change user role in DB; next request uses NEW role (admin-only route returns 403 after demotion)', async () => {
-      const phone = '9' + Math.floor(100000000 + Math.random() * 900000000);
-      const adminUser = await userRepoA.create({
-        phone,
+    it('change user role via admin role endpoint triggers automatic token_version bump; next request uses NEW role (admin-only route returns 403 after demotion)', async () => {
+      const rootAdminPhone = '9' + Math.floor(100000000 + Math.random() * 900000000);
+      const targetAdminPhone = '9' + Math.floor(100000000 + Math.random() * 900000000);
+
+      const rootAdmin = await userRepoA.create({
+        phone: rootAdminPhone,
+        role: 'admin',
+        status: 'active',
+      });
+      const targetAdmin = await userRepoA.create({
+        phone: targetAdminPhone,
         role: 'admin',
         status: 'active',
       });
 
-      const token = await jwtServiceA.signAccessToken(adminUser.id, adminUser.token_version ?? 0, {
-        role: 'admin',
-      });
+      const rootToken = await jwtServiceA.signAccessToken(rootAdmin.id, rootAdmin.token_version ?? 0, { role: 'admin' });
+      await otpRedisA.setAuthState(rootAdmin.id, { role: 'admin', status: 'active', tokenVersion: rootAdmin.token_version ?? 0 });
 
-      // Initially can access admin metrics
+      const targetToken = await jwtServiceA.signAccessToken(targetAdmin.id, targetAdmin.token_version ?? 0, { role: 'admin' });
+      await otpRedisA.setAuthState(targetAdmin.id, { role: 'admin', status: 'active', tokenVersion: targetAdmin.token_version ?? 0 });
+
+      // Target admin initially can access admin metrics
       const adminRes1 = await appA.inject({
         method: 'GET',
         url: '/admin/metrics',
-        headers: { authorization: `Bearer ${token}` },
+        headers: { authorization: 'Bearer ' + targetToken },
       });
       expect(adminRes1.statusCode).toBe(200);
 
-      // Demote admin to job_seeker in DB and refresh server-side state
-      await supabaseA.from('users').update({ role: 'job_seeker' }).eq('id', adminUser.id);
-      await otpRedisA.deleteAuthState(adminUser.id);
+      // Demote target admin to job_seeker via real role change endpoint PUT /admin/users/:id/role
+      const demoteRes = await appA.inject({
+        method: 'PUT',
+        url: '/admin/users/' + targetAdmin.id + '/role',
+        headers: { authorization: 'Bearer ' + rootToken },
+        payload: { role: 'job_seeker' },
+      });
+      expect(demoteRes.statusCode).toBe(200);
 
-      // Next request with UNCHANGED token returns 401 because DB trigger trg_users_bump_token_version auto-bumps token_version on role update
+      // Re-fetch user to verify trigger incremented token_version
+      const updatedUser = await userRepoA.findById(targetAdmin.id);
+      expect(updatedUser?.role).toBe('job_seeker');
+      expect(updatedUser?.token_version).toBe((targetAdmin.token_version ?? 0) + 1);
+
+      await otpRedisA.deleteAuthState(targetAdmin.id);
+
+      // Next request with UNCHANGED token returns 401 because token_version was incremented
       const adminRes2 = await appA.inject({
         method: 'GET',
         url: '/admin/metrics',
-        headers: { authorization: `Bearer ${token}` },
+        headers: { authorization: 'Bearer ' + targetToken },
       });
       expect(adminRes2.statusCode).toBe(401);
 
-      // Re-fetch user to verify trigger incremented token_version
-      const updatedUser = await userRepoA.findById(adminUser.id);
-      expect(updatedUser?.role).toBe('job_seeker');
-      expect(updatedUser?.token_version).toBe((adminUser.token_version ?? 0) + 1);
-
       // Fresh token issued with new role and updated token_version hits 403 on admin-only route
-      const newRoleToken = await jwtServiceA.signAccessToken(adminUser.id, updatedUser!.token_version, { role: 'job_seeker' });
-      await otpRedisA.setAuthState(adminUser.id, { role: 'job_seeker', status: 'active', tokenVersion: updatedUser!.token_version });
+      const newRoleToken = await jwtServiceA.signAccessToken(targetAdmin.id, updatedUser!.token_version, { role: 'job_seeker' });
+      await otpRedisA.setAuthState(targetAdmin.id, { role: 'job_seeker', status: 'active', tokenVersion: updatedUser!.token_version });
 
       const adminRes3 = await appA.inject({
         method: 'GET',
         url: '/admin/metrics',
-        headers: { authorization: `Bearer ${newRoleToken}` },
+        headers: { authorization: 'Bearer ' + newRoleToken },
       });
       expect(adminRes3.statusCode).toBe(403);
     });

@@ -142,6 +142,25 @@ export class InMemoryUserRepository implements IUserRepository {
     return updated;
   }
 
+  async updateRole(
+    id: string,
+    newRole: UserRow['role'],
+  ): Promise<UserRow | null> {
+    const existing = await this.findById(id);
+    if (!existing) return null;
+
+    const now = new Date().toISOString();
+    const updated: UserRow = {
+      ...existing,
+      role: newRole,
+      token_version: (existing.token_version ?? 0) + 1,
+      updated_at: now,
+    };
+
+    this.persistentStore.setRow('users', id, updated);
+    return updated;
+  }
+
   async updateStatus(
     id: string,
     newStatus: UserRow['status'],

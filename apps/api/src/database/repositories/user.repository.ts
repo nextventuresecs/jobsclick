@@ -29,6 +29,10 @@ export interface IUserRepository {
     newStatus: UserRow['status'],
     expectedCurrentStatus?: UserRow['status'],
   ): Promise<UserRow | null>;
+  updateRole(
+    id: string,
+    newRole: UserRow['role'],
+  ): Promise<UserRow | null>;
   touchLastLogin(id: string): Promise<void>;
   incrementTokenVersion(id: string): Promise<UserRow>;
   findAll(limit?: number): Promise<UserRow[]>;
@@ -196,6 +200,30 @@ export class UserRepository implements IUserRepository {
         throw new ConflictException('Email address is already in use');
       }
       throw new InternalServerErrorException('Database error: failed to confirm email');
+    }
+
+    return (data as UserRow) || null;
+  }
+
+  async updateRole(
+    id: string,
+    newRole: UserRow['role'],
+  ): Promise<UserRow | null> {
+    const { data, error } = await this.supabase
+      .from('users')
+      .update({
+        role: newRole,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select('*')
+      .maybeSingle();
+
+    if (error) {
+      if (error.code === '22P02') {
+        return null;
+      }
+      throw new InternalServerErrorException('Database error: failed to update role');
     }
 
     return (data as UserRow) || null;

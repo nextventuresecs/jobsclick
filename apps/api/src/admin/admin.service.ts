@@ -1,5 +1,5 @@
 import { Injectable, BadRequestException, NotFoundException, Inject, Optional } from '@nestjs/common';
-import { AdminUserStatusInput, GenerateResumeInput, AdminExportQueryInput } from '@indian-job-portal/validation';
+import { AdminUserStatusInput, AdminUserRoleInput, GenerateResumeInput, AdminExportQueryInput } from '@indian-job-portal/validation';
 import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
 import { UserRepository } from '../database/repositories/user.repository.js';
 import { JobRepository } from '../database/repositories/job.repository.js';
@@ -59,6 +59,23 @@ export class AdminService {
   ) {}
 
   // Issue #21: Admin User Management (Persisted directly to users table, eliminating in-memory Map)
+  async updateUserRole(
+    userId: string,
+    role: AdminUserRoleInput['role'],
+    actorId?: string,
+  ): Promise<{ userId: string; role: string }> {
+    if (this.userRepo) {
+      const existing = await this.userRepo.findById(userId);
+      if (!existing) {
+        throw new NotFoundException(`User with ID ${userId} not found`);
+      }
+      await this.userRepo.updateRole(userId, role);
+    }
+    const caller = actorId || 'admin_root';
+    await this.recordAuditLog(caller, 'USER_ROLE_UPDATED', { targetUserId: userId, newRole: role });
+    return { userId, role };
+  }
+
   async updateUserStatus(
     userId: string,
     input: AdminUserStatusInput,
