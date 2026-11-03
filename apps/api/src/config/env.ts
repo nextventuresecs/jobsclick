@@ -86,6 +86,7 @@ const baseSchema = z.object({
   OTP_IP_PER_HOUR: z.coerce.number().int().min(1).max(10000).default(200),
   OTP_IP_PHONE_PER_DAY: z.coerce.number().int().min(1).max(100).default(5),
   OTP_PHONE_PER_DAY: z.coerce.number().int().min(1).max(50).default(10),
+  OTP_VERIFY_IP_PER_HOUR: z.coerce.number().int().min(1).max(1000).default(30),
 }).passthrough();
 
 export type EnvConfig = z.infer<typeof baseSchema>;

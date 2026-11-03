@@ -77,6 +77,62 @@ end
 return 1
 `;
 
+export const VERIFY_OTP_LUA = `
+local lockTtl = redis.call('TTL', KEYS[1])
+if lockTtl > 0 or lockTtl == -1 then
+  local remaining = lockTtl > 0 and lockTtl or tonumber(ARGV[2])
+  return {0, 'LOCKED_OUT', tostring(remaining)}
+end
+
+local storedHash = redis.call('HGET', KEYS[2], 'hash')
+if not storedHash or storedHash == false then
+  return {0, 'EXPIRED', '0'}
+end
+
+if storedHash == ARGV[1] then
+  redis.call('DEL', KEYS[2])
+  return {1, 'SUCCESS', '0'}
+end
+
+local attempts = redis.call('HINCRBY', KEYS[2], 'attempts', 1)
+local maxAttempts = tonumber(ARGV[3])
+local lockoutSec = tonumber(ARGV[2])
+
+if attempts >= maxAttempts then
+  redis.call('DEL', KEYS[2])
+  redis.call('SET', KEYS[1], '1', 'EX', lockoutSec)
+  return {0, 'LOCKED_OUT', tostring(lockoutSec)}
+else
+  local remaining = maxAttempts - attempts
+  return {0, 'INVALID', tostring(remaining)}
+end
+`;
+
+export const STORE_OTP_LUA = `
+redis.call('DEL', KEYS[1])
+redis.call('HSET', KEYS[1], 'hash', ARGV[1], 'attempts', '0')
+redis.call('EXPIRE', KEYS[1], tonumber(ARGV[2]))
+return 1
+`;
+
+export const CHECK_VERIFY_IP_RATE_LUA = `
+local time = redis.call('TIME')
+local now = tonumber(time[1]) * 1000 + math.floor(tonumber(time[2]) / 1000)
+local oneHourAgo = now - 3600000
+
+redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', oneHourAgo)
+local count = redis.call('ZCARD', KEYS[1])
+
+if count >= tonumber(ARGV[1]) then
+  return {0, '3600'}
+end
+
+local member = tostring(now) .. '_' .. tostring(ARGV[2])
+redis.call('ZADD', KEYS[1], now, member)
+redis.call('EXPIRE', KEYS[1], 3600)
+return {1, '0'}
+`;
+
 export type OtpVerifyResult =
   | { status: 'SUCCESS' }
   | { status: 'EXPIRED' }
@@ -102,6 +158,9 @@ interface CustomRedisClient {
   defineCommand?: (name: string, def: { numberOfKeys: number; lua: string }) => void;
   checkAndIncrementOtpLimits?: (...args: (string | number)[]) => Promise<[number, string, string, string]>;
   releaseOtpLimits?: (...args: string[]) => Promise<unknown>;
+  verifyOtpAtomic?: (...args: (string | number)[]) => Promise<[number, string, string]>;
+  storeOtpAtomic?: (...args: (string | number)[]) => Promise<unknown>;
+  checkVerifyIpRate?: (...args: (string | number)[]) => Promise<[number, string]>;
 }
 
 @Injectable()
@@ -167,6 +226,21 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
           numberOfKeys: 4,
           lua: RELEASE_OTP_LIMITS_LUA,
         });
+
+        customClient.defineCommand('verifyOtpAtomic', {
+          numberOfKeys: 2,
+          lua: VERIFY_OTP_LUA,
+        });
+
+        customClient.defineCommand('storeOtpAtomic', {
+          numberOfKeys: 1,
+          lua: STORE_OTP_LUA,
+        });
+
+        customClient.defineCommand('checkVerifyIpRate', {
+          numberOfKeys: 1,
+          lua: CHECK_VERIFY_IP_RATE_LUA,
+        });
       }
     } catch (err) {
       this.logger.warn(`Failed to register Redis custom commands: ${(err as Error).message}`);
@@ -210,8 +284,13 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  private hashOtp(code: string): string {
-    return crypto.createHmac('sha256', this.pepper).update(code.trim()).digest('hex');
+  private hashOtp(phone: string, code: string): string {
+    const cleanPhone = phone.trim();
+    const cleanCode = code.trim();
+    return crypto
+      .createHmac('sha256', this.pepper)
+      .update(`${cleanPhone}|${cleanCode}`)
+      .digest('hex');
   }
 
   private getDateKey(): string {
@@ -232,76 +311,81 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Stores a newly generated OTP with expiration TTL.
+   * Atomically overwrites any previous hash and resets attempts to 0.
    */
   async storeOtp(phone: string, code: string, ttlSeconds = 600): Promise<void> {
     const key = `auth:otp:${phone}`;
-    const hash = this.hashOtp(code);
+    const hash = this.hashOtp(phone, code);
 
-    await this.client.hset(key, 'hash', hash, 'attempts', '0');
-    await this.client.expire(key, ttlSeconds);
+    const customClient = this.client as unknown as CustomRedisClient;
+    if (typeof customClient.storeOtpAtomic === 'function') {
+      await customClient.storeOtpAtomic(key, hash, ttlSeconds);
+    } else {
+      await this.client.eval(STORE_OTP_LUA, 1, key, hash, ttlSeconds);
+    }
   }
 
   /**
-   * Verifies an OTP code with brute-force attempt tracking and timing-safe comparison.
+   * Atomically verifies an OTP code via Lua:
+   * 1. Check lockout key: if active => LOCKED_OUT
+   * 2. Read stored hash: if missing => EXPIRED
+   * 3. Compare hash: if match => DEL otp and return SUCCESS
+   * 4. If mismatch => HINCRBY attempts:
+   *    - If attempts >= 3 => DEL otp, SET lockout 900s, return LOCKED_OUT
+   *    - Else return INVALID with remaining attempts
    */
   async verifyOtp(phone: string, inputCode: string): Promise<OtpVerifyResult> {
-    // 1. Lockout check
-    const lockout = await this.isLockedOut(phone);
-    if (lockout.locked) {
-      return { status: 'LOCKED_OUT', remainingSeconds: lockout.remainingSeconds };
+    const lockoutKey = `auth:lockout:${phone}`;
+    const otpKey = `auth:otp:${phone}`;
+    const expectedHash = this.hashOtp(phone, inputCode);
+    const lockoutSeconds = 900;
+    const maxAttempts = 3;
+
+    let res: [number, string, string];
+    try {
+      const customClient = this.client as unknown as CustomRedisClient;
+      if (typeof customClient.verifyOtpAtomic === 'function') {
+        res = (await customClient.verifyOtpAtomic(
+          lockoutKey,
+          otpKey,
+          expectedHash,
+          lockoutSeconds,
+          maxAttempts,
+        )) as [number, string, string];
+      } else {
+        res = (await this.client.eval(
+          VERIFY_OTP_LUA,
+          2,
+          lockoutKey,
+          otpKey,
+          expectedHash,
+          lockoutSeconds,
+          maxAttempts,
+        )) as [number, string, string];
+      }
+    } catch (err) {
+      this.logger.error(`Redis failure during OTP verification: ${(err as Error).message}`);
+      throw new ServiceUnavailableException('Authentication service temporarily unavailable. Please try again shortly.');
     }
 
-    const key = `auth:otp:${phone}`;
-    const data = await this.client.hgetall(key);
+    const status = res[1] as 'SUCCESS' | 'EXPIRED' | 'LOCKED_OUT' | 'INVALID';
+    const param = parseInt(res[2] || '0', 10);
 
-    if (!data || !data['hash']) {
-      return { status: 'EXPIRED' };
-    }
-
-    const storedHash = data['hash'];
-    const attempts = parseInt(data['attempts'] || '0', 10);
-
-    // 2. Timing-safe hash comparison
-    const inputHash = this.hashOtp(inputCode);
-    const storedBuf = Buffer.from(storedHash, 'hex');
-    const inputBuf = Buffer.from(inputHash, 'hex');
-
-    const isMatch =
-      storedBuf.length === inputBuf.length &&
-      crypto.timingSafeEqual(storedBuf, inputBuf);
-
-    if (isMatch) {
-      // Single-use burn on success
-      await this.client.del(key);
+    if (status === 'SUCCESS') {
       return { status: 'SUCCESS' };
     }
-
-    // 3. Failed attempt handling
-    const nextAttempts = attempts + 1;
-    if (nextAttempts >= 3) {
-      // Burn OTP and trigger 15-minute phone lockout
-      await this.client.del(key);
-      const lockoutSeconds = 900;
-      await this.client.set(`auth:lockout:${phone}`, '1', 'EX', lockoutSeconds);
+    if (status === 'LOCKED_OUT') {
       this.logger.warn(`[Brute-Force Guard] 3 invalid OTP attempts on ${maskPhone(phone)}. Locked out for 15m.`);
-      return { status: 'LOCKED_OUT', remainingSeconds: lockoutSeconds };
+      return { status: 'LOCKED_OUT', remainingSeconds: param };
     }
-
-    await this.client.hset(key, 'attempts', String(nextAttempts));
-    return { status: 'INVALID', attemptsRemaining: 3 - nextAttempts };
-  }
-
-  async incrementAndGetAttempts(phone: string): Promise<number> {
-    const key = `auth:otp:${phone}`;
-    return this.client.hincrby(key, 'attempts', 1);
-  }
-
-  async clearOtp(phone: string): Promise<void> {
-    await this.client.del(`auth:otp:${phone}`);
+    if (status === 'INVALID') {
+      return { status: 'INVALID', attemptsRemaining: param };
+    }
+    return { status: 'EXPIRED' };
   }
 
   async deleteOtp(phone: string): Promise<void> {
-    await this.clearOtp(phone);
+    await this.client.del(`auth:otp:${phone}`);
   }
 
   async resetForTest(phone: string): Promise<void> {
@@ -312,9 +396,34 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  async verifyOtpHash(phone: string, inputCode: string): Promise<boolean> {
-    const result = await this.verifyOtp(phone, inputCode);
-    return result.status === 'SUCCESS';
+  /**
+   * Enforces sliding-window IP rate limit for OTP verification (default 30/hour).
+   */
+  async checkVerifyIpRateLimit(
+    rawIp: string,
+    maxPerHour = 30,
+  ): Promise<{ allowed: boolean; retryAfter: number }> {
+    const normIp = normalizeIp(rawIp);
+    const key = `auth:verify_ip_rate:${normIp}`;
+    const nonce = crypto.randomBytes(8).toString('hex');
+
+    let res: [number, string];
+    try {
+      const customClient = this.client as unknown as CustomRedisClient;
+      if (typeof customClient.checkVerifyIpRate === 'function') {
+        res = (await customClient.checkVerifyIpRate(key, maxPerHour, nonce)) as [number, string];
+      } else {
+        res = (await this.client.eval(CHECK_VERIFY_IP_RATE_LUA, 1, key, maxPerHour, nonce)) as [number, string];
+      }
+    } catch (err) {
+      this.logger.error(`Redis failure during verify IP rate check: ${(err as Error).message}`);
+      throw new ServiceUnavailableException('Authentication service temporarily unavailable. Please try again shortly.');
+    }
+
+    const allowed = Number(res[0]) === 1;
+    const retryAfter = parseInt(res[1] || '0', 10);
+
+    return { allowed, retryAfter };
   }
 
   /**
@@ -585,11 +694,11 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
    * Stores email verification token with 24-hour TTL (replaces volatile in-memory Map).
    */
   async setEmailVerificationToken(
-    token: string,
+    tokenHash: string,
     data: { userId: string; email: string },
     ttlSeconds = 86400,
   ): Promise<void> {
-    const key = `auth:email_verify:${token}`;
+    const key = `auth:email_verify:${tokenHash}`;
     await this.client.set(key, JSON.stringify(data), 'EX', ttlSeconds);
   }
 
@@ -597,9 +706,9 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
    * Retrieves email verification token from Redis.
    */
   async getEmailVerificationToken(
-    token: string,
+    tokenHash: string,
   ): Promise<{ userId: string; email: string } | null> {
-    const key = `auth:email_verify:${token}`;
+    const key = `auth:email_verify:${tokenHash}`;
     const data = await this.client.get(key);
     if (!data) return null;
     try {
@@ -612,8 +721,8 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
   /**
    * Burns email verification token after single use.
    */
-  async deleteEmailVerificationToken(token: string): Promise<void> {
-    const key = `auth:email_verify:${token}`;
+  async deleteEmailVerificationToken(tokenHash: string): Promise<void> {
+    const key = `auth:email_verify:${tokenHash}`;
     await this.client.del(key);
   }
 
@@ -623,10 +732,67 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
   async saveEmailVerificationToken(
     userId: string,
     email: string,
-    token: string,
+    tokenHash: string,
     ttlSeconds = 86400,
   ): Promise<void> {
-    await this.setEmailVerificationToken(token, { userId, email }, ttlSeconds);
+    await this.setEmailVerificationToken(tokenHash, { userId, email }, ttlSeconds);
+  }
+
+  /**
+   * Stores active email token hash for a user to enforce single active token.
+   */
+  async getUserActiveEmailToken(userId: string): Promise<string | null> {
+    const key = `auth:user_email_token:${userId}`;
+    return this.client.get(key);
+  }
+
+  async setUserActiveEmailToken(userId: string, tokenHash: string, ttlSeconds = 86400): Promise<void> {
+    const key = `auth:user_email_token:${userId}`;
+    await this.client.set(key, tokenHash, 'EX', ttlSeconds);
+  }
+
+  async deleteUserActiveEmailToken(userId: string): Promise<void> {
+    const key = `auth:user_email_token:${userId}`;
+    await this.client.del(key);
+  }
+
+  /**
+   * Rate limiting for addEmail:
+   * - Max 3/hour per user
+   * - Max 3/day per target email
+   */
+  async checkAddEmailRateLimit(
+    userId: string,
+    email: string,
+  ): Promise<{ allowed: boolean; reason?: 'USER_LIMIT' | 'TARGET_LIMIT'; retryAfter?: number }> {
+    const userKey = `auth:rate:add_email:user:${userId}`;
+    const targetKey = `auth:rate:add_email:target:${email.trim().toLowerCase()}`;
+
+    const [userCountStr, targetCountStr] = await Promise.all([
+      this.client.get(userKey),
+      this.client.get(targetKey),
+    ]);
+
+    const userCount = parseInt(userCountStr || '0', 10);
+    const targetCount = parseInt(targetCountStr || '0', 10);
+
+    if (userCount >= 3) {
+      const ttl = await this.client.ttl(userKey);
+      return { allowed: false, reason: 'USER_LIMIT', retryAfter: Math.max(ttl, 1) };
+    }
+    if (targetCount >= 3) {
+      const ttl = await this.client.ttl(targetKey);
+      return { allowed: false, reason: 'TARGET_LIMIT', retryAfter: Math.max(ttl, 1) };
+    }
+
+    const p = this.client.pipeline();
+    p.incr(userKey);
+    if (!userCountStr) p.expire(userKey, 3600);
+    p.incr(targetKey);
+    if (!targetCountStr) p.expire(targetKey, 86400);
+    await p.exec();
+
+    return { allowed: true };
   }
 
   /**

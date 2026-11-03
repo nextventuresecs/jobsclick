@@ -1,9 +1,11 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Inject,
   Logger,
+  NotFoundException,
   Optional,
   ServiceUnavailableException,
   UnauthorizedException,
@@ -25,10 +27,10 @@ import { SmsService } from './sms.service.js';
 import { OtpRedisService, AuthUserSession } from './otp-redis.service.js';
 import { JwtService } from './jwt.service.js';
 import { RateLimitService } from './rate-limit.service.js';
-import { WalletService } from '../wallet/wallet.service.js';
 import { EmailService } from '../email/email.service.js';
 import { OtpGenerator } from './otp-generator.service.js';
 import { maskPhone } from '../common/mask.js';
+import { RateLimitException } from '../common/rate-limit.exception.js';
 export type UserSession = AuthUserSession;
 
 export interface SendOtpResult {
@@ -51,13 +53,11 @@ export interface VerifyOtpResult {
   };
 }
 
-
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
   private readonly jwtService: JwtService;
-
   private readonly otpRedisService: OtpRedisService;
   private readonly rateLimitService: RateLimitService;
   private readonly otpGenerator: OtpGenerator;
@@ -67,7 +67,6 @@ export class AuthService {
     @Inject(SmsService) private readonly smsService: SmsService,
     @Optional() @Inject(OtpRedisService) otpRedisService?: OtpRedisService,
     @Optional() @Inject(RateLimitService) rateLimitService?: RateLimitService,
-    @Optional() @Inject(WalletService) private readonly walletService?: WalletService,
     @Optional() @Inject(EmailService) private readonly emailService?: EmailService,
     @Optional() @Inject(OtpGenerator) otpGenerator: OtpGenerator = new OtpGenerator(),
     @Optional() @Inject(JwtService) jwtService?: JwtService,
@@ -113,15 +112,13 @@ export class AuthService {
     await this.otpRedisService.storeOtp(input.phone, otpCode, 300);
 
     // 5. Dispatch SMS via approved MSG91 DLT template (language-aware: EN or HI)
-    // Never logs raw OTP code to stdout or monitoring in production
     let smsResult: { success: boolean; message: string; messageId?: string };
     try {
       smsResult = await this.smsService.sendOtp({
-      phone: input.phone,
-      otp: otpCode,
-      language: input.language || 'en',
-    });
-
+        phone: input.phone,
+        otp: otpCode,
+        language: input.language || 'en',
+      });
     } catch {
       await this.otpRedisService.releaseOtpLimits(input.phone, clientIp || '127.0.0.1', uniqueMember);
       await this.otpRedisService.deleteOtp(input.phone);
@@ -146,7 +143,10 @@ export class AuthService {
    * Atomically verifies the submitted OTP code, prevents brute-force race attacks,
    * performs privilege escalation prevention, and issues a tamper-evident HS256 JWT.
    */
-  async verifyOtp(input: VerifyOtpInput, _clientIp?: string): Promise<VerifyOtpResult> {
+  async verifyOtp(input: VerifyOtpInput, clientIp?: string): Promise<VerifyOtpResult> {
+    // 0. Enforce sliding window per-IP rate limit on verification attempts (default 30/hour)
+    await this.rateLimitService.checkVerifyIpRateLimit(clientIp);
+
     // 1. Atomically verify OTP with brute-force attempt lockout guard
     const verifyResult = await this.otpRedisService.verifyOtp(input.phone, input.code);
 
@@ -179,55 +179,39 @@ export class AuthService {
 
       // Transition 'invited' users (from bulk institution/MSME wave import) to 'active' on first login
       if (userRow.status === 'invited') {
-        userRow = (await this.userRepository.update(userRow.id, { status: 'active' })) || userRow;
+        await this.userRepository.updateStatus(userRow.id, 'active', 'invited');
+        // Re-read user to guard against disable-vs-login race (Item 7)
+        const fresh = await this.userRepository.findById(userRow.id);
+        if (!fresh || fresh.status !== 'active') {
+          throw new ForbiddenException('Your account has been disabled. Contact support.');
+        }
+        userRow = fresh;
       }
     } else {
-      // 3. New User Registration: Generate opaque UUID to prevent phone number leakage (Invariant #1)
-      const opaqueUserId = crypto.randomUUID();
-
-      // Prevent privilege escalation: Self-signup strictly allows ONLY job_seeker or employer (Audit P0-5)
+      // 3. New User Registration: Database-assigned UUID, idempotent on phone conflict
       const requestedRole = input.role as string;
       const safeRole: UserRow['role'] = (SELF_SIGNUP_ROLES as readonly string[]).includes(requestedRole)
         ? (requestedRole as 'job_seeker' | 'employer')
         : 'job_seeker';
 
-      userRow =
-        typeof this.userRepository.create === 'function'
-          ? await this.userRepository.create({
-              id: opaqueUserId,
-              phone: input.phone,
-              role: safeRole,
-              status: 'active',
-              source: 'direct_web',
-            })
-          : await this.userRepository.save({
-              id: opaqueUserId,
-              phone: input.phone,
-              email: null,
-              role: safeRole,
-              status: 'active',
-              source: 'direct_web',
-              token_version: 0,
-              created_by: null,
-              updated_by: null,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            });
-
-      // Asynchronously grant 10 starter credits for job seekers (non-blocking)
-      if (safeRole === 'job_seeker' && this.walletService) {
-        this.walletService.ensureStarterCredits(userRow.id).catch((err: unknown) => {
-          this.logger.warn(`Non-blocking wallet starter credits error for ${userRow?.id}: ${(err as Error).message}`);
-        });
-      }
+      userRow = await this.userRepository.create({
+        phone: input.phone,
+        role: safeRole,
+        status: 'active',
+        source: 'direct_web',
+      });
     }
 
-    // 4. Construct unified UserSession
+    // Touch last login timestamp
+    await this.userRepository.touchLastLogin(userRow.id).catch(() => {});
+
+    // 4. Construct unified UserSession with authentic emailVerified flag from DB
+    const isEmailVerified = Boolean((userRow as Record<string, unknown>)['email_verified_at']);
     const session: UserSession = {
       id: userRow.id,
       phone: userRow.phone,
       email: userRow.email,
-      emailVerified: false,
+      emailVerified: isEmailVerified,
       role: userRow.role,
       status: userRow.status,
     };
@@ -263,30 +247,59 @@ export class AuthService {
 
   /**
    * Initiates secondary email verification using a secure CSPRNG 32-byte hex token.
+   * Limits: 3/hour per user, 3/day per target email.
+   * Deletes any prior active token for this user so only one active token exists.
    */
   async addEmail(userId: string, inputOrEmail: AddEmailInput | string): Promise<{ success: boolean; message: string }> {
-    const email = typeof inputOrEmail === 'string' ? inputOrEmail : inputOrEmail.email;
+    const rawEmail = typeof inputOrEmail === 'string' ? inputOrEmail : inputOrEmail.email;
+    const email = rawEmail.trim().toLowerCase();
+
+    // Check rate limit: max 3/hour per user, max 3/day per target email
+    const limitCheck = await this.otpRedisService.checkAddEmailRateLimit(userId, email);
+    if (!limitCheck.allowed) {
+      throw new RateLimitException(
+        'Too many verification email requests. Please try again later.',
+        limitCheck.retryAfter || 3600,
+      );
+    }
 
     const userRow = await this.userRepository.findById(userId);
     if (!userRow) {
-      throw new BadRequestException('User not found');
+      throw new NotFoundException('User not found');
     }
 
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    await this.userRepository.update(userId, { email });
-
-    const cached = await this.otpRedisService.getSession(userId);
-    if (cached) {
-      cached.email = email;
-      cached.emailVerified = false;
-      await this.otpRedisService.setSession(userId, cached);
+    // Check cross-user collision across confirmed email and pending email
+    const existingConfirmed = await this.userRepository.findByEmail(email);
+    if (existingConfirmed && existingConfirmed.id !== userId) {
+      throw new ConflictException('Email address is already in use or pending verification');
+    }
+    const existingPending = await this.userRepository.findByPendingEmail(email);
+    if (existingPending && existingPending.id !== userId) {
+      throw new ConflictException('Email address is already in use or pending verification');
     }
 
-    await this.otpRedisService.saveEmailVerificationToken(userId, email, verificationToken, 86400);
+    // Update DB with pending email (email remains untouched)
+    await this.userRepository.setPendingEmail(userId, email);
+
+    // Delete any previous active verification token for this user
+    const previousTokenHash = await this.otpRedisService.getUserActiveEmailToken(userId);
+    if (previousTokenHash) {
+      await this.otpRedisService.deleteEmailVerificationToken(previousTokenHash);
+    }
+
+    // Generate 32-byte CSPRNG token and SHA-256 hash
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+
+    // Store in Redis (24-hour TTL)
+    await this.otpRedisService.saveEmailVerificationToken(userId, email, tokenHash, 86400);
+    await this.otpRedisService.setUserActiveEmailToken(userId, tokenHash, 86400);
 
     // Dispatch transactional email via Resend if email service is active
     if (this.emailService) {
-      await this.emailService.sendVerificationEmail(email, verificationToken).catch((err: unknown) => {
+      const baseUrl = process.env['WEB_URL'] || 'http://localhost:3000';
+      const verificationLink = `${baseUrl}/auth/verify-email?token=${rawToken}`;
+      await this.emailService.sendVerificationEmail(email, verificationLink).catch((err: unknown) => {
         this.logger.warn(`Failed to dispatch verification email to ${email}: ${(err as Error).message}`);
       });
     }
@@ -299,23 +312,47 @@ export class AuthService {
 
   /**
    * Confirms secondary email ownership and burns the single-use token.
+   * Requires pending_email === record.email.
+   * Deletes token from Redis only AFTER successful database update.
    */
   async verifyEmail(input: VerifyEmailInput | { token: string }): Promise<{ success: boolean; message: string }> {
-    const record = await this.otpRedisService.getEmailVerificationToken(input.token);
+    if (!input.token || !input.token.trim()) {
+      throw new BadRequestException('Invalid or expired verification token');
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(input.token.trim()).digest('hex');
+    const record = await this.otpRedisService.getEmailVerificationToken(tokenHash);
 
     if (!record) {
       throw new BadRequestException('Invalid or expired verification token');
     }
 
-    await this.userRepository.update(record.userId, { email: record.email });
+    // Verify requires pending_email === record.email
+    const user = await this.userRepository.findById(record.userId);
+    if (!user) {
+      throw new BadRequestException('Invalid or expired verification token');
+    }
+    const currentPending = (user as Record<string, unknown>)['pending_email']?.toString().toLowerCase();
+    if (currentPending !== record.email.toLowerCase()) {
+      throw new BadRequestException('Invalid or expired verification token');
+    }
+
+    // Conditional update: WHERE id AND pending_email
+    const updated = await this.userRepository.confirmEmail(record.userId, record.email);
+    if (!updated) {
+      throw new BadRequestException('Invalid or expired verification token');
+    }
+
+    // DB update succeeded: Now delete token from Redis so token replay fails (Item 5)
+    await this.otpRedisService.deleteEmailVerificationToken(tokenHash);
+    await this.otpRedisService.deleteUserActiveEmailToken(record.userId);
 
     const cached = await this.otpRedisService.getSession(record.userId);
     if (cached) {
+      cached.email = record.email;
       cached.emailVerified = true;
       await this.otpRedisService.setSession(record.userId, cached);
     }
-
-    await this.otpRedisService.deleteEmailVerificationToken(input.token);
 
     return {
       success: true,
@@ -377,11 +414,12 @@ export class AuthService {
     const row = await this.userRepository.findById(id);
     if (!row) return undefined;
 
+    const isEmailVerified = Boolean((row as Record<string, unknown>)['email_verified_at']);
     const session: UserSession = {
       id: row.id,
       phone: row.phone,
       email: row.email,
-      emailVerified: false,
+      emailVerified: isEmailVerified,
       role: row.role,
       status: row.status,
     };

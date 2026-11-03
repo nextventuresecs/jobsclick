@@ -5,6 +5,7 @@ import { AppModule } from '../src/app.module.js';
 import { OtpGenerator } from '../src/auth/otp-generator.service.js';
 import { UserRepository } from '../src/database/repositories/user.repository.js';
 import { OtpRedisService } from '../src/auth/otp-redis.service.js';
+import { PersistentDatabaseStore } from '../src/database/supabase.provider.js';
 
 class MockOtpGenerator extends OtpGenerator {
   override generate(): string {
@@ -31,6 +32,7 @@ describe('Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E)'
 
     userRepo = app.get(UserRepository);
     otpRedisService = app.get(OtpRedisService);
+    PersistentDatabaseStore.getInstance().clearTable('users');
   });
 
   afterAll(async () => {
@@ -223,11 +225,11 @@ describe('Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E)'
   });
 
   describe('IndianPhoneSchema Normalization & Cooldown Rate-Limit Mapping (Uses ioredis-mock)', () => {
-    it('maps "+91 98765-43210" and "919876543210" to same rate limit cooldown key in ioredis-mock and blocks second request with COOLDOWN (429)', async () => {
+    it('maps "+91 98765-49210" and "919876549210" to same rate limit cooldown key in ioredis-mock and blocks second request with COOLDOWN (429)', async () => {
       // NOTE: This test runs against the in-memory ioredis-mock client active during test runs.
-      const canonicalPhone = '9876543210';
-      const formatA = '+91 98765-43210';
-      const formatB = '919876543210';
+      const canonicalPhone = '9876549210';
+      const formatA = '+91 98765-49210';
+      const formatB = '919876549210';
 
       await otpRedisService.resetForTest(canonicalPhone);
 

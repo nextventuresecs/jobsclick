@@ -115,7 +115,7 @@ describe('OTP Rate Limiting & Concurrency Lockdown (Atomic Redis & Two-Instance)
 
   // ── 1. Negative Control Demonstration (Non-Atomic Race Condition) ────
   it('demonstration: non-atomic check-then-set permits race conditions, whereas atomic Lua script strictly permits 1', async () => {
-    const demoPhone = trackPhone('9876543100');
+    const demoPhone = trackPhone('9876541100');
     const demoCooldownKey = `auth:cooldown:${demoPhone}`;
 
     // Deliberately NON-ATOMIC implementation: GET, check, then SET with slight async delay
@@ -160,7 +160,7 @@ describe('OTP Rate Limiting & Concurrency Lockdown (Atomic Redis & Two-Instance)
 
   // ── 2. 50 Concurrent Calls Across Two Nest Instances ──────────────
   it('50 concurrent sendOtp calls across two instances for ONE phone => exactly 1 SMS dispatched, 49 rejected with COOLDOWN (429)', async () => {
-    const phone = trackPhone('9876543210');
+    const phone = trackPhone('9876541210');
     let smsDispatchCount = 0;
 
     const originalSendA = smsServiceA.sendOtp.bind(smsServiceA);
@@ -217,7 +217,7 @@ describe('OTP Rate Limiting & Concurrency Lockdown (Atomic Redis & Two-Instance)
   // ── 3. Victim Quota Protection Under IP Exhaustion ────────────────
   it('with IP limit exhausted for IP X, a request from X for victim phone V is rejected and V daily counter is unchanged', async () => {
     const attackerIp = trackIp('203.0.113.88');
-    const victimPhone = trackPhone('9876543299');
+    const victimPhone = trackPhone('9876541299');
 
     // 1. Exhaust attacker IP limit (200 requests/hr)
     const ipKey = `auth:ip_rate:${attackerIp}`;
@@ -258,7 +258,7 @@ describe('OTP Rate Limiting & Concurrency Lockdown (Atomic Redis & Two-Instance)
   // ── 4. Per-(IP, Phone) Limit Protection ───────────────────────────
   it('an attacker IP cannot exhaust a victim daily cap alone (blocked at per-ip-phone limit)', async () => {
     const attackerIp = trackIp('198.51.100.42');
-    const victimPhone = trackPhone('9876543288');
+    const victimPhone = trackPhone('9876541288');
     trackKey(`auth:ip_phone:${attackerIp}:${victimPhone}`);
 
     // Default OTP_IP_PHONE_PER_DAY is 5
@@ -318,7 +318,7 @@ describe('OTP Rate Limiting & Concurrency Lockdown (Atomic Redis & Two-Instance)
 
     for (let i = 1; i <= 50; i++) {
       const clientIp = trackIp(`198.51.100.${i}`);
-      const phone = trackPhone(`98765432${(10 + (i % 80)).toString().padStart(2, '0')}`);
+      const phone = trackPhone(`98765412${(10 + (i % 80)).toString().padStart(2, '0')}`);
 
       const res = await appA.inject({
         method: 'POST',
@@ -343,7 +343,7 @@ describe('OTP Rate Limiting & Concurrency Lockdown (Atomic Redis & Two-Instance)
 
   it('CF-Connecting-IP spoofing from an untrusted peer is ignored and falls back to socket peer', async () => {
     const untrustedPeer = '198.51.100.99'; // not in trustedProxies list
-    const phone = trackPhone('9876543201');
+    const phone = trackPhone('9876541201');
 
     const res = await appA.inject({
       method: 'POST',
@@ -367,7 +367,7 @@ describe('OTP Rate Limiting & Concurrency Lockdown (Atomic Redis & Two-Instance)
     let counter = 0;
 
     for (const badIp of garbageIps) {
-      const phone = trackPhone(`98765433${(counter++).toString().padStart(2, '0')}`);
+      const phone = trackPhone(`98765413${(counter++).toString().padStart(2, '0')}`);
       const res = await appA.inject({
         method: 'POST',
         url: '/auth/otp/send',
@@ -387,8 +387,8 @@ describe('OTP Rate Limiting & Concurrency Lockdown (Atomic Redis & Two-Instance)
   });
 
   // ── 6. Phone Format Key Sharing ───────────────────────────────────
-  it('phone formats +919876543210, 919876543210, 9876543210 share one cooldown key', async () => {
-    const canonical = trackPhone('9876543210');
+  it('phone formats +919876541210, 919876541210, 9876541210 share one cooldown key', async () => {
+    const canonical = trackPhone('9876541210');
 
     // 1. Send with +91 prefix on Instance A
     const res1 = await appA.inject({
@@ -439,9 +439,9 @@ describe('OTP Rate Limiting & Concurrency Lockdown (Atomic Redis & Two-Instance)
     const normalizedShared = trackIp('2001:db8:abcd:12::/64');
     const normalizedOther = trackIp('2001:db8:abcd:13::/64');
 
-    const phone1 = trackPhone('9876543401');
-    const phone2 = trackPhone('9876543402');
-    const phone3 = trackPhone('9876543403');
+    const phone1 = trackPhone('9876541401');
+    const phone2 = trackPhone('9876541402');
+    const phone3 = trackPhone('9876541403');
 
     // Request 1 from ipv6A
     const res1 = await appA.inject({
@@ -480,7 +480,7 @@ describe('OTP Rate Limiting & Concurrency Lockdown (Atomic Redis & Two-Instance)
 
   // ── 8. Daily Cap Enforcement (10 per day) ─────────────────────────
   it('daily cap: 10 sends over time pass, the 11th returns DAILY (429)', async () => {
-    const phone = trackPhone('9876543211');
+    const phone = trackPhone('9876541211');
 
     for (let i = 1; i <= 10; i++) {
       await redisClientA.del(`auth:cooldown:${phone}`);
@@ -524,7 +524,7 @@ describe('OTP Rate Limiting & Concurrency Lockdown (Atomic Redis & Two-Instance)
 
   // ── 9. Rolling Windows (No Date Strings in Keys) ───────────────────
   it('rolling windows have no date in key and roll over cleanly on expiration', async () => {
-    const phone = trackPhone('9876543277');
+    const phone = trackPhone('9876541277');
     const clientIp = trackIp('192.168.1.77');
 
     const res1 = await appA.inject({
@@ -566,7 +566,7 @@ describe('OTP Rate Limiting & Concurrency Lockdown (Atomic Redis & Two-Instance)
 
   // ── 10. Fail-Closed on SMS Delivery Failure & Idempotent Release ──
   it('releases OTP limits when SMS service fails; counters return to pre-call values and release is idempotent', async () => {
-    const phone = trackPhone('9876543212');
+    const phone = trackPhone('9876541212');
     const clientIp = trackIp('192.168.1.55');
 
     // Record pre-call state
@@ -639,19 +639,10 @@ describe('OTP Rate Limiting & Concurrency Lockdown (Atomic Redis & Two-Instance)
 
     const deadOtpRedisService = new OtpRedisService(deadRedisClient);
 
-    let deadSmsDispatched = 0;
-    const testSmsService = {
-      sendOtp: async () => {
-        deadSmsDispatched++;
-        return { success: true, message: 'sent' };
-      },
-      verifyTurnstile: async () => true,
-    };
-
     const startTime = Date.now();
     let thrownError: unknown;
     try {
-      await deadOtpRedisService.checkAndIncrementOtpLimits('9876543999', '127.0.0.1');
+      await deadOtpRedisService.checkAndIncrementOtpLimits('9876541999', '127.0.0.1');
     } catch (err) {
       thrownError = err;
     } finally {
@@ -662,6 +653,5 @@ describe('OTP Rate Limiting & Concurrency Lockdown (Atomic Redis & Two-Instance)
     // Invariant: Throws ServiceUnavailableException within 2000ms
     expect(thrownError).toBeDefined();
     expect(elapsedMs).toBeLessThanOrEqual(2000);
-    expect(deadSmsDispatched).toBe(0);
   });
 });

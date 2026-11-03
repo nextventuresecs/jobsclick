@@ -6,7 +6,10 @@ import {
   UseGuards,
   BadRequestException,
   Inject,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service.js';
 import { Public } from './decorators/public.decorator.js';
 import { CurrentUser, AuthenticatedUser } from './decorators/current-user.decorator.js';
@@ -26,6 +29,7 @@ export class AuthController {
 
   @Public()
   @Post(['otp/send', 'send-otp'])
+  @HttpCode(HttpStatus.OK)
   async sendOtp(@Body() rawBody: unknown, @Req() req: FastifyRequest) {
     const clientIp = getClientIp(req);
     const parsed = SendOtpSchema.safeParse(rawBody);
@@ -37,6 +41,7 @@ export class AuthController {
 
   @Public()
   @Post(['otp/verify', 'verify-otp'])
+  @HttpCode(HttpStatus.OK)
   async verifyOtp(@Body() rawBody: unknown, @Req() req: FastifyRequest) {
     const clientIp = getClientIp(req);
     const body = (rawBody && typeof rawBody === 'object' ? { ...rawBody } : {}) as Record<string, unknown>;
@@ -52,6 +57,7 @@ export class AuthController {
   }
 
   @Post('email/add')
+  @HttpCode(HttpStatus.OK)
   async addEmail(@CurrentUser() user: AuthenticatedUser, @Body() rawBody: unknown) {
     const parsed = AddEmailSchema.safeParse(rawBody);
     if (!parsed.success) {
@@ -61,7 +67,9 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('email/verify')
+  @HttpCode(HttpStatus.OK)
   async verifyEmail(@Body('token') token: string) {
     if (!token) {
       throw new BadRequestException('Verification token is required');
@@ -70,6 +78,7 @@ export class AuthController {
   }
 
   @Post('sign-out-all')
+  @HttpCode(HttpStatus.OK)
   async signOutAll(@CurrentUser() user: AuthenticatedUser) {
     return this.authService.revokeAllUserSessions(user.id);
   }

@@ -558,11 +558,13 @@ describe('OTP limits bounded coerced integers & isStrictEnv', () => {
       OTP_IP_PER_HOUR: '200',
       OTP_IP_PHONE_PER_DAY: '5',
       OTP_PHONE_PER_DAY: '10',
+      OTP_VERIFY_IP_PER_HOUR: '30',
     });
     expect(env.OTP_COOLDOWN_SEC).toBe(60);
     expect(env.OTP_IP_PER_HOUR).toBe(200);
     expect(env.OTP_IP_PHONE_PER_DAY).toBe(5);
     expect(env.OTP_PHONE_PER_DAY).toBe(10);
+    expect(env.OTP_VERIFY_IP_PER_HOUR).toBe(30);
   });
 
   it('rejects OTP_COOLDOWN_SEC out of bounds (<30 or >600 or non-int)', () => {
@@ -584,6 +586,11 @@ describe('OTP limits bounded coerced integers & isStrictEnv', () => {
   it('rejects OTP_PHONE_PER_DAY out of bounds (<1 or >50)', () => {
     expect(() => validateEnv({ ...baseDev, OTP_PHONE_PER_DAY: '0' })).toThrow();
     expect(() => validateEnv({ ...baseDev, OTP_PHONE_PER_DAY: '51' })).toThrow();
+  });
+
+  it('rejects OTP_VERIFY_IP_PER_HOUR out of bounds (<1 or >1000)', () => {
+    expect(() => validateEnv({ ...baseDev, OTP_VERIFY_IP_PER_HOUR: '0' })).toThrow();
+    expect(() => validateEnv({ ...baseDev, OTP_VERIFY_IP_PER_HOUR: '1001' })).toThrow();
   });
 
   it('isStrictEnv treats unset or non-dev/test NODE_ENV as strict', () => {

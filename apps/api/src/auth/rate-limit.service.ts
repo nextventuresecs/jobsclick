@@ -92,4 +92,21 @@ export class RateLimitService {
 
     return result;
   }
+
+  /**
+   * Enforces sliding window IP rate limit for OTP verification (PRD §8.7.1, AUTH-03).
+   * Default: 30 requests per hour per IP.
+   */
+  async checkVerifyIpRateLimit(clientIp?: string, maxPerHour = 30): Promise<void> {
+    const ip = clientIp || '127.0.0.1';
+    const limit = Number(process.env['OTP_VERIFY_IP_PER_HOUR'] || maxPerHour);
+    const result = await this.otpRedisService.checkVerifyIpRateLimit(ip, limit);
+    if (!result.allowed) {
+      this.logger.warn(`Verify OTP IP rate limit hit for ip=${ip}`);
+      throw new RateLimitException(
+        'Too many OTP verification attempts from this network. Please try again later.',
+        result.retryAfter || 3600,
+      );
+    }
+  }
 }
