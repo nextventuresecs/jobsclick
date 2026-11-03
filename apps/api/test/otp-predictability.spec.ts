@@ -46,11 +46,13 @@ describe('Audit P0-3: Predictable OTP Removal and OTP Security Lockdown', () => 
     authService = moduleRef.get<AuthService>(AuthService);
     otpRedisService = moduleRef.get<OtpRedisService>(OtpRedisService);
     userRepo = moduleRef.get<UserRepository>(UserRepository);
+    await otpRedisService.waitForReady();
 
     // Reset rate-limits and pre-create users in repo
+    await otpRedisService.client.del('auth:verify_ip_rate:127.0.0.1');
     for (const phone of testWhitelistPhones) {
       await otpRedisService.resetForTest(phone);
-      await userRepo.create({ phone });
+      await userRepo.create({ phone, role: 'job_seeker' });
     }
   });
 

@@ -21,6 +21,10 @@ if (!process.env['SUPABASE_ANON_KEY']) {
   process.env['SUPABASE_ANON_KEY'] =
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
 }
+process.env['REDIS_URL'] = process.env['REDIS_URL'] || 'redis://127.0.0.1:6379';
+if (process.env['REDIS_URL'].includes('upstash.io')) {
+  process.env['REDIS_URL'] = 'redis://127.0.0.1:6379';
+}
 
 const origCreateTestingModule = Test.createTestingModule.bind(Test);
 const testContainer = Test as unknown as {

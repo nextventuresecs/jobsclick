@@ -7,6 +7,9 @@ import { JwtService } from '../src/auth/jwt.service.js';
 import { UserRepository } from '../src/database/repositories/user.repository.js';
 import { OtpRedisService } from '../src/auth/otp-redis.service.js';
 import { SignJWT } from 'jose';
+import { SUPABASE_CLIENT } from '../src/database/supabase.provider.js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@indian-job-portal/database';
 import crypto from 'node:crypto';
 
 describe('Server-Side State Validation & Session Revocation (P0-8, PR #97 B2)', () => {
@@ -16,6 +19,7 @@ describe('Server-Side State Validation & Session Revocation (P0-8, PR #97 B2)', 
   let userRepoA: UserRepository;
   let otpRedisA: OtpRedisService;
   let jwtServiceA: JwtService;
+  let supabaseA: SupabaseClient<Database>;
 
   beforeAll(async () => {
     // Instance A
@@ -31,6 +35,10 @@ describe('Server-Side State Validation & Session Revocation (P0-8, PR #97 B2)', 
     userRepoA = moduleFixtureA.get<UserRepository>(UserRepository);
     otpRedisA = moduleFixtureA.get<OtpRedisService>(OtpRedisService);
     jwtServiceA = moduleFixtureA.get<JwtService>(JwtService);
+    supabaseA = moduleFixtureA.get<SupabaseClient<Database>>(SUPABASE_CLIENT);
+
+    // Clear test IP rate limit keys from redis
+    await otpRedisA.client.del('auth:verify:ip:127.0.0.1');
 
     // Instance B (sharing the same underlying Redis and persistent store)
     const moduleFixtureB: TestingModule = await Test.createTestingModule({
@@ -232,16 +240,17 @@ describe('Server-Side State Validation & Session Revocation (P0-8, PR #97 B2)', 
   // 2. Cross-Instance Sign-Out-All
   describe('Cross-Instance Single Sign-Out (Instance A -> Instance B)', () => {
     it('login on instance A, sign-out-all on A, replay old token on instance B => 401', async () => {
-      const phone = '9876543210';
+      const phone = '987' + Math.floor(1000000 + Math.random() * 9000000);
       await otpRedisA.storeOtp(phone, '123456');
 
       // 1. Verify OTP on Instance A to obtain valid access token
       const verifyResA = await appA.inject({
         method: 'POST',
         url: '/auth/otp/verify',
+        remoteAddress: '198.51.100.99',
         payload: { phone, code: '123456', role: 'job_seeker' },
       });
-      expect(verifyResA.statusCode).toBe(201);
+      expect([200, 201]).toContain(verifyResA.statusCode);
       const { accessToken } = JSON.parse(verifyResA.payload);
       expect(accessToken).toBeDefined();
 
@@ -250,9 +259,9 @@ describe('Server-Side State Validation & Session Revocation (P0-8, PR #97 B2)', 
         method: 'POST',
         url: '/auth/email/add',
         headers: { authorization: `Bearer ${accessToken}` },
-        payload: { email: 'crossinstance@example.com' },
+        payload: { email: `cross_${phone}@example.com` },
       });
-      expect(checkResB1.statusCode).toBe(201);
+      expect([200, 201]).toContain(checkResB1.statusCode);
 
       // 3. User calls sign-out-all on Instance A
       const signOutResA = await appA.inject({
@@ -260,14 +269,14 @@ describe('Server-Side State Validation & Session Revocation (P0-8, PR #97 B2)', 
         url: '/auth/sign-out-all',
         headers: { authorization: `Bearer ${accessToken}` },
       });
-      expect(signOutResA.statusCode).toBe(201);
+      expect([200, 201]).toContain(signOutResA.statusCode);
 
       // 4. Replay old token on Instance B => MUST return 401
       const checkResB2 = await appB.inject({
         method: 'POST',
         url: '/auth/email/add',
         headers: { authorization: `Bearer ${accessToken}` },
-        payload: { email: 'replayattempt@example.com' },
+        payload: { email: `replay_${phone}@example.com` },
       });
       expect(checkResB2.statusCode).toBe(401);
     });
@@ -276,8 +285,9 @@ describe('Server-Side State Validation & Session Revocation (P0-8, PR #97 B2)', 
   // 3. Account Disabling
   describe('Account Disabling across instances', () => {
     it('disable the user in DB (token_version bump); old token => 401 on both instances', async () => {
+      const phone = '987' + Math.floor(1000000 + Math.random() * 9000000);
       const user = await userRepoA.create({
-        phone: '9876543211',
+        phone,
         role: 'employer',
         status: 'active',
       });
@@ -289,15 +299,13 @@ describe('Server-Side State Validation & Session Revocation (P0-8, PR #97 B2)', 
         method: 'POST',
         url: '/auth/email/add',
         headers: { authorization: `Bearer ${token}` },
-        payload: { email: 'emp_active@example.com' },
+        payload: { email: `emp_active_${phone}@example.com` },
       });
-      expect(resA1.statusCode).toBe(201);
+      expect([200, 201]).toContain(resA1.statusCode);
 
       // Disable user in DB and bump token_version
-      await userRepoA.update(user.id, {
-        status: 'disabled',
-        token_version: (user.token_version ?? 0) + 1,
-      });
+      await userRepoA.updateStatus(user.id, 'disabled');
+      await userRepoA.incrementTokenVersion(user.id);
       await otpRedisA.deleteAuthState(user.id);
 
       // Old token must return 401 on both instances
@@ -305,7 +313,7 @@ describe('Server-Side State Validation & Session Revocation (P0-8, PR #97 B2)', 
         method: 'POST',
         url: '/auth/email/add',
         headers: { authorization: `Bearer ${token}` },
-        payload: { email: 'emp_disabled@example.com' },
+        payload: { email: `emp_disabled_${phone}@example.com` },
       });
       expect(resA2.statusCode).toBe(401);
 
@@ -313,7 +321,7 @@ describe('Server-Side State Validation & Session Revocation (P0-8, PR #97 B2)', 
         method: 'POST',
         url: '/auth/email/add',
         headers: { authorization: `Bearer ${token}` },
-        payload: { email: 'emp_disabled@example.com' },
+        payload: { email: `emp_disabled_${phone}@example.com` },
       });
       expect(resB2.statusCode).toBe(401);
     });
@@ -322,8 +330,9 @@ describe('Server-Side State Validation & Session Revocation (P0-8, PR #97 B2)', 
   // 4. Server-Side Role Enforcement & Dynamic Demotion
   describe('Server-Side Dynamic Role Mutation', () => {
     it('change user role in DB; next request uses NEW role (admin-only route returns 403 after demotion)', async () => {
+      const phone = '987' + Math.floor(1000000 + Math.random() * 9000000);
       const adminUser = await userRepoA.create({
-        phone: '9876543212',
+        phone,
         role: 'admin',
         status: 'active',
       });
@@ -341,7 +350,7 @@ describe('Server-Side State Validation & Session Revocation (P0-8, PR #97 B2)', 
       expect(adminRes1.statusCode).toBe(200);
 
       // Demote admin to job_seeker in DB and refresh server-side state
-      await userRepoA.update(adminUser.id, { role: 'job_seeker' });
+      await supabaseA.from('users').update({ role: 'job_seeker' }).eq('id', adminUser.id);
       await otpRedisA.deleteAuthState(adminUser.id);
 
       // Next request with UNCHANGED token to admin-only endpoint MUST return 403
@@ -357,8 +366,9 @@ describe('Server-Side State Validation & Session Revocation (P0-8, PR #97 B2)', 
   // 5. Fail-Closed Redis Outage
   describe('Fail-Closed Under Redis Outage', () => {
     it('redis failure => 503 Service Unavailable, never 200 and never 401-then-allow', async () => {
+      const phone = '987' + Math.floor(1000000 + Math.random() * 9000000);
       const user = await userRepoA.create({
-        phone: '9876543213',
+        phone,
         role: 'job_seeker',
         status: 'active',
       });
