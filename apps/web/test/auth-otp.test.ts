@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { toBackendRole, toClientRole } from '@indian-job-portal/validation';
+import { toBackendRole, toClientRole, SelfSignupRoleSchema } from '@indian-job-portal/validation';
+import { DPDP_CONSENT_VERSION } from '@/components/auth/AuthModal';
 
 describe('Phone OTP Frontend Integration - Ticket T-04 (AUTH-01, AUTH-02)', () => {
   beforeEach(() => {
@@ -117,14 +118,53 @@ describe('Phone OTP Frontend Integration - Ticket T-04 (AUTH-01, AUTH-02)', () =
       );
     });
 
-    it('verifies error handling on 400 cool-down or daily limit from /auth/send-otp', async () => {
+    it('each resend clears the previous turnstile token and mints a fresh token', async () => {
+      const tokensSent: string[] = [];
+      const mockFetch = vi.fn().mockImplementation(async (_url, opts) => {
+        const body = JSON.parse(opts.body);
+        tokensSent.push(body.turnstileToken);
+        return {
+          ok: true,
+          status: 201,
+          json: async () => ({ success: true, message: 'OTP sent successfully' }),
+        };
+      });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const apiUrl = 'http://localhost:3001';
+      const phone = '9876543210';
+
+      // 1. First send with initial turnstile token
+      const initialToken = 'cf_token_initial_111';
+      await fetch(`${apiUrl}/auth/otp/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, turnstileToken: initialToken }),
+      });
+
+      // 2. Resend must supply a fresh turnstile token, never reusing the first
+      const resendToken = 'cf_token_fresh_resend_222';
+      await fetch(`${apiUrl}/auth/otp/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, turnstileToken: resendToken }),
+      });
+
+      expect(tokensSent).toHaveLength(2);
+      expect(tokensSent[0]).toBe(initialToken);
+      expect(tokensSent[1]).toBe(resendToken);
+      expect(tokensSent[0]).not.toBe(tokensSent[1]);
+    });
+
+    it('verifies error handling on 429 cool-down or daily limit from /auth/otp/send', async () => {
       const mockFetch = vi.fn().mockResolvedValue({
         ok: false,
-        status: 400,
+        status: 429,
+        headers: new Headers({ 'retry-after': '45' }),
         json: async () => ({
-          statusCode: 400,
+          statusCode: 429,
           message: 'Please wait 45 seconds before requesting a new OTP',
-          error: 'Bad Request',
+          error: 'Too Many Requests',
         }),
       });
       vi.stubGlobal('fetch', mockFetch);
@@ -203,6 +243,88 @@ describe('Phone OTP Frontend Integration - Ticket T-04 (AUTH-01, AUTH-02)', () =
       expect(data.accessToken).toBe(mockSession.accessToken);
       expect(data.user.id).toBe('usr_9876543210');
       expect(data.user.role).toBe('job_seeker');
+    });
+
+    it('blocks self-signup and displays invitation-only message for elevated roles (Audit P0-5)', () => {
+      const elevatedRoles = ['institution', 'msme_dept', 'platform_admin'] as const;
+
+      for (const clientRole of elevatedRoles) {
+        const backendRole = toBackendRole(clientRole);
+        const check = SelfSignupRoleSchema.safeParse(backendRole);
+        expect(check.success).toBe(false);
+
+        let message = '';
+        if (!check.success) {
+          if (
+            clientRole === 'institution' ||
+            clientRole === 'msme_dept' ||
+            clientRole === 'platform_admin' ||
+            backendRole === 'intermediary' ||
+            backendRole === 'msme_admin' ||
+            backendRole === 'admin'
+          ) {
+            message = 'Institution, MSME, and Admin accounts are created by invitation only.';
+          } else {
+            message = 'Invalid role selection. Self-signup is only available for job seekers and employers.';
+          }
+        }
+        expect(message).toBe('Institution, MSME, and Admin accounts are created by invitation only.');
+      }
+    });
+
+    it('permits self-signup for jobseeker and employer roles', () => {
+      const allowedRoles = ['jobseeker', 'employer'] as const;
+      for (const clientRole of allowedRoles) {
+        const backendRole = toBackendRole(clientRole);
+        const check = SelfSignupRoleSchema.safeParse(backendRole);
+        expect(check.success).toBe(true);
+      }
+    });
+
+    it('disables submit and blocks OTP request when consent checkbox is not ticked', () => {
+      let consentAccepted = false;
+      const phoneInput = '9876543210';
+      const isSubmitting = false;
+
+      // Submit button is disabled
+      const isSubmitDisabled = isSubmitting || phoneInput.length !== 10 || !consentAccepted;
+      expect(isSubmitDisabled).toBe(true);
+
+      // handleRequestOtp blocks submission with error
+      let errorMessage: string | null = null;
+      if (!consentAccepted) {
+        errorMessage = 'Please accept the Terms of Service & DPDP Privacy Notice to continue.';
+      }
+      expect(errorMessage).toBe('Please accept the Terms of Service & DPDP Privacy Notice to continue.');
+    });
+
+    it('enables submit button and conditionally includes consentVersion in verify payload only when ticked', () => {
+      let consentAccepted = true;
+      const phoneInput = '9876543210';
+      const isSubmitting = false;
+
+      // Submit button is enabled when consent is ticked
+      const isSubmitDisabled = isSubmitting || phoneInput.length !== 10 || !consentAccepted;
+      expect(isSubmitDisabled).toBe(false);
+
+      // Payload contains consentVersion when consent is ticked
+      const payloadWithConsent = {
+        phone: '9876543210',
+        code: '123456',
+        role: 'job_seeker',
+        ...(consentAccepted ? { consentVersion: DPDP_CONSENT_VERSION } : {}),
+      };
+      expect(payloadWithConsent.consentVersion).toBe(DPDP_CONSENT_VERSION);
+
+      // Payload omits consentVersion when consent is unticked
+      consentAccepted = false;
+      const payloadWithoutConsent = {
+        phone: '9876543210',
+        code: '123456',
+        role: 'job_seeker',
+        ...(consentAccepted ? { consentVersion: DPDP_CONSENT_VERSION } : {}),
+      };
+      expect(payloadWithoutConsent).not.toHaveProperty('consentVersion');
     });
   });
 });

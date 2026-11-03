@@ -29,14 +29,19 @@ describe('T-01: Database Persistence Across API Restarts (E2E)', () => {
     // -------------------------------------------------------------
     const app1 = await createTestApp();
 
-    const employerUserId = 'usr_employer_t01_persistence';
-    const seekerUserId = 'usr_seeker_t01_persistence';
+    const userRepo1 = app1.get(UserRepository);
+    const empPhone = '98' + Math.floor(10000000 + Math.random() * 90000000);
+    const seekerPhone = '98' + Math.floor(10000000 + Math.random() * 90000000);
+    const empUser = await userRepo1.create({ phone: empPhone, role: 'employer', status: 'active' });
+    const seekerUser = await userRepo1.create({ phone: seekerPhone, role: 'job_seeker', status: 'active' });
+    const employerUserId = empUser.id;
+    const seekerUserId = seekerUser.id;
 
     // 1. Create a job posting on instance 1
     const createJobRes = await app1.inject({
       method: 'POST',
       url: '/jobs',
-      headers: { 'x-user-id': employerUserId },
+      headers: { 'x-user-id': employerUserId, 'x-user-role': 'employer' },
       payload: {
         title: 'Senior CNC Machine Operator',
         description: 'Experienced CNC operator for manufacturing plant in Pithampur.',
@@ -59,7 +64,7 @@ describe('T-01: Database Persistence Across API Restarts (E2E)', () => {
     const updateProfileRes = await app1.inject({
       method: 'PUT',
       url: '/profiles/seeker/me',
-      headers: { 'x-user-id': seekerUserId },
+      headers: { 'x-user-id': seekerUserId, 'x-user-role': 'job_seeker' },
       payload: {
         fullName: 'Rajesh Kumar Patel',
         seekerType: 'individual',
@@ -80,7 +85,7 @@ describe('T-01: Database Persistence Across API Restarts (E2E)', () => {
     const applyRes = await app1.inject({
       method: 'POST',
       url: `/jobs/${jobId}/apply`,
-      headers: { 'x-user-id': seekerUserId },
+      headers: { 'x-user-id': seekerUserId, 'x-user-role': 'job_seeker' },
     });
 
     expect(applyRes.statusCode).toBe(201);
@@ -114,7 +119,7 @@ describe('T-01: Database Persistence Across API Restarts (E2E)', () => {
       const getProfileMeRes = await app2.inject({
         method: 'GET',
         url: '/profiles/seeker/me',
-        headers: { 'x-user-id': seekerUserId },
+        headers: { 'x-user-id': seekerUserId, 'x-user-role': 'job_seeker' },
       });
 
       expect(getProfileMeRes.statusCode).toBe(200);
@@ -138,7 +143,7 @@ describe('T-01: Database Persistence Across API Restarts (E2E)', () => {
       const getApplicationsRes = await app2.inject({
         method: 'GET',
         url: `/jobs/${jobId}/applications`,
-        headers: { 'x-user-id': employerUserId },
+        headers: { 'x-user-id': employerUserId, 'x-user-role': 'employer' },
       });
 
       expect(getApplicationsRes.statusCode).toBe(200);
@@ -185,8 +190,13 @@ describe('T-01: Database Persistence Across API Restarts (E2E)', () => {
             insert: async () => ({
               error: { message: 'Connection pool exhausted' },
             }),
-            upsert: async () => ({
-              error: { message: 'Connection pool exhausted' },
+            upsert: () => ({
+              select: () => ({
+                single: async () => ({
+                  data: null,
+                  error: { message: 'Connection pool exhausted' },
+                }),
+              }),
             }),
           }),
         } as unknown as SupabaseClient;

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DLT_SMS_TEMPLATES } from './sms-templates.js';
 import { captureException } from '../config/sentry.js';
+import { maskPhone, scrubSensitiveData } from '../common/mask.js';
 
 export interface SendOtpOptions {
   phone: string;
@@ -15,8 +16,8 @@ export interface SmsResponse {
 }
 
 @Injectable()
-export class Msg91SmsService {
-  private readonly logger = new Logger(Msg91SmsService.name);
+export class SmsService {
+  private readonly logger = new Logger(SmsService.name);
 
   /**
    * Dispatches OTP SMS through MSG91 gateway using approved DLT template IDs.
@@ -42,24 +43,10 @@ export class Msg91SmsService {
         ? (process.env['NODE_ENV'] === 'production' ? 'live' : 'sandbox')
         : 'mock');
 
-    // 2. Reserved test QA whitelist range (+919876543210 through +919876543219)
-    // Only intercepts when not in live production mode
-    const isTestWhitelist = gatewayMode !== 'live' && phone.startsWith('987654321') && phone.length === 10;
-    if (isTestWhitelist) {
-      this.logger.log(
-        `[SMS Hook - QA Whitelist] OTP for +91${phone}: ${otp} (Static QA Bypass)`
-      );
-      return {
-        success: true,
-        message: 'OTP dispatched via MSG91 mock handler (QA whitelist)',
-        messageId: `qa_whitelist_${Date.now()}`,
-      };
-    }
-
     // In test mode, mock mode, or missing credentials, log mock delivery
     if (isTestMode || gatewayMode === 'mock' || !authKey || authKey === 'dummy-msg91-key') {
       this.logger.log(
-        `[SMS Hook - MSG91 Mock] OTP for +91${phone}: ${otp} (Template: ${templateId})`
+        `[SMS Hook - MSG91 Mock] Dispatched OTP to ${maskPhone(phone)} (Template: ${templateId})`
       );
       return {
         success: true,
@@ -71,7 +58,7 @@ export class Msg91SmsService {
     // In sandbox mode (DLT template approval pending), log delivery and simulate success
     if (gatewayMode === 'sandbox') {
       this.logger.log(
-        `[SMS Hook - MSG91 Sandbox (DLT Pending)] OTP for +91${phone}: ${otp} (Template: ${templateId})`
+        `[SMS Hook - MSG91 Sandbox (DLT Pending)] Dispatched OTP to ${maskPhone(phone)} (Template: ${templateId})`
       );
       return {
         success: true,
@@ -81,25 +68,30 @@ export class Msg91SmsService {
     }
 
     try {
+      // MSG91 v5 OTP API: authkey is passed in request header, otp is passed in JSON payload body.
+      // Search params only include public routing parameters (template_id, mobile, otp_expiry).
       const msg91Url = new URL('https://control.msg91.com/api/v5/otp');
       msg91Url.searchParams.set('template_id', templateId);
       msg91Url.searchParams.set('mobile', `91${phone}`);
-      msg91Url.searchParams.set('authkey', authKey);
-      msg91Url.searchParams.set('otp', otp);
-      msg91Url.searchParams.set('sender', senderId);
       msg91Url.searchParams.set('otp_expiry', '10');
 
       const response = await fetch(msg91Url.toString(), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          authkey: authKey,
         },
+        body: JSON.stringify({
+          otp,
+          sender: senderId,
+        }),
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        this.logger.error(`[MSG91 Gateway Error] HTTP ${response.status}: ${errorText}`);
-        captureException(new Error(`MSG91 OTP delivery failed: ${response.status} ${errorText}`));
+        const scrubbedError = scrubSensitiveData(errorText);
+        this.logger.error(`[MSG91 Gateway Error] HTTP ${response.status}: ${scrubbedError}`);
+        captureException(new Error(`MSG91 OTP delivery failed: ${response.status} ${scrubbedError}`));
         return {
           success: false,
           message: `SMS gateway error: ${response.statusText}`,
@@ -108,7 +100,7 @@ export class Msg91SmsService {
 
       const resData = (await response.json().catch(() => ({}))) as Record<string, unknown>;
       this.logger.log(
-        `[SMS Hook - MSG91 Live] Successfully delivered OTP to +91${phone} via template ${templateId}`
+        `[SMS Hook - MSG91 Live] Successfully delivered OTP to ${maskPhone(phone)} via template ${templateId}`
       );
 
       return {
@@ -164,6 +156,7 @@ export class Msg91SmsService {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: form.toString(),
+        signal: AbortSignal.timeout(5000),
       });
 
       if (!res.ok) {
@@ -179,3 +172,5 @@ export class Msg91SmsService {
     }
   }
 }
+
+export { SmsService as Msg91SmsService };

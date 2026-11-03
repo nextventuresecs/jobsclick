@@ -70,7 +70,7 @@ export class QueueService implements OnModuleDestroy {
       this.connection = new IORedis(redisUrl, {
         maxRetriesPerRequest: null,
         enableReadyCheck: false,
-        tls: isTls ? { rejectUnauthorized: false } : undefined,
+        tls: isTls ? {} : undefined,
         retryStrategy(times) {
           return Math.min(times * 200, 5000);
         },

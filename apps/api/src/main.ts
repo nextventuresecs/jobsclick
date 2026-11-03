@@ -11,7 +11,13 @@ async function bootstrap() {
   const env = validateEnv();
   initSentry(env.SENTRY_DSN);
 
-  const adapter = new FastifyAdapter();
+  const trustedProxies = env.TRUSTED_PROXY_CIDRS
+    ? env.TRUSTED_PROXY_CIDRS.split(',').map((s) => s.trim()).filter(Boolean)
+    : ['127.0.0.1', '::1'];
+
+  const adapter = new FastifyAdapter({
+    trustProxy: trustedProxies,
+  });
   setupFastifySentry(adapter.getInstance());
 
   // SEC-01: Administrative Queue Dashboard Guard

@@ -1,5 +1,5 @@
 import { Injectable, BadRequestException, NotFoundException, Inject, Optional } from '@nestjs/common';
-import { AdminUserStatusInput, GenerateResumeInput, AdminExportQueryInput } from '@indian-job-portal/validation';
+import { AdminUserStatusInput, AdminUserRoleInput, GenerateResumeInput, AdminExportQueryInput } from '@indian-job-portal/validation';
 import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
 import { UserRepository } from '../database/repositories/user.repository.js';
 import { JobRepository } from '../database/repositories/job.repository.js';
@@ -59,6 +59,52 @@ export class AdminService {
   ) {}
 
   // Issue #21: Admin User Management (Persisted directly to users table, eliminating in-memory Map)
+  async updateUserRole(
+    userId: string,
+    role: AdminUserRoleInput['role'],
+    actorId?: string,
+    reason?: string,
+  ): Promise<{ userId: string; role: string }> {
+    const ALLOWED_ROLES = ['job_seeker', 'employer', 'admin', 'msme_admin'];
+    if (!ALLOWED_ROLES.includes(role)) {
+      throw new BadRequestException(`Invalid role: ${role}. Allowed roles are ${ALLOWED_ROLES.join(', ')}`);
+    }
+
+    const caller = actorId || 'admin_root';
+    if (caller === userId) {
+      throw new BadRequestException('Admins cannot change their own role');
+    }
+
+    let previousRole = 'job_seeker';
+    if (this.userRepo) {
+      const existing = await this.userRepo.findById(userId);
+      if (!existing) {
+        throw new NotFoundException(`User with ID ${userId} not found`);
+      }
+      previousRole = existing.role;
+
+      // Prevent demoting the last remaining active admin
+      if (existing.role === 'admin' && role !== 'admin') {
+        const allUsers = await this.userRepo.findAll(5000);
+        const adminCount = allUsers.filter((u) => u.role === 'admin' && u.status === 'active').length;
+        if (adminCount <= 1) {
+          throw new BadRequestException('Cannot demote the last remaining admin');
+        }
+      }
+
+      await this.userRepo.updateRole(userId, role);
+    }
+
+    await this.recordAuditLog(caller, 'USER_ROLE_UPDATED', {
+      targetUserId: userId,
+      oldRole: previousRole,
+      newRole: role,
+      reason: reason || 'Administrative role modification',
+    });
+
+    return { userId, role };
+  }
+
   async updateUserStatus(
     userId: string,
     input: AdminUserStatusInput,
@@ -69,7 +115,7 @@ export class AdminService {
       if (!existing) {
         throw new NotFoundException(`User with ID ${userId} not found`);
       }
-      await this.userRepo.update(userId, { status: input.status });
+      await this.userRepo.updateStatus(userId, input.status);
     }
     const caller = actorId || 'admin_root';
     await this.recordAuditLog(caller, 'USER_STATUS_UPDATED', { targetUserId: userId, newStatus: input.status });

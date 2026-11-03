@@ -1,24 +1,40 @@
-import crypto from 'node:crypto';
+import type { Observable } from 'rxjs';
 import {
   Injectable,
   CanActivate,
   ExecutionContext,
   UnauthorizedException,
+  ServiceUnavailableException,
   Inject,
+  Optional,
+  Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator.js';
 import type { AuthUser } from '../decorators/current-user.decorator.js';
+import { JwtService } from '../jwt.service.js';
+import { OtpRedisService, UserAuthState } from '../otp-redis.service.js';
+import { UserRepository } from '../../database/repositories/user.repository.js';
+
+export const TEST_AUTH_GUARD = Symbol('TEST_AUTH_GUARD');
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  private get isTestMode(): boolean {
-    return process.env['NODE_ENV'] === 'test';
-  }
+  private readonly logger = new Logger(JwtAuthGuard.name);
 
-  constructor(@Inject(Reflector) private readonly reflector: Reflector) {}
+  constructor(
+    @Inject(Reflector) private readonly reflector: Reflector,
+    @Optional() @Inject(JwtService) private readonly jwtService: JwtService = new JwtService(),
+    @Optional() @Inject(OtpRedisService) private readonly otpRedisService: OtpRedisService = new OtpRedisService(),
+    @Optional() @Inject(UserRepository) private readonly userRepository?: UserRepository,
+    @Optional() @Inject(TEST_AUTH_GUARD) private readonly testAuthGuard?: CanActivate,
+  ) {}
 
-  canActivate(context: ExecutionContext): boolean {
+  canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
+    if (this.testAuthGuard) {
+      return this.testAuthGuard.canActivate(context);
+    }
+
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -26,151 +42,105 @@ export class JwtAuthGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest();
     const authHeader = request.headers['authorization'] || request.headers['Authorization'];
-    const testUserId = request.headers['x-user-id'];
 
-    let user: AuthUser | null = null;
-
-    if (authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.slice(7).trim();
-      user = this.verifyToken(token);
-    } else if (this.isTestMode && testUserId && typeof testUserId === 'string' && testUserId.trim()) {
-      // Test-mode explicit user header support
-      user = this.buildTestUser(testUserId.trim());
-    }
-
-    if (!user) {
+    // 1. Unauthenticated request on public route passes; on protected route fails
+    if (!authHeader) {
       if (isPublic) {
         return true;
       }
       throw new UnauthorizedException('Authentication required');
     }
 
-    request.user = user;
-    return true;
-  }
-
-  private verifyToken(token: string): AuthUser {
-    // 1. Session token pattern: only permitted in test / dev mode
-    if (this.isTestMode && token.startsWith('jwt_session_')) {
-      const parts = token.split('_');
-      // jwt_session_<id...>_<timestamp>
-      const userId = parts.slice(2, parts.length - 1).join('_');
-      return this.buildTestUser(userId || 'usr_session');
+    // 2. Secret check (fail-closed before async hop if secret missing)
+    const verificationSecret = process.env['JWT_SECRET'] ?? '';
+    if (!verificationSecret || verificationSecret.length < 32) {
+      throw new ServiceUnavailableException('Authentication service is not properly configured: JWT_SECRET missing');
     }
 
-    // 2. JWT structure: header.payload.signature
-    const segments = token.split('.');
-    if (segments.length !== 3) {
+    // 3. Format validation
+    if (typeof authHeader !== 'string' || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Invalid authorization token format');
     }
 
-    const [headerB64, payloadB64, signature] = segments;
-    if (!headerB64 || !payloadB64 || !signature) {
-      throw new UnauthorizedException('Malformed JWT token segments');
+    const token = authHeader.slice(7).trim();
+    if (!token) {
+      throw new UnauthorizedException('Authorization token cannot be empty');
     }
 
-    // Enforce valid header and alg=HS256
-    try {
-      const headerJson = Buffer.from(headerB64, 'base64url').toString('utf-8');
-      const header = JSON.parse(headerJson);
-      if (header.alg !== 'HS256') {
-        throw new UnauthorizedException(`Unsupported JWT algorithm: ${header.alg}. HS256 required.`);
-      }
-    } catch (err) {
-      if (err instanceof UnauthorizedException) throw err;
-      throw new UnauthorizedException('Malformed JWT header');
-    }
-
-    // Cryptographic signature verification with timing-safe comparison
-    const isProduction = process.env['NODE_ENV'] === 'production';
-    const secret = process.env['JWT_SECRET'] || process.env['SUPABASE_SECRET_KEY'];
-
-    if (!secret) {
-      if (isProduction) {
-        throw new UnauthorizedException('Authentication misconfigured: server JWT_SECRET is not set');
-      }
-      // Strictly rejected in production; in test only fall back to test-only key if not provided
-    }
-
-    const verificationSecret = secret || (this.isTestMode ? 'jobsclick-jwt-secret-key-32-chars-min' : '');
-    if (!verificationSecret) {
-      throw new UnauthorizedException('Server configuration error: missing JWT signing secret');
-    }
-
-    const expectedSig = crypto
-      .createHmac('sha256', verificationSecret)
-      .update(`${headerB64}.${payloadB64}`)
-      .digest('base64url');
-
-    const sigBuf = Buffer.from(signature);
-    const expBuf = Buffer.from(expectedSig);
-
-    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
-      throw new UnauthorizedException('Invalid JWT signature');
-    }
-
-    let payload: {
-      sub?: string;
-      id?: string;
-      role?: string;
-      app_metadata?: { role?: string };
-      exp?: number;
-      phone?: string;
-      email?: string | null;
-    };
-
-    try {
-      const payloadJson = Buffer.from(payloadB64, 'base64url').toString('utf-8');
-      payload = JSON.parse(payloadJson);
-    } catch {
-      throw new UnauthorizedException('Malformed JWT token payload');
-    }
-
-    // Expiration check
-    if (typeof payload.exp === 'number') {
-      const nowSec = Math.floor(Date.now() / 1000);
-      if (nowSec > payload.exp) {
-        throw new UnauthorizedException('JWT token has expired');
-      }
-    }
-
-    const id = payload.sub || payload.id;
-    if (!id || typeof id !== 'string') {
-      throw new UnauthorizedException('Invalid JWT payload: missing sub/id');
-    }
-
-    const role =
-      payload.app_metadata?.role ||
-      payload.role ||
-      (this.isTestMode ? (id.includes('employer') ? 'employer' : 'job_seeker') : null);
-
-    if (!role || typeof role !== 'string') {
-      throw new UnauthorizedException('Invalid JWT payload: missing role');
-    }
-
-    return {
-      id,
-      role: role as AuthUser['role'],
-      phone: payload.phone,
-      email: payload.email,
-    };
+    // Execute async token and server state verification
+    return this.verifyAndLoadState(request, token);
   }
 
-  private buildTestUser(userId: string): AuthUser {
-    let role: AuthUser['role'] = 'job_seeker';
-    if (userId.includes('emp') || userId.includes('bus')) {
-      role = 'employer';
-    } else if (userId.includes('inst')) {
-      role = 'intermediary';
-    } else if (userId.includes('admin')) {
-      role = 'admin';
+  private async verifyAndLoadState(request: Record<string, unknown>, token: string): Promise<boolean> {
+    // 1. Cryptographically verify token via jose JwtService
+    const claims = await this.jwtService.verifyAccessToken(token);
+
+    // 2. Load server-side state (Redis cluster with fallback to persistent database)
+    const state = await this.loadUserState(claims.sub);
+
+    // 3. Status enforcement: strictly require active
+    if (state.status !== 'active') {
+      throw new UnauthorizedException('User account is not active');
     }
 
-    return {
-      id: userId,
-      role,
-      phone: '9876543210',
-      email: null,
+    // 4. Token version equality: ensures instant revocation across instances on bump
+    if (state.tokenVersion !== claims.tv) {
+      throw new UnauthorizedException('Token has been revoked');
+    }
+
+    // 5. Authoritative user context: role loaded STRICTLY from server state
+    const user: AuthUser = {
+      id: claims.sub,
+      role: state.role,
     };
+
+    request['user'] = user;
+    return true;
+  }
+
+  private async loadUserState(userId: string): Promise<UserAuthState> {
+    // Primary: Redis cache (fail-closed if Redis throws)
+    try {
+      const cached = await this.otpRedisService.getAuthState(userId);
+      if (cached) {
+        return cached;
+      }
+    } catch (err) {
+      this.logger.error(`Redis failure during auth state lookup for ${userId}: ${(err as Error).message}`);
+      throw new ServiceUnavailableException('Authentication state service temporarily unavailable');
+    }
+
+    // Secondary: Persistent Database
+    if (!this.userRepository) {
+      throw new ServiceUnavailableException('Authentication database service unavailable');
+    }
+
+    let userRow;
+    try {
+      userRow = await this.userRepository.findById(userId);
+    } catch (err) {
+      this.logger.error(`Database failure during auth state lookup for ${userId}: ${(err as Error).message}`);
+      throw new ServiceUnavailableException('Authentication database temporarily unavailable');
+    }
+
+    if (!userRow) {
+      throw new UnauthorizedException('User account not found');
+    }
+
+    const state: UserAuthState = {
+      role: userRow.role,
+      status: userRow.status,
+      tokenVersion: userRow.token_version ?? 0,
+    };
+
+    // Refresh Redis cache with short TTL (300s)
+    try {
+      await this.otpRedisService.setAuthState(userId, state, 300);
+    } catch (err) {
+      this.logger.error(`Failed to cache auth state in Redis for ${userId}: ${(err as Error).message}`);
+      throw new ServiceUnavailableException('Authentication state service temporarily unavailable');
+    }
+
+    return state;
   }
 }
