@@ -34,10 +34,12 @@ const baseSchema = z.object({
   RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
   ALLOW_TEST_PAYMENTS: z.coerce.boolean().default(false),
   // Feature Flags (PRN-06: Scope Isolation for P2/P3 Modules)
-  ENABLE_P2_PAYMENTS: z.coerce.boolean().default(true),
-  ENABLE_P2_WALLET_RECHARGE: z.coerce.boolean().default(true),
-  ENABLE_P2_PLACEMENT_PIPELINE: z.coerce.boolean().default(true),
-  ENABLE_P2_FEATURED_PROMOTIONS: z.coerce.boolean().default(true),
+  ENABLE_P2_PAYMENTS: z.coerce.boolean().default(false),
+  ENABLE_P2_WALLET_RECHARGE: z.coerce.boolean().default(false),
+  ENABLE_P2_PLACEMENT_PIPELINE: z.coerce.boolean().default(false),
+  ENABLE_P2_FEATURED_PROMOTIONS: z.coerce.boolean().default(false),
+  ENABLE_P2_JOB_ALERTS: z.coerce.boolean().default(false),
+  ENABLE_P2_MSME_BROADCAST: z.coerce.boolean().default(false),
 }).passthrough();
 
 export type EnvConfig = z.infer<typeof baseSchema>;
