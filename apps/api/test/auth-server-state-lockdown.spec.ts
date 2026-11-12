@@ -32,6 +32,8 @@ describe('Server-Side State Validation & Session Revocation (P0-8, PR #97 B2)', 
     otpRedisA = moduleFixtureA.get<OtpRedisService>(OtpRedisService);
     jwtServiceA = moduleFixtureA.get<JwtService>(JwtService);
 
+    await otpRedisA.waitForReady();
+
     // Clear test IP rate limit keys from redis
     await otpRedisA.client.del('auth:verify:ip:127.0.0.1');
 

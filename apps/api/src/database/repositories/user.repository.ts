@@ -36,6 +36,7 @@ export interface IUserRepository {
   touchLastLogin(id: string): Promise<void>;
   incrementTokenVersion(id: string): Promise<UserRow>;
   findAll(limit?: number): Promise<UserRow[]>;
+  count(): Promise<number>;
 }
 
 @Injectable()
@@ -280,6 +281,8 @@ export class UserRepository implements IUserRepository {
         .single();
 
       if (!error && data) {
+        const fullUser = await this.findById(id);
+        if (fullUser) return fullUser;
         return data as UserRow;
       }
     } catch {
@@ -306,6 +309,16 @@ export class UserRepository implements IUserRepository {
       throw new InternalServerErrorException(`Failed to increment token_version for ${id}`);
     }
     return data as UserRow;
+  }
+
+  async count(): Promise<number> {
+    const { count, error } = await this.supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true });
+    if (error) {
+      throw new InternalServerErrorException(`Database error: failed to count users: ${error.message}`);
+    }
+    return count ?? 0;
   }
 
   async findAll(limit = 1000): Promise<UserRow[]> {

@@ -33,6 +33,13 @@ describe('Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E)'
     userRepo = app.get(UserRepository);
     otpRedisService = app.get(OtpRedisService);
     PersistentDatabaseStore.getInstance().clearTable('users');
+    const keys = await otpRedisService.client.keys('auth:verify_ip_rate:*');
+    if (keys.length > 0) await otpRedisService.client.del(...keys);
+  });
+
+  beforeEach(async () => {
+    const keys = await otpRedisService.client.keys('auth:verify_ip_rate:*');
+    if (keys.length > 0) await otpRedisService.client.del(...keys);
   });
 
   afterAll(async () => {
@@ -73,7 +80,7 @@ describe('Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E)'
 
     for (const tc of testCases) {
       it(`enforces role gate for "${tc.label}" (role: ${JSON.stringify(tc.role)}) -> HTTP ${tc.expectedStatus}`, async () => {
-        const countBefore = (await userRepo.findAll()).length;
+        const countBefore = await userRepo.count();
         const testPhone = `${phoneCounter++}`;
         await otpRedisService.resetForTest(testPhone);
 
@@ -100,7 +107,7 @@ describe('Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E)'
         expect(verifyRes.statusCode).toBe(tc.expectedStatus);
 
         const storedUser = await userRepo.findByPhone(testPhone);
-        const countAfter = (await userRepo.findAll()).length;
+        const countAfter = await userRepo.count();
 
         if (tc.isAllowed) {
           expect(storedUser).toBeDefined();
@@ -116,7 +123,7 @@ describe('Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E)'
     it('asserts valid employer self-signup explicitly creates user with persisted role === "employer"', async () => {
       const employerPhone = '981' + Math.floor(1000000 + Math.random() * 8000000);
       await otpRedisService.resetForTest(employerPhone);
-      const countBefore = (await userRepo.findAll()).length;
+      const countBefore = await userRepo.count();
 
       const sendRes = await app.inject({
         method: 'POST',
@@ -140,14 +147,14 @@ describe('Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E)'
       expect(storedUser).toBeDefined();
       expect(storedUser?.role).toBe('employer');
 
-      const countAfter = (await userRepo.findAll()).length;
+      const countAfter = await userRepo.count();
       expect(countAfter).toBeGreaterThanOrEqual(countBefore + 1);
     });
 
     it('asserts omitted role in verify-otp payload defaults cleanly to "job_seeker"', async () => {
       const defaultPhone = '981' + Math.floor(1000000 + Math.random() * 8000000);
       await otpRedisService.resetForTest(defaultPhone);
-      const countBefore = (await userRepo.findAll()).length;
+      const countBefore = await userRepo.count();
 
       const sendRes = await app.inject({
         method: 'POST',
@@ -171,7 +178,7 @@ describe('Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E)'
       expect(storedUser).toBeDefined();
       expect(storedUser?.role).toBe('job_seeker');
 
-      const countAfter = (await userRepo.findAll()).length;
+      const countAfter = await userRepo.count();
       expect(countAfter).toBe(countBefore + 1);
     });
   });

@@ -46,6 +46,7 @@ describe('AdminController RBAC & Authentication (STF-02)', () => {
   let adminToken: string;
 
   beforeAll(async () => {
+    process.env['ENABLE_P2_MSME_BROADCAST'] = 'true';
     seekerToken = await createAuthToken(seekerId, 'job_seeker');
     employerToken = await createAuthToken(employerId, 'employer');
     msmeAdminToken = await createAuthToken(msmeAdminId, 'msme_admin');
