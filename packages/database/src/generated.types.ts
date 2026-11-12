@@ -3541,7 +3541,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_11_03: {
+      messages_2026_11_10: {
         Row: {
           binary_payload: string | null
           event: string | null
@@ -3584,7 +3584,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_11_04: {
+      messages_2026_11_11: {
         Row: {
           binary_payload: string | null
           event: string | null
@@ -3627,7 +3627,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_11_05: {
+      messages_2026_11_12: {
         Row: {
           binary_payload: string | null
           event: string | null
@@ -3670,7 +3670,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_11_06: {
+      messages_2026_11_13: {
         Row: {
           binary_payload: string | null
           event: string | null
@@ -3713,7 +3713,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_11_07: {
+      messages_2026_11_14: {
         Row: {
           binary_payload: string | null
           event: string | null

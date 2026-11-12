@@ -63,10 +63,13 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Check Migration Sync Integrity
+        run: pnpm ci:check-migrations
+
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 3.1.0
 
       - name: Start Supabase Local Stack
         run: |
@@ -85,9 +88,73 @@ jobs:
       - name: Build All Workspaces
         run: pnpm build
 
+  db-security-gate:
+    name: Database Security & Migration Gate
+    runs-on: ubuntu-latest
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+      SUPABASE_URL: http://127.0.0.1:54321
+      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check Migration Sync Integrity
+        run: pnpm ci:check-migrations
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 3.1.0
+
+      - name: Start Supabase Stack & Reset DB
+        run: |
+          supabase start
+          supabase db reset
+
+      - name: Verify Generated Database Types Freshness
+        run: |
+          pnpm db:generate-types
+          git diff --exit-code packages/database/src/generated.types.ts
+
+      - name: Run Database Catalog Security Assertion
+        run: pnpm db:catalog:check
+
+      - name: Run Database Security Attack Suite Drill
+        run: pnpm db:security:drill
+
+      - name: Run PostgREST HTTP Smoke Checks
+        run: pnpm db:smoke:postgrest
+
+      - name: Run Fresh Database Bootstrap Drill
+        run: pnpm db:bootstrap:drill
+
   container-build:
     name: Build Container Images
-    needs: verify
+    needs: [verify, db-security-gate]
     runs-on: ubuntu-latest
 
     steps:
@@ -115,7 +182,7 @@ jobs:
 
   deploy-staging:
     name: Deploy to Staging
-    needs: [verify, container-build]
+    needs: [verify, db-security-gate, container-build]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
 

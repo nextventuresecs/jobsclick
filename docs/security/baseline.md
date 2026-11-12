@@ -79,7 +79,7 @@
 ---
 
 ### 1e. Supabase Migrations & Dual-Tree Divergence
-- **Database Status:** Local Supabase PostgreSQL 17.11 container (`supabase_db_aspahsnclunutwiqliau`) on port `54322`.
+- **Database Status:** Local Supabase PostgreSQL container on port `54322` (target staging ref `afxgvtfaofpnlhdsexnp`, legacy ref retired).
 - **Migration Application:** All 27 migrations applied cleanly in chronological order from `20261008000000_init_schema.sql` to `20261104100000_token_version_bump_trigger.sql`.
 - **Dual-Tree Diff Command:**
   `git diff --no-index supabase/migrations packages/database/supabase/migrations`

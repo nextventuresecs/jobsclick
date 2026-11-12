@@ -1,10 +1,16 @@
 export * from './rls-helper.js';
+export * from './generated.types.js';
 export const STARTER_CREDIT_AMOUNT = 10;
 
 export type TableDefinition<T> = {
   Row: T;
   Insert: Partial<T>;
   Update: Partial<T>;
+  Relationships: [];
+};
+
+export type ViewDefinition<T> = {
+  Row: T;
   Relationships: [];
 };
 
@@ -316,9 +322,164 @@ export interface Database {
         created_at: string;
         updated_at: string;
       }>;
+      broadcast_campaigns: TableDefinition<{
+        id: string;
+        created_by: string;
+        dlt_template_id: string;
+        target_filters: Record<string, unknown>;
+        recipient_count: number;
+        segment_count: number;
+        estimated_cost_paise: number;
+        status: string;
+        confirmation_token?: string | null;
+        audience_digest?: string | null;
+        created_at: string;
+        updated_at: string;
+      }>;
+      broadcast_deliveries: TableDefinition<{
+        id: string;
+        campaign_id: string;
+        business_profile_id: string;
+        phone_masked: string;
+        status: string;
+        gateway_message_id?: string | null;
+        idempotency_key: string;
+        created_at: string;
+        updated_at: string;
+      }>;
+      invitations: TableDefinition<{
+        id: string;
+        batch_id?: string | null;
+        phone: string;
+        status: string;
+        created_at: string;
+      }>;
+      location_nodes: TableDefinition<{
+        id: string;
+        entity_id: string;
+        entity_type: string;
+        working_area?: string | null;
+        created_at: string;
+      }>;
+      search_logs: TableDefinition<{
+        id: string;
+        user_id?: string | null;
+        query: string;
+        created_at: string;
+      }>;
+      tasks: TableDefinition<{
+        id: string;
+        poster_id: string;
+        title: string;
+        pay_amount: number;
+        status: string;
+        created_at: string;
+      }>;
     };
-    Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Views: {
+      public_business_profiles: ViewDefinition<{
+        id: string | null;
+        company_name: string | null;
+        ownership_type: string | null;
+        company_size: string | null;
+        sector: string | null;
+        city: string | null;
+        district: string | null;
+        state: string | null;
+        logo_url: string | null;
+        website: string | null;
+        year_of_registration: string | null;
+        commencement_year: string | null;
+        know_my_business: string | null;
+        products_brief: string | null;
+        services_brief: string | null;
+        is_msme: boolean | null;
+        is_dpiit_startup: boolean | null;
+        created_at: string | null;
+      }>;
+      public_institution_profiles: ViewDefinition<{
+        id: string | null;
+        institution_name: string | null;
+        institution_type: string | null;
+        affiliation: string | null;
+        establishment_year: number | null;
+        website: string | null;
+        city: string | null;
+        district: string | null;
+        state: string | null;
+        trades_offered: string[] | null;
+        annual_capacity: number | null;
+        placement_brochure_url: string | null;
+        about: string | null;
+        cms_data: Record<string, unknown> | null;
+        created_at: string | null;
+      }>;
+      public_jobs: ViewDefinition<{
+        id: string | null;
+        employer_id: string | null;
+        title: string | null;
+        description: string | null;
+        category: string | null;
+        employment_type: string | null;
+        experience_level: string | null;
+        min_pay: number | null;
+        max_pay: number | null;
+        city: string | null;
+        district: string | null;
+        state: string | null;
+        openings: number | null;
+        skills: string[] | null;
+        expiry_date: string | null;
+        is_featured: boolean | null;
+        featured_until: string | null;
+        created_at: string | null;
+      }>;
+    };
+    Functions: {
+      anonymise_user: {
+        Args: { p_user_id: string };
+        Returns: Record<string, unknown>;
+      };
+      deduct_application_credit_with_ledger: {
+        Args: { p_applicant_id: string; p_job_id: string; p_job_title: string; p_cost?: number };
+        Returns: Record<string, unknown>;
+      };
+      get_district_employment_reports: {
+        Args: Record<PropertyKey, never>;
+        Returns: { district: string; onboarded_msmes: number; active_jobs: number; total_hires: number }[];
+      };
+      get_user_credit_balance: {
+        Args: { p_user_id: string };
+        Returns: { user_id: string; balance: number };
+      };
+      grant_starter_credits: {
+        Args: { p_user_id: string };
+        Returns: boolean;
+      };
+      increment_token_version: {
+        Args: { p_user_id: string };
+        Returns: { id: string; token_version: number }[];
+      };
+      promote_job_with_ledger: {
+        Args: { p_user_id: string; p_job_id: string; p_duration_days: number; p_cost: number };
+        Returns: PromoteJobRpcResult;
+      };
+      search_jobs: {
+        Args: {
+          p_keyword?: string | null;
+          p_city?: string | null;
+          p_category?: string | null;
+          p_min_pay?: number | null;
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: SearchJobsRpcResult[];
+      };
+      unlock_contact_with_ledger: {
+        Args: { p_employer_id: string; p_seeker_id: string; p_cost?: number };
+        Returns: Record<string, unknown>;
+      };
+    };
   };
 }
 
@@ -341,6 +502,17 @@ export type JobAlertRow = Database['public']['Tables']['job_alerts']['Row'];
 export type AlertDeliveryRow = Database['public']['Tables']['alert_deliveries']['Row'];
 export type CorporateTieUpRow = Database['public']['Tables']['corporate_tie_ups']['Row'];
 export type PlacementApplicationRow = Database['public']['Tables']['placement_applications']['Row'];
+
+export type BroadcastCampaignRow = Database['public']['Tables']['broadcast_campaigns']['Row'];
+export type BroadcastDeliveryRow = Database['public']['Tables']['broadcast_deliveries']['Row'];
+export type InvitationRow = Database['public']['Tables']['invitations']['Row'];
+export type LocationNodeRow = Database['public']['Tables']['location_nodes']['Row'];
+export type SearchLogRow = Database['public']['Tables']['search_logs']['Row'];
+export type TaskRow = Database['public']['Tables']['tasks']['Row'];
+
+export type PublicBusinessProfileRow = Database['public']['Views']['public_business_profiles']['Row'];
+export type PublicInstitutionProfileRow = Database['public']['Views']['public_institution_profiles']['Row'];
+export type PublicJobRow = Database['public']['Views']['public_jobs']['Row'];
 
 export interface PromoteJobRpcResult {
   success: boolean;
