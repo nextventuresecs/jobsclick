@@ -10,6 +10,7 @@ import {
   Inject,
   NotFoundException,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { ProfilesService } from './profiles.service.js';
 import { InstitutionCmsService } from './institution-cms.service.js';
@@ -140,6 +141,7 @@ export class ProfilesController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('institution/inquiries')
   async submitInstitutionInquiry(@Body() body: CreateInstitutionInquiryInput) {
     const validated = createInstitutionInquirySchema.parse(body);

@@ -10,6 +10,13 @@
     "test": "vitest run",
     "audit:migrations": "vitest run apps/worker/test/audit-migrations.spec.ts",
     "sync:migrations": "node scripts/sync-migrations.js",
+    "ci:check-migrations": "node --experimental-strip-types scripts/ci/check-migration-sync.ts",
+    "db:bootstrap:staging": "node --experimental-strip-types scripts/bootstrap-staging-db.ts",
+    "db:bootstrap:drill": "node --experimental-strip-types scripts/drill-fresh-database.ts",
+    "db:catalog:check": "node --experimental-strip-types scripts/db-catalog-check.ts",
+    "db:security:drill": "node --experimental-strip-types scripts/db-security-drill.ts",
+    "db:smoke:postgrest": "node --experimental-strip-types scripts/smoke-postgrest.ts",
+    "db:generate-types": "node scripts/generate-types.js",
     "typecheck": "pnpm --filter @indian-job-portal/database --filter @indian-job-portal/validation run build && pnpm --recursive run typecheck"
   },
   "devDependencies": {

@@ -4,8 +4,18 @@ import { OtpRedisService } from '../src/auth/otp-redis.service.js';
 describe('OtpRedisService (Phase 1: Redis Infrastructure & Atomic State)', () => {
   let service: OtpRedisService;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     service = new OtpRedisService();
+    await service.waitForReady();
+    const today = new Date().toISOString().split('T')[0];
+    const client = (service as unknown as { client: { del: (...keys: string[]) => Promise<unknown> } }).client;
+    await client.del(
+      'auth:otp:9876543210', 'auth:lockout:9876543210', 'auth:attempts:9876543210',
+      'auth:cooldown:9876543211', 'auth:daily:9876543211',
+      'auth:cooldown:9876543299', 'auth:daily:9876543299',
+      'auth:ip_rate:192.168.1.100',
+      `spend:sms:daily:${today}`,
+    );
   });
 
   afterEach(async () => {

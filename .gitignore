@@ -13,6 +13,8 @@ coverage/
 # Environment
 .env
 .env.local
+.env.staging
+.env.staging.local
 .env.development.local
 .env.test.local
 .env.production.local
@@ -33,4 +35,12 @@ supabase/.temp/
 
 # Scratch & temporary
 .scratch/
+*.rdb
+dump.rdb
+
 scratch/
+*.rdb
+dump.rdb
+
+
+supabase/.branches/

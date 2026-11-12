@@ -1,5 +1,7 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
+export type AuthenticatedUser = AuthUser;
+
 export interface AuthUser {
   id: string;
   role: 'employer' | 'intermediary' | 'job_seeker' | 'admin' | 'msme_admin';

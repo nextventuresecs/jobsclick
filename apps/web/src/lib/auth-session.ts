@@ -1,11 +1,12 @@
 import type { ClientRole } from '@indian-job-portal/validation';
 import { isClientRole, isUserRole, toClientRole } from '@indian-job-portal/validation';
+import { isStrictEnv } from '../config/env.js';
 
 export const AUTH_COOKIE_NAME = 'auth_token';
 
 export const AUTH_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env['NODE_ENV'] === 'production',
+  secure: isStrictEnv(),
   sameSite: 'lax' as const,
   path: '/',
   maxAge: 30 * 24 * 60 * 60, // 30 days
@@ -28,11 +29,11 @@ export interface VerifiedSession {
 }
 
 function getJwtSecret(): string {
-  return (
-    process.env['JWT_SECRET'] ||
-    process.env['SUPABASE_SECRET_KEY'] ||
-    'jobsclick-jwt-secret-key-32-chars-min'
-  );
+  const secret = process.env['JWT_SECRET'];
+  if (!secret || secret.trim().length < 32) {
+    throw new Error('JWT_SECRET must be set and at least 32 characters in all environments');
+  }
+  return secret.trim();
 }
 
 function bufferToBase64Url(buffer: ArrayBuffer | Uint8Array): string {

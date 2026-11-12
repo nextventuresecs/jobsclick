@@ -66,10 +66,12 @@ export class BroadcastProcessor {
         this.redis = new (IORedisMock as unknown as typeof IORedis)() as IORedis;
       } else if (redisUrl) {
         try {
+          const isTls = redisUrl.startsWith("rediss://");
           this.redis = new IORedis(redisUrl, {
             maxRetriesPerRequest: null,
             enableReadyCheck: false,
             lazyConnect: true,
+            tls: isTls ? {} : undefined,
           });
         } catch (err) {
           console.warn('[BroadcastProcessor] Failed initializing Redis connection, falling back to memory/DB dedupe:', err);
