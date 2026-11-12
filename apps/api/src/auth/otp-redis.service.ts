@@ -1,7 +1,6 @@
 import crypto from 'node:crypto';
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger, ServiceUnavailableException } from '@nestjs/common';
 import IORedis from 'ioredis';
-import IORedisMock from 'ioredis-mock';
 import { maskPhone } from '../common/mask.js';
 import { normalizeIp } from '../common/ip-normalizer.js';
 
@@ -186,14 +185,9 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
   }
   private readonly logger = new Logger(OtpRedisService.name);
   public readonly client: IORedis;
-  private readonly isMock: boolean;
   private readonly pepper: string;
 
-    constructor(customClient?: IORedis) {
-    this.isMock =
-      process.env['USE_MOCK_REDIS'] === '1' ||
-      process.env['USE_MOCK_REDIS'] === 'true';
-
+  constructor(customClient?: IORedis) {
     const pepper = process.env['OTP_PEPPER'];
     if (!pepper || pepper.trim().length < 32) {
       throw new Error('OTP_PEPPER environment variable must be set (min 32 chars)');
@@ -207,8 +201,6 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
 
     if (customClient) {
       this.client = customClient;
-    } else if (this.isMock) {
-      this.client = new IORedisMock() as unknown as IORedis;
     } else {
       const isTls = redisUrl.startsWith('rediss://');
       this.client = new IORedis(redisUrl, {
@@ -281,7 +273,7 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   async waitForReady(timeoutMs = 5000): Promise<void> {
-    if (this.isMock || this.client.status === 'ready') {
+    if (this.client.status === 'ready' || !this.client.status) {
       return;
     }
     return new Promise<void>((resolve, reject) => {

@@ -26,8 +26,7 @@ const nextConfig = {
       '',
     NEXT_PUBLIC_API_URL:
       process.env.NEXT_PUBLIC_API_URL ||
-      process.env.API_URL ||
-      'http://localhost:3001',
+      (process.env.NODE_ENV !== 'production' ? process.env.API_URL || 'http://localhost:3001' : ''),
     NEXT_PUBLIC_TURNSTILE_SITE_KEY:
       process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ||
       '',

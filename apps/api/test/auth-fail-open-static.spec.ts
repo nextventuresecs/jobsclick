@@ -63,4 +63,29 @@ describe('Spec 0: Static Security Scan (No Escape Hatches in Source)', () => {
     expect(content).not.toContain('?? new JwtService()');
     expect(content).not.toContain('?? new RateLimitService(');
   });
+
+  it('contains zero occurrences of USE_MOCK_REDIS, isMock, VITEST, USE_JSON_STORE, or test-mode branches in apps/api/src/auth/', () => {
+    const authFiles = fs.readdirSync(apiAuthDir).filter((f) => f.endsWith('.ts'));
+    const forbiddenPatterns = [
+      /USE_MOCK_REDIS/,
+      /\bisMock\b/,
+      /\bVITEST\b/,
+      /USE_JSON_STORE/,
+      /isTestMode/,
+      /mock-mode/i,
+      /test-mode/i,
+    ];
+
+    const violations: string[] = [];
+    for (const file of authFiles) {
+      const content = fs.readFileSync(path.join(apiAuthDir, file), 'utf8');
+      for (const pattern of forbiddenPatterns) {
+        if (pattern.test(content)) {
+          violations.push(`File ${file} matches forbidden token/branch: ${pattern}`);
+        }
+      }
+    }
+
+    expect(violations).toEqual([]);
+  });
 });

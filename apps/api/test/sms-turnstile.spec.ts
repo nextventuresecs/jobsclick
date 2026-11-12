@@ -81,6 +81,11 @@ describe('Ticket T-06: MSG91 SMS Service & Turnstile Bot Challenge', () => {
     }));
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
   describe('Msg91SmsGateway & DLT Template Routing', () => {
     it('routes English OTP requests to DLT_1001_OTP_EN template', async () => {
       expect(DLT_SMS_TEMPLATES['OTP_EN']?.templateId).toBe('1277179301139811147');

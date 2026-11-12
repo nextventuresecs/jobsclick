@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ServiceUnavailableException, Logger } from '@nestjs/common';
 import { AuthService } from '../src/auth/auth.service.js';
 import { TurnstileVerifier, CloudflareTurnstileVerifier } from '../src/auth/turnstile.service.js';
 import { SmsGateway, Msg91SmsGateway } from '../src/auth/sms.service.js';
@@ -65,6 +65,7 @@ describe('Spec 0: Fail-Open Auth Behaviour (No DI Overrides)', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('rejects sendOtp when Turnstile token is missing even in NODE_ENV=test', async () => {
@@ -98,10 +99,11 @@ describe('Spec 0: Fail-Open Auth Behaviour (No DI Overrides)', () => {
         return new Response(JSON.stringify({ success: true }), { status: 200 });
       }
       if (String(url).includes('msg91')) {
-        return new Response(JSON.stringify({ message: 'Authentication failure' }), { status: 401 });
+        return new Response(JSON.stringify({ message: 'Downstream gateway timeout' }), { status: 504, statusText: 'Gateway Timeout' });
       }
       return new Response('{}', { status: 200 });
     });
+    const loggerSpy = vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
 
     await expect(
       authService.sendOtp({
@@ -109,5 +111,7 @@ describe('Spec 0: Fail-Open Auth Behaviour (No DI Overrides)', () => {
         turnstileToken: 'valid-turnstile-token',
       }),
     ).rejects.toThrowError(ServiceUnavailableException);
+
+    expect(loggerSpy).toHaveBeenCalled();
   });
 });

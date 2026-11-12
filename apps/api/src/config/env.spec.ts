@@ -27,8 +27,17 @@ const VALID_PROD: Record<string, string> = {
   QSTASH_TOKEN: 'qst_real_token',
   QSTASH_CURRENT_SIGNING_KEY: 'sig_real_key',
   API_URL: 'https://api.example.com',
+  WEB_URL: 'https://jobsclick.live',
   ALLOW_TEST_PAYMENTS: 'true',
   TRUSTED_PROXY_CIDRS: '127.0.0.1/32,10.0.0.0/8',
+};
+
+/** Shared base environment with universal secrets required in all environments (Spec 0). */
+const BASE_ENV: Record<string, string> = {
+  OTP_PEPPER: 'test-otp-pepper-min-32-characters-long!',
+  TURNSTILE_SECRET_KEY: 'test-turnstile-secret',
+  MSG91_AUTH_KEY: 'test-msg91-auth-key',
+  WEB_URL: 'https://jobsclick.live',
 };
 
 describe('validateEnv() – production/staging safety guards', () => {
@@ -372,11 +381,11 @@ describe('validateEnv() – production/staging safety guards', () => {
 
 describe('validateEnv() – test-mode local host gate', () => {
   const BASE_TEST = {
+    ...BASE_ENV,
     NODE_ENV: 'test',
     DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/test_db',
     REDIS_URL: 'redis://localhost:6379',
     SUPABASE_URL: 'http://localhost:54321',
-
   };
 
   it('accepts local hosts: localhost, 127.0.0.1, ::1, host.docker.internal', () => {
@@ -581,6 +590,7 @@ import { Reflector } from '@nestjs/core';
 
 describe('OTP limits bounded coerced integers & isStrictEnv', () => {
   const baseDev = {
+    ...BASE_ENV,
     NODE_ENV: 'development',
   };
 
@@ -682,13 +692,11 @@ describe('JwtAuthGuard & OtpRedisService safety guards', () => {
     }
   });
 
-  it('OtpRedisService generates random per-process pepper in test/dev when OTP_PEPPER is missing', () => {
+  it('OtpRedisService throws when OTP_PEPPER is missing in test/dev', () => {
     const origPepper = process.env['OTP_PEPPER'];
     try {
       delete process.env['OTP_PEPPER'];
-      const svc = new OtpRedisService();
-      expect((svc as unknown as { pepper: string }).pepper).toBeDefined();
-      expect((svc as unknown as { pepper: string }).pepper.length).toBeGreaterThanOrEqual(32);
+      expect(() => new OtpRedisService()).toThrowError(/OTP_PEPPER/);
     } finally {
       process.env['OTP_PEPPER'] = origPepper;
     }
@@ -699,6 +707,7 @@ describe('JwtAuthGuard & OtpRedisService safety guards', () => {
 describe('safeBoolean feature flag parsing', () => {
   it('parses valid boolean representations (true, false, 1, 0, empty string, undefined)', () => {
     const env = validateEnv({
+      ...BASE_ENV,
       NODE_ENV: 'development',
       ENABLE_P2_PAYMENTS: 'true',
       ENABLE_P2_WALLET_RECHARGE: '1',
@@ -722,6 +731,7 @@ describe('safeBoolean feature flag parsing', () => {
     for (const badVal of invalidValues) {
       expect(() =>
         validateEnv({
+          ...BASE_ENV,
           NODE_ENV: 'development',
           ENABLE_P2_PAYMENTS: badVal,
         }),

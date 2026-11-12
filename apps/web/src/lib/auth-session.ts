@@ -1,11 +1,12 @@
 import type { ClientRole } from '@indian-job-portal/validation';
 import { isClientRole, isUserRole, toClientRole } from '@indian-job-portal/validation';
+import { isStrictEnv } from '../config/env.js';
 
 export const AUTH_COOKIE_NAME = 'auth_token';
 
 export const AUTH_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env['NODE_ENV'] === 'production',
+  secure: isStrictEnv(),
   sameSite: 'lax' as const,
   path: '/',
   maxAge: 30 * 24 * 60 * 60, // 30 days
