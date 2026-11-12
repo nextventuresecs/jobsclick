@@ -1,7 +1,9 @@
+import crypto from 'node:crypto';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
+import { OtpGenerator } from '../src/auth/otp-generator.service.js';
 import { WalletService } from '../src/wallet/wallet.service.js';
 import { PaymentService } from '../src/wallet/payment.service.js';
 import { CreditLedgerRepository } from '../src/database/repositories/credit-ledger.repository.js';
@@ -22,7 +24,10 @@ describe('Concurrency & Security Verification Suite (Ticket T-16/T-17 Hardening)
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideProvider(OtpGenerator)
+      .useValue({ generate: () => '123456' })
+      .compile();
 
     app = moduleFixture.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
     await app.init();
@@ -32,28 +37,42 @@ describe('Concurrency & Security Verification Suite (Ticket T-16/T-17 Hardening)
     paymentService = app.get(PaymentService);
     ledgerRepo = app.get(CreditLedgerRepository);
 
-    // Setup Auth Users
-    const authA = await app.inject({
-      method: 'POST',
-      url: '/auth/verify-otp',
-      payload: { phone: '+919111122222', code: '123456', role: 'intermediary' },
-    });
-    const authDataA = authA.json();
-    jwtTokenInstitutionA = authDataA.accessToken;
-    institutionAId = authDataA.user.id;
-
-    const authB = await app.inject({
-      method: 'POST',
-      url: '/auth/verify-otp',
-      payload: { phone: '+919333344444', code: '123456', role: 'intermediary' },
-    });
-    const authDataB = authB.json();
-    jwtTokenInstitutionB = authDataB.accessToken;
-
+    // Setup Auth Users (Pre-seed elevated roles; self-signup is strictly job_seeker/employer)
     const userRepo = app.get(UserRepository);
+    const phoneA = '98' + Math.floor(10000000 + Math.random() * 90000000);
+    const phoneB = '98' + Math.floor(10000000 + Math.random() * 90000000);
+    const phoneAdmin = '98' + Math.floor(10000000 + Math.random() * 90000000);
+    const idA = crypto.randomUUID();
+    const idB = crypto.randomUUID();
+    const idAdmin = crypto.randomUUID();
+
     await userRepo.save({
-      id: 'usr_+919999900000',
-      phone: '+919999900000',
+      id: idA,
+      phone: phoneA,
+      email: null,
+      role: 'intermediary',
+      status: 'active',
+      source: 'seed',
+      created_by: null,
+      updated_by: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    await userRepo.save({
+      id: idB,
+      phone: phoneB,
+      email: null,
+      role: 'intermediary',
+      status: 'active',
+      source: 'seed',
+      created_by: null,
+      updated_by: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    await userRepo.save({
+      id: idAdmin,
+      phone: phoneAdmin,
       email: null,
       role: 'admin',
       status: 'active',
@@ -64,10 +83,42 @@ describe('Concurrency & Security Verification Suite (Ticket T-16/T-17 Hardening)
       updated_at: new Date().toISOString(),
     });
 
+    await app.inject({
+      method: 'POST',
+      url: '/auth/send-otp',
+      payload: { phone: phoneA },
+    });
+    const authA = await app.inject({
+      method: 'POST',
+      url: '/auth/verify-otp',
+      payload: { phone: phoneA, code: '123456' },
+    });
+    const authDataA = authA.json();
+    jwtTokenInstitutionA = authDataA.accessToken;
+    institutionAId = authDataA.user.id;
+
+    await app.inject({
+      method: 'POST',
+      url: '/auth/send-otp',
+      payload: { phone: phoneB },
+    });
+    const authB = await app.inject({
+      method: 'POST',
+      url: '/auth/verify-otp',
+      payload: { phone: phoneB, code: '123456' },
+    });
+    const authDataB = authB.json();
+    jwtTokenInstitutionB = authDataB.accessToken;
+
+    await app.inject({
+      method: 'POST',
+      url: '/auth/send-otp',
+      payload: { phone: phoneAdmin },
+    });
     const authAdmin = await app.inject({
       method: 'POST',
       url: '/auth/verify-otp',
-      payload: { phone: '+919999900000', code: '123456', role: 'admin' },
+      payload: { phone: phoneAdmin, code: '123456' },
     });
     const authDataAdmin = authAdmin.json();
     jwtTokenAdmin = authDataAdmin.accessToken;
@@ -79,11 +130,25 @@ describe('Concurrency & Security Verification Suite (Ticket T-16/T-17 Hardening)
 
   describe('D.1 Concurrency Integration Test: TOCTOU Ledger Overdrafts', () => {
     it('spawns 30 concurrent deduction requests against exactly 1 credit; asserts exactly 1 succeeds and 29 fail with INSUFFICIENT_CREDITS', async () => {
-      const candidateId = `cand_stress_${Date.now()}`;
+      const candidateId = crypto.randomUUID();
+      const candPhone = '98' + Math.floor(10000000 + Math.random() * 90000000);
+      const userRepo = app.get(UserRepository);
+      await userRepo.save({
+        id: candidateId,
+        phone: candPhone,
+        email: null,
+        role: 'job_seeker',
+        status: 'active',
+        source: 'seed',
+        created_by: null,
+        updated_by: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
       
       // Ensure candidate has exactly 1 credit
       await ledgerRepo.append({
-        id: `cld_init_${Date.now()}`,
+        id: crypto.randomUUID(),
         user_id: candidateId,
         amount: 1,
         reason: 'Initial 1 credit grant for concurrency stress test',
@@ -128,7 +193,21 @@ describe('Concurrency & Security Verification Suite (Ticket T-16/T-17 Hardening)
 
   describe('D.2 Webhook Idempotency & Single-Winner Status Transition', () => {
     it('fires 10 concurrent identical payment.captured webhooks; asserts single credit grant and 0 duplicates', async () => {
-      const userId = `emp_webhook_${Date.now()}`;
+      const userId = crypto.randomUUID();
+      const empPhone = '98' + Math.floor(10000000 + Math.random() * 90000000);
+      const userRepo = app.get(UserRepository);
+      await userRepo.save({
+        id: userId,
+        phone: empPhone,
+        email: null,
+        role: 'employer',
+        status: 'active',
+        source: 'seed',
+        created_by: null,
+        updated_by: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
       const pack = CREDIT_PACKS['pack_starter']; // 50 credits, ₹590
       expect(pack).toBeDefined();
 

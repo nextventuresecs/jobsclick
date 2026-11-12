@@ -28,11 +28,11 @@ export interface VerifiedSession {
 }
 
 function getJwtSecret(): string {
-  return (
-    process.env['JWT_SECRET'] ||
-    process.env['SUPABASE_SECRET_KEY'] ||
-    'jobsclick-jwt-secret-key-32-chars-min'
-  );
+  const secret = process.env['JWT_SECRET'];
+  if (!secret || secret.trim().length < 32) {
+    throw new Error('JWT_SECRET must be set and at least 32 characters in all environments');
+  }
+  return secret.trim();
 }
 
 function bufferToBase64Url(buffer: ArrayBuffer | Uint8Array): string {

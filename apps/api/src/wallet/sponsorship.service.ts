@@ -281,7 +281,6 @@ export class SponsorshipService {
           institution_type: 'college',
           affiliation: 'NCVT',
           contact_person: 'Placement Officer',
-          contact_phone: '+919876543210',
           contact_email: 'placement@institution.edu.in',
           address: 'Campus Road, Knowledge Park',
           city: 'New Delhi',

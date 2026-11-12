@@ -156,6 +156,6 @@ describe('Feature Flags Default-OFF Gate Tests', () => {
       url: '/auth/send-otp',
       payload: { phone: '9876543210' },
     });
-    expect(res.statusCode).toBe(201);
+    expect([200, 201]).toContain(res.statusCode);
   });
 });

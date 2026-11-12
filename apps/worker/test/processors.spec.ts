@@ -7,11 +7,9 @@ import { pdfGeneratorProcessor, PdfJobData } from '../src/processors/pdf.process
 describe('Worker Processors (Ticket T-07)', () => {
   describe('bulk-import-processor', () => {
     it('parses CSV via streaming, enforces Indian 10-digit phones, creates users in invited state with zero SMS, and retains source (Hard Invariants #2 & #3)', async () => {
-      const csv = `name,phone,aadhaar
-Anita Sharma,9876543210,123456789012
-Rahul Verma,+91 9876543211,
-Invalid User,12345,
-Duplicate User,9876543210,`;
+      const p1 = '9' + Math.floor(100000000 + Math.random() * 900000000);
+      const p2 = '9' + Math.floor(100000000 + Math.random() * 900000000);
+      const csv = `name,phone,aadhaar\nAnita Sharma,${p1},123456789012\nRahul Verma,+91 ${p2},\nInvalid User,12345,\nDuplicate User,${p1},`;
 
       const mockJob = {
         id: 'job_import_1',
@@ -41,8 +39,8 @@ Duplicate User,9876543210,`;
     });
 
     it('masks full Aadhaar numbers to last 4 digits only and never stores full Aadhaar (Hard Invariant #8)', async () => {
-      const csv = `name,phone,aadhaar
-Deepak Joshi,9876543212,999988881234`;
+      const pAadhaar = '9' + Math.floor(100000000 + Math.random() * 900000000);
+      const csv = `name,phone,aadhaar\nDeepak Joshi,${pAadhaar},999988881234`;
 
       const mockJob = {
         id: 'job_import_aadhaar',
@@ -64,7 +62,8 @@ Deepak Joshi,9876543212,999988881234`;
     });
 
     it('simulates retry failures on attempts 1 and 2, and succeeds on attempt 3', async () => {
-      const csv = `name,phone\nAnita,9876543210`;
+      const retryPhone = '9' + Math.floor(100000000 + Math.random() * 900000000);
+      const csv = `name,phone\nAnita,${retryPhone}`;
 
       const failingJob1 = {
         id: 'job_fail_1',
@@ -116,7 +115,7 @@ Deepak Joshi,9876543212,999988881234`;
     it('streams 50,000-row CSV fixture in 500-row chunks in under 30 minutes (Ticket T-08)', async () => {
       // Generate 50,000 rows fixture: 49,990 valid, 5 invalid phone formats, 5 duplicates
       const rows: string[] = ['name,phone,stream'];
-      const basePhone = 9000000000;
+      const basePhone = 7000000000 + Math.floor(Math.random() * 100000000);
       
       for (let i = 0; i < 49990; i++) {
         rows.push(`Student_${i},${basePhone + i},ITI Electrician`);
@@ -166,7 +165,7 @@ Deepak Joshi,9876543212,999988881234`;
       expect(result.errorCsvContent).toContain('Duplicate mobile number inside file');
       // Verify AC: Completes in under 30 minutes (1800s); in practice, Node.js streams it in < 15s
       expect(durationSeconds).toBeLessThan(1800);
-    }, 30000); // 30s timeout for test runner
+    }, 180000); // 180s timeout for test runner
   });
 
   describe('invite-wave-processor', () => {

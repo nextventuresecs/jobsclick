@@ -6,6 +6,7 @@ import {
   UnprocessableEntityException,
   InternalServerErrorException,
   Inject,
+  Logger,
 } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
@@ -63,6 +64,7 @@ export interface BroadcastCampaignEntity {
 
 @Injectable()
 export class BroadcastService {
+  private readonly logger = new Logger(BroadcastService.name);
   private persistentStore = PersistentDatabaseStore.getInstance();
   private activeDispatchLocks = new Set<string>();
   private usedConfirmationTokens = new Set<string>();
@@ -277,15 +279,14 @@ export class BroadcastService {
             phone = user.phone.trim();
           }
         }
-        if (!phone && this.isTestMode) {
-          phone = '9876543210';
-        }
         if (phone) {
           recipientList.push({
             businessProfileId: biz.id,
             phone,
             idempotencyKey: `broadcast_${campaignId}_${biz.id}`,
           });
+        } else {
+          this.logger.warn(`Skipping broadcast recipient biz:${biz.id}: missing valid phone number`);
         }
       }
 

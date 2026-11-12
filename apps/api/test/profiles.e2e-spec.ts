@@ -2,9 +2,14 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
+import { USER_REPOSITORY, IUserRepository } from '../src/database/repositories/user.repository.js';
+import type { UserRow } from '@indian-job-portal/database';
 
 describe('ProfilesController (e2e) - Issues #9, #10, #11', () => {
   let app: NestFastifyApplication;
+  let seekerUser: UserRow;
+  let businessUser: UserRow;
+  let instUser: UserRow;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -17,6 +22,12 @@ describe('ProfilesController (e2e) - Issues #9, #10, #11', () => {
 
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
+
+    const userRepo = app.get<IUserRepository>(USER_REPOSITORY);
+    const ts = Date.now().toString().slice(-6);
+    seekerUser = await userRepo.create({ phone: `91${ts}01`, role: 'job_seeker' });
+    businessUser = await userRepo.create({ phone: `91${ts}02`, role: 'employer' });
+    instUser = await userRepo.create({ phone: `91${ts}03`, role: 'intermediary' });
   });
 
   afterAll(async () => {
@@ -28,7 +39,7 @@ describe('ProfilesController (e2e) - Issues #9, #10, #11', () => {
     const updateRes = await app.inject({
       method: 'PUT',
       url: '/profiles/seeker/me',
-      headers: { 'x-user-id': 'usr_seeker_77' },
+      headers: { 'x-user-id': seekerUser.id, 'x-user-role': 'job_seeker' },
       payload: {
         fullName: 'Anita Sharma',
         seekerType: 'student',
@@ -44,6 +55,8 @@ describe('ProfilesController (e2e) - Issues #9, #10, #11', () => {
     const updated = JSON.parse(updateRes.payload);
     expect(updated.completenessScore).toBeGreaterThanOrEqual(60);
     expect(updated.id).toBeDefined();
+    expect(updated.phone).toBe(seekerUser.phone);
+    expect(updated.phone).not.toBe('9876543210');
 
     // 2. Public / Employer view of candidate profile
     const publicRes = await app.inject({
@@ -65,7 +78,7 @@ describe('ProfilesController (e2e) - Issues #9, #10, #11', () => {
     const updateRes = await app.inject({
       method: 'PUT',
       url: '/profiles/business/me',
-      headers: { 'x-user-id': 'usr_bus_88' },
+      headers: { 'x-user-id': businessUser.id, 'x-user-role': 'employer' },
       payload: {
         companyName: 'Ujjain Garments MSME',
         ownershipType: 'Proprietorship',
@@ -94,7 +107,7 @@ describe('ProfilesController (e2e) - Issues #9, #10, #11', () => {
     const updateRes = await app.inject({
       method: 'PUT',
       url: '/profiles/institution/me',
-      headers: { 'x-user-id': 'usr_inst_99' },
+      headers: { 'x-user-id': instUser.id, 'x-user-role': 'intermediary' },
       payload: {
         institutionName: 'MP Engineering College',
         affiliation: 'RGPV Bhopal',
@@ -113,7 +126,7 @@ describe('ProfilesController (e2e) - Issues #9, #10, #11', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/profiles/institution/students',
-      headers: { 'x-user-id': 'usr_inst_99' },
+      headers: { 'x-user-id': instUser.id, 'x-user-role': 'intermediary' },
     });
 
     expect(res.statusCode).toBe(200);
@@ -124,9 +137,55 @@ describe('ProfilesController (e2e) - Issues #9, #10, #11', () => {
     const forbiddenRes = await app.inject({
       method: 'GET',
       url: '/profiles/institution/students',
-      headers: { 'x-user-id': 'usr_seeker_77' },
+      headers: { 'x-user-id': seekerUser.id, 'x-user-role': 'job_seeker' },
     });
 
     expect(forbiddenRes.statusCode).toBe(403);
+  });
+
+  it('returns 404 and no fabricated fallbacks for non-existent profiles', async () => {
+    const nonExistentId = '00000000-0000-0000-0000-000000000000';
+
+    const seekerMeRes = await app.inject({
+      method: 'GET',
+      url: '/profiles/seeker/me',
+      headers: { 'x-user-id': nonExistentId, 'x-user-role': 'job_seeker' },
+    });
+    expect(seekerMeRes.statusCode).toBe(404);
+
+    const seekerUpdateRes = await app.inject({
+      method: 'PUT',
+      url: '/profiles/seeker/me',
+      headers: { 'x-user-id': nonExistentId, 'x-user-role': 'job_seeker' },
+      payload: {
+        fullName: 'Unknown Person',
+        seekerType: 'individual',
+        dpdpConsentGiven: true,
+        skills: ['Tally'],
+        preferredCategories: ['white'],
+        city: 'Indore',
+      },
+    });
+    expect(seekerUpdateRes.statusCode).toBe(404);
+
+    const busMeRes = await app.inject({
+      method: 'GET',
+      url: '/profiles/business/me',
+      headers: { 'x-user-id': nonExistentId, 'x-user-role': 'employer' },
+    });
+    expect(busMeRes.statusCode).toBe(404);
+
+    const busPublicRes = await app.inject({
+      method: 'GET',
+      url: `/profiles/business/${nonExistentId}`,
+    });
+    expect(busPublicRes.statusCode).toBe(404);
+
+    const instMeRes = await app.inject({
+      method: 'GET',
+      url: '/profiles/institution/me',
+      headers: { 'x-user-id': nonExistentId, 'x-user-role': 'intermediary' },
+    });
+    expect(instMeRes.statusCode).toBe(404);
   });
 });

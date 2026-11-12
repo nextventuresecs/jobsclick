@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -26,9 +27,11 @@ describe('AdminController (e2e) - Epic 5 (Issues #21, #22, #23, #24)', () => {
 
   it('PUT /admin/users/:id/status - updates user account status and verifies persistence in UserRepository (Issue #21)', async () => {
     const userRepo = app.get(UserRepository);
+    const seekerId = crypto.randomUUID();
+    const seekerPhone = '98' + Math.floor(10000000 + Math.random() * 90000000);
     await userRepo.save({
-      id: 'usr_seeker_100',
-      phone: '9876543210',
+      id: seekerId,
+      phone: seekerPhone,
       email: null,
       role: 'job_seeker',
       status: 'active',
@@ -41,7 +44,7 @@ describe('AdminController (e2e) - Epic 5 (Issues #21, #22, #23, #24)', () => {
 
     const res = await app.inject({
       method: 'PUT',
-      url: '/admin/users/usr_seeker_100/status',
+      url: `/admin/users/${seekerId}/status`,
       headers: { 'x-user-id': 'admin_root' },
       payload: { status: 'disabled' },
     });
@@ -51,7 +54,7 @@ describe('AdminController (e2e) - Epic 5 (Issues #21, #22, #23, #24)', () => {
     expect(body.status).toBe('disabled');
 
     // Assert database persistence
-    const updated = await userRepo.findById('usr_seeker_100');
+    const updated = await userRepo.findById(seekerId);
     expect(updated?.status).toBe('disabled');
   });
 

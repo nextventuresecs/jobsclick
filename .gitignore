@@ -33,4 +33,12 @@ supabase/.temp/
 
 # Scratch & temporary
 .scratch/
+*.rdb
+dump.rdb
+
 scratch/
+*.rdb
+dump.rdb
+
+
+supabase/.branches/
