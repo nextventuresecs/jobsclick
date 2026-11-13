@@ -6,6 +6,7 @@ import {
   SAMPLE_INSTITUTIONS,
   InstitutionProfileData,
 } from '../../data/sampleWorkspaces';
+import { safeJsonLd } from '../../lib/safe-json-ld';
 import {
   Search,
   MapPin,
@@ -155,7 +156,7 @@ export default async function InstitutionsDirectoryPage({
       {/* Structured SEO Schema */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
       />
 
       {/* Hero Header */}
