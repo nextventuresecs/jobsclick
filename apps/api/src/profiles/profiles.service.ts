@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import {
   JobSeekerProfileInput,
   BusinessProfileInput,
@@ -51,24 +52,14 @@ export class ProfilesService {
   }
 
   async getSeekerProfileMe(userId: string): Promise<SeekerProfileRecord> {
-    const profile = await this.profileRepository.findSeekerProfileByUserId(userId);
     const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
 
+    const profile = await this.profileRepository.findSeekerProfileByUserId(userId);
     if (!profile) {
-      return {
-        id: `seeker_${userId}`,
-        userId,
-        phone: user?.phone || '9876543210',
-        email: user?.email || null,
-        fullName: 'New Job Seeker',
-        photoUrl: '',
-        seekerType: 'individual',
-        dpdpConsentGiven: false,
-        skills: [],
-        preferredCategories: ['white'],
-        city: 'Indore',
-        completenessScore: 40,
-      };
+      throw new NotFoundException('Job seeker profile not found');
     }
 
     const completenessScore = this.calculateCompleteness({
@@ -86,8 +77,8 @@ export class ProfilesService {
     return {
       id: profile.id,
       userId: profile.user_id,
-      phone: user?.phone || '9876543210',
-      email: user?.email || null,
+      phone: user.phone,
+      email: user.email || null,
       fullName: profile.full_name,
       photoUrl: profile.photo_url || '',
       seekerType: profile.seeker_type as 'student' | 'individual',
@@ -114,6 +105,11 @@ export class ProfilesService {
   }
 
   async updateSeekerProfileMe(userId: string, input: JobSeekerProfileInput): Promise<SeekerProfileRecord> {
+    const user = await this.userRepository.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
     const completenessScore = this.calculateCompleteness(input);
     const existing = await this.profileRepository.findSeekerProfileByUserId(userId);
     const now = new Date().toISOString();
@@ -154,13 +150,12 @@ export class ProfilesService {
     };
 
     await this.profileRepository.saveSeekerProfile(row);
-    const user = await this.userRepository.findById(userId);
 
     return {
       id,
       userId,
-      phone: user?.phone || '9876543210',
-      email: user?.email || null,
+      phone: user.phone,
+      email: user.email || null,
       ...input,
       completenessScore,
     };
@@ -192,18 +187,7 @@ export class ProfilesService {
   async getBusinessProfileMe(userId: string): Promise<BusinessProfileRecord> {
     const profile = await this.profileRepository.findBusinessProfileByUserId(userId);
     if (!profile) {
-      return {
-        id: `bus_${userId}`,
-        userId,
-        companyName: 'Sample Business Enterprise',
-        ownershipType: 'Private Limited',
-        companySize: 'Micro',
-        sector: 'Services',
-        address: '10 Main Road',
-        city: 'Indore',
-        district: 'Indore',
-        logoUrl: '',
-      };
+      throw new NotFoundException('Business profile not found');
     }
     return {
       id: profile.id,
@@ -225,7 +209,7 @@ export class ProfilesService {
 
   async updateBusinessProfileMe(userId: string, input: BusinessProfileInput): Promise<BusinessProfileRecord> {
     const existing = await this.profileRepository.findBusinessProfileByUserId(userId);
-    const id = existing?.id || `bus_${userId}`;
+    const id = existing?.id || randomUUID();
     const now = new Date().toISOString();
 
     const row: BusinessProfileRow = {
@@ -262,18 +246,7 @@ export class ProfilesService {
   async getBusinessProfilePublic(businessId: string): Promise<BusinessProfileRecord> {
     const profile = await this.profileRepository.findBusinessProfileById(businessId);
     if (!profile) {
-      return {
-        id: businessId,
-        userId: 'usr_business_owner',
-        companyName: 'MP MSME Enterprise',
-        ownershipType: 'Proprietorship',
-        companySize: 'Micro',
-        sector: 'Manufacturing',
-        address: 'Sector C, Industrial Area',
-        city: 'Indore',
-        district: 'Indore',
-        logoUrl: '',
-      };
+      throw new NotFoundException('Business profile not found');
     }
     return {
       id: profile.id,
@@ -312,7 +285,7 @@ export class ProfilesService {
 
   async getInstitutionStudents(userId: string): Promise<JobSeekerProfileRow[]> {
     const institution = await this.profileRepository.findInstitutionProfileByUserId(userId);
-    const instId = institution?.id || `inst_${userId}`;
+    const instId = institution?.id || randomUUID();
     const instName = institution?.institution_name || '';
 
     const students = await this.profileRepository.findStudentsByInstitution(instId);
@@ -326,15 +299,7 @@ export class ProfilesService {
   async getInstitutionProfileMe(userId: string): Promise<InstitutionProfileRecord> {
     const profile = await this.profileRepository.findInstitutionProfileByUserId(userId);
     if (!profile) {
-      return {
-        id: `inst_${userId}`,
-        userId,
-        institutionName: 'State Institute of Technology',
-        institutionType: 'iti',
-        affiliation: 'State Board',
-        address: 'Campus Grounds',
-        contactPerson: 'Placement Head',
-      };
+      throw new NotFoundException('Institution profile not found');
     }
     return {
       id: profile.id,

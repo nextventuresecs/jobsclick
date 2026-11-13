@@ -3,6 +3,7 @@
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@indian-job-portal/ui';
+import { safeHttpUrl } from '../../../lib/safe-url';
 import type { CompanyItem } from '../../../data/sampleCompanies';
 import { Edit3, CheckCircle2, Award } from 'lucide-react';
 
@@ -44,11 +45,20 @@ export function CompanyProfileCard({ company, onEdit }: CompanyProfileCardProps)
           <div>
             <span className="text-gray-500">Official Website</span>
             <p className="mt-0.5">
-              {company.website ? (
-                <a href={company.website.startsWith('http') ? company.website : `https://${company.website}`} target="_blank" rel="noreferrer" className="text-brand-orange hover:underline font-medium">
+              {safeHttpUrl(company.website) ? (
+                <a
+                  href={safeHttpUrl(company.website)!}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-brand-orange hover:underline font-medium"
+                >
                   {company.website}
                 </a>
-              ) : <span className="text-gray-400">—</span>}
+              ) : company.website ? (
+                <span className="text-gray-500 font-medium">{company.website}</span>
+              ) : (
+                <span className="text-gray-400">—</span>
+              )}
             </p>
           </div>
         </div>

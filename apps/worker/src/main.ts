@@ -50,8 +50,14 @@ export const DEFAULT_RETRY_OPTIONS = {
     type: 'exponential' as const,
     delay: 1000,
   },
-  removeOnComplete: false,
-  removeOnFail: false,
+  removeOnComplete: {
+    age: 3600, // 1 hour retention for privacy/PII protection
+    count: 100,
+  },
+  removeOnFail: {
+    age: 86400 * 7, // 7 days retention for debugging failures
+    count: 500,
+  },
 };
 
 export function getRedisConnection(env: EnvConfig): IORedis {
@@ -65,7 +71,7 @@ export function getRedisConnection(env: EnvConfig): IORedis {
   return new IORedis(redisUrl, {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
-    tls: isTls ? { rejectUnauthorized: false } : undefined,
+    tls: isTls ? {} : undefined,
     retryStrategy(times) {
       // Exponential backoff with a cap of 5000ms
       return Math.min(times * 200, 5000);

@@ -1,6 +1,7 @@
 import type { CompanyItem } from '../../../data/sampleCompanies';
 import type { JobItem } from '../../../data/sampleJobs';
 import type { IndustryCategory, EmploymentType, ApplicationStatus } from '@indian-job-portal/validation';
+import * as Sentry from '@sentry/nextjs';
 
 export interface ApiJobRow {
   id: string;
@@ -85,9 +86,15 @@ export async function postNewJobApi(apiUrl: string, authHeader: string, userId: 
       headers: { 'Content-Type': 'application/json', Authorization: authHeader, 'x-user-id': userId },
       body: JSON.stringify(payload),
     });
-    return res.ok ? await res.json() : null;
-  } catch {
-    return null;
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      const errMsg = errBody?.message || `Failed to create job posting (HTTP ${res.status})`;
+      throw new Error(errMsg);
+    }
+    return await res.json();
+  } catch (err) {
+    Sentry.captureException(err, { tags: { operation: 'postNewJobApi', userId } });
+    throw err;
   }
 }
 
@@ -99,12 +106,20 @@ export async function updateAppStatusApi(
   status: ApplicationStatus
 ) {
   try {
-    await fetch(`${apiUrl}/jobs/applications/${appId}/status`, {
+    const res = await fetch(`${apiUrl}/jobs/applications/${appId}/status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: authHeader, 'x-user-id': userId },
       body: JSON.stringify({ status }),
     });
-  } catch {}
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      const errMsg = errBody?.message || `Failed to update application status (HTTP ${res.status})`;
+      throw new Error(errMsg);
+    }
+  } catch (err) {
+    Sentry.captureException(err, { tags: { operation: 'updateAppStatusApi', appId, status } });
+    throw err;
+  }
 }
 
 export async function updateBusinessProfileApi(
@@ -114,7 +129,7 @@ export async function updateBusinessProfileApi(
   company: CompanyItem
 ) {
   try {
-    await fetch(`${apiUrl}/profiles/business/me`, {
+    const res = await fetch(`${apiUrl}/profiles/business/me`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: authHeader, 'x-user-id': userId },
       body: JSON.stringify({
@@ -126,7 +141,32 @@ export async function updateBusinessProfileApi(
         city: company.city,
         district: company.district,
         state: company.state,
+        phone: company.phone || undefined,
+        email: company.email || undefined,
+        website: company.website || undefined,
+        yearOfRegistration: company.yearOfRegistration || undefined,
+        commencementYear: company.commencementYear || undefined,
+        founderOrDirector: company.founderOrDirector || undefined,
+        directorPhotoUrl: company.directorPhotoUrl || undefined,
+        designation: company.designation || undefined,
+        knowMyBusiness: company.knowMyBusiness || undefined,
+        productsBrief: company.productsBrief || undefined,
+        servicesBrief: company.servicesBrief || undefined,
+        socialMedia: company.socialMedia || undefined,
+        isMsme: company.isMsme,
+        udyamNumber: company.udyamNumber || undefined,
+        isDpiitStartup: company.isDpiitStartup,
+        dpiitNumber: company.dpiitNumber || undefined,
       }),
     });
-  } catch {}
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      const errMsg = errBody?.message || `Failed to save business profile (HTTP ${res.status})`;
+      throw new Error(errMsg);
+    }
+    return await res.json().catch(() => ({ success: true }));
+  } catch (err) {
+    Sentry.captureException(err, { tags: { operation: 'updateBusinessProfileApi', userId } });
+    throw err;
+  }
 }

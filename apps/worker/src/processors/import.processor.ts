@@ -3,6 +3,9 @@ import { parse } from 'csv-parse';
 import { Readable } from 'node:stream';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@indian-job-portal/database';
+import { normalizeIndianPhone, udyamNumberSchema } from '@indian-job-portal/validation';
+
+export { normalizeIndianPhone };
 
 export interface BulkImportJobData {
   batchId: string;
@@ -30,32 +33,6 @@ export interface ImportErrorRecord {
   row: number;
   phone: string;
   reason: string;
-}
-
-/**
- * Normalizes Indian phone numbers from diverse formats (+91, 0-prefix, 91-prefix, dashes, spaces)
- * into a canonical 10-digit Indian mobile number format (^[6-9]\d{9}$).
- */
-export function normalizeIndianPhone(input: string): string | null {
-  if (!input) return null;
-  // Strip whitespace, dashes, dots, parens
-  let cleaned = input.replace(/[\s\-().]/g, '');
-
-  if (cleaned.startsWith('+91')) {
-    cleaned = cleaned.slice(3);
-  } else if (cleaned.startsWith('0') && cleaned.length === 11) {
-    // Leading zero STD/mobile prefix (09876543210 -> 9876543210)
-    cleaned = cleaned.slice(1);
-  } else if (cleaned.startsWith('91') && cleaned.length === 12 && /^[6-9]/.test(cleaned.slice(2))) {
-    // 91 prefix without plus (919876543210 -> 9876543210)
-    cleaned = cleaned.slice(2);
-  }
-
-  // Validate Indian 10-digit mobile number format
-  if (/^[6-9]\d{9}$/.test(cleaned)) {
-    return cleaned;
-  }
-  return null;
 }
 
 /**
@@ -99,11 +76,23 @@ interface ChunkItem {
   name: string;
   phone: string;
   source: string;
-  role: 'job_seeker';
+  role: 'job_seeker' | 'employer';
   status: 'invited';
-  seekerType: 'student' | 'individual';
+  seekerType?: 'student' | 'individual';
   aadhaar_last4?: string;
   aadhaar_verified: boolean;
+  companyName?: string;
+  ownershipType?: string;
+  companySize?: string;
+  sector?: string;
+  city?: string;
+  district?: string;
+  state?: string;
+  address?: string;
+  email?: string;
+  udyamNumber?: string;
+  gstin?: string;
+  pincode?: string;
 }
 
 export class ImportProcessor {
@@ -292,6 +281,89 @@ export class ImportProcessor {
                 }
               }
             }
+
+            // 2. Maintain relational integrity: insert business_profiles for employers (PR 4)
+            const newBizProfiles = (upsertedUsers as Array<{ id: string; phone: string }>)
+              .map((user) => {
+                const meta = phoneToMeta.get(user.phone);
+                if (!meta || meta.role !== 'employer') return null;
+
+                return {
+                  user_id: user.id,
+                  company_name: meta.companyName || meta.name,
+                  ownership_type: meta.ownershipType || 'Private Limited',
+                  company_size: meta.companySize || 'Small',
+                  sector: meta.sector || null,
+                  city: meta.city || null,
+                  district: meta.district || null,
+                  state: meta.state || null,
+                  address: meta.address || null,
+                  phone: user.phone,
+                  email: meta.email || null,
+                  source: meta.source,
+                  udyam_number: meta.udyamNumber || null,
+                  is_msme: Boolean(meta.udyamNumber) || true,
+                  created_at: nowIso,
+                  updated_at: nowIso,
+                };
+              })
+              .filter(Boolean) as Array<{
+                user_id: string;
+                company_name: string;
+                ownership_type: string;
+                company_size: string;
+                sector: string | null;
+                city: string | null;
+                district: string | null;
+                state: string | null;
+                address: string | null;
+                phone: string;
+                email: string | null;
+                source: string;
+                udyam_number: string | null;
+                is_msme: boolean;
+                created_at: string;
+                updated_at: string;
+              }>;
+
+            if (newBizProfiles.length > 0) {
+              const userIds = newBizProfiles.map((p) => p.user_id);
+              const { data: existingBiz } = await this.supabase
+                .from('business_profiles')
+                .select('user_id')
+                .in('user_id', userIds);
+
+              const existingUserIds = new Set(
+                (existingBiz || []).map((p: { user_id: string }) => p.user_id),
+              );
+
+              const bizToInsert = newBizProfiles.filter((p) => !existingUserIds.has(p.user_id));
+
+              if (bizToInsert.length > 0) {
+                const { error: bizError } = await this.supabase
+                  .from('business_profiles')
+                  .insert(bizToInsert);
+                if (bizError) {
+                  throw new Error(`Database error creating business profiles: ${bizError.message}`);
+                }
+              }
+            }
+
+            // 3. Record invitations scoped to batchId (PR 4)
+            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(batchId);
+            if (isUuid) {
+              const invitationsToInsert = deduplicatedChunk.map((u) => ({
+                batch_id: batchId,
+                phone: u.phone,
+                status: 'pending',
+                created_at: nowIso,
+              }));
+              try {
+                await this.supabase.from('invitations').insert(invitationsToInsert);
+              } catch {
+                // best-effort recording
+              }
+            }
           }
         }
       }
@@ -324,59 +396,182 @@ export class ImportProcessor {
       totalRows++;
 
       const record = rawRecord as Record<string, string>;
-      const rawName = getField(record, 'name', 'full_name', 'Student Name', 'student_name', 'candidate_name', 'Name', 'FullName');
-      const rawPhone = getField(record, 'phone', 'mobile', 'mobile_number', 'Mobile Number', 'Phone', 'Mobile', 'contact', 'Contact');
-      const rawAadhaar = getField(record, 'aadhaar', 'aadhaar_number', 'aadhaar_no', 'Aadhaar', 'Aadhaar Number', 'uid', 'UID');
 
-      // 1. Name validation (PRD BULK-02 missing fields check)
-      if (!rawName) {
-        errors.push({
+      if (entityType === 'employer') {
+        const rawCompanyName = getField(record, 'company_name', 'Company Name', 'companyName', 'name', 'enterprise_name', 'Enterprise Name', 'company');
+        const rawPhone = getField(record, 'phone', 'mobile', 'mobile_number', 'Mobile Number', 'Phone', 'Mobile', 'contact', 'Contact');
+
+        // 1. Company Name validation (PRD BULK-02: never default to 'Unnamed Company')
+        if (!rawCompanyName) {
+          errors.push({
+            row: rowNumber,
+            phone: rawPhone,
+            reason: 'Missing company name',
+          });
+          continue;
+        }
+
+        // 2. Phone validation: Indian 10-digit mobile number format
+        const phone = normalizeIndianPhone(rawPhone);
+        if (!phone) {
+          errors.push({
+            row: rowNumber,
+            phone: rawPhone,
+            reason: 'Invalid Indian 10-digit mobile number format',
+          });
+          continue;
+        }
+
+        // 3. Duplicate checking inside the batch
+        if (seenPhones.has(phone)) {
+          errors.push({
+            row: rowNumber,
+            phone: rawPhone,
+            reason: 'Duplicate mobile number inside file',
+          });
+          continue;
+        }
+
+        // 4. Ownership type validation (never silent default)
+        const rawOwnership = getField(record, 'ownership_type', 'Ownership Type', 'ownershipType', 'legal_status', 'ownership');
+        if (!rawOwnership) {
+          errors.push({
+            row: rowNumber,
+            phone,
+            reason: 'Missing ownership type',
+          });
+          continue;
+        }
+
+        // 5. Company size validation (never silent default)
+        const rawSize = getField(record, 'company_size', 'Company Size', 'companySize', 'enterprise_size', 'size');
+        if (!rawSize) {
+          errors.push({
+            row: rowNumber,
+            phone,
+            reason: 'Missing company size',
+          });
+          continue;
+        }
+
+        // 6. Udyam registration number validation if provided
+        const rawUdyam = getField(record, 'udyam_number', 'Udyam Number', 'udyamNumber', 'udyam_registration', 'udyam');
+        if (rawUdyam) {
+          const udyamCheck = udyamNumberSchema.safeParse(rawUdyam);
+          if (!udyamCheck.success) {
+            errors.push({
+              row: rowNumber,
+              phone,
+              reason: 'Invalid Udyam registration number format (expected UDYAM-XX-00-0000000)',
+            });
+            continue;
+          }
+        }
+
+        // 7. GSTIN validation if provided
+        const rawGstin = getField(record, 'gstin', 'GSTIN', 'gst_number', 'GST');
+        if (rawGstin) {
+          if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(rawGstin)) {
+            errors.push({
+              row: rowNumber,
+              phone,
+              reason: 'Invalid GSTIN format (expected 15-character alphanumeric)',
+            });
+            continue;
+          }
+        }
+
+        // 8. Pincode validation if provided
+        const rawPincode = getField(record, 'pincode', 'Pincode', 'pin_code', 'PIN', 'postal_code');
+        if (rawPincode) {
+          if (!/^\d{6}$/.test(rawPincode)) {
+            errors.push({
+              row: rowNumber,
+              phone,
+              reason: 'Invalid 6-digit Indian PIN code',
+            });
+            continue;
+          }
+        }
+
+        seenPhones.add(phone);
+
+        currentChunk.push({
           row: rowNumber,
-          phone: rawPhone,
-          reason: 'Missing candidate full name',
+          name: rawCompanyName,
+          companyName: rawCompanyName,
+          phone,
+          source,
+          role: 'employer',
+          status: 'invited',
+          ownershipType: rawOwnership,
+          companySize: rawSize,
+          sector: getField(record, 'sector', 'Sector', 'industry', 'Industry') || undefined,
+          city: getField(record, 'city', 'City') || undefined,
+          district: getField(record, 'district', 'District') || undefined,
+          state: getField(record, 'state', 'State') || undefined,
+          address: getField(record, 'address', 'Address') || undefined,
+          email: getField(record, 'email', 'Email', 'email_address') || undefined,
+          udyamNumber: rawUdyam || undefined,
+          gstin: rawGstin || undefined,
+          pincode: rawPincode || undefined,
+          aadhaar_verified: false,
         });
-        continue;
-      }
+      } else {
+        const rawName = getField(record, 'name', 'full_name', 'Student Name', 'student_name', 'candidate_name', 'Name', 'FullName');
+        const rawPhone = getField(record, 'phone', 'mobile', 'mobile_number', 'Mobile Number', 'Phone', 'Mobile', 'contact', 'Contact');
+        const rawAadhaar = getField(record, 'aadhaar', 'aadhaar_number', 'aadhaar_no', 'Aadhaar', 'Aadhaar Number', 'uid', 'UID');
 
-      // 2. Phone validation: Indian 10-digit mobile number format
-      const phone = normalizeIndianPhone(rawPhone);
-      if (!phone) {
-        errors.push({
+        // 1. Name validation (PRD BULK-02 missing fields check)
+        if (!rawName) {
+          errors.push({
+            row: rowNumber,
+            phone: rawPhone,
+            reason: 'Missing candidate full name',
+          });
+          continue;
+        }
+
+        // 2. Phone validation: Indian 10-digit mobile number format
+        const phone = normalizeIndianPhone(rawPhone);
+        if (!phone) {
+          errors.push({
+            row: rowNumber,
+            phone: rawPhone,
+            reason: 'Invalid Indian 10-digit mobile number format',
+          });
+          continue;
+        }
+
+        // 3. Duplicate checking inside the batch
+        if (seenPhones.has(phone)) {
+          errors.push({
+            row: rowNumber,
+            phone: rawPhone,
+            reason: 'Duplicate mobile number inside file',
+          });
+          continue;
+        }
+
+        seenPhones.add(phone);
+
+        // 4. Aadhaar handling (Hard Invariant #8: Never store full Aadhaar number)
+        const aadhaarLast4 = extractAadhaarLast4(rawAadhaar);
+
+        // Invariant #2: users created in 'invited' state with zero SMS at import
+        // Invariant #3: every bulk import row keeps its source
+        currentChunk.push({
           row: rowNumber,
-          phone: rawPhone,
-          reason: 'Invalid Indian 10-digit mobile number format',
+          name: rawName,
+          phone,
+          source,
+          role: 'job_seeker',
+          status: 'invited',
+          seekerType: entityType === 'student' ? 'student' : 'individual',
+          aadhaar_last4: aadhaarLast4,
+          aadhaar_verified: false,
         });
-        continue;
       }
-
-      // 3. Duplicate checking inside the batch
-      if (seenPhones.has(phone)) {
-        errors.push({
-          row: rowNumber,
-          phone: rawPhone,
-          reason: 'Duplicate mobile number inside file',
-        });
-        continue;
-      }
-
-      seenPhones.add(phone);
-
-      // 4. Aadhaar handling (Hard Invariant #8: Never store full Aadhaar number)
-      const aadhaarLast4 = extractAadhaarLast4(rawAadhaar);
-
-      // Invariant #2: users created in 'invited' state with zero SMS at import
-      // Invariant #3: every bulk import row keeps its source
-      currentChunk.push({
-        row: rowNumber,
-        name: rawName,
-        phone,
-        source,
-        role: 'job_seeker',
-        status: 'invited',
-        seekerType: entityType === 'student' ? 'student' : 'individual',
-        aadhaar_last4: aadhaarLast4,
-        aadhaar_verified: false,
-      });
 
       // Flush when chunk size reaches 500 rows (natural backpressure)
       if (currentChunk.length >= CHUNK_SIZE) {

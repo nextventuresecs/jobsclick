@@ -1,5 +1,7 @@
-import { Injectable, BadRequestException, NotFoundException, Inject, Optional } from '@nestjs/common';
-import { AdminUserStatusInput, GenerateResumeInput, AdminExportQueryInput } from '@indian-job-portal/validation';
+import { Injectable, BadRequestException, NotFoundException, UnauthorizedException, Inject, Optional, Logger } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { OtpRedisService } from '../auth/otp-redis.service.js';
+import { AdminUserStatusInput, AdminUserRoleInput, GenerateResumeInput, AdminExportQueryInput } from '@indian-job-portal/validation';
 import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
 import { UserRepository } from '../database/repositories/user.repository.js';
 import { JobRepository } from '../database/repositories/job.repository.js';
@@ -48,6 +50,7 @@ function convertToCsv(data: Record<string, unknown>[]): string {
 
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name);
   private notifications = new Map<string, NotificationRecord[]>();
   private privacyRequests: PrivacyDeletionRequestRecord[] = [];
 
@@ -56,9 +59,67 @@ export class AdminService {
     @Optional() @Inject(UserRepository) private readonly userRepo?: UserRepository,
     @Optional() @Inject(JobRepository) private readonly jobRepo?: JobRepository,
     @Optional() @Inject(ApplicationRepository) private readonly applicationRepo?: ApplicationRepository,
+    @Optional() @Inject(OtpRedisService) private readonly otpRedisService?: OtpRedisService,
   ) {}
 
   // Issue #21: Admin User Management (Persisted directly to users table, eliminating in-memory Map)
+  async updateUserRole(
+    userId: string,
+    role: AdminUserRoleInput['role'],
+    actorId?: string,
+    reason?: string,
+  ): Promise<{ userId: string; role: string }> {
+    const ALLOWED_ROLES = ['job_seeker', 'employer', 'admin', 'msme_admin'];
+    if (!ALLOWED_ROLES.includes(role)) {
+      throw new BadRequestException(`Invalid role: ${role}. Allowed roles are ${ALLOWED_ROLES.join(', ')}`);
+    }
+
+    if (!actorId) throw new UnauthorizedException("Authentication required");
+    const caller = actorId;
+    if (caller === userId) {
+      throw new BadRequestException('Admins cannot change their own role');
+    }
+
+    let previousRole = 'job_seeker';
+    if (this.userRepo) {
+      const existing = await this.userRepo.findById(userId);
+      if (!existing) {
+        throw new NotFoundException(`User with ID ${userId} not found`);
+      }
+      previousRole = existing.role;
+
+      // Prevent demoting the last remaining active admin
+      if (existing.role === 'admin' && role !== 'admin') {
+        const allUsers = await this.userRepo.findAll(5000);
+        const adminCount = allUsers.filter((u) => u.role === 'admin' && u.status === 'active').length;
+        if (adminCount <= 1) {
+          throw new BadRequestException('Cannot demote the last remaining admin');
+        }
+      }
+
+      await this.userRepo.updateRole(userId, role);
+    }
+
+        // P0-8: Proactively invalidate cached authentication and session state after DB commit
+    if (this.otpRedisService) {
+      try {
+        await this.otpRedisService.invalidateUserSession(userId);
+      } catch (err) {
+        this.logger.error(`Failed to invalidate session for user ${userId} after role update: ${(err as Error).message}`);
+        this.otpRedisService.markUntrustedUser(userId);
+      }
+    }
+
+    await this.recordAuditLog(caller, 'USER_ROLE_UPDATED', {
+      targetUserId: userId,
+      oldRole: previousRole,
+      newRole: role,
+      reason: reason || 'Administrative role modification',
+    });
+
+    return { userId, role };
+  }
+
   async updateUserStatus(
     userId: string,
     input: AdminUserStatusInput,
@@ -69,16 +130,28 @@ export class AdminService {
       if (!existing) {
         throw new NotFoundException(`User with ID ${userId} not found`);
       }
-      await this.userRepo.update(userId, { status: input.status });
+      await this.userRepo.updateStatus(userId, input.status);
     }
-    const caller = actorId || 'admin_root';
+
+    // P0-8: Proactively invalidate cached authentication and session state after DB commit
+    if (this.otpRedisService) {
+      try {
+        await this.otpRedisService.invalidateUserSession(userId);
+      } catch (err) {
+        this.logger.error(`Failed to invalidate session for user ${userId} after status update: ${(err as Error).message}`);
+        this.otpRedisService.markUntrustedUser(userId);
+      }
+    }
+
+    if (!actorId) throw new UnauthorizedException("Authentication required");
+    const caller = actorId;
     await this.recordAuditLog(caller, 'USER_STATUS_UPDATED', { targetUserId: userId, newStatus: input.status });
     return { userId, status: input.status };
   }
 
   // Issue #22 & Ticket T-03: Persistent Audit Log (Hard Invariant #6: Append-only immutability!)
   async recordAuditLog(actorId: string | null, action: string, meta: Record<string, unknown> = {}): Promise<AuditLogRecord> {
-    const id = `audit_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const id = randomUUID();
     const createdAt = new Date().toISOString();
 
     await this.auditLogRepo.append({
@@ -250,7 +323,7 @@ export class AdminService {
   // Issue #24: DPDP Privacy Deletion Request
   async requestAccountDeletion(userId: string, reason?: string): Promise<PrivacyDeletionRequestRecord> {
     const reqRecord: PrivacyDeletionRequestRecord = {
-      id: `del_req_${Date.now()}`,
+      id: randomUUID(),
       userId,
       reason: reason || 'User requested account deletion under DPDP principles',
       requestedAt: new Date().toISOString(),
@@ -263,7 +336,7 @@ export class AdminService {
 
   // Issue #30: Resume Builder
   async generateResume(input: GenerateResumeInput): Promise<{ resumeId: string; template: string; downloadUrl: string }> {
-    const resumeId = `res_${Date.now()}`;
+    const resumeId = randomUUID();
     return {
       resumeId,
       template: input.template,

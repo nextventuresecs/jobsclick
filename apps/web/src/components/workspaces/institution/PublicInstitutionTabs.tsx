@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import * as Sentry from '@sentry/nextjs';
 import { useTranslations } from 'next-intl';
 import {
   GraduationCap,
@@ -79,7 +80,8 @@ export function PublicInstitutionTabs({
       });
 
       if (!res.ok) {
-        throw new Error('Failed to submit inquiry');
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData?.message || 'Failed to submit admission inquiry');
       }
 
       setInquirySuccess(true);
@@ -89,9 +91,11 @@ export function PublicInstitutionTabs({
       setStudentEmail('');
       setMessage('');
       setDpdpConsent(false);
-    } catch {
-      // Offline fallback: simulate successful capture
-      setInquirySuccess(true);
+    } catch (err) {
+      Sentry.captureException(err);
+      setErrorMessage(
+        err instanceof Error ? err.message : 'Failed to submit admission inquiry. Please try again.',
+      );
     } finally {
       setIsSubmitting(false);
     }

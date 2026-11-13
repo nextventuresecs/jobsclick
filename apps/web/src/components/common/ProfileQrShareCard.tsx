@@ -26,6 +26,7 @@ export interface ProfileQrShareCardProps {
   readonly udyamOrAffiliation?: string;
   readonly locationText?: string;
   readonly isMsme?: boolean;
+  readonly udyamVerified?: boolean;
   readonly isInstitution?: boolean;
   readonly compact?: boolean;
 }
@@ -40,6 +41,7 @@ export function ProfileQrShareCard({
   udyamOrAffiliation,
   locationText,
   isMsme,
+  udyamVerified,
   isInstitution,
   compact = false,
 }: ProfileQrShareCardProps) {
@@ -202,12 +204,16 @@ export function ProfileQrShareCard({
           </p>
 
           <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 pt-2 text-xs text-gray-600">
-            {isMsme && (
+            {udyamVerified ? (
               <span className="inline-flex items-center gap-1 font-semibold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                 Udyam Verified
               </span>
-            )}
+            ) : isMsme ? (
+              <span className="inline-flex items-center gap-1 font-semibold text-amber-800 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                Unverified
+              </span>
+            ) : null}
             {isInstitution && (
               <span className="inline-flex items-center gap-1 font-semibold text-blue-800 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
                 <Award className="w-3.5 h-3.5 text-blue-600" />

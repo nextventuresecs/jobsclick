@@ -443,9 +443,9 @@ export default async function HomePage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 pt-4 border-t border-gray-100">
-                  <Link href="/company/comp-01">
+                  <Link href="/company">
                     <Button variant="outline" size="sm" className="font-semibold">
-                      View Company Profile & Jobs
+                      View Company Directory & Jobs
                     </Button>
                   </Link>
                   <Link href="/jobs">

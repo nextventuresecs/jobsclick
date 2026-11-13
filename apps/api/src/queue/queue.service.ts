@@ -6,6 +6,7 @@ import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter.js';
 import { FastifyAdapter } from '@bull-board/fastify';
 import { getTracePropagationHeaders } from '../config/sentry.js';
+import { isStrictEnv } from '../config/env.js';
 
 export const QUEUE_NAMES = {
   BULK_IMPORT: 'bulk-import',
@@ -21,8 +22,14 @@ export const DEFAULT_JOB_OPTIONS = {
     type: 'exponential' as const,
     delay: 1000,
   },
-  removeOnComplete: false,
-  removeOnFail: false,
+  removeOnComplete: {
+    age: 3600, // 1 hour retention for privacy/PII protection
+    count: 100,
+  },
+  removeOnFail: {
+    age: 86400 * 7, // 7 days retention for debugging failures
+    count: 500,
+  },
 };
 
 export interface QueueMetric {
@@ -60,7 +67,14 @@ export class QueueService implements OnModuleDestroy {
   };
 
   constructor() {
-    this.isMock = process.env['NODE_ENV'] === 'test' || Boolean(process.env['VITEST']) || process.env['USE_MOCK_REDIS'] === 'true';
+    if (isStrictEnv()) {
+      if (process.env['USE_MOCK_REDIS'] === '1' || process.env['USE_MOCK_REDIS'] === 'true' || Boolean(process.env['VITEST'])) {
+        throw new Error('Mock Redis and test runners are strictly forbidden in strict/production environments');
+      }
+      this.isMock = false;
+    } else {
+      this.isMock = process.env['NODE_ENV'] === 'test' || Boolean(process.env['VITEST']) || process.env['USE_MOCK_REDIS'] === 'true';
+    }
     const redisUrl = process.env['REDIS_URL'] || 'redis://localhost:6379';
 
     if (this.isMock) {
@@ -70,7 +84,7 @@ export class QueueService implements OnModuleDestroy {
       this.connection = new IORedis(redisUrl, {
         maxRetriesPerRequest: null,
         enableReadyCheck: false,
-        tls: isTls ? { rejectUnauthorized: false } : undefined,
+        tls: isTls ? {} : undefined,
         retryStrategy(times) {
           return Math.min(times * 200, 5000);
         },
