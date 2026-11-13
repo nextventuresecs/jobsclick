@@ -46,6 +46,14 @@ declare global {
   }
 }
 
+export function getRazorpayKeyId(orderKeyId?: string): string {
+  const key = orderKeyId || process.env['NEXT_PUBLIC_RAZORPAY_KEY_ID'];
+  if (!key || key.trim() === '' || key === 'rzp_test_dummy_key_id') {
+    throw new Error('NEXT_PUBLIC_RAZORPAY_KEY_ID is not configured');
+  }
+  return key;
+}
+
 export const RechargeModal: React.FC<RechargeModalProps> = ({
   isOpen,
   onClose,
@@ -132,10 +140,7 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
       const orderData = await orderRes.json();
 
       // 3. Launch Razorpay modal
-      const keyId =
-        orderData.keyId ||
-        process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ||
-        'rzp_test_dummy_key_id';
+      const keyId = getRazorpayKeyId(orderData.keyId);
 
       const options = {
         key: keyId,

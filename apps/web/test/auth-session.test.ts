@@ -99,11 +99,11 @@ describe('Session Cookie & JWT Infrastructure - Ticket T-05 (AUTH-05, AUTH-06)',
 
   describe('Secure Cookie Settings & Options', () => {
     it('defines secure, HttpOnly cookie configuration', () => {
-      expect(AUTH_COOKIE_NAME).toBe('auth_token');
+      expect(AUTH_COOKIE_NAME).toBe('jc_session');
       expect(AUTH_COOKIE_OPTIONS.httpOnly).toBe(true);
       expect(AUTH_COOKIE_OPTIONS.sameSite).toBe('lax');
       expect(AUTH_COOKIE_OPTIONS.path).toBe('/');
-      expect(AUTH_COOKIE_OPTIONS.maxAge).toBe(30 * 24 * 60 * 60); // 30 days
+      expect(AUTH_COOKIE_OPTIONS.maxAge).toBe(7 * 24 * 60 * 60); // 7 days
     });
 
     it('AC-2: resolves server session from cookie token', async () => {

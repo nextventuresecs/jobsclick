@@ -1,9 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
+import * as Sentry from '@sentry/nextjs';
 import { useTranslations } from 'next-intl';
+import { useApp } from '../../../context/AppContext';
 import { Button } from '@indian-job-portal/ui';
 import { Sparkles, CheckCircle, AlertCircle, X, Clock } from 'lucide-react';
+import { RechargeModal } from '../../wallet/RechargeModal';
 
 interface PromoteJobModalProps {
   readonly jobId: string;
@@ -21,7 +24,10 @@ export function PromoteJobModal({
   onPromoted,
 }: PromoteJobModalProps) {
   const t = useTranslations('EmployerWorkspace');
+  const { accessToken, user } = useApp();
+  const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:3001';
   const [isOpen, setIsOpen] = useState(false);
+  const [isRechargeOpen, setIsRechargeOpen] = useState(false);
   const [durationDays, setDurationDays] = useState<7 | 14 | 30>(7);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
@@ -32,16 +38,19 @@ export function PromoteJobModal({
     setErrorMsg('');
 
     try {
-      const res = await fetch(`/api/jobs/${jobId}/promote`, {
+      const res = await fetch(`${apiUrl}/jobs/${jobId}/promote`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
         body: JSON.stringify({ durationDays }),
       });
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        if (errorData?.code === 'INSUFFICIENT_CREDITS' || res.status === 400) {
-          throw new Error(t('insufficientCredits'));
+        if (errorData?.code === 'INSUFFICIENT_CREDITS' || errorData?.statusCode === 402) {
+          throw new Error(t('insufficientCredits') || 'Insufficient wallet credits. Please recharge your wallet.');
         }
         throw new Error(errorData?.message || 'Promotion failed');
       }
@@ -53,6 +62,7 @@ export function PromoteJobModal({
         setStatus('idle');
       }, 1500);
     } catch (err) {
+      Sentry.captureException(err);
       const msg = err instanceof Error ? err.message : t('insufficientCredits');
       setErrorMsg(msg);
       setStatus('error');
@@ -115,9 +125,22 @@ export function PromoteJobModal({
             ) : (
               <form onSubmit={handlePromote} className="space-y-4">
                 {status === 'error' && (
-                  <div className="p-3 bg-red-50 text-red-700 rounded-xl flex items-center gap-2 text-xs border border-red-200">
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                    <span>{errorMsg}</span>
+                  <div className="p-3 bg-red-50 text-red-700 rounded-xl space-y-2 text-xs border border-red-200">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0" />
+                      <span>{errorMsg}</span>
+                    </div>
+                    {errorMsg.toLowerCase().includes('credit') && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsRechargeOpen(true)}
+                        className="text-xs font-semibold text-amber-800 bg-amber-50 border-amber-300 hover:bg-amber-100"
+                      >
+                        Recharge Wallet Credits
+                      </Button>
+                    )}
                   </div>
                 )}
 
@@ -189,6 +212,12 @@ export function PromoteJobModal({
           </div>
         </div>
       )}
+
+      <RechargeModal
+        isOpen={isRechargeOpen}
+        onClose={() => setIsRechargeOpen(false)}
+        user={user ? { id: user.id } : undefined}
+      />
     </>
   );
 }

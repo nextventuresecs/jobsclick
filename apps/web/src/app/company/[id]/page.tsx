@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Navbar } from '../../../components/layout/Navbar';
 import { Footer } from '../../../components/layout/Footer';
-import { SAMPLE_COMPANIES, CompanyItem } from '../../../data/sampleCompanies';
+import type { CompanyItem } from '../../../data/sampleCompanies';
 import type { JobItem } from '../../../data/sampleJobs';
 import { mapApiJobToJobItem, type ApiJobPayload } from '../../../lib/job-mapper';
 import { safeJsonLd } from '../../../lib/safe-json-ld';
@@ -34,7 +34,7 @@ export default async function PublicCompanyPage({ params }: CompanyPageProps) {
   const companyId = params.id;
   const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
 
-  let company: CompanyItem | null = SAMPLE_COMPANIES.find((c) => c.id === companyId) || null;
+  let company: CompanyItem | null = null;
 
   interface BusinessProfileApiResponse {
     readonly companyName?: string;
@@ -51,37 +51,38 @@ export default async function PublicCompanyPage({ params }: CompanyPageProps) {
     readonly activeJobsCount?: number;
   }
 
-  try {
-    const res = await fetch(`${apiUrl}/profiles/business/${companyId}`, {
-      next: { revalidate: 60 },
-    });
-    if (res.ok) {
-      const data = (await res.json()) as BusinessProfileApiResponse | null;
-      if (data && data.companyName) {
-        company = {
-          id: companyId,
-          name: data.companyName,
-          sector: data.sector || 'Manufacturing',
-          enterpriseSize: data.companySize || 'Small',
-          ownershipType: data.ownershipType || 'Private Limited',
-          address: data.address || '',
-          city: data.city || '',
-          district: data.district || '',
-          state: data.state || '',
-          description: data.description || '',
-          udyamNumber: data.udyamNumber || '',
-          verified: data.verified ?? false,
-          activeJobsCount: data.activeJobsCount || 0,
-        };
-      }
-    }
-  } catch {
-    // Graceful fallback to null or sample
-  }
+  const res = await fetch(`${apiUrl}/profiles/business/${companyId}`, {
+    next: { revalidate: 60 },
+  });
 
-  if (!company) {
+  if (res.status === 404) {
     notFound();
   }
+
+  if (!res.ok) {
+    throw new Error(`Failed to load company profile (${res.status} ${res.statusText})`);
+  }
+
+  const data = (await res.json()) as BusinessProfileApiResponse | null;
+  if (!data || !data.companyName) {
+    notFound();
+  }
+
+  company = {
+    id: companyId,
+    name: data.companyName,
+    sector: data.sector || 'Manufacturing',
+    enterpriseSize: data.companySize || 'Small',
+    ownershipType: data.ownershipType || 'Private Limited',
+    address: data.address || '',
+    city: data.city || '',
+    district: data.district || '',
+    state: data.state || '',
+    description: data.description || '',
+    udyamNumber: data.udyamNumber || '',
+    verified: Boolean(data.verified),
+    activeJobsCount: data.activeJobsCount || 0,
+  };
 
   // Active jobs for this enterprise (live from API)
   let activeJobs: JobItem[] = [];
