@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, UserRow } from '@indian-job-portal/database';
+import { normalizeIndianPhone } from '@indian-job-portal/validation';
 import { SUPABASE_CLIENT } from '../supabase.provider.js';
 
 export const USER_REPOSITORY = Symbol('USER_REPOSITORY');
@@ -60,10 +61,11 @@ export class UserRepository implements IUserRepository {
   }
 
   async findByPhone(phone: string): Promise<UserRow | null> {
+    const normalized = normalizeIndianPhone(phone) ?? phone.trim();
     const { data, error } = await this.supabase
       .from('users')
       .select('*')
-      .eq('phone', phone)
+      .eq('phone', normalized)
       .maybeSingle();
 
     if (error) {
@@ -106,12 +108,13 @@ export class UserRepository implements IUserRepository {
     status?: UserRow['status'];
     source?: string;
   }): Promise<UserRow> {
-    if (!/^[6-9]\d{9}$/.test(user.phone)) {
+    const normalizedPhone = normalizeIndianPhone(user.phone) ?? user.phone.trim();
+    if (!/^[6-9]\d{9}$/.test(normalizedPhone)) {
       throw new BadRequestException('Invalid Indian phone number format');
     }
 
     const payload = {
-      phone: user.phone,
+      phone: normalizedPhone,
       role: user.role,
       status: user.status || 'active',
       source: user.source || 'direct_web',

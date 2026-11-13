@@ -5,9 +5,11 @@ import type {
 } from '@indian-job-portal/validation';
 
 export async function requestSignedUploadUrl(apiUrl: string, fileName: string) {
-  const res = await fetch(`${apiUrl}/bulk/signed-url`, {
+  const url = typeof window !== 'undefined' ? '/api/bulk/signed-url' : `${apiUrl}/bulk/signed-url`;
+  const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ fileName, contentType: 'text/csv' }),
   });
   if (!res.ok) throw new Error('Failed to obtain signed upload URL');
@@ -32,9 +34,11 @@ export async function registerBatchJob(
   storagePath: string,
   fileName: string,
 ) {
-  const res = await fetch(`${apiUrl}/bulk/batches`, {
+  const url = typeof window !== 'undefined' ? '/api/bulk/batches' : `${apiUrl}/bulk/batches`;
+  const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({
       source,
       entityType: 'student',
@@ -47,7 +51,10 @@ export async function registerBatchJob(
 }
 
 export async function pollBatchStatus(apiUrl: string, batchId: string) {
-  const res = await fetch(`${apiUrl}/bulk/batches/${batchId}`);
+  const url = typeof window !== 'undefined' ? `/api/bulk/batches/${batchId}` : `${apiUrl}/bulk/batches/${batchId}`;
+  const res = await fetch(url, {
+    credentials: 'include',
+  });
   if (!res.ok) return null;
   return res.json() as Promise<{
     status: string;

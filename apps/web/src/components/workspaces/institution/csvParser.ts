@@ -1,48 +1,35 @@
 import type { ParsedRow } from './BulkUploadModal';
-
-export function parseCsvLine(line: string): string[] {
-  const result: string[] = [];
-  let current = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    if (char === '"') {
-      if (inQuotes && line[i + 1] === '"') {
-        current += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (char === ',' && !inQuotes) {
-      result.push(current.trim());
-      current = '';
-    } else {
-      current += char;
-    }
-  }
-  result.push(current.trim());
-  return result;
-}
+import { parseSharedCsv, normalizeIndianPhone } from '@indian-job-portal/validation';
 
 export function parseCsvContent(rawCsvText: string): { rows: ParsedRow[]; error?: string } {
-  const lines = rawCsvText.trim().split(/\r?\n/).filter((l) => l.trim().length > 0);
-  if (lines.length < 2) {
-    return { rows: [], error: 'CSV file must have at least one data row.' };
+  let records: Array<Record<string, string>> = [];
+  try {
+    records = parseSharedCsv(rawCsvText);
+  } catch (err) {
+    return { rows: [], error: `Invalid CSV format: ${(err as Error).message}` };
   }
 
-  const rows: ParsedRow[] = lines.slice(1).map((line, idx) => {
-    const parts = parseCsvLine(line);
-    const studentName = parts[0]?.trim() ?? '';
-    const rollNumber = parts[1]?.trim() ?? '';
-    const phone = parts[2]?.trim().replace(/\D/g, '') ?? '';
-    const stream = parts[3]?.trim() ?? '';
-    const passingYear = parts[4]?.trim() ?? '';
+  if (records.length === 0) {
+    return { rows: [], error: 'CSV file must have at least one valid data row with headers.' };
+  }
+
+  const rows: ParsedRow[] = records.map((record, idx) => {
+    const studentName =
+      (record['Student Name'] || record['student_name'] || record['name'] || record['Name'] || '').trim();
+    const rollNumber =
+      (record['Roll Number'] || record['roll_number'] || record['rollNo'] || record['RollNo'] || '').trim();
+    const rawPhone =
+      (record['Phone'] || record['phone'] || record['mobile'] || record['Mobile'] || '').trim();
+    const phone = normalizeIndianPhone(rawPhone) || rawPhone.replace(/\D/g, '');
+    const stream =
+      (record['Stream'] || record['stream'] || record['trade'] || record['Trade'] || '').trim();
+    const passingYear =
+      (record['Passing Year'] || record['passing_year'] || record['year'] || record['Year'] || '').trim();
 
     const errors: string[] = [];
     if (!studentName) errors.push('Missing Student Name');
     if (!rollNumber) errors.push('Missing Roll Number');
-    if (!phone || phone.length !== 10 || !/^[6-9]\d{9}$/.test(phone)) {
+    if (!phone || !/^[6-9]\d{9}$/.test(phone)) {
       errors.push('Invalid 10-digit Indian mobile number');
     }
 
@@ -59,6 +46,18 @@ export function parseCsvContent(rawCsvText: string): { rows: ParsedRow[]; error?
   });
 
   return { rows };
+}
+
+export function parseCsvLine(line: string): string[] {
+  try {
+    const parsed = parseSharedCsv(`header\n${line}`);
+    if (parsed.length > 0) {
+      return Object.values(parsed[0]!);
+    }
+  } catch {
+    // Fallback
+  }
+  return line.split(',').map((s) => s.trim());
 }
 
 export function downloadCsvTemplate(rawCsvText: string) {

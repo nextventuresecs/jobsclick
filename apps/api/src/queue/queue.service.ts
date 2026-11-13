@@ -22,8 +22,14 @@ export const DEFAULT_JOB_OPTIONS = {
     type: 'exponential' as const,
     delay: 1000,
   },
-  removeOnComplete: false,
-  removeOnFail: false,
+  removeOnComplete: {
+    age: 3600, // 1 hour retention for privacy/PII protection
+    count: 100,
+  },
+  removeOnFail: {
+    age: 86400 * 7, // 7 days retention for debugging failures
+    count: 500,
+  },
 };
 
 export interface QueueMetric {

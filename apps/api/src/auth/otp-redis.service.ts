@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger, ServiceUnavailableException } from '@nestjs/common';
 import IORedis from 'ioredis';
+import { normalizeIndianPhone } from '@indian-job-portal/validation';
 import { maskPhone } from '../common/mask.js';
 import { normalizeIp } from '../common/ip-normalizer.js';
 
@@ -292,7 +293,7 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   private hashOtp(phone: string, code: string): string {
-    const cleanPhone = phone.trim();
+    const cleanPhone = normalizeIndianPhone(phone) ?? phone.trim();
     const cleanCode = code.trim();
     return crypto
       .createHmac('sha256', this.pepper)
@@ -308,7 +309,8 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
    * Checks whether a phone number is currently in brute-force lockout.
    */
   async isLockedOut(phone: string): Promise<{ locked: boolean; remainingSeconds: number }> {
-    const key = `auth:lockout:${phone}`;
+    const norm = normalizeIndianPhone(phone) ?? phone.trim();
+    const key = `auth:lockout:${norm}`;
     const ttl = await this.client.ttl(key);
     if (ttl > 0) {
       return { locked: true, remainingSeconds: ttl };
@@ -321,8 +323,9 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
    * Atomically overwrites any previous hash and resets attempts to 0.
    */
   async storeOtp(phone: string, code: string, ttlSeconds = 600): Promise<void> {
-    const key = `auth:otp:${phone}`;
-    const hash = this.hashOtp(phone, code);
+    const norm = normalizeIndianPhone(phone) ?? phone.trim();
+    const key = `auth:otp:${norm}`;
+    const hash = this.hashOtp(norm, code);
 
     const customClient = this.client as unknown as CustomRedisClient;
     if (typeof customClient.storeOtpAtomic === 'function') {
@@ -342,9 +345,10 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
    *    - Else return INVALID with remaining attempts
    */
   async verifyOtp(phone: string, inputCode: string): Promise<OtpVerifyResult> {
-    const lockoutKey = `auth:lockout:${phone}`;
-    const otpKey = `auth:otp:${phone}`;
-    const expectedHash = this.hashOtp(phone, inputCode);
+    const norm = normalizeIndianPhone(phone) ?? phone.trim();
+    const lockoutKey = `auth:lockout:${norm}`;
+    const otpKey = `auth:otp:${norm}`;
+    const expectedHash = this.hashOtp(norm, inputCode);
     const lockoutSeconds = 900;
     const maxAttempts = 3;
 
@@ -392,12 +396,13 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   async deleteOtp(phone: string): Promise<void> {
-    await this.client.del(`auth:otp:${phone}`);
+    const norm = normalizeIndianPhone(phone) ?? phone.trim();
+    await this.client.del(`auth:otp:${norm}`);
   }
 
   async resetForTest(phone: string): Promise<void> {
     await this.waitForReady(1500).catch(() => {});
-    const norm = phone.replace(/\D/g, '');
+    const norm = normalizeIndianPhone(phone) ?? phone.replace(/\D/g, '');
     const specificKeys = [
       `auth:otp:${norm}`,
       `auth:cooldown:${norm}`,
@@ -451,7 +456,8 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
    * Enforces 60-second cooldown between outbound requests.
    */
   async checkAndSetCooldown(phone: string, cooldownSeconds = 60): Promise<{ allowed: boolean; remainingSeconds: number }> {
-    const key = `auth:cooldown:${phone}`;
+    const norm = normalizeIndianPhone(phone) ?? phone.trim();
+    const key = `auth:cooldown:${norm}`;
     const ttl = await this.client.ttl(key);
 
     if (ttl > 0) {
@@ -469,7 +475,8 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
     phone: string,
     maxDaily = 10,
   ): Promise<{ allowed: boolean; count: number }> {
-    const key = `auth:daily:${phone}`;
+    const norm = normalizeIndianPhone(phone) ?? phone.trim();
+    const key = `auth:daily:${norm}`;
 
     const count = await this.client.incr(key);
     if (count === 1) {
@@ -523,15 +530,16 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
     retryAfter: number;
     uniqueMember: string;
   }> {
-    if (!/^[6-9]\d{9}$/.test(phone)) {
+    const norm = normalizeIndianPhone(phone) ?? phone.trim();
+    if (!/^[6-9]\d{9}$/.test(norm)) {
       throw new Error(`OtpRedisService requires a normalized 10-digit Indian phone number. Received: ${phone}`);
     }
 
     const normIp = normalizeIp(rawIp);
-    const cooldownKey = `auth:cooldown:${phone}`;
-    const dailyKey = `auth:daily:${phone}`;
+    const cooldownKey = `auth:cooldown:${norm}`;
+    const dailyKey = `auth:daily:${norm}`;
     const ipKey = `auth:ip_rate:${normIp}`;
-    const ipPhoneKey = `auth:ip_phone:${normIp}:${phone}`;
+    const ipPhoneKey = `auth:ip_phone:${normIp}:${norm}`;
 
     const cooldownSec = Number(process.env['OTP_COOLDOWN_SEC'] || 60);
     const maxDaily = Number(process.env['OTP_PHONE_PER_DAY'] || 10);
@@ -596,15 +604,16 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
    * Decrements daily counters and removes cooldown/IP member.
    */
   async releaseOtpLimits(phone: string, rawIp: string, uniqueMember?: string): Promise<void> {
-    if (!/^[6-9]\d{9}$/.test(phone)) {
+    const norm = normalizeIndianPhone(phone) ?? phone.trim();
+    if (!/^[6-9]\d{9}$/.test(norm)) {
       return;
     }
 
     const normIp = normalizeIp(rawIp);
-    const cooldownKey = `auth:cooldown:${phone}`;
-    const dailyKey = `auth:daily:${phone}`;
+    const cooldownKey = `auth:cooldown:${norm}`;
+    const dailyKey = `auth:daily:${norm}`;
     const ipKey = `auth:ip_rate:${normIp}`;
-    const ipPhoneKey = `auth:ip_phone:${normIp}:${phone}`;
+    const ipPhoneKey = `auth:ip_phone:${normIp}:${norm}`;
 
     try {
       const customClient = this.client as unknown as CustomRedisClient;

@@ -1,6 +1,36 @@
 import { z } from 'zod';
 
 /**
+ * Normalizes Indian phone numbers from diverse formats (+91, 0091, 91, 0-prefix, dashes, spaces)
+ * into a canonical 10-digit Indian mobile number string (e.g., "9876543210").
+ * Returns null if the resulting number is not a valid 10-digit mobile number starting with 6-9.
+ */
+export function normalizeIndianPhone(input: string | null | undefined): string | null {
+  if (!input) return null;
+  const digits = String(input).replace(/\D/g, '');
+  let normalized = digits;
+
+  // 0091 prefix: international exit 00 + country code 91 (e.g. "0091 9876543210" -> 14 digits)
+  if (digits.length === 14 && digits.startsWith('0091')) {
+    normalized = digits.slice(4);
+  } else if (digits.length === 13 && digits.startsWith('910')) {
+    // +91 followed by domestic trunk prefix 0 (e.g. "+91 09876543210" -> 13 digits starting with 910)
+    normalized = digits.slice(3);
+  } else if (digits.length === 12 && digits.startsWith('91')) {
+    // Standard 91 country code prefix (e.g. "919123456789" -> 12 digits starting with 91)
+    normalized = digits.slice(2);
+  } else if (digits.length === 11 && digits.startsWith('0')) {
+    // Single domestic trunk prefix 0 (e.g. "09876543210" -> 11 digits starting with 0)
+    normalized = digits.slice(1);
+  }
+
+  if (/^[6-9]\d{9}$/.test(normalized)) {
+    return normalized;
+  }
+  return null;
+}
+
+/**
  * Normalizes Indian phone numbers to a canonical 10-digit string (e.g., "9876543210").
  * Strips +91, 91, 0091, 0 prefixes and whitespace so Redis rate-limit keys and DB uniqueness never split.
  */
@@ -8,24 +38,8 @@ export const IndianPhoneSchema = z
   .string()
   .trim()
   .transform((val) => {
-    const digits = val.replace(/\D/g, '');
-    // 0091 prefix: international exit 00 + country code 91 (e.g. "0091 9876543210" -> 14 digits)
-    if (digits.length === 14 && digits.startsWith('0091')) {
-      return digits.slice(4);
-    }
-    // +91 followed by domestic trunk prefix 0 (e.g. "+91 09876543210" -> 13 digits starting with 910)
-    if (digits.length === 13 && digits.startsWith('910')) {
-      return digits.slice(3);
-    }
-    // Standard 91 country code prefix (e.g. "919123456789" -> 12 digits starting with 91)
-    if (digits.length === 12 && digits.startsWith('91')) {
-      return digits.slice(2);
-    }
-    // Single domestic trunk prefix 0 (e.g. "09876543210" -> 11 digits starting with 0)
-    if (digits.length === 11 && digits.startsWith('0')) {
-      return digits.slice(1);
-    }
-    return digits;
+    const normalized = normalizeIndianPhone(val);
+    return normalized ?? val.replace(/\D/g, '');
   })
   .refine((digits) => /^[6-9]\d{9}$/.test(digits), {
     message: 'Invalid mobile number. Must be a valid 10-digit number starting with 6-9.',

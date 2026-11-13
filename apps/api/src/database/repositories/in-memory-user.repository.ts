@@ -5,6 +5,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import type { UserRow, CreditLedgerRow } from '@indian-job-portal/database';
+import { normalizeIndianPhone } from '@indian-job-portal/validation';
 import { PersistentDatabaseStore } from '../supabase.provider.js';
 import type { IUserRepository } from './user.repository.js';
 import crypto from 'node:crypto';
@@ -19,8 +20,9 @@ export class InMemoryUserRepository implements IUserRepository {
   }
 
   async findByPhone(phone: string): Promise<UserRow | null> {
+    const normalized = normalizeIndianPhone(phone) ?? phone.trim();
     const users = this.persistentStore.getTable<UserRow>('users');
-    return Object.values(users).find((u) => u.phone === phone) || null;
+    return Object.values(users).find((u) => u.phone === normalized) || null;
   }
 
   async findByEmail(email: string): Promise<UserRow | null> {
@@ -44,11 +46,12 @@ export class InMemoryUserRepository implements IUserRepository {
     status?: UserRow['status'];
     source?: string;
   }): Promise<UserRow> {
-    if (!/^[6-9]\d{9}$/.test(user.phone)) {
+    const normalizedPhone = normalizeIndianPhone(user.phone) ?? user.phone.trim();
+    if (!/^[6-9]\d{9}$/.test(normalizedPhone)) {
       throw new BadRequestException('Invalid Indian phone number format');
     }
 
-    const existing = await this.findByPhone(user.phone);
+    const existing = await this.findByPhone(normalizedPhone);
     if (existing) {
       return existing;
     }
@@ -57,7 +60,7 @@ export class InMemoryUserRepository implements IUserRepository {
     const id = crypto.randomUUID();
     const newUser: UserRow = {
       id,
-      phone: user.phone,
+      phone: normalizedPhone,
       email: null,
       role: user.role,
       status: user.status || 'active',

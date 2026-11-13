@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
-import { BulkUploadInput, InviteWaveInput } from '@indian-job-portal/validation';
+import { BulkUploadInput, InviteWaveInput, normalizeIndianPhone } from '@indian-job-portal/validation';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { parse as parseCsvSync } from 'csv-parse/sync';
 import { QstashService } from '../qstash/qstash.service.js';
@@ -199,21 +199,14 @@ export class BulkService {
     });
 
     if (this.isTestMode) {
-      const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
-      const qstashResult = await this.qstashService.publishTask({
-        url: `${apiUrl}/webhooks/qstash/import-batch`,
-        body: { batchId, source: input.source, entityType: input.entityType, csvContent },
-        deduplicationId: `import_${batchId}`,
-      });
-
       let validCount = 0;
       const errors: Array<{ row: number; phone: string; reason: string }> = [];
       const seenPhones = new Set<string>();
 
       records.forEach((row, idx) => {
-        const rawPhone = (row['phone'] || row['mobile'] || '').replace(/\s+/g, '');
-        const phone = rawPhone.startsWith('+91') ? rawPhone.slice(3) : rawPhone;
-        if (!/^[6-9]\d{9}$/.test(phone)) {
+        const rawPhone = row['phone'] || row['mobile'] || '';
+        const phone = normalizeIndianPhone(rawPhone);
+        if (!phone) {
           errors.push({ row: idx + 2, phone: rawPhone, reason: 'Invalid Indian 10-digit mobile number format' });
           return;
         }
@@ -239,7 +232,7 @@ export class BulkService {
         validRows: validCount,
         errorRows: errors.length,
         status: 'completed',
-        qstashMessageId: qstashResult.messageId,
+        qstashMessageId: null,
         failureReason: null,
         createdAt: now,
         startedAt: now,
@@ -298,22 +291,14 @@ export class BulkService {
       storagePath,
     });
 
-    const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
-    const qstashResult = await this.qstashService.publishTask({
-      url: `${apiUrl}/webhooks/qstash/import-batch`,
-      body: { batchId: dbBatchId },
-      deduplicationId: `import_${dbBatchId}`,
-    });
-
     await this.supabase
       .from('bulk_import_batches')
       .update({
-        status: 'dispatched' as TaskStatus,
-        qstash_message_id: qstashResult.messageId,
+        status: 'queued' as TaskStatus,
       })
       .eq('id', dbBatchId);
 
-    return this.toBatchRecord(batch, 'dispatched', qstashResult.messageId);
+    return this.toBatchRecord(batch, 'queued');
   }
 
   async executeImportBatchJob(batchId: string, payloadBody?: { source?: string; entityType?: 'student' | 'employer'; csvContent?: string }): Promise<BulkBatchRecord> {
@@ -388,14 +373,14 @@ export class BulkService {
       const seenPhones = new Set<string>();
 
       records.forEach((row, idx) => {
-        const rawPhone = (row['phone'] || row['mobile'] || '').replace(/\s+/g, '');
-        const phone = rawPhone.startsWith('+91') ? rawPhone.slice(3) : rawPhone;
-        if (!/^[6-9]\d{9}$/.test(phone)) {
-          errors.push({ row: idx + 2, phone: rawPhone, reason: 'Invalid mobile number' });
+        const rawPhone = row['phone'] || row['mobile'] || '';
+        const phone = normalizeIndianPhone(rawPhone);
+        if (!phone) {
+          errors.push({ row: idx + 2, phone: rawPhone, reason: 'Invalid Indian 10-digit mobile number format' });
           return;
         }
         if (seenPhones.has(phone)) {
-          errors.push({ row: idx + 2, phone, reason: 'Duplicate mobile number' });
+          errors.push({ row: idx + 2, phone: rawPhone, reason: 'Duplicate mobile number inside file' });
           return;
         }
         seenPhones.add(phone);

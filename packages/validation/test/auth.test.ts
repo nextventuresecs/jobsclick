@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  normalizeIndianPhone,
   IndianPhoneSchema,
   SendOtpSchema,
   VerifyOtpSchema,
@@ -13,6 +14,28 @@ import {
   isUserRole,
   udyamNumberSchema,
 } from '../src/auth.js';
+
+describe('normalizeIndianPhone standalone helper', () => {
+  it('normalizes +91, 91, 0, 0091 prefixes and formatted inputs to 10-digit string', () => {
+    expect(normalizeIndianPhone('9876543210')).toBe('9876543210');
+    expect(normalizeIndianPhone('+919876543210')).toBe('9876543210');
+    expect(normalizeIndianPhone('+91 98765 43210')).toBe('9876543210');
+    expect(normalizeIndianPhone('919876543210')).toBe('9876543210');
+    expect(normalizeIndianPhone('09876543210')).toBe('9876543210');
+    expect(normalizeIndianPhone('+91 09876543210')).toBe('9876543210');
+    expect(normalizeIndianPhone('0091 9876543210')).toBe('9876543210');
+  });
+
+  it('returns null for null, undefined, invalid numbers, and non-Indian start digits', () => {
+    expect(normalizeIndianPhone(null)).toBeNull();
+    expect(normalizeIndianPhone(undefined)).toBeNull();
+    expect(normalizeIndianPhone('')).toBeNull();
+    expect(normalizeIndianPhone('1234567890')).toBeNull(); // starts with 1
+    expect(normalizeIndianPhone('5876543210')).toBeNull(); // starts with 5
+    expect(normalizeIndianPhone('98765')).toBeNull(); // too short
+    expect(normalizeIndianPhone('+1 9876543210')).toBeNull(); // non-Indian
+  });
+});
 
 describe('IndianPhoneSchema Normalization & Validation', () => {
   it('normalizes various valid Indian phone formats to 10 canonical digits', () => {

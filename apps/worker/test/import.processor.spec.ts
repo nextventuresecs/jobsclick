@@ -14,6 +14,8 @@ import {
 function createMockSupabase() {
   const users: UserRow[] = [];
   const profiles: JobSeekerProfileRow[] = [];
+  const businessProfiles: Array<Record<string, unknown>> = [];
+  const invitations: Array<Record<string, unknown>> = [];
   const batches: Array<Record<string, unknown>> = [];
   const storageFiles = new Map<string, string>();
 
@@ -22,6 +24,8 @@ function createMockSupabase() {
   const client = {
     _users: users,
     _profiles: profiles,
+    _businessProfiles: businessProfiles,
+    _invitations: invitations,
     _batches: batches,
     _storageFiles: storageFiles,
 
@@ -131,6 +135,40 @@ function createMockSupabase() {
         };
       }
 
+      if (table === 'business_profiles') {
+        return {
+          select: (_cols?: string) => ({
+            in: async (_col: string, userIds: string[]) => {
+              const matched = businessProfiles.filter((p) => userIds.includes(p['user_id'] as string));
+              return { data: matched.map((p) => ({ id: p['id'], user_id: p['user_id'] })), error: null };
+            },
+          }),
+          insert: async (items: Array<Record<string, unknown>>) => {
+            for (const item of items) {
+              businessProfiles.push({
+                id: `biz_${idCounter++}`,
+                ...item,
+              });
+            }
+            return { data: items, error: null };
+          },
+        };
+      }
+
+      if (table === 'invitations') {
+        return {
+          insert: async (items: Array<Record<string, unknown>>) => {
+            for (const item of items) {
+              invitations.push({
+                id: `inv_${idCounter++}`,
+                ...item,
+              });
+            }
+            return { data: items, error: null };
+          },
+        };
+      }
+
       if (table === 'bulk_import_batches') {
         return {
           update: (updates: Record<string, unknown>) => ({
@@ -149,6 +187,8 @@ function createMockSupabase() {
   return client as unknown as SupabaseClient<Database> & {
     _users: UserRow[];
     _profiles: JobSeekerProfileRow[];
+    _businessProfiles: Array<Record<string, unknown>>;
+    _invitations: Array<Record<string, unknown>>;
     _batches: Array<Record<string, unknown>>;
     _storageFiles: Map<string, string>;
   };
@@ -505,6 +545,128 @@ describe('ImportProcessor - Hardened Bulk Candidate Ingestion', () => {
       // Database user & profile count remains exactly 2 (zero rogue duplicate rows created)
       expect(mockSupabase._users).toHaveLength(2);
       expect(mockSupabase._profiles).toHaveLength(2);
+    });
+  });
+
+  describe('Verification Criterion 6: Employer Ingestion & Strict Validation (PR 4)', () => {
+    it('creates employer users in invited state and provisions business_profiles', async () => {
+      const mockSupabase = createMockSupabase();
+      const processor = new ImportProcessor(mockSupabase);
+
+      const csv =
+        'company_name,phone,ownership_type,company_size,sector,city,district,udyam_number,gstin,pincode\n' +
+        'Malwa Agro Ltd,9876543260,Private Limited,Small,Food Processing,Indore,Indore,UDYAM-MP-01-0012345,23AABCC1234D1Z5,452001\n' +
+        'Narmada Logistics,9876543261,LLP,Medium,Logistics,Dewas,Dewas,,,455001\n';
+
+      const mockJob = {
+        id: 'job_emp_valid',
+        attemptsMade: 0,
+        data: {
+          batchId: 'e4a896d8-7917-4971-bc0b-d278786a3d90',
+          source: 'DIC Indore Batch',
+          entityType: 'employer',
+          csvContent: csv,
+        } as BulkImportJobData,
+        updateProgress: vi.fn(),
+      } as unknown as Job<BulkImportJobData>;
+
+      const result = await processor.process(mockJob);
+      expect(result.status).toBe('completed');
+      expect(result.validRows).toBe(2);
+      expect(result.errorRows).toBe(0);
+
+      // Verify users created with role: 'employer', status: 'invited'
+      expect(mockSupabase._users).toHaveLength(2);
+      expect(mockSupabase._users[0]!.role).toBe('employer');
+      expect(mockSupabase._users[0]!.status).toBe('invited');
+      expect(mockSupabase._users[0]!.source).toBe('DIC Indore Batch');
+
+      // Verify business_profiles populated
+      expect(mockSupabase._businessProfiles).toHaveLength(2);
+      expect(mockSupabase._businessProfiles[0]!['company_name']).toBe('Malwa Agro Ltd');
+      expect(mockSupabase._businessProfiles[0]!['ownership_type']).toBe('Private Limited');
+      expect(mockSupabase._businessProfiles[0]!['company_size']).toBe('Small');
+      expect(mockSupabase._businessProfiles[0]!['udyam_number']).toBe('UDYAM-MP-01-0012345');
+      expect(mockSupabase._businessProfiles[0]!['city']).toBe('Indore');
+
+      // Verify invitations record created with batchId
+      expect(mockSupabase._invitations).toHaveLength(2);
+      expect(mockSupabase._invitations[0]!['batch_id']).toBe('e4a896d8-7917-4971-bc0b-d278786a3d90');
+      expect(mockSupabase._invitations[0]!['status']).toBe('pending');
+    });
+
+    it('rejects rows with missing company name, missing ownership, missing size, or invalid udyam/gstin/pincode (BULK-02)', async () => {
+      const mockSupabase = createMockSupabase();
+      const processor = new ImportProcessor(mockSupabase);
+
+      const invalidCsv =
+        'company_name,phone,ownership_type,company_size,udyam_number,gstin,pincode\n' +
+        ',9876543270,Private Limited,Small,,,\n' + // Missing company name
+        'Valid Name 1,,Private Limited,Small,,,\n' + // Missing phone
+        'Valid Name 2,1234567890,Private Limited,Small,,,\n' + // Invalid Indian phone (starts with 1)
+        'Valid Name 3,9876543271,,Small,,,\n' + // Missing ownership type
+        'Valid Name 4,9876543272,Private Limited,,,,\n' + // Missing company size
+        'Valid Name 5,9876543273,Private Limited,Small,INVALID-UDYAM,,452001\n' + // Invalid Udyam
+        'Valid Name 6,9876543274,Private Limited,Small,,INVALID_GSTIN,452001\n' + // Invalid GSTIN
+        'Valid Name 7,9876543275,Private Limited,Small,,,1234\n'; // Invalid Pincode (4 digits)
+
+      const mockJob = {
+        id: 'job_emp_invalid',
+        attemptsMade: 0,
+        data: {
+          batchId: 'e4a896d8-7917-4971-bc0b-d278786a3d91',
+          source: 'DIC Bhopal Invalid',
+          entityType: 'employer',
+          csvContent: invalidCsv,
+        } as BulkImportJobData,
+        updateProgress: vi.fn(),
+      } as unknown as Job<BulkImportJobData>;
+
+      const result = await processor.process(mockJob);
+      expect(result.status).toBe('completed');
+      expect(result.validRows).toBe(0);
+      expect(result.errorRows).toBe(8);
+
+      expect(result.errorCsvContent).toContain('Missing company name');
+      expect(result.errorCsvContent).toContain('Invalid Indian 10-digit mobile number format');
+      expect(result.errorCsvContent).toContain('Missing ownership type');
+      expect(result.errorCsvContent).toContain('Missing company size');
+      expect(result.errorCsvContent).toContain('Invalid Udyam registration number format');
+      expect(result.errorCsvContent).toContain('Invalid GSTIN format');
+      expect(result.errorCsvContent).toContain('Invalid 6-digit Indian PIN code');
+
+      // Zero users or profiles created
+      expect(mockSupabase._users).toHaveLength(0);
+      expect(mockSupabase._businessProfiles).toHaveLength(0);
+    });
+
+    it('rejects duplicate mobile numbers within the same employer batch', async () => {
+      const mockSupabase = createMockSupabase();
+      const processor = new ImportProcessor(mockSupabase);
+
+      const duplicateCsv =
+        'company_name,phone,ownership_type,company_size\n' +
+        'Company Alpha,9876543280,Private Limited,Small\n' +
+        'Company Beta,9876543280,LLP,Micro\n';
+
+      const mockJob = {
+        id: 'job_emp_dup',
+        attemptsMade: 0,
+        data: {
+          batchId: 'e4a896d8-7917-4971-bc0b-d278786a3d92',
+          source: 'DIC Dup Batch',
+          entityType: 'employer',
+          csvContent: duplicateCsv,
+        } as BulkImportJobData,
+        updateProgress: vi.fn(),
+      } as unknown as Job<BulkImportJobData>;
+
+      const result = await processor.process(mockJob);
+      expect(result.validRows).toBe(1);
+      expect(result.errorRows).toBe(1);
+      expect(result.errorCsvContent).toContain('Duplicate mobile number inside file');
+      expect(mockSupabase._users).toHaveLength(1);
+      expect(mockSupabase._businessProfiles).toHaveLength(1);
     });
   });
 });

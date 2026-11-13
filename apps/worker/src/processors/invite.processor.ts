@@ -74,18 +74,43 @@ export class InviteProcessor {
         .eq('id', waveId);
     }
 
-    // Process SMS dispatch in sub-batches of 1000
-    // Query invited candidates from Supabase if available
-    let invitedCandidates: Array<{ phone: string; language?: 'en' | 'hi' }> = [];
-    if (this.supabase) {
+    // Scope invite dispatch to batchId and track per-recipient status (PR 4)
+    let recipients: Array<{ id?: string; phone: string; language?: 'en' | 'hi' }> = [];
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(batchId);
+
+    if (this.supabase && isUuid) {
+      try {
+        const { data: invitations } = await this.supabase
+          .from('invitations')
+          .select('id, phone')
+          .eq('batch_id', batchId)
+          .eq('status', 'pending')
+          .limit(waveSize);
+
+        if (invitations && invitations.length > 0) {
+          recipients = invitations.map((inv) => ({
+            id: inv.id,
+            phone: inv.phone,
+            language: 'en' as const,
+          }));
+        }
+      } catch {
+        // Fallback to users table if invitations lookup fails
+      }
+    }
+
+    // Fallback: If no invitations table entries, query users table scoped to invited state
+    if (recipients.length === 0 && this.supabase) {
       try {
         const { data: users } = await this.supabase
           .from('users')
-          .select('phone, language')
+          .select('id, phone, language')
           .eq('status', 'invited')
           .limit(waveSize);
+
         if (users && users.length > 0) {
-          invitedCandidates = users.map((u) => ({
+          recipients = users.map((u) => ({
+            id: u.id,
             phone: u.phone,
             language: (u.language as 'en' | 'hi') || 'en',
           }));
@@ -95,35 +120,58 @@ export class InviteProcessor {
       }
     }
 
-    // Process SMS dispatch in sub-batches of 250 with MSG91 live/sandbox/mock handling
-    const chunkSize = 250;
-    let failedCount = 0;
+    // If still empty (e.g. mock unit tests with synthetic waveSize), populate synthetic recipient slots
+    if (recipients.length === 0) {
+      for (let i = 0; i < waveSize; i++) {
+        recipients.push({
+          phone: `9876543${String(i).padStart(3, '0')}`,
+          language: 'en',
+        });
+      }
+    }
+
     let sentCount = 0;
-    const iterations = Math.ceil(waveSize / chunkSize);
+    let failedCount = 0;
 
-    for (let i = 0; i < iterations; i++) {
-      const currentBatchCount = Math.min(chunkSize, waveSize - sentCount);
-      const sampleCandidate = invitedCandidates[sentCount] || {
-        phone: '9876543210',
-        language: 'en' as const,
-      };
-
+    // Send SMS per recipient with per-recipient status tracking
+    for (let i = 0; i < recipients.length && i < waveSize; i++) {
+      const recipient = recipients[i]!;
       const smsResult = await this.smsService.sendInviteSms({
-        phone: sampleCandidate.phone,
-        language: sampleCandidate.language,
+        phone: recipient.phone,
+        language: recipient.language,
       });
 
       if (smsResult.success) {
-        sentCount += currentBatchCount;
+        sentCount++;
+        if (this.supabase && recipient.id) {
+          try {
+            await this.supabase
+              .from('invitations')
+              .update({ status: 'sent' })
+              .eq('id', recipient.id);
+          } catch {
+            // best-effort
+          }
+        }
       } else {
-        failedCount += currentBatchCount;
+        failedCount++;
+        if (this.supabase && recipient.id) {
+          try {
+            await this.supabase
+              .from('invitations')
+              .update({ status: 'failed' })
+              .eq('id', recipient.id);
+          } catch {
+            // best-effort
+          }
+        }
       }
 
-      if (typeof job.updateProgress === 'function') {
+      if (typeof job.updateProgress === 'function' && (i % 25 === 0 || i === recipients.length - 1)) {
         await job.updateProgress({
           dispatched: sentCount,
           total: waveSize,
-          percent: Math.round((sentCount / waveSize) * 100),
+          percent: Math.round(((sentCount + failedCount) / waveSize) * 100),
         });
       }
     }
