@@ -333,7 +333,7 @@ export class JobRepository {
       ).toISOString();
 
       // 4. Atomic staging with rollback guarantee
-      const ledgerId = `cld_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      const ledgerId = randomUUID();
       const ledgerRow: CreditLedgerRow = {
         id: ledgerId,
         user_id: params.userId,

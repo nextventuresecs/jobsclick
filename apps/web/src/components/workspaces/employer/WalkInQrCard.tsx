@@ -18,7 +18,8 @@ export function WalkInQrCard({ company }: WalkInQrCardProps) {
         badgeText="Factory Gate & Entrance Walk-in QR Poster"
         description="Display this official QR code at your factory main gate, security cabin, or office reception. Job seekers scan with their smartphone camera to view open positions and apply with verified digital CVs."
         downloadFileName={`${company.name}-walkin-poster`}
-        isMsme={company.isMsme ?? true}
+        isMsme={Boolean(company.isMsme)}
+        udyamVerified={Boolean(company.udyamVerified ?? (company.verified && company.isMsme))}
         udyamOrAffiliation={company.udyamNumber}
         locationText={`${company.address}, ${company.city}`}
       />

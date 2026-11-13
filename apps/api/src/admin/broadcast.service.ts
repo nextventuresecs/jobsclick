@@ -8,7 +8,7 @@ import {
   Inject,
   Logger,
 } from '@nestjs/common';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@indian-job-portal/database';
 import {
@@ -233,7 +233,7 @@ export class BroadcastService {
           }
         }
         await this.creditLedgerRepo.append({
-          id: `cld_escrow_${campaignId}`,
+          id: randomUUID(),
           user_id: actor.id,
           amount: -costPreview.totalCostPaise,
           reason: `BROADCAST_ESCROW_RESERVED: Campaign ${campaignId}`,
