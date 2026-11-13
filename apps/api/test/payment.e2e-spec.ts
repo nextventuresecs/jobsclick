@@ -21,6 +21,7 @@ describe('Ticket T-16: Razorpay Payment Gateway & Invoicing (WAL-03, Section 8.7
   const strangerUserId = `usr_stranger_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
   beforeAll(async () => {
+    process.env['ENABLE_P2_PAYMENTS'] = 'true';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();

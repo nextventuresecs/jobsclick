@@ -26,6 +26,8 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
   let institutionUser: { id: string; role: string; phone: string };
 
   beforeAll(async () => {
+    process.env['ENABLE_P2_SPONSORSHIP'] = 'true';
+    process.env['ENABLE_P2_PAYMENTS'] = 'true';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
@@ -67,7 +69,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
     await app.inject({
       method: 'POST',
       url: '/auth/send-otp',
-      payload: { phone: instPhone },
+      payload: { phone: instPhone, turnstileToken: 'test-token' },
     });
     const authRes = await app.inject({
       method: 'POST',
@@ -341,7 +343,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
       await app.inject({
         method: 'POST',
         url: '/auth/send-otp',
-        payload: { phone: ownerPhone },
+        payload: { phone: ownerPhone, turnstileToken: 'test-token' },
       });
       const ownerAuthRes = await app.inject({
         method: 'POST',
@@ -356,7 +358,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
       await app.inject({
         method: 'POST',
         url: '/auth/send-otp',
-        payload: { phone: intruderPhone },
+        payload: { phone: intruderPhone, turnstileToken: 'test-token' },
       });
       const intruderAuthRes = await app.inject({
         method: 'POST',

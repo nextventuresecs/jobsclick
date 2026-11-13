@@ -6,6 +6,7 @@ import { AppModule } from '../src/app.module.js';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { SmsService } from '../src/auth/sms.service.js';
 import { OtpRedisService } from '../src/auth/otp-redis.service.js';
+import { AuthService } from '../src/auth/auth.service.js';
 
 describe('OTP Rate Limiting & Concurrency Lockdown (Atomic Redis & Two-Instance)', () => {
   let appA: NestFastifyApplication;
@@ -72,7 +73,7 @@ describe('OTP Rate Limiting & Concurrency Lockdown (Atomic Redis & Two-Instance)
     );
     await appA.init();
     await appA.getHttpAdapter().getInstance().ready();
-    smsServiceA = appA.get(SmsService);
+    smsServiceA = (appA.get(AuthService) as unknown as { smsGateway: SmsService }).smsGateway;
     otpRedisA = appA.get(OtpRedisService);
     await otpRedisA.waitForReady();
 
@@ -89,7 +90,7 @@ describe('OTP Rate Limiting & Concurrency Lockdown (Atomic Redis & Two-Instance)
     );
     await appB.init();
     await appB.getHttpAdapter().getInstance().ready();
-    smsServiceB = appB.get(SmsService);
+    smsServiceB = (appB.get(AuthService) as unknown as { smsGateway: SmsService }).smsGateway;
     otpRedisB = appB.get(OtpRedisService);
     await otpRedisB.waitForReady();
   });

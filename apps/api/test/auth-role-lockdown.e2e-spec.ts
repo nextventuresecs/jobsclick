@@ -89,7 +89,7 @@ describe('Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E)'
           const sendRes = await app.inject({
             method: 'POST',
             url: '/auth/send-otp',
-            payload: { phone: testPhone },
+            payload: { phone: testPhone, turnstileToken: 'test-token' },
           });
           expect([200, 201]).toContain(sendRes.statusCode);
         }
@@ -128,7 +128,7 @@ describe('Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E)'
       const sendRes = await app.inject({
         method: 'POST',
         url: '/auth/send-otp',
-        payload: { phone: employerPhone },
+        payload: { phone: employerPhone, turnstileToken: 'test-token' },
       });
       expect([200, 201]).toContain(sendRes.statusCode);
 
@@ -159,7 +159,7 @@ describe('Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E)'
       const sendRes = await app.inject({
         method: 'POST',
         url: '/auth/send-otp',
-        payload: { phone: defaultPhone },
+        payload: { phone: defaultPhone, turnstileToken: 'test-token' },
       });
       expect([200, 201]).toContain(sendRes.statusCode);
 
@@ -200,7 +200,7 @@ describe('Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E)'
       await app.inject({
         method: 'POST',
         url: '/auth/send-otp',
-        payload: { phone },
+        payload: { phone, turnstileToken: 'test-token' },
       });
 
       // 3. User attempts to submit role: 'employer'
@@ -237,7 +237,7 @@ describe('Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E)'
       const sendResA = await app.inject({
         method: 'POST',
         url: '/auth/send-otp',
-        payload: { phone: formatA },
+        payload: { phone: formatA, turnstileToken: 'test-token' },
       });
       expect([200, 201]).toContain(sendResA.statusCode);
 
@@ -254,7 +254,7 @@ describe('Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E)'
       const sendResB = await app.inject({
         method: 'POST',
         url: '/auth/send-otp',
-        payload: { phone: formatB },
+        payload: { phone: formatB, turnstileToken: 'test-token' },
       });
       expect(sendResB.statusCode).toBe(429);
       expect(sendResB.headers['retry-after']).toBeDefined();

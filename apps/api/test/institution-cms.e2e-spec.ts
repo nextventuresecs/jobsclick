@@ -68,7 +68,7 @@ describe('Ticket T-18: Institution Public Page CMS & Inquiry Routing (INT-02, IN
     await app.inject({
       method: 'POST',
       url: '/auth/send-otp',
-      payload: { phone: instPhone },
+      payload: { phone: instPhone, turnstileToken: 'test-token' },
     });
     const instAuth = await app.inject({
       method: 'POST',
@@ -118,7 +118,7 @@ describe('Ticket T-18: Institution Public Page CMS & Inquiry Routing (INT-02, IN
     await app.inject({
       method: 'POST',
       url: '/auth/send-otp',
-      payload: { phone: otherPhone },
+      payload: { phone: otherPhone, turnstileToken: 'test-token' },
     });
     const otherAuth = await app.inject({
       method: 'POST',

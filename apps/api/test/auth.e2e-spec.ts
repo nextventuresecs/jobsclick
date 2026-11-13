@@ -45,7 +45,7 @@ describe('AuthController (e2e) - Issues #6, #7, #8', () => {
     const res1 = await app.inject({
       method: 'POST',
       url: '/auth/send-otp',
-      payload: { phone: testPhone },
+      payload: { phone: testPhone, turnstileToken: 'test-token' },
     });
 
     expect([200, 201]).toContain(res1.statusCode);
@@ -57,7 +57,7 @@ describe('AuthController (e2e) - Issues #6, #7, #8', () => {
     const res2 = await app.inject({
       method: 'POST',
       url: '/auth/send-otp',
-      payload: { phone: testPhone },
+      payload: { phone: testPhone, turnstileToken: 'test-token' },
     });
 
     expect(res2.statusCode).toBe(429);

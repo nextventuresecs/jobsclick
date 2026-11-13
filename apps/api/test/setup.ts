@@ -1,6 +1,10 @@
 import crypto from 'node:crypto';
 import { Test, type ModuleMetadata } from '@nestjs/testing';
 import { TestAuthModule } from './test-auth.module.js';
+import { TurnstileVerifier } from '../src/auth/turnstile.service.js';
+import { MockTurnstileVerifier } from './mocks/mock-turnstile.verifier.js';
+import { SmsGateway } from '../src/auth/sms.service.js';
+import { MockSmsGateway } from './mocks/mock-sms.gateway.js';
 
 // Vitest global setup: generate cryptographically secure random secrets per test run
 // Ensures tests run against valid entropy without hardcoding literal secrets in src
@@ -71,5 +75,13 @@ testContainer.createTestingModule = (metadata: ModuleMetadata) => {
   if (!isLockdown && metadata) {
     metadata.imports = metadata.imports ? [...metadata.imports, TestAuthModule] : [TestAuthModule];
   }
-  return origCreateTestingModule(metadata);
+  const builder = origCreateTestingModule(metadata);
+  const isNoOverride =
+    testPath.includes('sms-turnstile.spec') ||
+    testPath.includes('auth-fail-open-behaviour.spec');
+  if (!isNoOverride) {
+    builder.overrideProvider(TurnstileVerifier).useClass(MockTurnstileVerifier);
+    builder.overrideProvider(SmsGateway).useClass(MockSmsGateway);
+  }
+  return builder;
 };

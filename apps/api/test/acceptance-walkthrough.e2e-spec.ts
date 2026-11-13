@@ -61,7 +61,7 @@ describe('PRD 14.1 Full Acceptance Walkthrough (Epic 6 Launch Readiness)', () =>
     const otpRes = await app.inject({
       method: 'POST',
       url: '/auth/send-otp',
-      payload: { phone: testPhone },
+      payload: { phone: testPhone, turnstileToken: 'test-token' },
     });
     expect([200, 201]).toContain(otpRes.statusCode);
 
@@ -98,7 +98,7 @@ describe('PRD 14.1 Full Acceptance Walkthrough (Epic 6 Launch Readiness)', () =>
     await app.inject({
       method: 'POST',
       url: '/auth/send-otp',
-      payload: { phone: empPhone },
+      payload: { phone: empPhone, turnstileToken: 'test-token' },
     });
     const empVerifyRes = await app.inject({
       method: 'POST',

@@ -52,9 +52,6 @@ export interface VerifiedSession extends VerifiedSessionPayload {
 function getJwtSecret(): Buffer {
   const secret = process.env.JWT_SECRET;
   if (!secret || secret.trim().length < 32) {
-    if (process.env.NODE_ENV === 'test') {
-      return Buffer.from('jobsclick-jwt-secret-key-32-chars-min', 'utf-8');
-    }
     throw new Error(
       'CRITICAL BOOT ERROR: JWT_SECRET environment variable must be set and at least 32 characters long.'
     );

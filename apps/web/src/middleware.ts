@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SESSION_COOKIE_NAME } from '@/lib/auth-session';
+
+const SESSION_COOKIE_NAME =
+  process.env.NODE_ENV === 'production' ? '__Host-jc_session' : 'jc_session';
 
 const PROTECTED_PATH_PREFIXES = ['/workspace', '/hi/workspace', '/company/bulk-onboard'];
 

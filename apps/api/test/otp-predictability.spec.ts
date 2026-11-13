@@ -1,9 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { UnauthorizedException, Logger } from '@nestjs/common';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { AuthService } from '../src/auth/auth.service.js';
+import { JwtService } from '../src/auth/jwt.service.js';
 import { SmsService } from '../src/auth/sms.service.js';
 import { OtpRedisService } from '../src/auth/otp-redis.service.js';
 import { RateLimitService } from '../src/auth/rate-limit.service.js';
@@ -32,6 +33,7 @@ describe('Audit P0-3: Predictable OTP Removal and OTP Security Lockdown', () => 
       imports: [DatabaseModule],
       providers: [
         AuthService,
+        JwtService,
         SmsService,
         OtpRedisService,
         RateLimitService,
@@ -77,7 +79,7 @@ describe('Audit P0-3: Predictable OTP Removal and OTP Security Lockdown', () => 
       await otpRedisService.resetForTest(phone);
 
       // Send OTP (generated OTP is 654321)
-      await authService.sendOtp({ phone });
+      await authService.sendOtp({ phone, turnstileToken: 'test-token' });
 
       // Attempting verification with 123456 must throw 401 Unauthorized
       await expect(
@@ -90,7 +92,7 @@ describe('Audit P0-3: Predictable OTP Removal and OTP Security Lockdown', () => 
     for (const phone of testWhitelistPhones) {
       await otpRedisService.resetForTest(phone);
 
-      await authService.sendOtp({ phone });
+      await authService.sendOtp({ phone, turnstileToken: 'test-token' });
       const result = await authService.verifyOtp({ phone, code: DETERMINISTIC_OTP });
       expect(result.accessToken).toBeDefined();
       expect(result.user.phone).toBe(phone);
@@ -128,7 +130,7 @@ describe('Audit P0-3: Predictable OTP Removal and OTP Security Lockdown', () => 
 
     try {
       // 1. sendOtp
-      await authService.sendOtp({ phone: targetPhone });
+      await authService.sendOtp({ phone: targetPhone, turnstileToken: 'test-token' });
 
       // 2. 3 invalid verify attempts to trigger lockout path
       for (let attempt = 1; attempt <= 3; attempt++) {

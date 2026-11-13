@@ -22,6 +22,7 @@ describe('Concurrency & Security Verification Suite (Ticket T-16/T-17 Hardening)
   let institutionAId: string;
 
   beforeAll(async () => {
+    process.env['ENABLE_P2_PAYMENTS'] = 'true';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     })
@@ -86,7 +87,7 @@ describe('Concurrency & Security Verification Suite (Ticket T-16/T-17 Hardening)
     await app.inject({
       method: 'POST',
       url: '/auth/send-otp',
-      payload: { phone: phoneA },
+      payload: { phone: phoneA, turnstileToken: 'test-token' },
     });
     const authA = await app.inject({
       method: 'POST',
@@ -100,7 +101,7 @@ describe('Concurrency & Security Verification Suite (Ticket T-16/T-17 Hardening)
     await app.inject({
       method: 'POST',
       url: '/auth/send-otp',
-      payload: { phone: phoneB },
+      payload: { phone: phoneB, turnstileToken: 'test-token' },
     });
     const authB = await app.inject({
       method: 'POST',
@@ -113,7 +114,7 @@ describe('Concurrency & Security Verification Suite (Ticket T-16/T-17 Hardening)
     await app.inject({
       method: 'POST',
       url: '/auth/send-otp',
-      payload: { phone: phoneAdmin },
+      payload: { phone: phoneAdmin, turnstileToken: 'test-token' },
     });
     const authAdmin = await app.inject({
       method: 'POST',

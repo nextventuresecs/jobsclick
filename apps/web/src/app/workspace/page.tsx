@@ -1,9 +1,12 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useAppContext } from '@/context/AppContext';
+import { SeekerWorkspace } from '../../components/workspaces/SeekerWorkspace';
+import { EmployerWorkspace } from '../../components/workspaces/EmployerWorkspace';
+import { InstitutionWorkspace } from '../../components/workspaces/InstitutionWorkspace';
+import { AdminWorkspace } from '../../components/workspaces/AdminWorkspace';
 
 function WorkspaceSkeleton() {
   return (
@@ -22,39 +25,6 @@ function WorkspaceSkeleton() {
     </div>
   );
 }
-
-// Dynamic role-based code splitting (Fixes P2 eager bundle bloat)
-const SeekerWorkspace = dynamic(
-  () =>
-    import('../../components/workspaces/SeekerWorkspace.js').then(
-      (m) => m.SeekerWorkspace ?? m.default
-    ),
-  { loading: () => <WorkspaceSkeleton /> }
-);
-
-const EmployerWorkspace = dynamic(
-  () =>
-    import('../../components/workspaces/EmployerWorkspace.js').then(
-      (m) => m.EmployerWorkspace ?? m.default
-    ),
-  { loading: () => <WorkspaceSkeleton /> }
-);
-
-const InstitutionWorkspace = dynamic(
-  () =>
-    import('../../components/workspaces/InstitutionWorkspace.js').then(
-      (m) => m.InstitutionWorkspace ?? m.default
-    ),
-  { loading: () => <WorkspaceSkeleton /> }
-);
-
-const AdminWorkspace = dynamic(
-  () =>
-    import('../../components/workspaces/AdminWorkspace.js').then(
-      (m) => m.AdminWorkspace ?? m.default
-    ),
-  { loading: () => <WorkspaceSkeleton /> }
-);
 
 export default function WorkspacePage() {
   const router = useRouter();
@@ -76,11 +46,10 @@ export default function WorkspacePage() {
       return <SeekerWorkspace />;
     case 'employer':
       return <EmployerWorkspace />;
-    case 'institution_admin':
     case 'intermediary':
       return <InstitutionWorkspace />;
     case 'msme_admin':
-    case 'platform_admin':
+    case 'admin':
       return <AdminWorkspace />;
     default:
       return <WorkspaceSkeleton />;

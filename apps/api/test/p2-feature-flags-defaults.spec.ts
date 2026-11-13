@@ -154,7 +154,7 @@ describe('Feature Flags Default-OFF Gate Tests', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/auth/send-otp',
-      payload: { phone: '9876543210' },
+      payload: { phone: '9876543210', turnstileToken: 'test-token' },
     });
     expect([200, 201]).toContain(res.statusCode);
   });

@@ -59,8 +59,9 @@ describe('Spec 0: Fail-Open Auth Behaviour (No DI Overrides)', () => {
     await moduleRef?.close();
   });
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.restoreAllMocks();
+    await otpRedisService.resetForTest('9876543210');
   });
 
   afterEach(() => {
