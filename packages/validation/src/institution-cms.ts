@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { optionalHttpUrlSchema } from './safe-url';
 
 export const courseSchema = z.object({
   id: z.string(),
@@ -50,7 +51,7 @@ export const facultySchema = z.object({
   qualification: z.string().min(2, 'Qualification is required'),
   experienceYears: z.coerce.number().nonnegative().default(0),
   bio: z.string().optional().default(''),
-  photoUrl: z.string().url().optional().or(z.literal('')),
+  photoUrl: optionalHttpUrlSchema,
 });
 
 export const institutionCmsSchema = z.object({

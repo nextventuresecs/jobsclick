@@ -9,6 +9,8 @@ import {
 } from '../../../data/sampleWorkspaces';
 import { ProfileQrShareCard } from '../../../components/common/ProfileQrShareCard';
 import { PublicInstitutionTabs } from '../../../components/workspaces/institution/PublicInstitutionTabs';
+import { safeJsonLd } from '../../../lib/safe-json-ld';
+import { safeHttpUrl } from '../../../lib/safe-url';
 import type { InstitutionCmsInput } from '@indian-job-portal/validation';
 import {
   ArrowLeft,
@@ -250,7 +252,7 @@ export default async function PublicInstitutionPage({ params }: InstitutionPageP
       {/* Structured SEO Data for Google */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
       />
 
       <main className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 w-full">
@@ -347,11 +349,11 @@ export default async function PublicInstitutionPage({ params }: InstitutionPageP
                   {institution.address}, {institution.city}, {institution.district},{' '}
                   {institution.state} - {institution.pincode}
                 </p>
-                {institution.website && (
+                {safeHttpUrl(institution.website) ? (
                   <div className="pt-2 border-t border-gray-200 flex items-center gap-1.5">
                     <Globe className="w-3.5 h-3.5 text-gray-400" />
                     <a
-                      href={institution.website}
+                      href={safeHttpUrl(institution.website)!}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-brand-orange font-medium hover:underline truncate"
@@ -359,7 +361,12 @@ export default async function PublicInstitutionPage({ params }: InstitutionPageP
                       {institution.website}
                     </a>
                   </div>
-                )}
+                ) : institution.website ? (
+                  <div className="pt-2 border-t border-gray-200 flex items-center gap-1.5 text-gray-400">
+                    <Globe className="w-3.5 h-3.5 text-gray-400" />
+                    <span className="truncate">{institution.website}</span>
+                  </div>
+                ) : null}
               </div>
 
               <div className="bg-gray-50 rounded-xl p-5 border border-gray-200 space-y-3 text-xs">

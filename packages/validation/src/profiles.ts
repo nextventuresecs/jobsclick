@@ -1,12 +1,13 @@
 import { z } from 'zod';
 import { jobCategorySchema } from './jobs';
+import { optionalHttpUrlSchema } from './safe-url';
 
 export const seekerTypeSchema = z.enum(['student', 'individual']);
 
 export const jobSeekerProfileSchema = z
   .object({
     fullName: z.string().min(2, 'Full name is required'),
-    photoUrl: z.string().url().optional().or(z.literal('')),
+    photoUrl: optionalHttpUrlSchema,
     seekerType: seekerTypeSchema.default('individual'),
     gender: z.enum(['Male', 'Female', 'Other']).optional(),
     dob: z.string().optional(),
@@ -61,25 +62,25 @@ export const businessProfileSchema = z.object({
   city: z.string().min(2, 'City is required'),
   district: z.string().min(2, 'District is required'),
   state: z.string().optional(),
-  logoUrl: z.string().url().optional().or(z.literal('')),
+  logoUrl: optionalHttpUrlSchema,
   // Fields from Check sheet of msme_business_onboarding_template.xlsx
   phone: z.string().optional(),
   email: z.string().email().optional().or(z.literal('')),
-  website: z.string().optional(),
+  website: optionalHttpUrlSchema,
   yearOfRegistration: z.string().optional(),
   commencementYear: z.string().optional(),
   founderOrDirector: z.string().optional(),
-  directorPhotoUrl: z.string().optional(),
+  directorPhotoUrl: optionalHttpUrlSchema,
   designation: z.string().optional(),
   knowMyBusiness: z.string().optional(),
   productsBrief: z.string().optional(),
   servicesBrief: z.string().optional(),
   socialMedia: z
     .object({
-      instagram: z.string().optional(),
-      facebook: z.string().optional(),
-      youtube: z.string().optional(),
-      other: z.string().optional(),
+      instagram: optionalHttpUrlSchema,
+      facebook: optionalHttpUrlSchema,
+      youtube: optionalHttpUrlSchema,
+      other: optionalHttpUrlSchema,
     })
     .optional(),
   isMsme: z.boolean().optional(),
@@ -108,7 +109,7 @@ export const institutionProfileSchema = z.object({
   contactDesignation: z.string().optional(),
   contactEmail: z.string().email('Invalid email address').optional().or(z.literal('')),
   contactPhone: z.string().optional(),
-  website: z.string().url('Invalid website URL').optional().or(z.literal('')),
+  website: optionalHttpUrlSchema,
   address: z.string().min(5, 'Address is required'),
   city: z.string().optional(),
   district: z.string().optional(),
@@ -116,7 +117,7 @@ export const institutionProfileSchema = z.object({
   pincode: z.string().regex(/^\d{6}$/, 'Must be a 6-digit Indian PIN code').optional().or(z.literal('')),
   tradesOffered: z.array(z.string()).optional(),
   annualCapacity: z.coerce.number().int().nonnegative().optional(),
-  placementBrochureUrl: z.string().url().optional().or(z.literal('')),
+  placementBrochureUrl: optionalHttpUrlSchema,
   about: z.string().max(2000).optional(),
 });
 

@@ -6,6 +6,7 @@ import { Footer } from '../../../components/layout/Footer';
 import { SAMPLE_COMPANIES, CompanyItem } from '../../../data/sampleCompanies';
 import type { JobItem } from '../../../data/sampleJobs';
 import { mapApiJobToJobItem, type ApiJobPayload } from '../../../lib/job-mapper';
+import { safeJsonLd } from '../../../lib/safe-json-ld';
 import {
   CategoryBadge,
   getCategoryCardBorderClass,
@@ -120,7 +121,7 @@ export default async function PublicCompanyPage({ params }: CompanyPageProps) {
       {/* Structured SEO Data for Google */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
       />
 
       <main className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 w-full">

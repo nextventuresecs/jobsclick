@@ -3,6 +3,7 @@
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@indian-job-portal/ui';
+import { safeHttpUrl } from '../../../lib/safe-url';
 import type { InstitutionProfileData } from '../../../data/sampleWorkspaces';
 import {
   Award,
@@ -101,9 +102,9 @@ export function InstitutionProfileCard({ institution, onEdit }: InstitutionProfi
           <div>
             <span className="text-gray-500">Official Website</span>
             <p className="mt-0.5">
-              {institution.website ? (
+              {safeHttpUrl(institution.website) ? (
                 <a
-                  href={institution.website.startsWith('http') ? institution.website : `https://${institution.website}`}
+                  href={safeHttpUrl(institution.website)!}
                   target="_blank"
                   rel="noreferrer"
                   className="text-teal-700 hover:underline font-medium inline-flex items-center gap-1"
@@ -111,6 +112,8 @@ export function InstitutionProfileCard({ institution, onEdit }: InstitutionProfi
                   <span>{institution.website}</span>
                   <ExternalLink className="w-3 h-3" />
                 </a>
+              ) : institution.website ? (
+                <span className="text-gray-500 font-medium">{institution.website}</span>
               ) : (
                 <span className="text-gray-400">—</span>
               )}
@@ -119,9 +122,9 @@ export function InstitutionProfileCard({ institution, onEdit }: InstitutionProfi
           <div>
             <span className="text-gray-500">Placement Brochure</span>
             <p className="mt-0.5">
-              {institution.placementBrochureUrl ? (
+              {safeHttpUrl(institution.placementBrochureUrl) ? (
                 <a
-                  href={institution.placementBrochureUrl}
+                  href={safeHttpUrl(institution.placementBrochureUrl)!}
                   target="_blank"
                   rel="noreferrer"
                   className="text-teal-700 hover:underline font-medium inline-flex items-center gap-1"

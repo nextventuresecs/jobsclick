@@ -32,6 +32,7 @@ export * from './placement-fsm';
 export * from './admin/broadcast';
 export * from './institution-cms';
 export * from './scrubber';
+export * from './safe-url';
 
 export const PLACEHOLDER_SECRET_REGEX = /change-?me|example|dummy|test|secret-key|jwt-secret|password|default|placeholder|12345678|abcdef/i;
 
