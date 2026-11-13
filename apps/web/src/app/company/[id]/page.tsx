@@ -217,7 +217,8 @@ export default async function PublicCompanyPage({ params }: CompanyPageProps) {
                 badgeText="Storefront & Factory Gate Digital QR"
                 description="Print or display this official QR code at your industrial facility entrance, reception, or recruitment kiosk. Candidates can scan with any smartphone camera to view verified company credentials and apply directly."
                 downloadFileName={`${company.name}-recruitment-qr`}
-                isMsme={company.isMsme ?? true}
+                isMsme={Boolean(company.isMsme)}
+                udyamVerified={Boolean(company.verified && company.isMsme)}
                 udyamOrAffiliation={company.udyamNumber}
                 locationText={`${company.city}, ${company.district}`}
               />

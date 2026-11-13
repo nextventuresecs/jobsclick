@@ -67,12 +67,16 @@ export function EmployerHeader({
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{company.name}</h1>
-              {company.isMsme && (
+              {company.udyamVerified ?? (company.verified && company.isMsme) ? (
                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
                   <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                   <span>{t('verifiedMsmeBadge')}</span>
                 </span>
-              )}
+              ) : company.isMsme ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                  <span>Unverified</span>
+                </span>
+              ) : null}
               {company.isDpiitStartup && (
                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-800 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
                   <Award className="w-3 h-3 text-blue-600" />

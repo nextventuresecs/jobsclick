@@ -45,9 +45,9 @@ export function maskContactNumber(phone?: string | null): string {
 
 export function maskEmailAddress(email?: string | null): string {
   if (!email || !email.trim()) {
-    return '•••••@••••.•••';
+    return '••••••@••••••';
   }
-  return '•••••@••••.•••';
+  return '••••••@••••••';
 }
 
 export function filterStudentsMultiSelect(

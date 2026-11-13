@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException, NotFoundException, UnauthorizedException, Inject, Optional, Logger } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { OtpRedisService } from '../auth/otp-redis.service.js';
 import { AdminUserStatusInput, AdminUserRoleInput, GenerateResumeInput, AdminExportQueryInput } from '@indian-job-portal/validation';
 import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
@@ -150,7 +151,7 @@ export class AdminService {
 
   // Issue #22 & Ticket T-03: Persistent Audit Log (Hard Invariant #6: Append-only immutability!)
   async recordAuditLog(actorId: string | null, action: string, meta: Record<string, unknown> = {}): Promise<AuditLogRecord> {
-    const id = `audit_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const id = randomUUID();
     const createdAt = new Date().toISOString();
 
     await this.auditLogRepo.append({
@@ -322,7 +323,7 @@ export class AdminService {
   // Issue #24: DPDP Privacy Deletion Request
   async requestAccountDeletion(userId: string, reason?: string): Promise<PrivacyDeletionRequestRecord> {
     const reqRecord: PrivacyDeletionRequestRecord = {
-      id: `del_req_${Date.now()}`,
+      id: randomUUID(),
       userId,
       reason: reason || 'User requested account deletion under DPDP principles',
       requestedAt: new Date().toISOString(),
@@ -335,7 +336,7 @@ export class AdminService {
 
   // Issue #30: Resume Builder
   async generateResume(input: GenerateResumeInput): Promise<{ resumeId: string; template: string; downloadUrl: string }> {
-    const resumeId = `res_${Date.now()}`;
+    const resumeId = randomUUID();
     return {
       resumeId,
       template: input.template,

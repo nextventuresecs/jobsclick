@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import {
   JobSeekerProfileInput,
   BusinessProfileInput,
@@ -208,7 +209,7 @@ export class ProfilesService {
 
   async updateBusinessProfileMe(userId: string, input: BusinessProfileInput): Promise<BusinessProfileRecord> {
     const existing = await this.profileRepository.findBusinessProfileByUserId(userId);
-    const id = existing?.id || `bus_${userId}`;
+    const id = existing?.id || randomUUID();
     const now = new Date().toISOString();
 
     const row: BusinessProfileRow = {
@@ -284,7 +285,7 @@ export class ProfilesService {
 
   async getInstitutionStudents(userId: string): Promise<JobSeekerProfileRow[]> {
     const institution = await this.profileRepository.findInstitutionProfileByUserId(userId);
-    const instId = institution?.id || `inst_${userId}`;
+    const instId = institution?.id || randomUUID();
     const instName = institution?.institution_name || '';
 
     const students = await this.profileRepository.findStudentsByInstitution(instId);

@@ -48,10 +48,16 @@ export function SeekerHeader({
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900">{profile.name}</h1>
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                <span>{t('verifiedCandidate')}</span>
-              </span>
+              {profile.isVerified || profile.aadhaarVerified ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                  <span>{t('verifiedCandidate')}</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
+                  <span>Unverified</span>
+                </span>
+              )}
               {profile.enrolledViaInstitution && (
                 <span className="inline-flex items-center gap-1 text-[11px] font-medium text-teal-800 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-full">
                   <GraduationCap className="w-3 h-3 text-teal-600" />

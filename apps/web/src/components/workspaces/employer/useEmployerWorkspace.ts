@@ -62,8 +62,8 @@ export function useEmployerWorkspace({ user, accessToken, addToast }: UseEmploye
   });
 
   const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || process.env['API_URL'] || 'http://localhost:3001';
-  const authHeader = accessToken ? `Bearer ${accessToken}` : `Bearer jwt_session_${user?.id || 'usr_employer_55'}_${Date.now()}`;
-  const userId = user?.id || 'usr_employer_55';
+  const authHeader = accessToken ? `Bearer ${accessToken}` : '';
+  const userId = user?.id || '';
 
   useEffect(() => {
     return loadEmployerWorkspaceData({

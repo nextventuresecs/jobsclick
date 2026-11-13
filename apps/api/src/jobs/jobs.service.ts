@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject, Logger } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import {
   CreateJobInput,
   UpdateJobInput,
@@ -89,7 +90,7 @@ export class JobsService {
   ) {}
 
   async createJob(employerId: string, input: CreateJobInput): Promise<JobRecord> {
-    const id = `job_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    const id = randomUUID();
     const now = new Date().toISOString();
 
     const row: JobRow = {
@@ -200,7 +201,7 @@ export class JobsService {
     // Deduct 1 credit for job application (WAL-02, Hard Invariant #7)
     const deduction = await this.walletService.deductForJobApplication(applicantId, jobId, job.title);
 
-    const appId = `app_${jobId}_${applicantId}`;
+    const appId = randomUUID();
     const now = new Date().toISOString();
 
     const appRow: ApplicationRow = {

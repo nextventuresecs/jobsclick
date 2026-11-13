@@ -206,7 +206,7 @@ export function useSeekerWorkspace() {
         willingToRelocate: formData.formWillingToRelocate,
         bio: formData.formBio,
         aadhaarLastFour: formData.formAadhaarLastFour,
-        aadhaarVerified: Boolean(formData.formAadhaarLastFour),
+        aadhaarVerified: prev.aadhaarVerified ?? false,
         apaarId: formData.formApaarId,
         dpdpConsentGiven: formData.formDpdpConsent,
         completionPercentage: completeness,

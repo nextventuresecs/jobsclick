@@ -56,16 +56,17 @@ export function SeekerDigitalCvPreview({ profile, onPrint }: SeekerDigitalCvPrev
             )}
           </div>
           <div className="text-right">
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>{t('verifiedCandidate')}</span>
-            </span>
-            <p className="text-[11px] text-gray-400 font-mono mt-2">{t('candidateRef')} {profile.id}</p>
-            {profile.aadhaarLastFour && (
-              <p className="text-[10px] text-gray-500 font-mono mt-0.5">
-                {t('labelAadhaarLastFour')}: •••• •••• {profile.aadhaarLastFour} ({t('verified')})
-              </p>
+            {profile.isVerified || profile.aadhaarVerified ? (
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span>{t('verifiedCandidate')}</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
+                <span>Unverified</span>
+              </span>
             )}
+            <p className="text-[11px] text-gray-400 font-mono mt-2">{t('candidateRef')} {profile.id}</p>
           </div>
         </div>
 

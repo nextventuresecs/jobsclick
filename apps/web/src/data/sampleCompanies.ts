@@ -11,6 +11,7 @@ export interface CompanyItem {
   readonly description: string;
   readonly udyamNumber: string;
   readonly verified: boolean;
+  readonly udyamVerified?: boolean;
   readonly activeJobsCount: number;
   readonly phone?: string;
   readonly email?: string;

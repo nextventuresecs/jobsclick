@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException, Inject } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import type { CreditLedgerRow } from '@indian-job-portal/database';
 import { CreditLedgerRepository } from '../database/repositories/credit-ledger.repository.js';
 import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
@@ -48,7 +49,7 @@ export class WalletService {
   // Append new ledger transaction (Strictly append-only)
   async recordTransaction(input: WalletTransactionInput): Promise<CreditLedgerRow> {
     const now = new Date().toISOString();
-    const id = `cld_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const id = randomUUID();
     const actorId = input.actorId ?? input.userId;
 
     const row: CreditLedgerRow = {
@@ -65,7 +66,7 @@ export class WalletService {
     // Hard Invariant #6: Append to persistent audit logs for all credit changes
     try {
       await this.auditLogRepository.append({
-        id: `aud_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+        id: randomUUID(),
         actor_id: actorId,
         action: input.amount >= 0 ? 'CREDIT_WALLET_GRANTED' : 'CREDIT_WALLET_DEDUCTED',
         meta: {

@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Inject,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import {
   SPONSORSHIP_TIERS,
   type SponsorshipTier,
@@ -315,7 +316,7 @@ export class SponsorshipService {
       // 1-year annual duration
       const now = new Date();
       const oneYearLater = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
-      const sponsorshipId = `spons_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+      const sponsorshipId = randomUUID();
 
       // Insert institution sponsorship row (WAL-05 DB Defense-in-depth)
       const sponsorshipRecord: InstitutionSponsorshipRow = {
@@ -350,7 +351,7 @@ export class SponsorshipService {
       // Append to immutable audit log (Hard Invariant #6)
       try {
         await this.auditLogRepository.append({
-          id: `aud_spons_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+          id: randomUUID(),
           actor_id: user.id || institution.user_id,
           action: 'INSTITUTION_SPONSORSHIP_ACTIVATED',
           meta: {
