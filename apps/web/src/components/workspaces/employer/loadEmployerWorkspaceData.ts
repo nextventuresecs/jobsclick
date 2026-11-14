@@ -38,6 +38,7 @@ export function loadEmployerWorkspaceData({
     if (busProfile && isMounted && busProfile.companyName) {
       setCompany((prev) => ({
         ...prev,
+        slug: busProfile.slug || prev.slug,
         name: busProfile.companyName || prev.name,
         sector: busProfile.sector || prev.sector,
         address: busProfile.address || prev.address,
@@ -54,11 +55,11 @@ export function loadEmployerWorkspaceData({
   fetchEmployerJobs(apiUrl, authHeader, userId, company.id).then(async (jobsData) => {
     if (!isMounted || !jobsData?.jobs) return;
     const apiJobs: JobItem[] = jobsData.jobs.map((j: {
-      id: string; title: string; category: JobItem['category']; employmentType?: JobItem['employmentType'];
+      id: string; slug?: string; title: string; category: JobItem['category']; employmentType?: JobItem['employmentType'];
       experienceLevel?: JobItem['experienceLevel']; minPay?: number; maxPay?: number; openings?: number;
       city?: string; district?: string; state?: string; skills?: string[]; description?: string; createdAt?: string;
     }) => ({
-      id: j.id, title: j.title, companyName: company.name, companyId: company.id,
+      id: j.id, slug: j.slug, title: j.title, companyName: company.name, companyId: company.id, companySlug: company.slug,
       location: `${j.city || ''}, ${j.district || j.city || ''}`, district: j.district || j.city || '',
       state: j.state || company.state || '', category: j.category, employmentType: j.employmentType || 'Full-time',
       salaryMin: j.minPay || 0, salaryMax: j.maxPay || 0, openings: j.openings || 1,

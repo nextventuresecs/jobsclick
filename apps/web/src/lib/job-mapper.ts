@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs';
 import type { JobItem } from '../data/sampleJobs';
 import type { IndustryCategory } from '@indian-job-portal/validation';
 
@@ -27,14 +28,29 @@ export interface ApiJobPayload {
 }
 
 export function mapApiJobToJobItem(j: ApiJobPayload, defaultCompanyName?: string): JobItem {
-  const effectiveId = j.slug || j.id || '';
+  const effectiveSlug = j.slug || (j.id && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(j.id) ? j.id : '');
+  const companySlug = j.companySlug || '';
+
+  // Task 3: remove employerId/companyId fallback for companyId.
+  // If companySlug is missing, omit the link and report to Sentry; never render an internal id.
+  if (!companySlug) {
+    try {
+      Sentry.captureMessage(
+        `Job mapping missing companySlug for job: ${effectiveSlug || 'unknown'}`,
+        'warning',
+      );
+    } catch {
+      // ignore
+    }
+  }
+
   return {
-    id: effectiveId,
-    slug: j.slug || j.id,
-    companySlug: j.companySlug,
+    id: effectiveSlug || j.id || '',
+    slug: effectiveSlug || undefined,
+    companySlug: companySlug || undefined,
     title: j.title,
     companyName: j.companyName || defaultCompanyName || 'Verified Enterprise',
-    companyId: j.companySlug || j.companyId || j.employerId || '',
+    companyId: companySlug,
     location: j.city || 'India',
     district: j.district || j.city || 'National',
     state: j.state || 'India',

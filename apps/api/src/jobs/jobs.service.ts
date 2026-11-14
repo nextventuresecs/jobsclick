@@ -115,7 +115,7 @@ export function mapJobRowToPublicRecord(row: JobRow, companySlug?: string): Publ
     new Date(row.featured_until).getTime() > Date.now(),
   );
   return {
-    slug: row.public_slug,
+    slug: row.public_slug || (row as unknown as { slug?: string }).slug || '',
     title: row.title,
     description: row.description,
     category: row.category as IndustryCategory,
@@ -195,14 +195,22 @@ export class JobsService {
 
     const publicJobs: PublicJobRecord[] = [];
     for (const row of rows) {
-      const bizProfile = await this.profileRepository.findBusinessProfileByUserId(row.employer_id);
-      publicJobs.push(mapJobRowToPublicRecord(row, bizProfile?.public_slug));
+      const companySlug =
+        (row as unknown as { company_slug?: string }).company_slug ||
+        (row.employer_id ? (await this.profileRepository.findBusinessProfileByUserId(row.employer_id))?.public_slug : undefined);
+      publicJobs.push(mapJobRowToPublicRecord(row, companySlug));
     }
 
     return {
       jobs: publicJobs,
       total,
     };
+  }
+
+  // ID-02: Employer job list carries public_slug on each job record
+  async getEmployerJobs(employerId: string): Promise<JobRecord[]> {
+    const rows = await this.jobRepository.findByEmployerId(employerId);
+    return rows.map(mapJobRowToRecord);
   }
 
   // ID-02: Public job details looked up exclusively by public_slug

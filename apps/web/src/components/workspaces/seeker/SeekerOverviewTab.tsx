@@ -147,7 +147,7 @@ export function SeekerOverviewTab({
                   </p>
                 </div>
                 <Link
-                  href={`/jobs/${job.id}`}
+                  href={`/jobs/${job.slug || job.id}`}
                   className="mt-4 block text-center py-2 px-3 rounded-lg text-xs font-semibold text-[#F97316] bg-orange-50 hover:bg-orange-100 transition-colors"
                 >
                   {t('viewDetailsApply')}

@@ -49,6 +49,13 @@ export class JobsController {
     return this.jobsService.createJob(user.id, validated);
   }
 
+  // ID-02: Authenticated employer retrieves their job list carrying public_slug
+  @Roles('employer', 'admin')
+  @Get('employer/me')
+  async getEmployerJobs(@CurrentUser() user: AuthUser) {
+    return this.jobsService.getEmployerJobs(user.id);
+  }
+
   @Public()
   @Get()
   @Header('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=59')

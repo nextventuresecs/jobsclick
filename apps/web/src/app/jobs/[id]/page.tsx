@@ -148,13 +148,20 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
                   {job.title}
                 </h1>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600 font-medium">
-                  <Link
-                    href={`/company/${job.companyId}`}
-                    className="hover:text-brand-orange flex items-center gap-1 text-gray-800"
-                  >
-                    <Building2 className="w-4 h-4 text-gray-400" />
-                    <span>{job.companyName}</span>
-                  </Link>
+                  {job.companySlug || job.companyId ? (
+                    <Link
+                      href={`/company/${job.companySlug || job.companyId}`}
+                      className="hover:text-brand-orange flex items-center gap-1 text-gray-800"
+                    >
+                      <Building2 className="w-4 h-4 text-gray-400" />
+                      <span>{job.companyName}</span>
+                    </Link>
+                  ) : (
+                    <span className="flex items-center gap-1 text-gray-800">
+                      <Building2 className="w-4 h-4 text-gray-400" />
+                      <span>{job.companyName}</span>
+                    </span>
+                  )}
                   <span aria-hidden="true" className="text-gray-300">·</span>
                   <span className="flex items-center gap-1 text-gray-500">
                     <MapPin className="w-4 h-4 text-brand-orange" />
@@ -277,11 +284,13 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
                 Direct enterprise employer located in {job.location}, {job.district}, {job.state}. Hiring verified candidates with zero commission.
               </p>
               <div className="pt-2">
-                <Link href={`/company/${job.companySlug || job.companyId}`}>
-                  <Button variant="outline" size="sm" className="font-semibold">
-                    View Verified Company Profile
-                  </Button>
-                </Link>
+                {job.companySlug || job.companyId ? (
+                  <Link href={`/company/${job.companySlug || job.companyId}`}>
+                    <Button variant="outline" size="sm" className="font-semibold">
+                      View Verified Company Profile
+                    </Button>
+                  </Link>
+                ) : null}
               </div>
             </div>
 

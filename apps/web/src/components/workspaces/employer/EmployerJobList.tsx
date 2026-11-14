@@ -78,7 +78,7 @@ export function EmployerJobList({
 
             <div className="flex items-center gap-3 shrink-0">
               <Link
-                href={`/jobs/${job.id}`}
+                href={`/jobs/${job.slug || job.id}`}
                 className="p-2 text-gray-500 hover:text-gray-900 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
                 title="View public posting"
               >
