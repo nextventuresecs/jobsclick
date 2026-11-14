@@ -37,6 +37,7 @@ export interface SeekerProfileData {
   readonly apaarId?: string;
   readonly aadhaarLastFour?: string;
   readonly aadhaarVerified?: boolean;
+  readonly isVerified?: boolean;
   readonly dpdpConsentGiven: boolean;
   readonly isOnboardingComplete: boolean;
   readonly enrolledViaInstitution?: string;
@@ -310,20 +311,15 @@ export interface AuditLogEntryData {
   readonly status: 'success' | 'warning' | 'error';
 }
 
-// Hard Invariant #1: Never show full phone or email to employers or unauthorized viewers
-export function maskCandidatePhone(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length < 4) return '••••••••••';
-  return `+91 ••••• ••${digits.slice(-3)}`;
+// Hard Invariant #1: Never show full phone or email to employers or unauthorized viewers (fully masked: no last-3 digits, no domain)
+export function maskCandidatePhone(phone?: string | null): string {
+  if (!phone || !phone.trim()) return '••••••••••';
+  return '+91 ••••• •••••';
 }
 
-export function maskCandidateEmail(email: string): string {
-  const parts = email.split('@');
-  if (parts.length !== 2) return '••••••@•••••.•••';
-  const name = parts[0] ?? '';
-  const domain = parts[1] ?? '';
-  const maskedName = name.length > 2 ? `${name.slice(0, 2)}••••` : '••••';
-  return `${maskedName}@${domain}`;
+export function maskCandidateEmail(email?: string | null): string {
+  if (!email || !email.trim()) return '••••••@••••••';
+  return '••••••@••••••';
 }
 
 export const INITIAL_SEEKER_PROFILE: SeekerProfileData = {

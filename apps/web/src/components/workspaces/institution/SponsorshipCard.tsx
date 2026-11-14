@@ -1,12 +1,14 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import * as Sentry from '@sentry/nextjs';
 import { useTranslations } from 'next-intl';
 import {
   ShieldCheck,
   Award,
   Users,
   CheckCircle2,
+  AlertCircle,
   Sparkles,
   ArrowRight,
   Calculator,
@@ -41,6 +43,7 @@ export function SponsorshipCard({
   );
   const [isActivating, setIsActivating] = useState<boolean>(false);
   const [successBanner, setSuccessBanner] = useState<boolean>(false);
+  const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [activeState, setActiveState] = useState<boolean>(isSponsorshipActive);
   const [expiryState, setExpiryState] = useState<string | null>(sponsorshipExpiresAt ?? null);
   const [currentTierState, setCurrentTierState] = useState<SponsorshipTier | null>(
@@ -107,33 +110,24 @@ export function SponsorshipCard({
         setExpiryState(data.expiresAt);
         setSponsoredCountState(data.sponsoredStudentsCount || studentCount);
         setSuccessBanner(true);
+        setErrorBanner(null);
         onActivateSuccess?.({
           tier: data.quote?.tier || calculation.tier,
           totalStudents: data.sponsoredStudentsCount || studentCount,
           expiresAt: data.expiresAt,
         });
       } else {
-        // Fallback simulation for client demo
-        const oneYearLater = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
-        setActiveState(true);
-        setCurrentTierState(calculation.tier);
-        setExpiryState(oneYearLater);
-        setSponsoredCountState(studentCount);
-        setSuccessBanner(true);
-        onActivateSuccess?.({
-          tier: calculation.tier,
-          totalStudents: studentCount,
-          expiresAt: oneYearLater,
-        });
+        const errData = await res.json().catch(() => ({}));
+        const msg = errData?.message || 'Failed to activate sponsorship tier. Please contact platform support.';
+        setErrorBanner(msg);
+        setSuccessBanner(false);
+        Sentry.captureException(new Error(msg));
       }
-    } catch {
-      // Local fallback on network disconnect
-      const oneYearLater = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
-      setActiveState(true);
-      setCurrentTierState(calculation.tier);
-      setExpiryState(oneYearLater);
-      setSponsoredCountState(studentCount);
-      setSuccessBanner(true);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to activate sponsorship tier. Please check connection.';
+      setErrorBanner(msg);
+      setSuccessBanner(false);
+      Sentry.captureException(err);
     } finally {
       setIsActivating(false);
     }
@@ -213,6 +207,13 @@ export function SponsorshipCard({
           <div className="mt-3 p-3 rounded-xl bg-teal-50 border border-teal-200 flex items-center gap-2 text-teal-800 text-xs font-medium">
             <CheckCircle2 className="w-4 h-4 text-teal-600" />
             <span>{t('activationSuccessDesc', { count: sponsoredCountState })}</span>
+          </div>
+        )}
+
+        {errorBanner && (
+          <div className="mt-3 p-3 rounded-xl bg-red-50 border border-red-200 flex items-center gap-2 text-red-800 text-xs font-medium">
+            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+            <span>{errorBanner}</span>
           </div>
         )}
       </div>

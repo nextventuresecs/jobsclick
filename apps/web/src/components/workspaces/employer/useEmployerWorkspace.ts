@@ -62,8 +62,8 @@ export function useEmployerWorkspace({ user, accessToken, addToast }: UseEmploye
   });
 
   const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || process.env['API_URL'] || 'http://localhost:3001';
-  const authHeader = accessToken ? `Bearer ${accessToken}` : `Bearer jwt_session_${user?.id || 'usr_employer_55'}_${Date.now()}`;
-  const userId = user?.id || 'usr_employer_55';
+  const authHeader = accessToken ? `Bearer ${accessToken}` : '';
+  const userId = user?.id || '';
 
   useEffect(() => {
     return loadEmployerWorkspaceData({
@@ -93,35 +93,60 @@ export function useEmployerWorkspace({ user, accessToken, addToast }: UseEmploye
       return;
     }
 
-    const created = await postNewJobApi(apiUrl, authHeader, userId, validation.data);
-    const newJob: JobItem = {
-      id: created?.id || `job-${Date.now()}`, title: postJobState.title.trim(), companyName: company.name,
-      companyId: company.id, location: postJobState.plantLocation.trim() || company.address,
-      district: postJobState.jobDistrict.trim() || company.district, state: company.state,
-      category: postJobState.category, employmentType: postJobState.employmentType,
-      salaryMin: Number(postJobState.salaryMin), salaryMax: Number(postJobState.salaryMax),
-      openings: Number(postJobState.openings), experienceLevel: postJobState.experienceLevel,
-      skills: parsedSkills, description: postJobState.description.trim(),
-      requirements: [`Qualification: ${postJobState.qualification}`, `Shift: ${postJobState.workShift}`, 'Valid certificate'],
-      postedDate: new Date().toISOString().split('T')[0] ?? '2026-10-15',
-      expiryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '2026-11-30',
-      status: 'active', applicantCount: 0, isUrgent: false,
-    };
+    try {
+      const created = await postNewJobApi(apiUrl, authHeader, userId, validation.data);
+      if (!created || !created.id) {
+        throw new Error('API did not return a valid job identifier.');
+      }
+      const newJob: JobItem = {
+        id: created.id,
+        title: postJobState.title.trim(),
+        companyName: company.name,
+        companyId: company.id,
+        location: postJobState.plantLocation.trim() || company.address,
+        district: postJobState.jobDistrict.trim() || company.district,
+        state: company.state,
+        category: postJobState.category,
+        employmentType: postJobState.employmentType,
+        salaryMin: Number(postJobState.salaryMin),
+        salaryMax: Number(postJobState.salaryMax),
+        openings: Number(postJobState.openings),
+        experienceLevel: postJobState.experienceLevel,
+        skills: parsedSkills,
+        description: postJobState.description.trim(),
+        requirements: [`Qualification: ${postJobState.qualification}`, `Shift: ${postJobState.workShift}`, 'Valid certificate'],
+        postedDate: new Date().toISOString().split('T')[0] ?? '',
+        expiryDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] ?? '',
+        status: 'active',
+        applicantCount: 0,
+        isUrgent: false,
+      };
 
-    setCompanyJobs([newJob, ...companyJobs]);
-    addToast({ type: 'success', title: 'Vacancy Published Successfully', message: `Position "${newJob.title}" is active.` });
-    postJobState.setSuccessNotice(`Job posting "${newJob.title}" published successfully.`);
-    postJobState.resetForm();
-    setTimeout(() => { setActiveTab('manage-jobs'); postJobState.setSuccessNotice(''); }, 1200);
+      setCompanyJobs([newJob, ...companyJobs]);
+      addToast({ type: 'success', title: 'Vacancy Published Successfully', message: `Position "${newJob.title}" is active.` });
+      postJobState.setSuccessNotice(`Job posting "${newJob.title}" published successfully.`);
+      postJobState.resetForm();
+      setTimeout(() => { setActiveTab('manage-jobs'); postJobState.setSuccessNotice(''); }, 1200);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to publish job vacancy. Please try again.';
+      addToast({ type: 'error', title: 'Publishing Failed', message: msg });
+    }
   };
 
   const handleUpdateStatus = async (appId: string, newStatus: ApplicationStatus) => {
+    const previousApplicants = applicants;
     setApplicants((prev) => prev.map((a) => (a.id === appId ? { ...a, status: newStatus } : a)));
-    await updateAppStatusApi(apiUrl, authHeader, userId, appId, newStatus);
-    addToast({ type: 'info', title: 'Status Updated', message: `Candidate status set to "${newStatus}".` });
+    try {
+      await updateAppStatusApi(apiUrl, authHeader, userId, appId, newStatus);
+      addToast({ type: 'info', title: 'Status Updated', message: `Candidate status set to "${newStatus}".` });
+    } catch (err) {
+      setApplicants(previousApplicants);
+      const msg = err instanceof Error ? err.message : 'Could not update applicant status. Changes reverted.';
+      addToast({ type: 'error', title: 'Update Failed', message: msg });
+    }
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editFormData.formIsMsme && editFormData.formUdyamNumber) {
       const parsedUdyam = udyamNumberSchema.safeParse(editFormData.formUdyamNumber);
@@ -130,12 +155,19 @@ export function useEmployerWorkspace({ user, accessToken, addToast }: UseEmploye
         return;
       }
     }
+    const previousCompany = company;
     const updated = getUpdatedCompany(company);
     setCompany(updated);
-    setIsEditingProfile(false);
-    setIsOnboardingComplete(true);
-    updateBusinessProfileApi(apiUrl, authHeader, userId, updated);
-    addToast({ type: 'success', title: 'Profile Updated Successfully', message: `${updated.name} profile saved.` });
+    try {
+      await updateBusinessProfileApi(apiUrl, authHeader, userId, updated);
+      setIsEditingProfile(false);
+      setIsOnboardingComplete(true);
+      addToast({ type: 'success', title: 'Profile Updated Successfully', message: `${updated.name} profile saved.` });
+    } catch (err) {
+      setCompany(previousCompany);
+      const msg = err instanceof Error ? err.message : 'Failed to save business profile. Changes reverted.';
+      addToast({ type: 'error', title: 'Profile Save Failed', message: msg });
+    }
   };
 
   return {

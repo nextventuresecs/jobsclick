@@ -7,6 +7,15 @@ import {
   fetchJobApplications,
 } from './employerApi';
 
+function getIsoDate(dateStr?: string): string {
+  if (dateStr) {
+    const part = dateStr.split('T')[0];
+    if (part) return part;
+  }
+  const fallback = new Date().toISOString().split('T')[0];
+  return fallback || '';
+}
+
 interface LoaderParams {
   apiUrl: string;
   authHeader: string;
@@ -51,11 +60,11 @@ export function loadEmployerWorkspaceData({
     }) => ({
       id: j.id, title: j.title, companyName: company.name, companyId: company.id,
       location: `${j.city || ''}, ${j.district || j.city || ''}`, district: j.district || j.city || '',
-      state: j.state || 'Maharashtra', category: j.category, employmentType: j.employmentType || 'Full-time',
+      state: j.state || company.state || '', category: j.category, employmentType: j.employmentType || 'Full-time',
       salaryMin: j.minPay || 0, salaryMax: j.maxPay || 0, openings: j.openings || 1,
       experienceLevel: j.experienceLevel || '1-2 Years', skills: j.skills || [], description: j.description || '',
       requirements: ['Vocational certificate or relevant technical experience', 'Factory compliance and safety standard adherence'],
-      postedDate: (j.createdAt?.split('T')[0] ?? '2026-10-16'), expiryDate: '2026-11-30', status: 'active',
+      postedDate: getIsoDate(j.createdAt), expiryDate: '', status: 'active',
       applicantCount: 0, isUrgent: false,
     }));
 
@@ -69,7 +78,7 @@ export function loadEmployerWorkspaceData({
           id: a.id, jobId: a.jobId, jobTitle: j.title, companyName: company.name, companyId: company.id,
           candidateId: a.applicantProfile?.seekerId || a.applicantId, candidateName: a.applicantProfile?.fullName || 'Candidate',
           candidateEducation: 'Trade Certified', candidateExperience: 'Vocational Experience',
-          candidateSkills: a.applicantProfile?.skills || [], appliedDate: (a.createdAt?.split('T')[0] ?? '2026-10-16'),
+          candidateSkills: a.applicantProfile?.skills || [], appliedDate: getIsoDate(a.createdAt),
           status: a.status,
         });
       }

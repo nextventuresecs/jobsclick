@@ -1,4 +1,5 @@
 import { Injectable, Inject, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, CreditLedgerRow } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
@@ -183,7 +184,7 @@ export class CreditLedgerRepository {
         });
       }
 
-      const id = `cld_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      const id = randomUUID();
       const now = new Date().toISOString();
       const debitRow: CreditLedgerRow = {
         id,
@@ -268,7 +269,7 @@ export class CreditLedgerRepository {
         });
       }
 
-      const id = `cld_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      const id = randomUUID();
       const now = new Date().toISOString();
       const debitRow: CreditLedgerRow = {
         id,
@@ -330,7 +331,7 @@ export class CreditLedgerRepository {
         const res = data as { success: boolean; remaining_balance: number };
         const now = new Date().toISOString();
         const row: CreditLedgerRow = {
-          id: `cld_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+          id: randomUUID(),
           user_id: userId,
           amount: -amountToDeduct,
           reason,
@@ -363,7 +364,7 @@ export class CreditLedgerRepository {
       }
 
       const now = new Date().toISOString();
-      const id = `cld_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+      const id = randomUUID();
       const row: CreditLedgerRow = {
         id,
         user_id: userId,
