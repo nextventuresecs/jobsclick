@@ -219,7 +219,7 @@ export class BroadcastService {
         variables: dto.variables,
       });
 
-      const campaignId = `campaign_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+      const campaignId = randomUUID();
       const now = new Date().toISOString();
 
       // 5. Pre-allocation Escrow: Record credit ledger reservation (Hard Invariant #7)

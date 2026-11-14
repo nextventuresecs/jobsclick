@@ -10,8 +10,10 @@ import {
   Inject,
   Logger,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import type { FastifyRequest } from 'fastify';
 import { PaymentService } from './payment.service.js';
+import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
 import { captureException } from '../config/sentry.js';
 import { RequireFeatureFlag } from '../auth/guards/feature-flag.guard.js';
 import { Public } from '../auth/decorators/public.decorator.js';
@@ -29,7 +31,10 @@ import { SkipThrottle } from '@nestjs/throttler';
 export class RazorpayWebhookController {
   private readonly logger = new Logger(RazorpayWebhookController.name);
 
-  constructor(@Inject(PaymentService) private readonly paymentService: PaymentService) {}
+  constructor(
+    @Inject(PaymentService) private readonly paymentService: PaymentService,
+    @Inject(AuditLogRepository) private readonly auditLogRepo: AuditLogRepository,
+  ) {}
 
   // POST /webhooks/razorpay and POST /wallet/webhooks/razorpay
   @Post(['webhooks/razorpay', 'wallet/webhooks/razorpay'])
@@ -73,7 +78,23 @@ export class RazorpayWebhookController {
       const orderEntity = (payload['order']?.['entity'] as unknown as Record<string, string>) || {};
 
       const orderId = paymentEntity['order_id'] || orderEntity['id'];
-      const paymentId = paymentEntity['id'] || `pay_${Date.now()}`;
+      const paymentId = paymentEntity['id'];
+
+      if (!paymentId) {
+        this.logger.warn('Payment captured webhook missing payment_id in payload');
+        await this.auditLogRepo.append({
+          id: randomUUID(),
+          actor_id: null,
+          action: 'RAZORPAY_WEBHOOK_MISSING_PAYMENT_ID',
+          meta: { event, orderId: orderId || null },
+          created_at: new Date().toISOString(),
+        });
+        throw new BadRequestException({
+          statusCode: 400,
+          code: 'MISSING_PAYMENT_ID',
+          message: 'Razorpay webhook payload missing payment id',
+        });
+      }
 
       if (!orderId) {
         this.logger.warn('Payment captured webhook missing order_id in payload');
@@ -106,8 +127,24 @@ export class RazorpayWebhookController {
       const payload = (body['payload'] as Record<string, Record<string, unknown> | undefined>) || {};
       const paymentEntity = (payload['payment']?.['entity'] as unknown as Record<string, unknown>) || {};
       const orderId = paymentEntity['order_id'] as string;
-      const paymentId = (paymentEntity['id'] as string) || `pay_${Date.now()}`;
+      const paymentId = paymentEntity['id'] as string;
       const errorDesc = (paymentEntity['error_description'] as string) || (paymentEntity['error_reason'] as string);
+
+      if (!paymentId) {
+        this.logger.warn('Payment failed webhook missing payment_id in payload');
+        await this.auditLogRepo.append({
+          id: randomUUID(),
+          actor_id: null,
+          action: 'RAZORPAY_WEBHOOK_MISSING_PAYMENT_ID',
+          meta: { event, orderId: orderId || null },
+          created_at: new Date().toISOString(),
+        });
+        throw new BadRequestException({
+          statusCode: 400,
+          code: 'MISSING_PAYMENT_ID',
+          message: 'Razorpay webhook payload missing payment id',
+        });
+      }
 
       if (orderId) {
         await this.paymentService.handlePaymentFailure(orderId, paymentId, errorDesc);
@@ -129,6 +166,22 @@ export class RazorpayWebhookController {
       const orderId = paymentEntity['order_id'] as string;
       const paymentId = (paymentEntity['id'] as string) || (refundEntity['payment_id'] as string);
       const refundAmount = Number(refundEntity['amount'] || paymentEntity['amount_refunded']);
+
+      if (!paymentId) {
+        this.logger.warn('Payment refund webhook missing payment_id in payload');
+        await this.auditLogRepo.append({
+          id: randomUUID(),
+          actor_id: null,
+          action: 'RAZORPAY_WEBHOOK_MISSING_PAYMENT_ID',
+          meta: { event, orderId: orderId || null },
+          created_at: new Date().toISOString(),
+        });
+        throw new BadRequestException({
+          statusCode: 400,
+          code: 'MISSING_PAYMENT_ID',
+          message: 'Razorpay webhook payload missing payment id',
+        });
+      }
 
       if (orderId && paymentId) {
         await this.paymentService.handlePaymentRefunded(orderId, paymentId, refundAmount);

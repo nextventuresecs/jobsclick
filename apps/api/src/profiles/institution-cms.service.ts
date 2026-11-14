@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Inject,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import {
   InstitutionCmsInput,
   CreateInstitutionInquiryInput,
@@ -249,7 +250,7 @@ export class InstitutionCmsService {
     inquiryId: string;
     message: string;
   }> {
-    const id = `inq_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const id = randomUUID();
     const now = new Date().toISOString();
 
     const row: InstitutionInquiryRow = {

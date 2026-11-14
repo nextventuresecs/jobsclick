@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Job } from 'bullmq';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import IORedis from 'ioredis';
@@ -177,7 +178,7 @@ export class BroadcastProcessor {
         process.env['MSG91_AUTH_KEY'] === 'dummy-msg91-key';
 
       try {
-        let gatewayMsgId = `mock_gw_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+        let gatewayMsgId: string = randomUUID();
 
         if (!isTestMode) {
           const authKey = process.env['MSG91_AUTH_KEY']!;

@@ -224,7 +224,7 @@ export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProp
         const cFee = parts[2] ? parseInt(parts[2].replace(/\D/g, ''), 10) || 15000 : 15000;
 
         newCourses.push({
-          id: `c-ai-${Date.now()}-${index}`,
+          id: crypto.randomUUID(),
           name: cName,
           code: `CRS-${index + 1}`,
           duration: cDuration,
@@ -234,7 +234,7 @@ export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProp
         });
 
         newFees.push({
-          id: `f-ai-${Date.now()}-${index}`,
+          id: crypto.randomUUID(),
           courseName: cName,
           tuitionFee: cFee,
           developmentFee: 1500,
@@ -361,7 +361,7 @@ export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProp
               type="button"
               onClick={() => {
                 const newCourse: CourseItem = {
-                  id: `c-${Date.now()}`,
+                  id: crypto.randomUUID(),
                   name: 'New Vocational Discipline',
                   code: 'VOC-01',
                   duration: '1 Year',
@@ -502,7 +502,7 @@ export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProp
               type="button"
               onClick={() => {
                 const newSub: SubjectItem = {
-                  id: `s-${Date.now()}`,
+                  id: crypto.randomUUID(),
                   courseName: courses[0]?.name || 'General Engineering',
                   name: 'New Technical Subject',
                   code: 'SUB-101',
@@ -599,7 +599,7 @@ export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProp
               type="button"
               onClick={() => {
                 const newFee: FeeItem = {
-                  id: `f-${Date.now()}`,
+                  id: crypto.randomUUID(),
                   courseName: courses[0]?.name || 'Course Name',
                   tuitionFee: 15000,
                   developmentFee: 2000,
@@ -744,7 +744,7 @@ export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProp
               type="button"
               onClick={() => {
                 const newDept: DepartmentItem = {
-                  id: `d-${Date.now()}`,
+                  id: crypto.randomUUID(),
                   name: 'New Academic Department',
                   hodName: 'Department HOD',
                   contactEmail: '',
@@ -852,7 +852,7 @@ export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProp
               type="button"
               onClick={() => {
                 const newFac: FacultyItem = {
-                  id: `fac-${Date.now()}`,
+                  id: crypto.randomUUID(),
                   name: 'Faculty Member Name',
                   designation: 'Instructor',
                   department: departments[0]?.name || 'Technical Wing',
