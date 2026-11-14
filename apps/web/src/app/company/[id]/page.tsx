@@ -3,9 +3,10 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Navbar } from '../../../components/layout/Navbar';
 import { Footer } from '../../../components/layout/Footer';
-import { SAMPLE_COMPANIES, CompanyItem } from '../../../data/sampleCompanies';
+import type { CompanyItem } from '../../../data/sampleCompanies';
 import type { JobItem } from '../../../data/sampleJobs';
 import { mapApiJobToJobItem, type ApiJobPayload } from '../../../lib/job-mapper';
+import { safeJsonLd } from '../../../lib/safe-json-ld';
 import {
   CategoryBadge,
   getCategoryCardBorderClass,
@@ -33,7 +34,7 @@ export default async function PublicCompanyPage({ params }: CompanyPageProps) {
   const companyId = params.id;
   const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
 
-  let company: CompanyItem | null = SAMPLE_COMPANIES.find((c) => c.id === companyId) || null;
+  let company: CompanyItem | null = null;
 
   interface BusinessProfileApiResponse {
     readonly companyName?: string;
@@ -50,37 +51,38 @@ export default async function PublicCompanyPage({ params }: CompanyPageProps) {
     readonly activeJobsCount?: number;
   }
 
-  try {
-    const res = await fetch(`${apiUrl}/profiles/business/${companyId}`, {
-      next: { revalidate: 60 },
-    });
-    if (res.ok) {
-      const data = (await res.json()) as BusinessProfileApiResponse | null;
-      if (data && data.companyName) {
-        company = {
-          id: companyId,
-          name: data.companyName,
-          sector: data.sector || 'Manufacturing',
-          enterpriseSize: data.companySize || 'Small',
-          ownershipType: data.ownershipType || 'Private Limited',
-          address: data.address || '',
-          city: data.city || '',
-          district: data.district || '',
-          state: data.state || '',
-          description: data.description || '',
-          udyamNumber: data.udyamNumber || '',
-          verified: data.verified ?? false,
-          activeJobsCount: data.activeJobsCount || 0,
-        };
-      }
-    }
-  } catch {
-    // Graceful fallback to null or sample
-  }
+  const res = await fetch(`${apiUrl}/profiles/business/${companyId}`, {
+    next: { revalidate: 60 },
+  });
 
-  if (!company) {
+  if (res.status === 404) {
     notFound();
   }
+
+  if (!res.ok) {
+    throw new Error(`Failed to load company profile (${res.status} ${res.statusText})`);
+  }
+
+  const data = (await res.json()) as BusinessProfileApiResponse | null;
+  if (!data || !data.companyName) {
+    notFound();
+  }
+
+  company = {
+    id: companyId,
+    name: data.companyName,
+    sector: data.sector || 'Manufacturing',
+    enterpriseSize: data.companySize || 'Small',
+    ownershipType: data.ownershipType || 'Private Limited',
+    address: data.address || '',
+    city: data.city || '',
+    district: data.district || '',
+    state: data.state || '',
+    description: data.description || '',
+    udyamNumber: data.udyamNumber || '',
+    verified: Boolean(data.verified),
+    activeJobsCount: data.activeJobsCount || 0,
+  };
 
   // Active jobs for this enterprise (live from API)
   let activeJobs: JobItem[] = [];
@@ -120,7 +122,7 @@ export default async function PublicCompanyPage({ params }: CompanyPageProps) {
       {/* Structured SEO Data for Google */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
       />
 
       <main className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 w-full">
@@ -215,7 +217,8 @@ export default async function PublicCompanyPage({ params }: CompanyPageProps) {
                 badgeText="Storefront & Factory Gate Digital QR"
                 description="Print or display this official QR code at your industrial facility entrance, reception, or recruitment kiosk. Candidates can scan with any smartphone camera to view verified company credentials and apply directly."
                 downloadFileName={`${company.name}-recruitment-qr`}
-                isMsme={company.isMsme ?? true}
+                isMsme={Boolean(company.isMsme)}
+                udyamVerified={Boolean(company.verified && company.isMsme)}
                 udyamOrAffiliation={company.udyamNumber}
                 locationText={`${company.city}, ${company.district}`}
               />

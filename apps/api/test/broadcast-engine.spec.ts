@@ -24,6 +24,7 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
   let ledgerRepo: CreditLedgerRepository;
 
   beforeAll(async () => {
+    process.env['ENABLE_P2_MSME_BROADCAST'] = 'true';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();

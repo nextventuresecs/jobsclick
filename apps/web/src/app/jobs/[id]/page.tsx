@@ -11,6 +11,7 @@ import { Navbar } from '../../../components/layout/Navbar';
 import { Footer } from '../../../components/layout/Footer';
 import type { JobItem } from '../../../data/sampleJobs';
 import { mapApiJobToJobItem, type ApiJobPayload } from '../../../lib/job-mapper';
+import { safeJsonLd } from '../../../lib/safe-json-ld';
 import { JobApplyButton } from '../../../components/jobs/JobApplyButton';
 import {
   ArrowLeft,
@@ -116,7 +117,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
       {/* Structured SEO Data for Google Jobs */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jobPostingJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(jobPostingJsonLd) }}
       />
 
       <main className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6 w-full">

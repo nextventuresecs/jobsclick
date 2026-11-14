@@ -1,224 +1,112 @@
 'use client';
 
-import React, { useEffect, useState, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { JobsClickLogo, Button } from '@indian-job-portal/ui';
-import { isClientRole, ClientRole } from '@indian-job-portal/validation';
-import { useApp } from '../../../context/AppContext';
-import { getSupabaseBrowserClient } from '../../../lib/supabaseClient';
-import { Loader2, AlertCircle, ArrowRight } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAppContext } from '@/context/AppContext';
 
-function CallbackHandler() {
+export default function AuthCallbackPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const { loginAs, addToast } = useApp();
-
-  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-  const [errorMessage, setErrorMessage] = useState<string>('');
+  const { refreshSession, addToast } = useAppContext();
+  const hasExchangedRef = useRef<boolean>(false);
+  const [errorState, setErrorState] = useState<string | null>(null);
 
   useEffect(() => {
-    let isMounted = true;
+    // Prevent double code exchange in React 18 Strict Mode (Fixes P3 OAuth double-fire)
+    if (hasExchangedRef.current) return;
+    hasExchangedRef.current = true;
 
-    async function handleAuth() {
+    const completeAuthCallback = async () => {
       try {
-        const supabase = getSupabaseBrowserClient();
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
 
-        // If Supabase client is not available (mock fallback)
-        if (!supabase) {
-          const fallbackRole = searchParams.get('role');
-          const resolvedRole: ClientRole =
-            fallbackRole && isClientRole(fallbackRole) ? fallbackRole : 'jobseeker';
-
-          loginAs(resolvedRole);
-          addToast({
-            type: 'success',
-            title: 'Signed In',
-            message: `Authenticated as ${resolvedRole}.`,
-          });
-          router.replace('/workspace');
+        if (!code) {
+          setErrorState('Missing authentication authorization code.');
           return;
         }
 
-        // 1. If PKCE code is present in query parameters, exchange it for session
-        const code = searchParams.get('code');
-        if (code) {
-          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-          if (exchangeError) {
-            throw exchangeError;
-          }
+        const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
+        if (!apiBaseUrl) {
+          setErrorState('Service configuration error: Missing API URL.');
+          return;
         }
 
-        // 2. Fetch session (auto-detects hash fragment tokens or existing cookies)
-        const { data, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) {
-          throw sessionError;
+        // Exchange code on the backend; role is derived strictly server-side (never from ?role= or user_metadata)
+        const response = await fetch(`${apiBaseUrl}/auth/oauth/exchange`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code }),
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data?.accessToken) {
+          setErrorState(data?.message || 'Could not verify your sign-in session.');
+          return;
         }
 
-        const session = data.session;
-        if (session) {
-          // Resolve role: URL query param -> localStorage fallback -> session user_metadata -> default 'jobseeker'
-          const urlRole = searchParams.get('role');
-          const pendingRole =
-            typeof window !== 'undefined'
-              ? localStorage.getItem('jobsclick_pending_oauth_role')
-              : null;
-          const metaRole = session.user?.user_metadata?.role;
+        // Persist into HttpOnly __Host- cookie so Google users get a real isolated session (Fixes P0 usr_seeker_77 collision)
+        const sessionRes = await fetch('/api/auth/session', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: data.accessToken }),
+        });
 
-          let resolvedRole: ClientRole = 'jobseeker';
-          if (urlRole && isClientRole(urlRole)) {
-            resolvedRole = urlRole;
-          } else if (pendingRole && isClientRole(pendingRole)) {
-            resolvedRole = pendingRole;
-          } else if (metaRole && isClientRole(metaRole)) {
-            resolvedRole = metaRole;
-          }
-
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('jobsclick_pending_oauth_role');
-          }
-
-          if (!isMounted) return;
-
-          setStatus('success');
-          loginAs(resolvedRole);
-          addToast({
-            type: 'success',
-            title: 'Google Sign-In Successful',
-            message: `Welcome back! Signed in as ${resolvedRole}.`,
-          });
-
-          router.replace('/workspace');
-        } else {
-          // Listen for auth state change in case token is asynchronously processed
-          const { data: authListener } = supabase.auth.onAuthStateChange(
-            (event, changedSession) => {
-              if (changedSession && (event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
-                const urlRole = searchParams.get('role');
-                const pendingRole =
-                  typeof window !== 'undefined'
-                    ? localStorage.getItem('jobsclick_pending_oauth_role')
-                    : null;
-                const metaRole = changedSession.user?.user_metadata?.role;
-
-                let resolvedRole: ClientRole = 'jobseeker';
-                if (urlRole && isClientRole(urlRole)) {
-                  resolvedRole = urlRole;
-                } else if (pendingRole && isClientRole(pendingRole)) {
-                  resolvedRole = pendingRole;
-                } else if (metaRole && isClientRole(metaRole)) {
-                  resolvedRole = metaRole;
-                }
-
-                if (typeof window !== 'undefined') {
-                  localStorage.removeItem('jobsclick_pending_oauth_role');
-                }
-
-                if (!isMounted) return;
-
-                setStatus('success');
-                loginAs(resolvedRole);
-                addToast({
-                  type: 'success',
-                  title: 'Google Sign-In Successful',
-                  message: `Welcome back! Signed in as ${resolvedRole}.`,
-                });
-
-                router.replace('/workspace');
-                authListener.subscription.unsubscribe();
-              }
-            }
-          );
+        if (!sessionRes.ok) {
+          setErrorState('Failed to establish browser session cookie.');
+          return;
         }
-      } catch (err: unknown) {
-        if (!isMounted) return;
-        setStatus('error');
-        setErrorMessage(
-          err instanceof Error ? err.message : 'Google authentication callback failed'
-        );
+
+        await refreshSession();
+        addToast({
+          type: 'success',
+          title: 'Signed in successfully',
+        });
+        router.replace('/workspace');
+      } catch {
+        setErrorState('An unexpected network error occurred during sign-in.');
       }
-    }
-
-    handleAuth();
-
-    return () => {
-      isMounted = false;
     };
-  }, [router, searchParams, loginAs, addToast]);
+
+    void completeAuthCallback();
+  }, [refreshSession, addToast, router]);
 
   return (
-    <div className="min-h-[70vh] flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 max-w-md w-full p-8 text-center">
-        <div className="flex justify-center mb-6">
-          <JobsClickLogo variant="full" size="md" />
-        </div>
-
-        {status === 'loading' && (
-          <div className="space-y-4">
-            <div className="flex justify-center">
-              <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
-            </div>
-            <h2 className="text-lg font-bold text-gray-900">
-              Verifying Google Authentication...
-            </h2>
-            <p className="text-sm text-gray-500">
-              Completing secure authentication with Supabase. You will be redirected shortly.
+    <main className="flex min-h-[70vh] flex-col items-center justify-center px-4">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+        {!errorState ? (
+          <>
+            <div
+              className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-t-indigo-600"
+              role="status"
+              aria-label="Completing sign in"
+            />
+            <h1 className="mt-4 text-lg font-semibold text-slate-900">
+              Securing your workspace…
+            </h1>
+            <p className="mt-1 text-sm text-slate-600">
+              Verifying your credentials and setting up your session.
             </p>
-          </div>
-        )}
-
-        {status === 'success' && (
-          <div className="space-y-4">
-            <h2 className="text-lg font-bold text-gray-900">
-              Authentication Confirmed!
-            </h2>
-            <p className="text-sm text-gray-500">
-              Redirecting you to your workspace...
-            </p>
-          </div>
-        )}
-
-        {status === 'error' && (
-          <div className="space-y-4">
-            <div className="flex justify-center">
-              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center text-red-600">
-                <AlertCircle className="w-6 h-6" />
-              </div>
+          </>
+        ) : (
+          <>
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-600">
+              !
             </div>
-            <h2 className="text-lg font-bold text-gray-900">
-              Authentication Failed
-            </h2>
-            <p className="text-sm text-red-600 bg-red-50 p-3 rounded-xl border border-red-100">
-              {errorMessage || 'Unable to complete sign-in.'}
-            </p>
-            <div className="pt-2 flex flex-col gap-2">
-              <Link href="/">
-                <Button variant="primary" className="w-full justify-center">
-                  <span>Return to Home</span>
-                  <ArrowRight className="w-4 h-4 ml-1" />
-                </Button>
-              </Link>
-            </div>
-          </div>
+            <h1 className="mt-4 text-lg font-semibold text-slate-900">
+              Sign-in could not be completed
+            </h1>
+            <p className="mt-2 text-sm text-slate-600">{errorState}</p>
+            <button
+              type="button"
+              onClick={() => router.replace('/')}
+              className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
+            >
+              Return to Home
+            </button>
+          </>
         )}
       </div>
-    </div>
-  );
-}
-
-export default function AuthCallbackPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-[70vh] flex items-center justify-center p-4">
-          <div className="flex items-center gap-3 text-gray-500">
-            <Loader2 className="w-6 h-6 text-orange-500 animate-spin" />
-            <span>Loading authentication...</span>
-          </div>
-        </div>
-      }
-    >
-      <CallbackHandler />
-    </Suspense>
+    </main>
   );
 }

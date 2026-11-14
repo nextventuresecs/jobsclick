@@ -133,7 +133,7 @@ export class PaymentService {
       orderId = `order_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     }
 
-    const paymentRecordId = `pay_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const paymentRecordId = crypto.randomUUID();
     const now = new Date().toISOString();
 
     const paymentRecord: PaymentRow = {
@@ -402,7 +402,7 @@ export class PaymentService {
       // 5. Hard Invariant #6: Append to persistent audit log inside transaction block
       try {
         await this.auditLogRepository.append({
-          id: `aud_pay_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          id: crypto.randomUUID(),
           actor_id: updatedPayment.user_id,
           action: 'PAYMENT_CAPTURED',
           meta: {
@@ -454,7 +454,7 @@ export class PaymentService {
 
       try {
         await this.auditLogRepository.append({
-          id: `aud_pay_fail_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          id: crypto.randomUUID(),
           actor_id: payment.user_id,
           action: 'PAYMENT_FAILED',
           meta: {
@@ -510,7 +510,7 @@ export class PaymentService {
 
       try {
         await this.auditLogRepository.append({
-          id: `aud_pay_ref_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          id: crypto.randomUUID(),
           actor_id: payment.user_id,
           action: 'PAYMENT_REFUNDED',
           meta: {

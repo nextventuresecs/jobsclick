@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import crypto from 'node:crypto';
+import { SignJWT } from 'jose';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
 import { UserRepository } from '../src/database/repositories/user.repository.js';
+import { OtpRedisService } from '../src/auth/otp-redis.service.js';
 
 describe('AdminController RBAC & Authentication (STF-02)', () => {
   let app: NestFastifyApplication;
@@ -13,28 +15,43 @@ describe('AdminController RBAC & Authentication (STF-02)', () => {
     process.env['SUPABASE_SECRET_KEY'] ||
     'jobsclick-jwt-secret-key-32-chars-min';
 
-  function createAuthToken(sub: string, role: string): string {
-    const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-    const payload = Buffer.from(
-      JSON.stringify({
-        sub,
-        role,
-        exp: Math.floor(Date.now() / 1000) + 3600,
-      }),
-    ).toString('base64url');
-    const signature = crypto
-      .createHmac('sha256', secret)
-      .update(`${header}.${payload}`)
-      .digest('base64url');
-    return `Bearer ${header}.${payload}.${signature}`;
+  const seekerId = crypto.randomUUID();
+  const employerId = crypto.randomUUID();
+  const msmeAdminId = crypto.randomUUID();
+  const adminId = crypto.randomUUID();
+  const targetUserId = crypto.randomUUID();
+
+  async function createAuthToken(sub: string, role: string): Promise<string> {
+    const key = new TextEncoder().encode(secret);
+    const token = await new SignJWT({
+      sub,
+      role,
+      tv: 0,
+    })
+      .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
+      .setSubject(sub)
+      .setIssuer('jobsclick-api')
+      .setAudience('jobsclick-web')
+      .setJti(crypto.randomUUID())
+      .setIssuedAt()
+      .setExpirationTime(Math.floor(Date.now() / 1000) + 3600)
+      .sign(key);
+
+    return `Bearer ${token}`;
   }
 
-  const seekerToken = createAuthToken('usr_seeker_test', 'job_seeker');
-  const employerToken = createAuthToken('usr_employer_test', 'employer');
-  const msmeAdminToken = createAuthToken('usr_msme_test', 'msme_admin');
-  const adminToken = createAuthToken('usr_admin_test', 'admin');
+  let seekerToken: string;
+  let employerToken: string;
+  let msmeAdminToken: string;
+  let adminToken: string;
 
   beforeAll(async () => {
+    process.env['ENABLE_P2_MSME_BROADCAST'] = 'true';
+    seekerToken = await createAuthToken(seekerId, 'job_seeker');
+    employerToken = await createAuthToken(employerId, 'employer');
+    msmeAdminToken = await createAuthToken(msmeAdminId, 'msme_admin');
+    adminToken = await createAuthToken(adminId, 'admin');
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -46,12 +63,20 @@ describe('AdminController RBAC & Authentication (STF-02)', () => {
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
 
+    const otpRedis = app.get(OtpRedisService);
+    await otpRedis.waitForReady();
+    await otpRedis.setAuthState(seekerId, { role: 'job_seeker', status: 'active', tokenVersion: 0 }, 3600);
+    await otpRedis.setAuthState(employerId, { role: 'employer', status: 'active', tokenVersion: 0 }, 3600);
+    await otpRedis.setAuthState(msmeAdminId, { role: 'msme_admin', status: 'active', tokenVersion: 0 }, 3600);
+    await otpRedis.setAuthState(adminId, { role: 'admin', status: 'active', tokenVersion: 0 }, 3600);
+
     // Seed target user for status update tests
     const userRepo = app.get(UserRepository);
+    const targetPhone = '98' + Math.floor(10000000 + Math.random() * 90000000);
     await userRepo.save({
-      id: 'usr_target_1',
-      phone: '9876543210',
-      email: 'target1@example.com',
+      id: targetUserId,
+      phone: targetPhone,
+      email: `target_${targetUserId}@example.com`,
       role: 'job_seeker',
       status: 'active',
       source: 'web',
@@ -70,7 +95,7 @@ describe('AdminController RBAC & Authentication (STF-02)', () => {
   // 1. PUT /admin/users/:id/status (admin only)
   // ---------------------------------------------------------------------------
   describe('PUT /admin/users/:id/status', () => {
-    const url = '/admin/users/usr_target_1/status';
+    const url = `/admin/users/${targetUserId}/status`;
     const payload = { status: 'disabled' };
 
     it('rejects unauthenticated request with 401', async () => {
@@ -124,6 +149,70 @@ describe('AdminController RBAC & Authentication (STF-02)', () => {
   // ---------------------------------------------------------------------------
   // 2. GET /admin/audit-logs (admin only)
   // ---------------------------------------------------------------------------
+  
+  // ---------------------------------------------------------------------------
+  // 1b. PUT /admin/users/:id/role (admin only, audited, role allowlist, no self-change)
+  // ---------------------------------------------------------------------------
+  describe('PUT /admin/users/:id/role', () => {
+    it('rejects non-admin role with 403', async () => {
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/admin/users/${targetUserId}/role`,
+        headers: { authorization: seekerToken },
+        payload: { role: 'employer' },
+      });
+      expect(res.statusCode).toBe(403);
+    });
+
+    it('rejects self role change with 400', async () => {
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/admin/users/${adminId}/role`,
+        headers: { authorization: adminToken },
+        payload: { role: 'employer' },
+      });
+      expect(res.statusCode).toBe(400);
+      const data = JSON.parse(res.payload);
+      expect(data.message).toContain('Admins cannot change their own role');
+    });
+
+    it('rejects invalid role with 400', async () => {
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/admin/users/${targetUserId}/role`,
+        headers: { authorization: adminToken },
+        payload: { role: 'superadmin' },
+      });
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('allows valid admin to change another user role and writes audit log row', async () => {
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/admin/users/${targetUserId}/role`,
+        headers: { authorization: adminToken },
+        payload: { role: 'employer', reason: 'Promoted to verified employer' },
+      });
+      expect(res.statusCode).toBe(200);
+
+      // Verify audit log row was written
+      const auditRes = await app.inject({
+        method: 'GET',
+        url: '/admin/audit-logs',
+        headers: { authorization: adminToken },
+      });
+      expect(auditRes.statusCode).toBe(200);
+      const logs = JSON.parse(auditRes.payload);
+      const roleLog = logs.find(
+        (l: { action: string; meta?: { targetUserId?: string } }) =>
+          l.action === 'USER_ROLE_UPDATED' && l.meta?.targetUserId === targetUserId,
+      );
+      expect(roleLog).toBeDefined();
+      expect(roleLog.meta.newRole).toBe('employer');
+      expect(roleLog.meta.reason).toBe('Promoted to verified employer');
+    });
+  });
+
   describe('GET /admin/audit-logs', () => {
     const url = '/admin/audit-logs';
 
@@ -277,7 +366,7 @@ describe('AdminController RBAC & Authentication (STF-02)', () => {
 
     it('computes live dynamic aggregate analytics from database state', async () => {
       const userRepo = app.get(UserRepository);
-      const testId = `usr_dynamic_${Date.now()}`;
+      const testId = crypto.randomUUID();
       await userRepo.save({
         id: testId,
         phone: `987${Math.floor(1000000 + Math.random() * 9000000)}`,

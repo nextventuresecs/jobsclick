@@ -65,7 +65,7 @@ export function getRedisConnection(env: EnvConfig): IORedis {
   return new IORedis(redisUrl, {
     maxRetriesPerRequest: null,
     enableReadyCheck: false,
-    tls: isTls ? { rejectUnauthorized: false } : undefined,
+    tls: isTls ? {} : undefined,
     retryStrategy(times) {
       // Exponential backoff with a cap of 5000ms
       return Math.min(times * 200, 5000);

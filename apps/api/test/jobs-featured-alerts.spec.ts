@@ -22,6 +22,8 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
   let featuredJobId: string;
 
   beforeAll(async () => {
+    process.env['ENABLE_P2_FEATURED_PROMOTIONS'] = 'true';
+    process.env['ENABLE_P2_JOB_ALERTS'] = 'true';
     const scratchFile = path.resolve(process.cwd(), '.scratch/db-persistence.json');
     if (fs.existsSync(scratchFile)) {
       try {

@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Navbar } from '../../components/layout/Navbar';
 import { Footer } from '../../components/layout/Footer';
+import { safeJsonLd } from '../../lib/safe-json-ld';
 import {
   Smartphone,
   ShieldCheck,
@@ -127,7 +128,7 @@ export default function HowItWorksPage() {
       {/* Structured SEO Schema */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
       />
 
       {/* Hero Banner */}

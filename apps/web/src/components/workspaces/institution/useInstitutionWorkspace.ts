@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import * as Sentry from '@sentry/nextjs';
 import type {
   StudentRecordData,
   InstitutionProfileData,
@@ -77,16 +78,14 @@ export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInst
   // Mount effect to fetch remote institution profile, students, corporate tie-ups & placement pipeline
   useEffect(() => {
     let isMounted = true;
-    if (!user?.id && !accessToken) return;
+    if (!user?.id || !accessToken) return;
 
     const apiUrl =
       process.env['NEXT_PUBLIC_API_URL'] ||
       process.env['API_URL'] ||
       'http://localhost:3001';
-    const authHeader = accessToken
-      ? `Bearer ${accessToken}`
-      : `Bearer jwt_session_${user?.id}_${Date.now()}`;
-    const userId = user?.id || '';
+    const authHeader = `Bearer ${accessToken}`;
+    const userId = user.id;
 
     // 1. Fetch Institution Profile
     fetch(`${apiUrl}/profiles/institution/me`, {
@@ -259,7 +258,7 @@ export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInst
     });
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     const tradesArray = profileForm.formTradesInput
       .split(',')
@@ -295,38 +294,78 @@ export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInst
       return;
     }
 
-    setInstitution({
-      ...institution,
-      institutionName: profileForm.formInstName,
-      institutionType: profileForm.formInstType,
-      affiliation: profileForm.formAffiliation,
-      affiliationCode: profileForm.formAffiliationCode,
-      establishmentYear: Number(profileForm.formEstablishmentYear),
-      principalName: profileForm.formPrincipalName,
-      contactPerson: profileForm.formContactPerson,
-      contactDesignation: profileForm.formContactDesignation,
-      contactEmail: profileForm.formContactEmail,
-      contactPhone: profileForm.formContactPhone,
-      website: profileForm.formWebsite,
-      address: profileForm.formAddress,
-      city: profileForm.formCity,
-      district: profileForm.formDistrict,
-      state: profileForm.formState,
-      pincode: profileForm.formPincode,
-      tradesOffered: tradesArray,
-      annualCapacity: Number(profileForm.formAnnualCapacity),
-      placementBrochureUrl: profileForm.formBrochureUrl,
-      about: profileForm.formAbout,
-      isOnboardingComplete: true,
-    });
+    if (!accessToken || !user?.id) {
+      addToast({
+        type: 'error',
+        title: 'Authentication Required',
+        message: 'Please log in to save institution profile.',
+      });
+      return;
+    }
 
-    setIsOnboardingComplete(true);
-    setIsEditingProfile(false);
-    addToast({
-      type: 'success',
-      title: 'Profile Updated',
-      message: 'Institution profile saved successfully.',
-    });
+    const apiUrl =
+      process.env['NEXT_PUBLIC_API_URL'] ||
+      process.env['API_URL'] ||
+      'http://localhost:3001';
+    const authHeader = `Bearer ${accessToken}`;
+
+    try {
+      const res = await fetch(`${apiUrl}/profiles/institution/me`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: authHeader,
+          'x-user-id': user.id,
+        },
+        body: JSON.stringify(validationResult.data),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData?.message || 'Failed to update institution profile');
+      }
+
+      const updated = await res.json();
+      setInstitution((prev) => ({
+        ...prev,
+        institutionName: updated.institutionName || profileForm.formInstName,
+        institutionType: updated.institutionType || profileForm.formInstType,
+        affiliation: updated.affiliation || profileForm.formAffiliation,
+        affiliationCode: updated.affiliationCode || profileForm.formAffiliationCode,
+        establishmentYear: Number(updated.establishmentYear || profileForm.formEstablishmentYear),
+        principalName: updated.principalName || profileForm.formPrincipalName,
+        contactPerson: updated.contactPerson || profileForm.formContactPerson,
+        contactDesignation: updated.contactDesignation || profileForm.formContactDesignation,
+        contactEmail: updated.contactEmail || profileForm.formContactEmail,
+        contactPhone: updated.contactPhone || profileForm.formContactPhone,
+        website: updated.website || profileForm.formWebsite,
+        address: updated.address || profileForm.formAddress,
+        city: updated.city || profileForm.formCity,
+        district: updated.district || profileForm.formDistrict,
+        state: updated.state || profileForm.formState,
+        pincode: updated.pincode || profileForm.formPincode,
+        tradesOffered: tradesArray,
+        annualCapacity: Number(updated.annualCapacity || profileForm.formAnnualCapacity),
+        placementBrochureUrl: updated.placementBrochureUrl || profileForm.formBrochureUrl,
+        about: updated.about || profileForm.formAbout,
+        isOnboardingComplete: true,
+      }));
+
+      setIsOnboardingComplete(true);
+      setIsEditingProfile(false);
+      addToast({
+        type: 'success',
+        title: 'Profile Updated',
+        message: 'Institution profile saved successfully.',
+      });
+    } catch (err) {
+      Sentry.captureException(err);
+      addToast({
+        type: 'error',
+        title: 'Profile Update Failed',
+        message: err instanceof Error ? err.message : 'Failed to update institution profile.',
+      });
+    }
   };
 
   return {

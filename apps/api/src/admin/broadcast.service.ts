@@ -6,8 +6,9 @@ import {
   UnprocessableEntityException,
   InternalServerErrorException,
   Inject,
+  Logger,
 } from '@nestjs/common';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@indian-job-portal/database';
 import {
@@ -63,6 +64,7 @@ export interface BroadcastCampaignEntity {
 
 @Injectable()
 export class BroadcastService {
+  private readonly logger = new Logger(BroadcastService.name);
   private persistentStore = PersistentDatabaseStore.getInstance();
   private activeDispatchLocks = new Set<string>();
   private usedConfirmationTokens = new Set<string>();
@@ -231,7 +233,7 @@ export class BroadcastService {
           }
         }
         await this.creditLedgerRepo.append({
-          id: `cld_escrow_${campaignId}`,
+          id: randomUUID(),
           user_id: actor.id,
           amount: -costPreview.totalCostPaise,
           reason: `BROADCAST_ESCROW_RESERVED: Campaign ${campaignId}`,
@@ -277,15 +279,14 @@ export class BroadcastService {
             phone = user.phone.trim();
           }
         }
-        if (!phone && this.isTestMode) {
-          phone = '9876543210';
-        }
         if (phone) {
           recipientList.push({
             businessProfileId: biz.id,
             phone,
             idempotencyKey: `broadcast_${campaignId}_${biz.id}`,
           });
+        } else {
+          this.logger.warn(`Skipping broadcast recipient biz:${biz.id}: missing valid phone number`);
         }
       }
 

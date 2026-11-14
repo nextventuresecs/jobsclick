@@ -29,7 +29,7 @@ export function mapApiJobToJobItem(j: ApiJobPayload, defaultCompanyName?: string
     id: j.id,
     title: j.title,
     companyName: j.companyName || defaultCompanyName || 'Verified Enterprise',
-    companyId: j.companyId || j.employerId || 'comp-01',
+    companyId: j.companyId || j.employerId || '',
     location: j.city || 'India',
     district: j.district || j.city || 'National',
     state: j.state || 'India',

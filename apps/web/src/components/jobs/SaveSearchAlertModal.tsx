@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState } from 'react';
+import * as Sentry from '@sentry/nextjs';
 import { useTranslations } from 'next-intl';
+import { useApp } from '../../context/AppContext';
 import { Button } from '@indian-job-portal/ui';
 import { Bell, CheckCircle, AlertCircle, X } from 'lucide-react';
 
@@ -17,6 +19,8 @@ export function SaveSearchAlertModal({
   currentCategory = '',
 }: SaveSearchAlertModalProps) {
   const t = useTranslations('JobsPage');
+  const { accessToken } = useApp();
+  const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:3001';
   const [isOpen, setIsOpen] = useState(false);
   const [title, setTitle] = useState(
     currentKeyword || currentCity
@@ -35,9 +39,12 @@ export function SaveSearchAlertModal({
     setErrorMsg('');
 
     try {
-      const res = await fetch('/api/jobs/alerts', {
+      const res = await fetch(`${apiUrl}/jobs/alerts`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
         body: JSON.stringify({
           title: title.trim(),
           filters: {
@@ -50,11 +57,8 @@ export function SaveSearchAlertModal({
       });
 
       if (!res.ok) {
-        // Fall back to client storage if session or mock
-        localStorage.setItem(
-          `saved_alert_${Date.now()}`,
-          JSON.stringify({ title, frequency, filters: { currentKeyword, currentCity, currentCategory } }),
-        );
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData?.message || 'Failed to save job alert.');
       }
 
       setStatus('success');
@@ -62,17 +66,11 @@ export function SaveSearchAlertModal({
         setIsOpen(false);
         setStatus('idle');
       }, 1800);
-    } catch {
-      // Local fallback
-      localStorage.setItem(
-        `saved_alert_${Date.now()}`,
-        JSON.stringify({ title, frequency, filters: { currentKeyword, currentCity, currentCategory } }),
-      );
-      setStatus('success');
-      setTimeout(() => {
-        setIsOpen(false);
-        setStatus('idle');
-      }, 1800);
+    } catch (err) {
+      Sentry.captureException(err);
+      const msg = err instanceof Error ? err.message : 'Failed to save search alert.';
+      setErrorMsg(msg);
+      setStatus('error');
     }
   };
 
