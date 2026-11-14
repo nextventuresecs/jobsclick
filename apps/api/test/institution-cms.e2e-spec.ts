@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import { generatePublicSlug } from '@indian-job-portal/validation';
 import { AppModule } from '../src/app.module.js';
 import { OtpGenerator } from '../src/auth/otp-generator.service.js';
 import { ProfileRepository } from '../src/database/repositories/profile.repository.js';
@@ -13,8 +14,10 @@ describe('Ticket T-18: Institution Public Page CMS & Inquiry Routing (INT-02, IN
   let instToken: string;
   let instUserId: string;
   let institutionId: string;
+  let institutionSlug: string;
   let otherToken: string;
   let otherUserId: string;
+  let otherSlug: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -82,10 +85,12 @@ describe('Ticket T-18: Institution Public Page CMS & Inquiry Routing (INT-02, IN
     instToken = instData.accessToken;
     instUserId = instData.user.id;
     institutionId = crypto.randomUUID();
+    institutionSlug = generatePublicSlug();
 
     // Create an institution profile record
     await profileRepo.saveInstitutionProfile({
       id: institutionId,
+      public_slug: institutionSlug,
       user_id: instUserId,
       institution_name: 'Government ITI Bhopal',
       institution_type: 'iti',
@@ -131,10 +136,12 @@ describe('Ticket T-18: Institution Public Page CMS & Inquiry Routing (INT-02, IN
     const otherData = otherAuth.json();
     otherToken = otherData.accessToken;
     otherUserId = otherData.user.id;
+    otherSlug = generatePublicSlug();
 
     // Create competitor institution profile
     await profileRepo.saveInstitutionProfile({
       id: crypto.randomUUID(),
+      public_slug: otherSlug,
       user_id: otherUserId,
       institution_name: 'Competitor College Indore',
       institution_type: 'engineering',
@@ -159,9 +166,17 @@ describe('Ticket T-18: Institution Public Page CMS & Inquiry Routing (INT-02, IN
 
   describe('AC #1: College staff can edit course offerings and fee tables without developer assistance (INT-02)', () => {
     it('GET /profiles/institution/:id/cms returns standard tabs with default schema structure', async () => {
-      const res = await app.inject({
+      // Legacy UUID lookup returns 404 (ID-02)
+      const uuidRes = await app.inject({
         method: 'GET',
         url: `/profiles/institution/${institutionId}/cms`,
+      });
+      expect(uuidRes.statusCode).toBe(404);
+
+      // Public slug lookup returns 200
+      const res = await app.inject({
+        method: 'GET',
+        url: `/profiles/institution/${institutionSlug}/cms`,
       });
 
       expect(res.statusCode).toBe(200);
@@ -252,7 +267,7 @@ describe('Ticket T-18: Institution Public Page CMS & Inquiry Routing (INT-02, IN
       // Verify public endpoint reflects changes immediately
       const publicRes = await app.inject({
         method: 'GET',
-        url: `/profiles/institution/${institutionId}/cms`,
+        url: `/profiles/institution/${institutionSlug}/cms`,
       });
       expect(publicRes.statusCode).toBe(200);
       const publicData = publicRes.json();

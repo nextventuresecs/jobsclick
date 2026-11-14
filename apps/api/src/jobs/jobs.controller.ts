@@ -11,6 +11,7 @@ import {
   UsePipes,
   UseGuards,
   Inject,
+  NotFoundException,
 } from '@nestjs/common';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { JobsService } from './jobs.service.js';
@@ -27,6 +28,7 @@ import {
   createJobAlertSchema,
   PromoteJobInput,
   CreateJobAlertInput,
+  isUuid,
 } from '@indian-job-portal/validation';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard.js';
@@ -77,11 +79,16 @@ export class JobsController {
     return this.jobsService.getJobAlerts(user.id);
   }
 
+  // ID-02: Public job detail looked up exclusively by public_slug
+  // UUIDs are rejected with 404 (no redirect) to prevent confirming internal IDs.
   @Public()
-  @Get(':id')
+  @Get(':slug')
   @Header('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=59')
-  async getJobById(@Param('id') id: string) {
-    return this.jobsService.getJobById(id);
+  async getJobBySlug(@Param('slug') slug: string) {
+    if (isUuid(slug)) {
+      throw new NotFoundException('Job not found');
+    }
+    return this.jobsService.getJobBySlug(slug);
   }
 
   @Roles('employer', 'admin')

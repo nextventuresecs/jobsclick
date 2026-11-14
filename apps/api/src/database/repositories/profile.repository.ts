@@ -1,5 +1,6 @@
 import { Injectable, Inject, InternalServerErrorException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { generatePublicSlug } from '@indian-job-portal/validation';
 import type {
   Database,
   JobSeekerProfileRow,
@@ -67,7 +68,32 @@ export class ProfileRepository {
     return profiles[id] || null;
   }
 
+  async findSeekerProfileByPublicSlug(slug: string): Promise<JobSeekerProfileRow | null> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await this.supabase
+          .from('job_seeker_profiles')
+          .select('*')
+          .eq('public_slug', slug)
+          .maybeSingle();
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as JobSeekerProfileRow) || null;
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
+      }
+    }
+    const profiles = this.persistentStore.getTable<JobSeekerProfileRow>('job_seeker_profiles');
+    return Object.values(profiles).find((p) => p.public_slug === slug) || null;
+  }
+
   async saveSeekerProfile(profile: JobSeekerProfileRow): Promise<JobSeekerProfileRow> {
+    if (!profile.public_slug) {
+      profile.public_slug = generatePublicSlug();
+    }
     if (this.isTestMode) {
       this.persistentStore.setRow('job_seeker_profiles', profile.id, profile);
       return profile;
@@ -199,7 +225,32 @@ export class ProfileRepository {
     return profiles[id] || null;
   }
 
+  async findBusinessProfileByPublicSlug(slug: string): Promise<BusinessProfileRow | null> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await this.supabase
+          .from('business_profiles')
+          .select('*')
+          .eq('public_slug', slug)
+          .maybeSingle();
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as BusinessProfileRow) || null;
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
+      }
+    }
+    const profiles = this.persistentStore.getTable<BusinessProfileRow>('business_profiles');
+    return Object.values(profiles).find((p) => p.public_slug === slug) || null;
+  }
+
   async saveBusinessProfile(profile: BusinessProfileRow): Promise<BusinessProfileRow> {
+    if (!profile.public_slug) {
+      profile.public_slug = generatePublicSlug();
+    }
     if (this.isTestMode) {
       this.persistentStore.setRow('business_profiles', profile.id, profile);
       return profile;
@@ -309,7 +360,32 @@ export class ProfileRepository {
     return profiles[id] || null;
   }
 
+  async findInstitutionProfileByPublicSlug(slug: string): Promise<InstitutionProfileRow | null> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await this.supabase
+          .from('institution_profiles')
+          .select('*')
+          .eq('public_slug', slug)
+          .maybeSingle();
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as InstitutionProfileRow) || null;
+      } catch (err) {
+        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
+      }
+    }
+    const profiles = this.persistentStore.getTable<InstitutionProfileRow>('institution_profiles');
+    return Object.values(profiles).find((p) => p.public_slug === slug) || null;
+  }
+
   async saveInstitutionProfile(profile: InstitutionProfileRow): Promise<InstitutionProfileRow> {
+    if (!profile.public_slug) {
+      profile.public_slug = generatePublicSlug();
+    }
     if (this.isTestMode) {
       this.persistentStore.setRow('institution_profiles', profile.id, profile);
       return profile;

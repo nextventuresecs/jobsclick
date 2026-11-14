@@ -58,23 +58,32 @@ describe('ProfilesController (e2e) - Issues #9, #10, #11', () => {
     expect(updated.phone).toBe(seekerUser.phone);
     expect(updated.phone).not.toBe('9876543210');
 
-    // 2. Public / Employer view of candidate profile
-    const publicRes = await app.inject({
+    // 2. ID-02: Public / Employer view of candidate profile by public_slug
+    // Passing internal UUID must return 404 (no redirect) to avoid confirming internal IDs.
+    const uuidRes = await app.inject({
       method: 'GET',
       url: `/profiles/seeker/${updated.id}`,
+    });
+    expect(uuidRes.statusCode).toBe(404);
+
+    const publicRes = await app.inject({
+      method: 'GET',
+      url: `/profiles/seeker/${updated.slug}`,
     });
 
     expect(publicRes.statusCode).toBe(200);
     const publicData = JSON.parse(publicRes.payload);
 
-    // Hard Invariant #1 check: Phone and email MUST NEVER be exposed!
+    // Hard Invariant #1 & ID-02 check: Phone, email, internal IDs strictly stripped!
     expect(publicData.phone).toBeUndefined();
     expect(publicData.email).toBeUndefined();
     expect(publicData.aadhaarLastFour).toBeUndefined();
-    expect(publicData.fullName).toBe('Anita Sharma');
+    expect(publicData.slug).toBe(updated.slug);
+    expect(publicData.firstName).toBe('Anita');
+    expect(publicData.fullName).toBeUndefined();
   });
 
-  it('GET & PUT /profiles/business/me & /qr - updates business profile and generates QR code (EMP-01, EMP-03)', async () => {
+  it('GET & PUT /profiles/business/me & /qr - updates business profile and generates QR code (EMP-01, EMP-03, ID-02)', async () => {
     const updateRes = await app.inject({
       method: 'PUT',
       url: '/profiles/business/me',
@@ -93,13 +102,22 @@ describe('ProfilesController (e2e) - Issues #9, #10, #11', () => {
     expect(updateRes.statusCode).toBe(200);
     const busProfile = JSON.parse(updateRes.payload);
 
-    const qrRes = await app.inject({
+    // ID-02: Passing internal UUID must return 404
+    const uuidQrRes = await app.inject({
       method: 'GET',
       url: `/profiles/business/${busProfile.id}/qr`,
+    });
+    expect(uuidQrRes.statusCode).toBe(404);
+
+    // ID-02: Public QR lookup by public_slug
+    const qrRes = await app.inject({
+      method: 'GET',
+      url: `/profiles/business/${busProfile.slug}/qr`,
     });
 
     expect(qrRes.statusCode).toBe(200);
     const qrData = JSON.parse(qrRes.payload);
+    expect(qrData.slug).toBe(busProfile.slug);
     expect(qrData.qrDataUrl).toContain('data:image/png;base64');
   });
 

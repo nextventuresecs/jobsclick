@@ -12,6 +12,7 @@ import {
   CreateJobAlertInput,
   JobAlertResponse,
   FEATURED_PROMOTION_PRICING,
+  generatePublicSlug,
 } from '@indian-job-portal/validation';
 import { JobRepository } from '../database/repositories/job.repository.js';
 import { ApplicationRepository } from '../database/repositories/application.repository.js';
@@ -21,6 +22,7 @@ import type { JobRow, ApplicationRow } from '@indian-job-portal/database';
 
 export interface JobRecord extends CreateJobInput {
   id: string;
+  slug?: string;
   employerId: string;
   isActive: boolean;
   isFeatured?: boolean;
@@ -29,6 +31,30 @@ export interface JobRecord extends CreateJobInput {
   source: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface PublicJobRecord {
+  slug: string;
+  title: string;
+  description: string;
+  category: IndustryCategory;
+  employmentType: EmploymentType;
+  experienceLevel: ExperienceLevel;
+  minPay: number;
+  maxPay: number;
+  city: string;
+  district: string;
+  state: string;
+  openings: number;
+  skills: string[];
+  isFeatured: boolean;
+  featuredUntil: string | null;
+  isPromoted: boolean;
+  isActive: boolean;
+  source: string;
+  createdAt: string;
+  updatedAt: string;
+  companySlug?: string;
 }
 
 export interface ApplicationRecord {
@@ -56,6 +82,7 @@ function mapJobRowToRecord(row: JobRow): JobRecord {
   );
   return {
     id: row.id,
+    slug: row.public_slug,
     employerId: row.employer_id,
     title: row.title,
     description: row.description,
@@ -79,6 +106,39 @@ function mapJobRowToRecord(row: JobRow): JobRecord {
   };
 }
 
+// ID-02: Public job response shape.
+// Strictly omits internal id, employerId, userId, and owner references.
+export function mapJobRowToPublicRecord(row: JobRow, companySlug?: string): PublicJobRecord {
+  const isPromoted = Boolean(
+    row.is_featured &&
+    row.featured_until &&
+    new Date(row.featured_until).getTime() > Date.now(),
+  );
+  return {
+    slug: row.public_slug,
+    title: row.title,
+    description: row.description,
+    category: row.category as IndustryCategory,
+    employmentType: row.employment_type as EmploymentType,
+    experienceLevel: row.experience_level as ExperienceLevel,
+    minPay: row.min_pay ?? 0,
+    maxPay: row.max_pay ?? 0,
+    city: row.city,
+    district: row.district ?? '',
+    state: row.state ?? '',
+    openings: row.openings,
+    skills: row.skills ?? [],
+    isFeatured: row.is_featured ?? false,
+    featuredUntil: row.featured_until ?? null,
+    isPromoted,
+    isActive: row.is_active,
+    source: row.source,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    ...(companySlug ? { companySlug } : {}),
+  };
+}
+
 @Injectable()
 export class JobsService {
   private readonly logger = new Logger(JobsService.name);
@@ -95,6 +155,7 @@ export class JobsService {
 
     const row: JobRow = {
       id,
+      public_slug: generatePublicSlug(),
       employer_id: employerId,
       title: input.title,
       description: input.description,
@@ -120,7 +181,8 @@ export class JobsService {
     return mapJobRowToRecord(row);
   }
 
-  async getJobs(filters: JobFilterInput): Promise<{ jobs: JobRecord[]; total: number }> {
+  // ID-02: Public job list returns opaque slugs, no internal database or employer IDs
+  async getJobs(filters: JobFilterInput): Promise<{ jobs: PublicJobRecord[]; total: number }> {
     const { jobs: rows, total } = await this.jobRepository.findMany({
       keyword: filters.keyword,
       city: filters.city,
@@ -131,10 +193,26 @@ export class JobsService {
       offset: filters.offset,
     });
 
+    const publicJobs: PublicJobRecord[] = [];
+    for (const row of rows) {
+      const bizProfile = await this.profileRepository.findBusinessProfileByUserId(row.employer_id);
+      publicJobs.push(mapJobRowToPublicRecord(row, bizProfile?.public_slug));
+    }
+
     return {
-      jobs: rows.map(mapJobRowToRecord),
+      jobs: publicJobs,
       total,
     };
+  }
+
+  // ID-02: Public job details looked up exclusively by public_slug
+  async getJobBySlug(slug: string): Promise<PublicJobRecord> {
+    const row = await this.jobRepository.findByPublicSlug(slug);
+    if (!row) {
+      throw new NotFoundException('Job not found');
+    }
+    const bizProfile = await this.profileRepository.findBusinessProfileByUserId(row.employer_id);
+    return mapJobRowToPublicRecord(row, bizProfile?.public_slug);
   }
 
   async getJobById(id: string): Promise<JobRecord> {
@@ -186,12 +264,19 @@ export class JobsService {
     return { success: true };
   }
 
-  // JOB-03: Candidate applies to job
-  async applyToJob(applicantId: string, jobId: string): Promise<ApplicationRecord> {
-    const job = await this.getJobById(jobId);
-    if (!job.isActive) {
+  // JOB-03: Candidate applies to job (accepts either public_slug or internal UUID)
+  async applyToJob(applicantId: string, jobIdOrSlug: string): Promise<ApplicationRecord> {
+    let jobRow = await this.jobRepository.findByPublicSlug(jobIdOrSlug);
+    if (!jobRow) {
+      jobRow = await this.jobRepository.findById(jobIdOrSlug);
+    }
+    if (!jobRow) {
+      throw new NotFoundException('Job not found');
+    }
+    if (!jobRow.is_active) {
       throw new BadRequestException('Job is no longer active');
     }
+    const jobId = jobRow.id;
 
     const existingApp = await this.applicationRepository.findByJobAndApplicant(jobId, applicantId);
     if (existingApp) {
@@ -199,7 +284,7 @@ export class JobsService {
     }
 
     // Deduct 1 credit for job application (WAL-02, Hard Invariant #7)
-    const deduction = await this.walletService.deductForJobApplication(applicantId, jobId, job.title);
+    const deduction = await this.walletService.deductForJobApplication(applicantId, jobId, jobRow.title);
 
     const appId = randomUUID();
     const now = new Date().toISOString();
@@ -224,7 +309,7 @@ export class JobsService {
           await this.walletService.recordTransaction({
             userId: applicantId,
             amount: 1,
-            reason: `Refund for failed application submission: ${job.title}`,
+            reason: `Refund for failed application submission: ${jobRow.title}`,
             actorId: 'system',
           });
         } catch (refundErr) {

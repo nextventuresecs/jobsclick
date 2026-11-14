@@ -9,6 +9,7 @@ import { PublicInstitutionTabs } from '../../../components/workspaces/institutio
 import { safeJsonLd } from '../../../lib/safe-json-ld';
 import { safeHttpUrl } from '../../../lib/safe-url';
 import type { InstitutionCmsInput } from '@indian-job-portal/validation';
+import { isUuid } from '@indian-job-portal/validation';
 import {
   ArrowLeft,
   Award,
@@ -37,14 +38,18 @@ const emptyCmsData: InstitutionCmsInput = {
 };
 
 export default async function PublicInstitutionPage({ params }: InstitutionPageProps) {
-  const institutionId = params.id;
+  const institutionSlug = params.id;
+  // ID-02: Old UUID URLs return 404, not a redirect, to avoid confirming internal IDs.
+  if (isUuid(institutionSlug)) {
+    notFound();
+  }
   const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
 
   const [profileRes, cmsRes] = await Promise.all([
-    fetch(`${apiUrl}/profiles/institution/${institutionId}`, {
+    fetch(`${apiUrl}/profiles/institution/${encodeURIComponent(institutionSlug)}`, {
       next: { revalidate: 60 },
     }),
-    fetch(`${apiUrl}/profiles/institution/${institutionId}/cms`, {
+    fetch(`${apiUrl}/profiles/institution/${encodeURIComponent(institutionSlug)}/cms`, {
       next: { revalidate: 60 },
     }),
   ]);
@@ -63,7 +68,8 @@ export default async function PublicInstitutionPage({ params }: InstitutionPageP
   }
 
   const institution: InstitutionProfileData = {
-    id: institutionId,
+    id: data.slug || institutionSlug,
+    slug: data.slug || institutionSlug,
     institutionName: data.institutionName,
     institutionType: (data.institutionType as InstitutionProfileData['institutionType']) || 'iti',
     affiliation: data.affiliation || '',
@@ -95,11 +101,13 @@ export default async function PublicInstitutionPage({ params }: InstitutionPageP
     }
   }
 
-  // Schema.org JSON-LD for Google indexing
+  // Schema.org JSON-LD for Google indexing (ID-02)
+  const baseUrl = process.env['WEB_URL'] || 'http://localhost:3000';
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'EducationalOrganization',
     name: institution.institutionName,
+    url: `${baseUrl}/institution/${encodeURIComponent(institution.slug || institution.id)}`,
     identifier: institution.affiliationCode,
     foundingDate: institution.establishmentYear?.toString(),
     address: {
@@ -110,7 +118,7 @@ export default async function PublicInstitutionPage({ params }: InstitutionPageP
       postalCode: institution.pincode,
       addressCountry: 'IN',
     },
-    url: institution.website,
+    sameAs: institution.website || undefined,
   };
 
   return (
@@ -264,7 +272,7 @@ export default async function PublicInstitutionPage({ params }: InstitutionPageP
               <ProfileQrShareCard
                 title={institution.institutionName}
                 subtitle={`${institution.affiliation} • Established ${institution.establishmentYear}`}
-                path={`/institution/${institution.id}`}
+                path={`/institution/${institution.slug || institution.id}`}
                 badgeText="Campus Placement & Verification QR"
                 description="Print or display this official QR code at campus recruitment fairs, entrance boards, or placement brochures. Employers scan to verify credentials and recruit batches directly."
                 downloadFileName={`${institution.institutionName}-campus-qr`}

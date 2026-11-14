@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
+import { generatePublicSlug } from '@indian-job-portal/validation';
 import type { Database, JobRow, JobAlertRow, AlertDeliveryRow, CreditLedgerRow, PromoteJobRpcResult, SearchJobsRpcResult } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
 
@@ -43,6 +44,9 @@ export class JobRepository {
   }
 
   async create(job: JobRow): Promise<JobRow> {
+    if (!job.public_slug) {
+      job.public_slug = generatePublicSlug();
+    }
     if (this.isTestMode) {
       this.persistentStore.setRow('jobs', job.id, job);
       return job;
@@ -80,6 +84,25 @@ export class JobRepository {
     }
     const jobs = this.persistentStore.getTable<JobRow>('jobs');
     return jobs[id] || null;
+  }
+
+  async findByPublicSlug(slug: string): Promise<JobRow | null> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await this.supabase.from('jobs').select('*').eq('public_slug', slug).maybeSingle();
+        if (error) {
+          this.logger.error(`Error fetching job by slug ${slug} from Supabase: ${error.message}`);
+          throw new InternalServerErrorException('DATABASE_ERROR');
+        }
+        return (data as JobRow) || null;
+      } catch (err) {
+        if (err instanceof InternalServerErrorException) throw err;
+        this.logger.error(`Supabase lookup failed for job slug ${slug}`, err);
+        throw new InternalServerErrorException('DATABASE_ERROR');
+      }
+    }
+    const jobs = this.persistentStore.getTable<JobRow>('jobs');
+    return Object.values(jobs).find((j) => j.public_slug === slug) || null;
   }
 
   async findMany(filters: JobFilterParams): Promise<{ jobs: JobRow[]; total: number }> {

@@ -10,6 +10,7 @@ import {
   CreateInstitutionInquiryInput,
   UpdateInquiryStatusInput,
   institutionCmsSchema,
+  generatePublicSlug,
 } from '@indian-job-portal/validation';
 import type { InstitutionProfileRow, InstitutionInquiryRow } from '@indian-job-portal/database';
 import { ProfileRepository } from '../database/repositories/profile.repository.js';
@@ -159,6 +160,27 @@ export const DEFAULT_INSTITUTION_CMS: InstitutionCmsInput = {
   updatedAt: new Date().toISOString(),
 };
 
+function sanitizeObjectKeysForPublic(obj: unknown): unknown {
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeObjectKeysForPublic);
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const res: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+      if (k === 'id') {
+        res['slug'] = v;
+      } else if (k === 'phone' || k === 'email') {
+        // Strip direct phone/email
+        continue;
+      } else {
+        res[k] = sanitizeObjectKeysForPublic(v);
+      }
+    }
+    return res;
+  }
+  return obj;
+}
+
 @Injectable()
 export class InstitutionCmsService {
   constructor(
@@ -167,25 +189,24 @@ export class InstitutionCmsService {
   ) {}
 
   /**
-   * Public retrieval of Institution CMS Tabs data (INT-02)
+   * Public retrieval of Institution CMS Tabs data by public_slug (INT-02 / ID-02)
    */
-  async getCmsData(institutionId: string): Promise<InstitutionCmsInput> {
-    const profile = await this.profileRepository.findInstitutionProfileById(institutionId);
+  async getCmsData(slug: string): Promise<unknown> {
+    const profile = await this.profileRepository.findInstitutionProfileByPublicSlug(slug);
     if (!profile) {
-      // Fallback to sensible defaults
-      return DEFAULT_INSTITUTION_CMS;
+      throw new NotFoundException('Institution profile not found');
     }
 
+    let rawCms = DEFAULT_INSTITUTION_CMS;
     if (profile.cms_data && Object.keys(profile.cms_data).length > 0) {
       try {
-        return institutionCmsSchema.parse(profile.cms_data);
+        rawCms = institutionCmsSchema.parse(profile.cms_data);
       } catch {
-        // Fall back to default if stored JSON does not match schema
-        return DEFAULT_INSTITUTION_CMS;
+        rawCms = DEFAULT_INSTITUTION_CMS;
       }
     }
 
-    return DEFAULT_INSTITUTION_CMS;
+    return sanitizeObjectKeysForPublic(rawCms);
   }
 
   /**
@@ -201,6 +222,7 @@ export class InstitutionCmsService {
     const updatedProfile: InstitutionProfileRow = {
       id,
       user_id: userId,
+      public_slug: existing?.public_slug || generatePublicSlug(),
       institution_name: existing?.institution_name || 'Institution Campus',
       institution_type: existing?.institution_type || 'iti',
       affiliation: existing?.affiliation || null,
@@ -250,12 +272,20 @@ export class InstitutionCmsService {
     inquiryId: string;
     message: string;
   }> {
+    let institution = await this.profileRepository.findInstitutionProfileByPublicSlug(input.institutionId);
+    if (!institution) {
+      institution = await this.profileRepository.findInstitutionProfileById(input.institutionId);
+    }
+    if (!institution) {
+      throw new NotFoundException('Institution not found');
+    }
+
     const id = randomUUID();
     const now = new Date().toISOString();
 
     const row: InstitutionInquiryRow = {
       id,
-      institution_id: input.institutionId,
+      institution_id: institution.id,
       student_name: input.studentName,
       student_phone: input.studentPhone,
       student_email: input.studentEmail || null,

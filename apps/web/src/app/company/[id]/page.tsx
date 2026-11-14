@@ -13,6 +13,7 @@ import {
   Button,
 } from '@indian-job-portal/ui';
 import type { JobCategory } from '@indian-job-portal/validation';
+import { isUuid } from '@indian-job-portal/validation';
 import { ProfileQrShareCard } from '../../../components/common/ProfileQrShareCard';
 import {
   ArrowLeft,
@@ -31,12 +32,17 @@ interface CompanyPageProps {
 }
 
 export default async function PublicCompanyPage({ params }: CompanyPageProps) {
-  const companyId = params.id;
+  const companySlug = params.id;
+  // ID-02: Old UUID URLs return 404, not a redirect, to avoid confirming internal IDs.
+  if (isUuid(companySlug)) {
+    notFound();
+  }
   const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
 
   let company: CompanyItem | null = null;
 
   interface BusinessProfileApiResponse {
+    readonly slug?: string;
     readonly companyName?: string;
     readonly sector?: string;
     readonly companySize?: CompanyItem['enterpriseSize'];
@@ -51,7 +57,7 @@ export default async function PublicCompanyPage({ params }: CompanyPageProps) {
     readonly activeJobsCount?: number;
   }
 
-  const res = await fetch(`${apiUrl}/profiles/business/${companyId}`, {
+  const res = await fetch(`${apiUrl}/profiles/business/${encodeURIComponent(companySlug)}`, {
     next: { revalidate: 60 },
   });
 
@@ -69,7 +75,8 @@ export default async function PublicCompanyPage({ params }: CompanyPageProps) {
   }
 
   company = {
-    id: companyId,
+    id: data.slug || companySlug,
+    slug: data.slug || companySlug,
     name: data.companyName,
     sector: data.sector || 'Manufacturing',
     enterpriseSize: data.companySize || 'Small',
@@ -87,7 +94,7 @@ export default async function PublicCompanyPage({ params }: CompanyPageProps) {
   // Active jobs for this enterprise (live from API)
   let activeJobs: JobItem[] = [];
   try {
-    const jobsRes = await fetch(`${apiUrl}/jobs?companyId=${encodeURIComponent(companyId)}`, {
+    const jobsRes = await fetch(`${apiUrl}/jobs?companyId=${encodeURIComponent(company.slug || companySlug)}`, {
       headers: { Accept: 'application/json' },
       next: { revalidate: 30 },
     });
@@ -101,11 +108,13 @@ export default async function PublicCompanyPage({ params }: CompanyPageProps) {
     activeJobs = [];
   }
 
-  // JSON-LD structured data for Google indexing (Hard Invariant #9 / EMP-02)
+  // JSON-LD structured data for Google indexing (Hard Invariant #9 / EMP-02 / ID-02)
+  const baseUrl = process.env['WEB_URL'] || 'http://localhost:3000';
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: company.name,
+    url: `${baseUrl}/company/${encodeURIComponent(company.slug || company.id)}`,
     address: {
       '@type': 'PostalAddress',
       streetAddress: company.address,
@@ -213,7 +222,7 @@ export default async function PublicCompanyPage({ params }: CompanyPageProps) {
               <ProfileQrShareCard
                 title={company.name}
                 subtitle={`${company.sector} • ${company.enterpriseSize} Enterprise`}
-                path={`/company/${company.id}`}
+                path={`/company/${company.slug || company.id}`}
                 badgeText="Storefront & Factory Gate Digital QR"
                 description="Print or display this official QR code at your industrial facility entrance, reception, or recruitment kiosk. Candidates can scan with any smartphone camera to view verified company credentials and apply directly."
                 downloadFileName={`${company.name}-recruitment-qr`}

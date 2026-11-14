@@ -35,6 +35,7 @@ export interface Database {
       job_seeker_profiles: TableDefinition<{
         id: string;
         user_id: string;
+        public_slug: string;
         full_name: string;
         photo_url: string | null;
         seeker_type: 'student' | 'individual';
@@ -70,6 +71,7 @@ export interface Database {
       business_profiles: TableDefinition<{
         id: string;
         user_id: string;
+        public_slug: string;
         company_name: string;
         ownership_type: string;
         company_size: string;
@@ -104,6 +106,7 @@ export interface Database {
       institution_profiles: TableDefinition<{
         id: string;
         user_id: string;
+        public_slug: string;
         institution_name: string;
         institution_type?: string;
         affiliation: string | null;
@@ -139,6 +142,7 @@ export interface Database {
       }>;
       jobs: TableDefinition<{
         id: string;
+        public_slug: string;
         employer_id: string;
         title: string;
         description: string;

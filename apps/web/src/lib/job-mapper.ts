@@ -2,10 +2,12 @@ import type { JobItem } from '../data/sampleJobs';
 import type { IndustryCategory } from '@indian-job-portal/validation';
 
 export interface ApiJobPayload {
-  readonly id: string;
+  readonly id?: string;
+  readonly slug?: string;
   readonly title: string;
   readonly companyName?: string;
   readonly companyId?: string;
+  readonly companySlug?: string;
   readonly employerId?: string;
   readonly city?: string;
   readonly district?: string;
@@ -25,11 +27,14 @@ export interface ApiJobPayload {
 }
 
 export function mapApiJobToJobItem(j: ApiJobPayload, defaultCompanyName?: string): JobItem {
+  const effectiveId = j.slug || j.id || '';
   return {
-    id: j.id,
+    id: effectiveId,
+    slug: j.slug || j.id,
+    companySlug: j.companySlug,
     title: j.title,
     companyName: j.companyName || defaultCompanyName || 'Verified Enterprise',
-    companyId: j.companyId || j.employerId || '',
+    companyId: j.companySlug || j.companyId || j.employerId || '',
     location: j.city || 'India',
     district: j.district || j.city || 'National',
     state: j.state || 'India',

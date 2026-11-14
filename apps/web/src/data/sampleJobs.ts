@@ -2,6 +2,8 @@ import type { IndustryCategory, EmploymentType, ExperienceLevel } from '@indian-
 
 export interface JobItem {
   readonly id: string;
+  readonly slug?: string;
+  readonly companySlug?: string;
   readonly title: string;
   readonly companyName: string;
   readonly companyId: string;

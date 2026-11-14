@@ -7,6 +7,7 @@ import {
   Button,
 } from '@indian-job-portal/ui';
 import type { JobCategory } from '@indian-job-portal/validation';
+import { isUuid } from '@indian-job-portal/validation';
 import { Navbar } from '../../../components/layout/Navbar';
 import { Footer } from '../../../components/layout/Footer';
 import type { JobItem } from '../../../data/sampleJobs';
@@ -35,14 +36,18 @@ interface JobDetailPageProps {
 }
 
 export default async function JobDetailPage({ params }: JobDetailPageProps) {
-  const jobId = params.id;
+  const jobSlug = params.id;
+  // ID-02: Old UUID URLs return 404, not a redirect, to avoid confirming internal IDs.
+  if (isUuid(jobSlug)) {
+    notFound();
+  }
   const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
 
   let job: JobItem | null = null;
   let isNotFound = false;
 
   try {
-    const res = await fetch(`${apiUrl}/jobs/${jobId}`, {
+    const res = await fetch(`${apiUrl}/jobs/${encodeURIComponent(jobSlug)}`, {
       headers: { Accept: 'application/json' },
       next: { revalidate: 30 },
     });
@@ -50,7 +55,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
       isNotFound = true;
     } else {
       const data = (await res.json()) as ApiJobPayload | null;
-      if (!data || !data.id) {
+      if (!data || (!data.slug && !data.id)) {
         isNotFound = true;
       } else {
         job = mapApiJobToJobItem(data);
@@ -64,16 +69,18 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
     notFound();
   }
 
-  // Google JobPosting JSON-LD Structured Data (Hard Invariant #9 / PRD 9)
+  // Google JobPosting JSON-LD Structured Data (Hard Invariant #9 / PRD 9 / ID-02)
+  const baseUrl = process.env['WEB_URL'] || 'http://localhost:3000';
   const jobPostingJsonLd = {
     '@context': 'https://schema.org/',
     '@type': 'JobPosting',
     title: job.title,
     description: job.description,
+    url: `${baseUrl}/jobs/${encodeURIComponent(job.slug || job.id)}`,
     identifier: {
       '@type': 'PropertyValue',
       name: job.companyName,
-      value: job.id,
+      value: job.slug || job.id,
     },
     datePosted: job.postedDate,
     validThrough: job.expiryDate,
@@ -270,7 +277,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
                 Direct enterprise employer located in {job.location}, {job.district}, {job.state}. Hiring verified candidates with zero commission.
               </p>
               <div className="pt-2">
-                <Link href={`/company/${job.companyId}`}>
+                <Link href={`/company/${job.companySlug || job.companyId}`}>
                   <Button variant="outline" size="sm" className="font-semibold">
                     View Verified Company Profile
                   </Button>
