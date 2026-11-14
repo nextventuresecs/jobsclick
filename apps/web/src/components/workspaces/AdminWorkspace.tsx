@@ -40,7 +40,7 @@ export function AdminWorkspace({ isMsmeDept = false }: { readonly isMsmeDept?: b
     let isMounted = true;
     const abortCtrl = new AbortController();
     const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || process.env['API_URL'] || 'http://localhost:3001';
-    const authHeader = accessToken ? `Bearer ${accessToken}` : `Bearer jwt_session_${user?.id || 'admin_root'}_${Date.now()}`;
+    const authHeader = accessToken ? `Bearer ${accessToken}` : '';
     const adminId = user?.id || 'admin_root';
 
     // 1. Fetch Live Audit Logs

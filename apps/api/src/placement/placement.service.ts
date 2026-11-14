@@ -7,6 +7,7 @@ import {
   ConflictException,
   Inject,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import {
   type CorporateTieUp,
   type CreateCorporateTieUpInput,
@@ -340,9 +341,9 @@ export class PlacementService {
     }
 
     const newTieUp: CorporateTieUp = {
-      id: `tieup-${Date.now()}`,
+      id: randomUUID(),
       institutionId,
-      employerId: `emp-${Date.now()}`,
+      employerId: randomUUID(),
       companyName: input.companyName,
       sector: input.sector,
       partnershipStatus: 'mou_signed',
@@ -419,8 +420,8 @@ export class PlacementService {
     }
 
     const nowStr = new Date().toISOString().split('T')[0] ?? '2026-10-23';
-    const newBatch: PlacementApplication[] = input.studentIds.map((studentId, idx) => ({
-      id: `app-pl-${Date.now()}-${idx}`,
+    const newBatch: PlacementApplication[] = input.studentIds.map((studentId) => ({
+      id: randomUUID(),
       institutionId,
       employerId: partner.employerId,
       studentId,

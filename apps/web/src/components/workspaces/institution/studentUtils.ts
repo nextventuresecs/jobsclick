@@ -9,7 +9,7 @@ export function createQuickStudent(
   passingYear: string
 ): StudentRecordData {
   return {
-    id: `stu-direct-${Date.now()}`,
+    id: crypto.randomUUID(),
     institutionId,
     studentName: name.trim(),
     rollNumber: roll.trim(),

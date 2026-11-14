@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { captureException } from '../config/sentry.js';
 
 export interface AlertDigestJobItem {
@@ -41,7 +42,7 @@ export class WorkerEmailService {
       );
       return {
         success: true,
-        messageId: `mock_email_${Date.now()}`,
+        messageId: randomUUID(),
       };
     }
 
@@ -77,7 +78,7 @@ export class WorkerEmailService {
       console.log(`[Worker Resend Live] Successfully sent email to ${recipients.join(', ')} (ID: ${data.id})`);
       return {
         success: true,
-        messageId: data.id || `resend_${Date.now()}`,
+        messageId: data.id || randomUUID(),
       };
     } catch (err) {
       console.error(`[Worker Resend Exception] ${err}`);

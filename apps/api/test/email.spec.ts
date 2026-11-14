@@ -17,7 +17,7 @@ describe('EmailService (Resend Provider & Domain jobsclick.live)', () => {
 
     expect(result.success).toBe(true);
     expect(result.messageId).toBeDefined();
-    expect(result.messageId).toContain('mock_email_');
+    expect(result.messageId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
   });
 
   it('renders bilingual email verification template with secure link', async () => {

@@ -498,7 +498,7 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
       return { allowed: false, count };
     }
 
-    await this.client.zadd(key, now, `${now}_${Math.random()}`);
+    await this.client.zadd(key, now, crypto.randomUUID());
     await this.client.expire(key, 3600);
     return { allowed: true, count: count + 1 };
   }

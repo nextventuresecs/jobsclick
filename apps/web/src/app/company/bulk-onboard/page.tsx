@@ -152,7 +152,7 @@ export default function EmployerBulkOnboardPage() {
       if (res.ok) {
         const data = await res.json();
         setBatchResult({
-          batchId: data.batchId || `batch_emp_${Date.now()}`,
+          batchId: data.batchId || data.id || '',
           totalRows: parsedRows.length,
           validCount,
           source: sourceName,
