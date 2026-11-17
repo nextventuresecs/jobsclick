@@ -1,0 +1,10 @@
+{
+  "item": "20-payment-types",
+  "kind": "code",
+  "branch": "codex/auth-20-payment-types",
+  "commit": "01925de4022203733744b04ff2f436920c86bda3",
+  "files": [
+    "packages/database/src/generated.types.ts"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}
