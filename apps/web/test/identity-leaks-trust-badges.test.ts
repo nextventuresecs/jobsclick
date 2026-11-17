@@ -65,7 +65,7 @@ describe('PR 3: Identity Leaks & Trust Badges Lockdown (P0/P1)', () => {
       const html = renderToString(
         React.createElement(ProfileQrShareCard, {
           title: 'Unverified MSME Enterprise',
-          path: '/company/comp-unverified',
+          path: '/company/b5406a30-64cd-4660-a27a-e4ff058eb544',
           downloadFileName: 'unverified-qr',
           isMsme: true,
           udyamVerified: false,
@@ -82,7 +82,7 @@ describe('PR 3: Identity Leaks & Trust Badges Lockdown (P0/P1)', () => {
       const html = renderToString(
         React.createElement(ProfileQrShareCard, {
           title: 'Verified MSME Enterprise',
-          path: '/company/comp-verified',
+          path: '/company/e9761475-dfd6-47d3-b95d-163c9a55c224',
           downloadFileName: 'verified-qr',
           isMsme: true,
           udyamVerified: true,
