@@ -1,0 +1,31 @@
+Command: node node_modules/vitest/vitest.mjs run apps/api/test/supabase-provider.spec.ts
+Started UTC: 2026-11-17T08:58:16.664Z
+Environment: test; localhost only; fake delivery.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ❯ apps/api/test/supabase-provider.spec.ts (26 tests | 1 failed) 348ms
+   × AUTH-01 request-scoped Supabase provider boundary > rotates refresh credentials only in the server adapter and revalidates the returned identity 8ms
+     → provider.refresh is not a function
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 25 passed (26)
+   Start at  14:28:18
+   Duration  8.16s (transform 206ms, setup 1.83s, collect 25ms, tests 348ms, environment 0ms, prepare 185ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/supabase-provider.spec.ts > AUTH-01 request-scoped Supabase provider boundary > rotates refresh credentials only in the server adapter and revalidates the returned identity
+TypeError: provider.refresh is not a function
+ ❯ apps/api/test/supabase-provider.spec.ts:148:40
+    146|     const { createSupabaseProvider } = await import('../src/auth/supab…
+    147|     const provider = createSupabaseProvider({ url: origin, publishable…
+    148|     const credentials = await provider.refresh('synthetic-refresh');
+       |                                        ^
+    149|     expect(credentials).toEqual({ authUserId: id, providerSessionId: s…
+    150|       refreshToken: 'synthetic-rotated-refresh', accessExpiresAt: expe…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

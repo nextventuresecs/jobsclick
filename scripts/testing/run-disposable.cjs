@@ -109,7 +109,10 @@ async function main() {
     if (evidence) fs.writeFileSync(evidence.replace(/\.txt$/, '-pgtap.txt'), `Project: ${runId}\nExit: ${tap.status}\n${redact((tap.stdout || '') + (tap.stderr || ''))}`);
     console.log(redact((tap.stdout || '').slice(-4000)));
     requireSuccess(tap, 'native Supabase pgTAP');
-
+    const native = command(process.execPath, ['node_modules/vitest/vitest.mjs', 'run', 'apps/api/test/auth-native.local.spec.ts'], { ...env, RUN_AUTH_NATIVE: '1', JOBSCLICK_TEST_RUN_ID: runId });
+    if (evidence) fs.writeFileSync(evidence.replace(/\.txt$/, '-native-auth.txt'), `Project: ${runId}\nExit: ${native.status}\n${redact((native.stdout || '') + (native.stderr || ''))}`);
+    console.log(redact((native.stdout || '').slice(-3000)));
+    requireSuccess(native, 'actual GoTrue identity/claim/ban');
   }
 }
 main().catch(error => { console.error(error.message); process.exitCode = 1; }).finally(() => {

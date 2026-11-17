@@ -1,0 +1,15 @@
+Command: node node_modules/vitest/vitest.mjs run apps/api/test/supabase-provider.spec.ts
+Started UTC: 2026-11-17T08:31:16.888Z
+Environment: test; localhost only; fake delivery.
+Exit: 0
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ✓ apps/api/test/supabase-provider.spec.ts (10 tests) 249ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  14:01:18
+   Duration  8.85s (transform 251ms, setup 2.15s, collect 21ms, tests 249ms, environment 0ms, prepare 143ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.

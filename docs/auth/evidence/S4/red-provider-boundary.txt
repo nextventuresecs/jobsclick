@@ -1,0 +1,25 @@
+Command: node node_modules/vitest/vitest.mjs run apps/api/test/supabase-provider.spec.ts
+Started UTC: 2026-11-17T08:22:40.867Z
+Environment: test; localhost only; fake delivery.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ❯ apps/api/test/supabase-provider.spec.ts (1 test | 1 failed) 13ms
+   × AUTH-01 request-scoped Supabase provider boundary > verifies provider identity without requiring legacy tv/jti or returning credentials/roles 7ms
+     → Failed to load url ../src/auth/supabase-provider.js (resolved id: ../src/auth/supabase-provider.js) in D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/apps/api/test/supabase-provider.spec.ts. Does the file exist?
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  13:52:42
+   Duration  8.16s (transform 209ms, setup 2.01s, collect 30ms, tests 13ms, environment 0ms, prepare 146ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/supabase-provider.spec.ts > AUTH-01 request-scoped Supabase provider boundary > verifies provider identity without requiring legacy tv/jti or returning credentials/roles
+Error: Failed to load url ../src/auth/supabase-provider.js (resolved id: ../src/auth/supabase-provider.js) in D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/apps/api/test/supabase-provider.spec.ts. Does the file exist?
+ ❯ loadAndTransform ../../../../../../Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal-remediation/node_modules/.pnpm/vite@5.4.21_@types+node@20.19.43_terser@5.51.2/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51969:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

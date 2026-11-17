@@ -1,0 +1,46 @@
+Command: node node_modules/vitest/vitest.mjs run apps/api/test/supabase-provider.spec.ts
+Started UTC: 2026-11-17T08:27:03.244Z
+Environment: test; localhost only; fake delivery.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ❯ apps/api/test/supabase-provider.spec.ts (3 tests | 2 failed) 107ms
+   × AUTH-01 request-scoped Supabase provider boundary > rejects a validly signed token with the wrong issuer 30ms
+     → promise resolved "{ …(4) }" instead of rejecting
+   × AUTH-01 request-scoped Supabase provider boundary > rejects a validly signed token with the wrong audience 18ms
+     → promise resolved "{ …(4) }" instead of rejecting
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 1 passed (3)
+   Start at  13:57:05
+   Duration  8.33s (transform 189ms, setup 1.97s, collect 22ms, tests 107ms, environment 0ms, prepare 146ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/supabase-provider.spec.ts > AUTH-01 request-scoped Supabase provider boundary > rejects a validly signed token with the wrong issuer
+ FAIL  apps/api/test/supabase-provider.spec.ts > AUTH-01 request-scoped Supabase provider boundary > rejects a validly signed token with the wrong audience
+AssertionError: promise resolved "{ …(4) }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {
++   "authUserId": "285f6125-9060-4893-8a33-25d20d981bb9",
++   "expiresAt": 1794904932,
++   "issuedAt": 1794904032,
++   "providerSessionId": "fd56785a-3769-4ab4-a09b-e33e03a58311",
++ }
+
+ ❯ apps/api/test/supabase-provider.spec.ts:50:46
+     48|       .setIssuedAt().setExpirationTime('15m').sign(signingKey);
+     49|     const provider = createSupabaseProvider({ url: origin, publishable…
+     50|     await expect(provider.authenticate(token)).rejects.toMatchObject({…
+       |                                              ^
+     51|   });
+     52| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+

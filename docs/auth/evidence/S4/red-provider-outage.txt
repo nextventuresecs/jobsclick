@@ -1,0 +1,45 @@
+Command: node node_modules/vitest/vitest.mjs run apps/api/test/supabase-provider.spec.ts
+Started UTC: 2026-11-17T08:31:50.784Z
+Environment: test; localhost only; fake delivery.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ❯ apps/api/test/supabase-provider.spec.ts (11 tests | 1 failed) 226ms
+   × AUTH-01 request-scoped Supabase provider boundary > fails closed with a safe dependency error when Auth is unavailable 20ms
+     → expected UnauthorizedException: AUTH_PROVIDER_INVA… { …(3) } to match object { …(2) }
+(6 matching properties omitted from actual)
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 10 passed (11)
+   Start at  14:01:52
+   Duration  8.75s (transform 274ms, setup 3.05s, collect 22ms, tests 226ms, environment 0ms, prepare 338ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/supabase-provider.spec.ts > AUTH-01 request-scoped Supabase provider boundary > fails closed with a safe dependency error when Auth is unavailable
+AssertionError: expected UnauthorizedException: AUTH_PROVIDER_INVA… { …(3) } to match object { …(2) }
+(6 matching properties omitted from actual)
+
+- Expected
++ Received
+
+- Object {
+-   "message": "AUTH_PROVIDER_UNAVAILABLE",
+-   "status": 503,
++ UnauthorizedException {
++   "message": "AUTH_PROVIDER_INVALID",
++   "status": 401,
+  }
+
+ ❯ apps/api/test/supabase-provider.spec.ts:86:5
+     84|     outage = true;
+     85|     const provider = createSupabaseProvider({ url: origin, publishable…
+     86|     await expect(provider.authenticate(token)).rejects.toMatchObject({…
+       |     ^
+     87|   });
+     88| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

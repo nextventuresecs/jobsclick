@@ -1,0 +1,56 @@
+Command: node node_modules/vitest/vitest.mjs run apps/api/test/supabase-provider.spec.ts
+Started UTC: 2026-11-17T08:43:14.366Z
+Environment: test; localhost only; fake delivery.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ❯ apps/api/test/supabase-provider.spec.ts (18 tests | 7 failed) 241ms
+   × AUTH-01 request-scoped Supabase provider boundary > rejects unsafe server configuration before making requests: {"url":"http://remote.invalid"} 8ms
+     → expected [Function] to throw an error
+   × AUTH-01 request-scoped Supabase provider boundary > rejects unsafe server configuration before making requests: {"url":"https://username:password@project.invalid"} 1ms
+     → expected [Function] to throw an error
+   × AUTH-01 request-scoped Supabase provider boundary > rejects unsafe server configuration before making requests: {"url":"https://project.invalid/?token=synthetic"} 1ms
+     → expected [Function] to throw an error
+   × AUTH-01 request-scoped Supabase provider boundary > rejects unsafe server configuration before making requests: {"url":"https://project.invalid/custom-path"} 1ms
+     → expected [Function] to throw an error
+   × AUTH-01 request-scoped Supabase provider boundary > rejects unsafe server configuration before making requests: {"publishableKey":"sb_secret_synthetic-must-never-use-admin"} 1ms
+     → expected [Function] to throw an error
+   × AUTH-01 request-scoped Supabase provider boundary > rejects unsafe server configuration before making requests: {"environment":"unrecognized"} 1ms
+     → expected [Function] to throw an error
+   × AUTH-01 request-scoped Supabase provider boundary > rejects unsafe server configuration before making requests: {"url":"http://127.0.0.1:54321","environment":"production"} 1ms
+     → expected [Function] to throw an error
+
+ Test Files  1 failed (1)
+      Tests  7 failed | 11 passed (18)
+   Start at  14:13:16
+   Duration  9.05s (transform 245ms, setup 3.22s, collect 24ms, tests 241ms, environment 0ms, prepare 248ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/supabase-provider.spec.ts > AUTH-01 request-scoped Supabase provider boundary > rejects unsafe server configuration before making requests: {"url":"http://remote.invalid"}
+ FAIL  apps/api/test/supabase-provider.spec.ts > AUTH-01 request-scoped Supabase provider boundary > rejects unsafe server configuration before making requests: {"url":"https://username:password@project.invalid"}
+ FAIL  apps/api/test/supabase-provider.spec.ts > AUTH-01 request-scoped Supabase provider boundary > rejects unsafe server configuration before making requests: {"url":"https://project.invalid/?token=synthetic"}
+ FAIL  apps/api/test/supabase-provider.spec.ts > AUTH-01 request-scoped Supabase provider boundary > rejects unsafe server configuration before making requests: {"url":"https://project.invalid/custom-path"}
+ FAIL  apps/api/test/supabase-provider.spec.ts > AUTH-01 request-scoped Supabase provider boundary > rejects unsafe server configuration before making requests: {"publishableKey":"sb_secret_synthetic-must-never-use-admin"}
+ FAIL  apps/api/test/supabase-provider.spec.ts > AUTH-01 request-scoped Supabase provider boundary > rejects unsafe server configuration before making requests: {"environment":"unrecognized"}
+ FAIL  apps/api/test/supabase-provider.spec.ts > AUTH-01 request-scoped Supabase provider boundary > rejects unsafe server configuration before making requests: {"url":"http://127.0.0.1:54321","environment":"production"}
+AssertionError: expected [Function] to throw an error
+
+- Expected: 
+null
+
++ Received: 
+undefined
+
+ ❯ apps/api/test/supabase-provider.spec.ts:100:8
+     98|     const { createSupabaseProvider } = await import('../src/auth/supab…
+     99|     expect(() => createSupabaseProvider({ url: origin, publishableKey:…
+    100|       .toThrow('AUTH_PROVIDER_CONFIG_INVALID');
+       |        ^
+    101|   });
+    102| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+

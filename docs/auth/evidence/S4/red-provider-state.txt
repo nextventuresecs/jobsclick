@@ -1,0 +1,49 @@
+Command: node node_modules/vitest/vitest.mjs run apps/api/test/supabase-provider.spec.ts
+Started UTC: 2026-11-17T08:28:37.120Z
+Environment: test; localhost only; fake delivery.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ❯ apps/api/test/supabase-provider.spec.ts (7 tests | 3 failed) 186ms
+   × AUTH-01 request-scoped Supabase provider boundary > rejects a currently anonymous provider identity 39ms
+     → promise resolved "{ …(4) }" instead of rejecting
+   × AUTH-01 request-scoped Supabase provider boundary > rejects a currently banned provider identity 29ms
+     → promise resolved "{ …(4) }" instead of rejecting
+   × AUTH-01 request-scoped Supabase provider boundary > rejects a currently deleted provider identity 9ms
+     → promise resolved "{ …(4) }" instead of rejecting
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 4 passed (7)
+   Start at  13:58:38
+   Duration  9.22s (transform 245ms, setup 2.21s, collect 26ms, tests 186ms, environment 0ms, prepare 230ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/supabase-provider.spec.ts > AUTH-01 request-scoped Supabase provider boundary > rejects a currently anonymous provider identity
+ FAIL  apps/api/test/supabase-provider.spec.ts > AUTH-01 request-scoped Supabase provider boundary > rejects a currently banned provider identity
+ FAIL  apps/api/test/supabase-provider.spec.ts > AUTH-01 request-scoped Supabase provider boundary > rejects a currently deleted provider identity
+AssertionError: promise resolved "{ …(4) }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {
++   "authUserId": "6584fdb3-431b-4e60-88e8-16ae6c6b0637",
++   "expiresAt": 1794905027,
++   "issuedAt": 1794904127,
++   "providerSessionId": "06c4535e-029c-4aee-881d-a32dcc829235",
++ }
+
+ ❯ apps/api/test/supabase-provider.spec.ts:64:46
+     62|       .setAudience('authenticated').setIssuedAt().setExpirationTime('1…
+     63|     const provider = createSupabaseProvider({ url: origin, publishable…
+     64|     await expect(provider.authenticate(token)).rejects.toMatchObject({…
+       |                                              ^
+     65|   });
+     66| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+

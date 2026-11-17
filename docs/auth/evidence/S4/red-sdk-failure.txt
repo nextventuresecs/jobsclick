@@ -1,0 +1,41 @@
+Command: node node_modules/vitest/vitest.mjs run apps/api/test/supabase-provider.spec.ts
+Started UTC: 2026-11-17T09:00:31.542Z
+Environment: test; localhost only; fake delivery.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ❯ apps/api/test/supabase-provider.spec.ts (28 tests | 1 failed) 456ms
+   × AUTH-01 request-scoped Supabase provider boundary > sanitizes unexpected SDK key-validation failures 36ms
+     → expected DOMException{ stack: 'DataError: Inv…' } to match object { status: 503, …(1) }
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 27 passed (28)
+   Start at  14:30:33
+   Duration  8.98s (transform 199ms, setup 1.93s, collect 27ms, tests 456ms, environment 0ms, prepare 174ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/supabase-provider.spec.ts > AUTH-01 request-scoped Supabase provider boundary > sanitizes unexpected SDK key-validation failures
+AssertionError: expected DOMException{ stack: 'DataError: Inv…' } to match object { status: 503, …(1) }
+
+- Expected
++ Received
+
+- Object {
+-   "message": "AUTH_PROVIDER_UNAVAILABLE",
+-   "status": 503,
+- }
++ [DataError: Invalid keyData]
+
+ ❯ apps/api/test/supabase-provider.spec.ts:178:5
+    176|       .setSubject(id).setIssuer(`${origin}/auth/v1`).setAudience('auth…
+    177|     const provider = createSupabaseProvider({ url: origin, publishable…
+    178|     await expect(provider.authenticate(token)).rejects.toMatchObject({…
+       |     ^
+    179|   });
+    180| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
