@@ -1,0 +1,31 @@
+Exit: 1
+✔ rejects the persistent dev DB even with an explicit opt-in flag (51.3402ms)
+✔ rejects missing or mismatched run manifests (1.112ms)
+✔ accepts only the exact provisioned localhost endpoints (1.1297ms)
+✔ network backstop rejects hardcoded dev ports and remote connections (0.9942ms)
+✔ parses CLI v3 status JSON surrounded by local startup notices (34.7211ms)
+✖ standalone database tools refuse an absent run marker before connecting (1.6772ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 5
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4489.1202
+
+✖ failing tests:
+
+test at scripts\testing\disposable-target.test.cjs:29:1
+✖ standalone database tools refuse an absent run marker before connecting (1.6772ms)
+  TypeError: assertDisposableDatabase is not a function
+      at D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\scripts\testing\disposable-target.test.cjs:30:30
+      at waitForActual (node:assert:632:21)
+      at strict.rejects (node:assert:769:31)
+      at TestContext.<anonymous> (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\scripts\testing\disposable-target.test.cjs:30:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)

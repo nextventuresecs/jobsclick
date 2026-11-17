@@ -1,0 +1,32 @@
+Project: jc-auth-test-cecd592a
+Fresh Supabase + Redis; no dev data.
+Exit: 0
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ✓ apps/api/test/postgrest-lockdown.spec.ts (16 tests) 434ms
+ ✓ apps/web/test/identity-leaks-trust-badges.test.ts (8 tests) 84ms
+ ✓ apps/api/test/otp-predictability.spec.ts (5 tests) 1731ms
+   ✓ Audit P0-3: Predictable OTP Removal and OTP Security Lockdown > rejects "123456" for every phone in 9876543210..9876543219 after send-otp when generated OTP is 654321 329ms
+   ✓ Audit P0-3: Predictable OTP Removal and OTP Security Lockdown > positive control: injected OTP "654321" verifies successfully for 9876543210..9876543219 720ms
+ ✓ apps/api/test/p2-feature-flags-boundary.spec.ts (12 tests) 630ms
+ ✓ apps/api/test/auth-server-state-lockdown.spec.ts (19 tests) 1795ms
+
+ Test Files  5 passed (5)
+      Tests  60 passed (60)
+   Start at  18:10:22
+   Duration  28.63s (transform 3.51s, setup 70.28s, collect 16.67s, tests 4.67s, environment 3ms, prepare 4.23s)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+Sourcemap for "D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/node_modules/.pnpm/@bull-board+api@5.21.0_@bull-board+ui@5.21.0/node_modules/@bull-board/api/dist/src/index.js" points to missing source files
+Sourcemap for "D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/node_modules/.pnpm/@bull-board+fastify@5.21.0/node_modules/@bull-board/fastify/dist/index.js" points to missing source files
+[Nest] 29620  - 11/17/2026, 6:10:50 PM   ERROR [JwtAuthGuard] Redis failure during auth state lookup for 0240cccf-5124-40c3-86b3-ef4d52a404b4: Connection refused: redis cluster unavailable
+[Nest] 29620  - 11/17/2026, 6:10:50 PM   ERROR [HttpExceptionFilter] HTTP 503 on POST /auth/email/add: Authentication state service temporarily unavailable
+ServiceUnavailableException: Authentication state service temporarily unavailable
+    at JwtAuthGuard.loadUserState (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\apps\api\src\auth\guards\jwt-auth.guard.ts:121:15)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at JwtAuthGuard.verifyAndLoadState (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\apps\api\src\auth\guards\jwt-auth.guard.ts:89:19)
+    at GuardsConsumer.tryActivate (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2\node_modules\@nestjs\core\guards\guards-consumer.js:16:17)
+    at canActivateFn (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2\node_modules\@nestjs\core\router\router-execution-context.js:135:33)
+    at D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2\node_modules\@nestjs\core\router\router-execution-context.js:42:31
+    at Object.<anonymous> (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2\node_modules\@nestjs\core\router\router-proxy.js:9:17)

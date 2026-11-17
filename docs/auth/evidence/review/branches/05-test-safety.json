@@ -1,0 +1,19 @@
+{
+  "name": "05-test-safety",
+  "branch": "codex/auth-05-test-safety",
+  "commit": "72cbaf4219a39334f2677c84e79dd1973c7cb1d7",
+  "files": [
+    "scripts/testing/disposable-target.cjs",
+    "scripts/testing/disposable-target.d.cts",
+    "scripts/testing/disposable-target.test.cjs",
+    "scripts/testing/disposable-files.test.cjs",
+    "scripts/testing/run-disposable.cjs",
+    "scripts/db-security-drill.ts",
+    "scripts/smoke-postgrest.ts",
+    "scripts/drill-fresh-database.ts",
+    "apps/api/src/database/supabase.provider.ts",
+    "package.json",
+    "docs/auth/evidence/review/historical-mutex-only.patch"
+  ],
+  "gate": "pnpm typecheck + pnpm lint: zero errors"
+}

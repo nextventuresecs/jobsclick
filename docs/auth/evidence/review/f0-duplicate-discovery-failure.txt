@@ -1,0 +1,100 @@
+Project: jc-auth-test-ba5c0307
+Fresh Supabase + Redis; no dev data.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ✓ apps/api/test/postgrest-lockdown.spec.ts (16 tests) 592ms
+ ✓ .scratch/auth-review/apps/api/test/postgrest-lockdown.spec.ts (16 tests) 545ms
+ ✓ apps/web/test/identity-leaks-trust-badges.test.ts (8 tests) 53ms
+ ✓ .scratch/auth-review/apps/web/test/identity-leaks-trust-badges.test.ts (8 tests) 46ms
+ ✓ apps/api/test/otp-predictability.spec.ts (5 tests) 2383ms
+   ✓ Audit P0-3: Predictable OTP Removal and OTP Security Lockdown > positive control: injected OTP "654321" verifies successfully for 9876543210..9876543219 1130ms
+ ❯ .scratch/auth-review/apps/api/test/otp-predictability.spec.ts (5 tests | 5 skipped) 72ms
+ ✓ apps/api/test/p2-feature-flags-boundary.spec.ts (12 tests) 516ms
+ ✓ apps/api/test/auth-server-state-lockdown.spec.ts (19 tests) 1954ms
+   ✓ Server-Side State Validation & Session Revocation (P0-8, PR #97 B2) > Cross-Instance Single Sign-Out (Instance A -> Instance B) > login on instance A, sign-out-all on A, replay old token on instance B => 401 411ms
+   ✓ Server-Side State Validation & Session Revocation (P0-8, PR #97 B2) > Cross-Instance Single Sign-Out (Instance A -> Instance B) > fresh login after sign-out-all => succeeds with new token and 200 335ms
+ ❯ .scratch/auth-review/apps/api/test/p2-feature-flags-boundary.spec.ts (12 tests | 1 failed) 309ms
+   × Phase 2 Feature Flag Boundaries & Blast-Radius Verification (PRN-06) > Restoration Verification (Flags Enabled = true) > allows access to endpoints when feature flags are restored to true 16ms
+     → expected 401 to be 200 // Object.is equality
+ ✓ .scratch/auth-review/apps/api/test/auth-server-state-lockdown.spec.ts (19 tests) 1744ms
+   ✓ Server-Side State Validation & Session Revocation (P0-8, PR #97 B2) > Cross-Instance Single Sign-Out (Instance A -> Instance B) > login on instance A, sign-out-all on A, replay old token on instance B => 401 319ms
+   ✓ Server-Side State Validation & Session Revocation (P0-8, PR #97 B2) > Cross-Instance Single Sign-Out (Instance A -> Instance B) > fresh login after sign-out-all => succeeds with new token and 200 303ms
+   ✓ Server-Side State Validation & Session Revocation (P0-8, PR #97 B2) > Account Disabling across instances > admin disable endpoint triggers automatic token_version bump via DB trigger => 401 301ms
+
+ Test Files  2 failed | 8 passed (10)
+      Tests  1 failed | 114 passed | 5 skipped (120)
+   Start at  17:37:39
+   Duration  47.99s (transform 18.29s, setup 193.04s, collect 93.33s, tests 8.21s, environment 7ms, prepare 12.29s)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+Sourcemap for "D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/node_modules/.pnpm/@bull-board+api@5.21.0_@bull-board+ui@5.21.0/node_modules/@bull-board/api/dist/src/index.js" points to missing source files
+Sourcemap for "D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/node_modules/.pnpm/@bull-board+fastify@5.21.0/node_modules/@bull-board/fastify/dist/index.js" points to missing source files
+[Nest] 29168  - 11/17/2026, 5:38:22 PM   ERROR [JwtAuthGuard] Redis failure during auth state lookup for e52391c5-25a9-451d-848f-c9f36594f6cf: Connection refused: redis cluster unavailable
+[Nest] 29168  - 11/17/2026, 5:38:22 PM   ERROR [HttpExceptionFilter] HTTP 503 on POST /auth/email/add: Authentication state service temporarily unavailable
+ServiceUnavailableException: Authentication state service temporarily unavailable
+    at JwtAuthGuard.loadUserState (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\apps\api\src\auth\guards\jwt-auth.guard.ts:121:15)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at JwtAuthGuard.verifyAndLoadState (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\apps\api\src\auth\guards\jwt-auth.guard.ts:89:19)
+    at GuardsConsumer.tryActivate (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2\node_modules\@nestjs\core\guards\guards-consumer.js:16:17)
+    at canActivateFn (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2\node_modules\@nestjs\core\router\router-execution-context.js:135:33)
+    at D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2\node_modules\@nestjs\core\router\router-execution-context.js:42:31
+    at Object.<anonymous> (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2\node_modules\@nestjs\core\router\router-proxy.js:9:17)
+Sourcemap for "D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/@bull-board+api@5.21.0_@bull-board+ui@5.21.0/node_modules/@bull-board/api/dist/src/index.js" points to missing source files
+Sourcemap for "D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/@bull-board+fastify@5.21.0/node_modules/@bull-board/fastify/dist/index.js" points to missing source files
+[Nest] 26960  - 11/17/2026, 5:38:26 PM   ERROR [JwtAuthGuard] Redis failure during auth state lookup for 961e3519-bc1d-4522-8d50-6106cda31144: Connection refused: redis cluster unavailable
+[Nest] 26960  - 11/17/2026, 5:38:26 PM   ERROR [HttpExceptionFilter] HTTP 503 on POST /auth/email/add: Authentication state service temporarily unavailable
+ServiceUnavailableException: Authentication state service temporarily unavailable
+    at JwtAuthGuard.loadUserState (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\apps\api\src\auth\guards\jwt-auth.guard.ts:121:15)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at JwtAuthGuard.verifyAndLoadState (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\apps\api\src\auth\guards\jwt-auth.guard.ts:89:19)
+    at GuardsConsumer.tryActivate (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2\node_modules\@nestjs\core\guards\guards-consumer.js:16:17)
+    at canActivateFn (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2\node_modules\@nestjs\core\router\router-execution-context.js:135:33)
+    at D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2\node_modules\@nestjs\core\router\router-execution-context.js:42:31
+    at Object.<anonymous> (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2\node_modules\@nestjs\core\router\router-proxy.js:9:17)
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  .scratch/auth-review/apps/api/test/otp-predictability.spec.ts > Audit P0-3: Predictable OTP Removal and OTP Security Lockdown
+Error: Nest can't resolve dependencies of the AuthService (UserRepository, ?, TurnstileVerifier, OtpRedisService, RateLimitService, JwtService, OtpGenerator, EmailService). Please make sure that the argument SmsGateway at index [1] is available in the RootTestModule context.
+
+Potential solutions:
+- Is RootTestModule a valid NestJS module?
+- If SmsGateway is a provider, is it part of the current RootTestModule?
+- If SmsGateway is exported from a separate @Module, is that module imported within RootTestModule?
+  @Module({
+    imports: [ /* the Module containing SmsGateway */ ]
+  })
+
+ ❯ TestingInjector.lookupComponentInParentModules .scratch/auth-review/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2/node_modules/@nestjs/core/injector/injector.js:262:19
+ ❯ TestingInjector.resolveComponentInstance .scratch/auth-review/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2/node_modules/@nestjs/core/injector/injector.js:215:33
+ ❯ TestingInjector.resolveComponentInstance .scratch/auth-review/node_modules/.pnpm/@nestjs+testing@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__@nestjs+cor_inzuq7jwqviodrlf32les7zqqi/node_modules/@nestjs/testing/testing-injector.js:19:45
+ ❯ resolveParam .scratch/auth-review/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2/node_modules/@nestjs/core/injector/injector.js:129:38
+ ❯ TestingInjector.resolveConstructorParams .scratch/auth-review/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2/node_modules/@nestjs/core/injector/injector.js:144:27
+ ❯ TestingInjector.loadInstance .scratch/auth-review/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2/node_modules/@nestjs/core/injector/injector.js:70:13
+ ❯ TestingInjector.loadProvider .scratch/auth-review/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2/node_modules/@nestjs/core/injector/injector.js:98:9
+ ❯ .scratch/auth-review/node_modules/.pnpm/@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2/node_modules/@nestjs/core/injector/instance-loader.js:56:13
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  .scratch/auth-review/apps/api/test/p2-feature-flags-boundary.spec.ts > Phase 2 Feature Flag Boundaries & Blast-Radius Verification (PRN-06) > Restoration Verification (Flags Enabled = true) > allows access to endpoints when feature flags are restored to true
+AssertionError: expected 401 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 401
+
+ ❯ .scratch/auth-review/apps/api/test/p2-feature-flags-boundary.spec.ts:270:35
+    268|         headers: employerHeaders,
+    269|       });
+    270|       expect(packsRes.statusCode).toBe(200);
+       |                                   ^
+    271| 
+    272|       // 2. Placement tie-ups endpoint is accessible
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+

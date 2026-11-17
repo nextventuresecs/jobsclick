@@ -1,0 +1,13 @@
+Project: jc-auth-test-ff9371a3
+Exit: 0
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ✓ apps/api/test/auth-native.local.spec.ts (2 tests) 467ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  18:29:26
+   Duration  17.85s (transform 554ms, setup 9.87s, collect 159ms, tests 467ms, environment 0ms, prepare 512ms)
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m

@@ -1,0 +1,30 @@
+{
+  "name": "03-provider",
+  "branch": "codex/auth-03-provider",
+  "commit": "46503b345611ac17f318bdcaa871f61275a75e9c",
+  "files": [
+    "apps/api/src/auth/supabase-provider.ts",
+    "apps/api/test/supabase-provider.spec.ts",
+    "apps/api/test/auth-native.local.spec.ts",
+    "scripts/testing/run-disposable.cjs",
+    "docs/auth/evidence/review/native-auth-provider.txt",
+    "docs/auth/evidence/S4/green-provider-boundary.txt",
+    "docs/auth/evidence/S4/green-provider-config.txt",
+    "docs/auth/evidence/S4/green-provider-outage.txt",
+    "docs/auth/evidence/S4/green-provider-refresh.txt",
+    "docs/auth/evidence/S4/green-provider-state.txt",
+    "docs/auth/evidence/S4/green-token-constraints.txt",
+    "docs/auth/evidence/S4/green-token-project-binding.txt",
+    "docs/auth/evidence/S4/README.md",
+    "docs/auth/evidence/S4/red-provider-boundary.txt",
+    "docs/auth/evidence/S4/red-provider-config.txt",
+    "docs/auth/evidence/S4/red-provider-outage.txt",
+    "docs/auth/evidence/S4/red-provider-refresh.txt",
+    "docs/auth/evidence/S4/red-provider-state.txt",
+    "docs/auth/evidence/S4/red-sdk-failure.txt",
+    "docs/auth/evidence/S4/red-token-constraints.txt",
+    "docs/auth/evidence/S4/red-token-project-binding.txt",
+    "docs/auth/evidence/S4/verification.txt"
+  ],
+  "gate": "pnpm typecheck + pnpm lint: zero errors"
+}

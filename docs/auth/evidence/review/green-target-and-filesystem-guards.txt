@@ -1,0 +1,20 @@
+Exit: 0
+✔ test-mode JSON persistence refuses an unmarked working directory (568.8006ms)
+✔ JSON fixtures live only under the marked run directory (554.2344ms)
+✔ rejects the persistent dev DB even with an explicit opt-in flag (1.9744ms)
+✔ rejects missing or mismatched run manifests (0.5004ms)
+✔ accepts only the exact provisioned localhost endpoints (0.6325ms)
+✔ network backstop rejects hardcoded dev ports and remote connections (0.3098ms)
+✔ parses CLI v3 status JSON surrounded by local startup notices (2.2735ms)
+✔ standalone database tools refuse an absent run marker before connecting (1.0043ms)
+✔ db-security-drill.ts refuses an unmarked target before opening a connection (543.4895ms)
+✔ smoke-postgrest.ts refuses an unmarked target before opening a connection (680.1624ms)
+✔ fresh drill refuses caller-selected databases (562.5506ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2822.3501

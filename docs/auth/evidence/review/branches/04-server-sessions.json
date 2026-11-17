@@ -1,0 +1,27 @@
+{
+  "name": "04-server-sessions",
+  "branch": "codex/auth-04-server-sessions",
+  "commit": "24a6455fc73fa3043d32396e21cb55188863e78f",
+  "files": [
+    "apps/api/src/auth/provider-session-store.ts",
+    "apps/api/test/provider-sessions.local.spec.ts",
+    "apps/api/test/supabase-provider.spec.ts",
+    "docs/adr/0002-server-held-provider-sessions.md",
+    "docs/decisions/001-client-decisions.md",
+    "docs/auth/evidence/S5/green-access-lifetime.txt",
+    "docs/auth/evidence/S5/green-deadline-refresh.txt",
+    "docs/auth/evidence/S5/green-global-session-revocation.txt",
+    "docs/auth/evidence/S5/green-logout-refresh.txt",
+    "docs/auth/evidence/S5/green-refresh-race.txt",
+    "docs/auth/evidence/S5/green-server-token-store.txt",
+    "docs/auth/evidence/S5/README.md",
+    "docs/auth/evidence/S5/red-access-lifetime.txt",
+    "docs/auth/evidence/S5/red-deadline-refresh.txt",
+    "docs/auth/evidence/S5/red-global-session-revocation.txt",
+    "docs/auth/evidence/S5/red-logout-refresh.txt",
+    "docs/auth/evidence/S5/red-refresh-race.txt",
+    "docs/auth/evidence/S5/red-server-token-store.txt",
+    "docs/auth/evidence/S5/verification.txt"
+  ],
+  "gate": "pnpm typecheck + pnpm lint: zero errors"
+}
