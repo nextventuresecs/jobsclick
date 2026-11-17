@@ -1,0 +1,15 @@
+{
+  "item": "16-render",
+  "kind": "code",
+  "branch": "codex/auth-16-opaque-render",
+  "commit": "6f39aaef2a8253e32cb3d484692ad20b8d6c80ab",
+  "files": [
+    "apps/web/src/components/common/ProfileQrShareCard.tsx",
+    "apps/web/test/identity-leaks-trust-badges.test.ts",
+    "apps/web/test/opaque-render.spec.ts",
+    "packages/validation/src/index.ts",
+    "packages/validation/src/public-profile.ts",
+    "docs/auth/F0_OPAQUE_RENDER.md"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}

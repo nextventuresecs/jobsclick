@@ -1,0 +1,20 @@
+Project: jc-auth-test-43012bbb
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 0
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ✓ apps/web/test/identity-leaks-trust-badges.test.ts (8 tests) 32ms
+ ✓ apps/web/test/opaque-render.spec.ts (11 tests) 3338ms
+   ✓ F0-e AUTH-05 rendered identity boundary > renders actual public home and jobs pages using opaque API fixture links 2117ms
+   ✓ F0-e AUTH-05 rendered identity boundary > renders the actual authenticated job_seeker workspace page without credential-derived identifiers 1196ms
+ ✓ apps/api/test/profiles.e2e-spec.ts (5 tests) 462ms
+
+ Test Files  3 passed (3)
+      Tests  24 passed (24)
+   Start at  22:49:39
+   Duration  17.81s (transform 3.22s, setup 12.66s, collect 6.59s, tests 3.83s, environment 1ms, prepare 1.18s)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+Sourcemap for "D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/@bull-board+api@5.21.0_@bull-board+ui@5.21.0/node_modules/@bull-board/api/dist/src/index.js" points to missing source files
+Sourcemap for "D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/@bull-board+fastify@5.21.0/node_modules/@bull-board/fastify/dist/index.js" points to missing source files
