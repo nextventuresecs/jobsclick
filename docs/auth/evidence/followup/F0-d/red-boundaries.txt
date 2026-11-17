@@ -1,0 +1,154 @@
+Project: jc-auth-test-dd39a322
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ apps/api/test/sponsorship-boundaries.spec.ts (6 tests | 5 failed) 123ms
+   × F0-d WAL-05 sponsorship attacker boundaries > rejects a captured payment below the server quote before granting any sponsorship 46ms
+     → promise resolved "{ success: true, …(5) }" instead of rejecting
+   × F0-d WAL-05 sponsorship attacker boundaries > does not grant sponsorship through a free-text institution name, including another institution UUID 14ms
+     → expected 3 to be 1 // Object.is equality
+   × F0-d WAL-05 sponsorship attacker boundaries > reads sponsorship expiry rather than trusting a stale sponsored boolean 5ms
+     → expected true not to be true // Object.is equality
+   × F0-d WAL-05 sponsorship attacker boundaries > rejects reuse of the same canonical payment under its alternate reference and a new idempotency key 29ms
+     → promise resolved "{ success: true, …(5) }" instead of rejecting
+   × F0-d WAL-05 sponsorship attacker boundaries > leaves no partial student grant if the sponsorship record write crashes 8ms
+     → expected true to be false // Object.is equality
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 1 passed (6)
+   Start at  22:35:39
+   Duration  9.80s (transform 405ms, setup 2.89s, collect 227ms, tests 123ms, environment 0ms, prepare 209ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/sponsorship-boundaries.spec.ts > F0-d WAL-05 sponsorship attacker boundaries > rejects a captured payment below the server quote before granting any sponsorship
+AssertionError: promise resolved "{ success: true, …(5) }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {
++   "alreadyActive": false,
++   "expiresAt": "2027-11-17T17:05:48.578Z",
++   "quote": Object {
++     "activeSponsoredCount": 1,
++     "baseAnnualFeeInr": 150,
++     "gstAmountInr": 27,
++     "gstRate": 0.18,
++     "institutionId": "eab7aee5-66d9-4333-b552-4bb2e3015933",
++     "institutionName": "Same College",
++     "isSponsorshipActive": true,
++     "ratePerStudentInr": 150,
++     "sponsorshipExpiresAt": "2027-11-17T17:05:48.578Z",
++     "studentCount": 1,
++     "tier": "Small",
++     "totalAnnualFeeInr": 177,
++   },
++   "sponsoredStudentsCount": 1,
++   "sponsorshipId": "f4349623-33ed-4c22-83aa-1cc491cd61ce",
++   "success": true,
++ }
+
+ ❯ apps/api/test/sponsorship-boundaries.spec.ts:37:30
+     35|   it('rejects a captured payment below the server quote before grantin…
+     36|     const f = await fixture(1);
+     37|     await expect(f.activate()).rejects.toThrow('SPONSORSHIP_PAYMENT_IN…
+       |                              ^
+     38|     expect((await f.profiles.findSeekerProfileById(f.student.id))?.is_…
+     39|     expect(await f.profiles.findSponsorshipsByInstitutionId(f.institut…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  apps/api/test/sponsorship-boundaries.spec.ts > F0-d WAL-05 sponsorship attacker boundaries > does not grant sponsorship through a free-text institution name, including another institution UUID
+AssertionError: expected 3 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 3
+
+ ❯ apps/api/test/sponsorship-boundaries.spec.ts:45:78
+     43|     const outsider = { ...f.student, id: randomUUID(), user_id: random…
+     44|     await f.profiles.saveSeekerProfile(outsider);
+     45|     const result = await f.activate(); expect(result.sponsoredStudents…
+       |                                                                              ^
+     46|     expect((await f.profiles.findSeekerProfileById(f.student.id))?.is_…
+     47|     expect((await f.profiles.findSeekerProfileById(outsider.id))?.is_s…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  apps/api/test/sponsorship-boundaries.spec.ts > F0-d WAL-05 sponsorship attacker boundaries > reads sponsorship expiry rather than trusting a stale sponsored boolean
+AssertionError: expected true not to be true // Object.is equality
+ ❯ apps/api/test/sponsorship-boundaries.spec.ts:55:36
+     53|     await f.profiles.saveInstitutionProfile({ ...f.institution, is_spo…
+     54|     const result = await f.wallet.deductForJobApplication(f.student.us…
+     55|     expect(result.isSponsored).not.toBe(true); expect(result.remaining…
+       |                                    ^
+     56|   });
+     57|   it('allows a paid UUID-associated student only while its institution…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  apps/api/test/sponsorship-boundaries.spec.ts > F0-d WAL-05 sponsorship attacker boundaries > rejects reuse of the same canonical payment under its alternate reference and a new idempotency key
+AssertionError: promise resolved "{ success: true, …(5) }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {
++   "alreadyActive": false,
++   "expiresAt": "2027-11-17T17:05:48.662Z",
++   "quote": Object {
++     "activeSponsoredCount": 6,
++     "baseAnnualFeeInr": 150,
++     "gstAmountInr": 27,
++     "gstRate": 0.18,
++     "institutionId": "cb864bbc-55e2-4342-b2d4-b768ee10b551",
++     "institutionName": "Same College",
++     "isSponsorshipActive": true,
++     "ratePerStudentInr": 150,
++     "sponsorshipExpiresAt": "2027-11-17T17:05:48.662Z",
++     "studentCount": 1,
++     "tier": "Small",
++     "totalAnnualFeeInr": 177,
++   },
++   "sponsoredStudentsCount": 6,
++   "sponsorshipId": "119a6b41-dc9b-4519-a7d0-9a7bf6d1bcd4",
++   "success": true,
++ }
+
+ ❯ apps/api/test/sponsorship-boundaries.spec.ts:64:153
+     62|   it('rejects reuse of the same canonical payment under its alternate …
+     63|     const f = await fixture(); await f.activate();
+     64|     await expect(f.service.activateSponsorship(f.institution.id, { pay…
+       |                                                                                                                                                         ^
+     65|       .rejects.toThrow('SPONSORSHIP_PAYMENT_ALREADY_USED');
+     66|     expect(await f.profiles.findSponsorshipsByInstitutionId(f.institut…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  apps/api/test/sponsorship-boundaries.spec.ts > F0-d WAL-05 sponsorship attacker boundaries > leaves no partial student grant if the sponsorship record write crashes
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ apps/api/test/sponsorship-boundaries.spec.ts:72:82
+     70|     vi.spyOn(f.profiles, 'saveSponsorship').mockRejectedValueOnce(new …
+     71|     await expect(f.activate()).rejects.toThrow('fixture write crash');
+     72|     expect((await f.profiles.findSeekerProfileById(f.student.id))?.is_…
+       |                                                                                  ^
+     73|     expect((await f.profiles.findInstitutionProfileById(f.institution.…
+     74|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+

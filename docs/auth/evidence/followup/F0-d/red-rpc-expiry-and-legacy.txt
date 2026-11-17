@@ -1,0 +1,124 @@
+Project: jc-auth-test-eb44b198
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ packages/database/test/sponsorship-expiry.local.test.ts (4 tests | 3 failed) 103ms
+   × F0-d WAL-05 actual application RPC sponsorship expiry > checks the UUID-linked current grant for expired sponsorship 37ms
+     → expected true to be false // Object.is equality
+   × F0-d WAL-05 actual application RPC sponsorship expiry > checks the UUID-linked current grant for other-institution sponsorship 16ms
+     → expected true to be false // Object.is equality
+   × F0-d WAL-05 actual application RPC sponsorship expiry > checks the UUID-linked current grant for missing-grant sponsorship 14ms
+     → expected true to be false // Object.is equality
+ ❯ apps/api/test/sponsorship.e2e-spec.ts (11 tests | 4 failed) 512ms
+   × Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WAL-05, Section 10.1) > AC #2: When an institution pays the annual fee, all enrolled students are marked as sponsored > activates annual sponsorship and marks all enrolled candidates as sponsored 12ms
+     → expected 400 to be 201 // Object.is equality
+   × Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WAL-05, Section 10.1) > AC #3: Sponsored candidates do not hit the 10-application cap > allows sponsored candidates unlimited applications past the cap without deducting wallet credits 5ms
+     → expected false to be true // Object.is equality
+   × Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WAL-05, Section 10.1) > AC #4: Multi-Tenant Ownership Checks (Controller & Service Level Gates) > rejects cross-tenant activation when an unauthorized institution attempts to activate another institution 152ms
+     → expected 400 to be 201 // Object.is equality
+   × Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WAL-05, Section 10.1) > AC #5: Concurrency & Transaction/Lock Serialization (WAL-05 Idempotency) > serializes concurrent activations and prevents duplicate sponsorship rows or double updates 6ms
+     → SPONSORSHIP_PAYMENT_INSUFFICIENT
+
+ Test Files  2 failed (2)
+      Tests  7 failed | 8 passed (15)
+   Start at  22:40:17
+   Duration  14.50s (transform 1.14s, setup 6.55s, collect 3.79s, tests 615ms, environment 0ms, prepare 535ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+Sourcemap for "D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/@bull-board+api@5.21.0_@bull-board+ui@5.21.0/node_modules/@bull-board/api/dist/src/index.js" points to missing source files
+Sourcemap for "D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/@bull-board+fastify@5.21.0/node_modules/@bull-board/fastify/dist/index.js" points to missing source files
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/database/test/sponsorship-expiry.local.test.ts > F0-d WAL-05 actual application RPC sponsorship expiry > checks the UUID-linked current grant for expired sponsorship
+ FAIL  packages/database/test/sponsorship-expiry.local.test.ts > F0-d WAL-05 actual application RPC sponsorship expiry > checks the UUID-linked current grant for other-institution sponsorship
+ FAIL  packages/database/test/sponsorship-expiry.local.test.ts > F0-d WAL-05 actual application RPC sponsorship expiry > checks the UUID-linked current grant for missing-grant sponsorship
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ packages/database/test/sponsorship-expiry.local.test.ts:22:35
+     20|       await db.query('SET LOCAL ROLE service_role');
+     21|       const result = (await db.query("select public.deduct_application…
+     22|       expect(result.is_sponsored).toBe(state === 'active');
+       |                                   ^
+     23|       if (state !== 'active') expect(result.remaining_balance).toBe(9);
+     24|     } finally { await db.query('ROLLBACK'); }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  apps/api/test/sponsorship.e2e-spec.ts > Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WAL-05, Section 10.1) > AC #2: When an institution pays the annual fee, all enrolled students are marked as sponsored > activates annual sponsorship and marks all enrolled candidates as sponsored
+AssertionError: expected 400 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 400
+
+ ❯ apps/api/test/sponsorship.e2e-spec.ts:230:40
+    228|       });
+    229| 
+    230|       expect(activationRes.statusCode).toBe(201);
+       |                                        ^
+    231|       const activationData = activationRes.json();
+    232|       expect(activationData.success).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  apps/api/test/sponsorship.e2e-spec.ts > Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WAL-05, Section 10.1) > AC #3: Sponsored candidates do not hit the 10-application cap > allows sponsored candidates unlimited applications past the cap without deducting wallet credits
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ apps/api/test/sponsorship.e2e-spec.ts:300:36
+    298| 
+    299|         expect(result.success).toBe(true);
+    300|         expect(result.isSponsored).toBe(true);
+       |                                    ^
+    301|       }
+    302| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+
+ FAIL  apps/api/test/sponsorship.e2e-spec.ts > Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WAL-05, Section 10.1) > AC #4: Multi-Tenant Ownership Checks (Controller & Service Level Gates) > rejects cross-tenant activation when an unauthorized institution attempts to activate another institution
+AssertionError: expected 400 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 400
+
+ ❯ apps/api/test/sponsorship.e2e-spec.ts:433:44
+    431|         },
+    432|       });
+    433|       expect(authorizedHttpRes.statusCode).toBe(201);
+       |                                            ^
+    434|       expect(authorizedHttpRes.json().success).toBe(true);
+    435|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/7]⎯
+
+ FAIL  apps/api/test/sponsorship.e2e-spec.ts > Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WAL-05, Section 10.1) > AC #5: Concurrency & Transaction/Lock Serialization (WAL-05 Idempotency) > serializes concurrent activations and prevents duplicate sponsorship rows or double updates
+BadRequestException: SPONSORSHIP_PAYMENT_INSUFFICIENT
+ ❯ SponsorshipService.activateSponsorship apps/api/src/wallet/sponsorship.service.ts:209:15
+    207|       if (payment.currency !== 'INR' || !Number.isFinite(payment.amoun…
+    208|         || payment.amount_inr < requiredQuote.totalAnnualFeeInr) {
+    209|         throw new BadRequestException('SPONSORSHIP_PAYMENT_INSUFFICIEN…
+       |               ^
+    210|       }
+    211| 
+ ❯ apps/api/test/sponsorship.e2e-spec.ts:489:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/7]⎯
+

@@ -1,0 +1,19 @@
+{
+  "item": "15-sponsorship",
+  "kind": "code",
+  "branch": "codex/auth-15-sponsorship-boundaries",
+  "commit": "e5e56b2fa12c5a010595e8b67cc6ce4e6266b7d8",
+  "files": [
+    "apps/api/src/database/repositories/profile.repository.ts",
+    "apps/api/src/wallet/sponsorship.service.ts",
+    "apps/api/src/wallet/wallet.service.ts",
+    "apps/api/test/sponsorship-boundaries.spec.ts",
+    "apps/api/test/sponsorship.e2e-spec.ts",
+    "packages/database/test/sponsorship-expiry.local.test.ts",
+    "supabase/migrations/20261117171132_sponsorship_current_grant.sql",
+    "packages/database/supabase/migrations/20261117171132_sponsorship_current_grant.sql",
+    "docs/auth/SCHEMA_MISMATCH.md",
+    "docs/auth/F0_SPONSORSHIP.md"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}
