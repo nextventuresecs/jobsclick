@@ -1,0 +1,3 @@
+# AUTH-01 native schema type snapshot
+
+Generated without hand edits by pinned Supabase CLI 3.1.0, with deterministic whitespace-only normalisation against a verified disposable project after canonical migration replay. It covers native platform and application/private_auth schemas, excludes test_support, and is checked for exact regenerated content (normalising checkout line endings). The substantial generated-file diff is mechanical; review it separately from CI source changes. It does not enable Google, phone-less CSV, hosted migrations or new grants. The application-facing curated Database model is retained; its M1 phone nullability was corrected in the migration item.
