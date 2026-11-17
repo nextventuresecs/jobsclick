@@ -1,0 +1,41 @@
+{
+  "runId": "jc-auth-test-d6e4a885",
+  "target": "localhost:56122",
+  "initialCounts": {
+    "users": 0,
+    "auth": 0
+  },
+  "roles": [
+    {
+      "rolname": "anon",
+      "rolsuper": false,
+      "rolbypassrls": false
+    },
+    {
+      "rolname": "authenticated",
+      "rolsuper": false,
+      "rolbypassrls": false
+    },
+    {
+      "rolname": "postgres",
+      "rolsuper": false,
+      "rolbypassrls": true
+    },
+    {
+      "rolname": "service_role",
+      "rolsuper": false,
+      "rolbypassrls": true
+    },
+    {
+      "rolname": "supabase_admin",
+      "rolsuper": true,
+      "rolbypassrls": true
+    },
+    {
+      "rolname": "supabase_auth_admin",
+      "rolsuper": false,
+      "rolbypassrls": false
+    }
+  ],
+  "migrations": 35
+}

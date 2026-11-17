@@ -1,0 +1,92 @@
+{
+  "project": "jc-auth-test-d6e4a885",
+  "definers": [
+    {
+      "function": "anonymise_user(uuid)",
+      "anon": false,
+      "authenticated": false,
+      "proconfig": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "function": "deduct_application_credit_with_ledger(uuid,uuid,text,integer)",
+      "anon": false,
+      "authenticated": false,
+      "proconfig": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "function": "get_district_employment_reports()",
+      "anon": false,
+      "authenticated": false,
+      "proconfig": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "function": "get_user_credit_balance(uuid)",
+      "anon": false,
+      "authenticated": false,
+      "proconfig": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "function": "grant_starter_credits(uuid)",
+      "anon": false,
+      "authenticated": false,
+      "proconfig": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "function": "increment_token_version(uuid)",
+      "anon": false,
+      "authenticated": false,
+      "proconfig": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "function": "promote_job_with_ledger(uuid,uuid,integer,integer)",
+      "anon": false,
+      "authenticated": false,
+      "proconfig": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "function": "trigger_auto_bump_token_version()",
+      "anon": false,
+      "authenticated": false,
+      "proconfig": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "function": "trigger_auto_grant_starter_credits()",
+      "anon": false,
+      "authenticated": false,
+      "proconfig": [
+        "search_path=public, pg_temp"
+      ]
+    },
+    {
+      "function": "unlock_contact_with_ledger(uuid,uuid,integer)",
+      "anon": false,
+      "authenticated": false,
+      "proconfig": [
+        "search_path=public, pg_temp"
+      ]
+    }
+  ],
+  "ledger": [
+    {
+      "anon_insert": false,
+      "authenticated_insert": false
+    }
+  ],
+  "ledgerPolicies": []
+}

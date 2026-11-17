@@ -30,7 +30,7 @@ describe.runIf(process.env['RUN_LOCAL_SUPABASE'] === '1')('AUTH-01 provider iden
 
   beforeAll(async () => {
     const target = new URL(process.env['DATABASE_URL'] || '');
-    if (process.env['NODE_ENV'] !== 'test' || target.hostname !== '127.0.0.1' || target.port !== '54322') {
+    if (process.env['NODE_ENV'] !== 'test' || target.hostname !== '127.0.0.1' || target.port !== process.env['JOBSCLICK_TEST_DB_PORT']) {
       throw new Error('AUTH_LOCAL_TEST_REQUIRES_LOCALHOST');
     }
     localTargetVerified = true;

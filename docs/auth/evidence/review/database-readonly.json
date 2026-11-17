@@ -1,0 +1,274 @@
+{
+  "target": {
+    "host": "127.0.0.1",
+    "port": 54322,
+    "database": "postgres",
+    "container": "supabase_db_indian-job-portal-local"
+  },
+  "checkedUTC": "2026-11-17T09:43:51.725Z",
+  "identity": [
+    {
+      "current_database": "postgres",
+      "current_user": "postgres",
+      "version": "PostgreSQL 17.11 on x86_64-pc-linux-gnu, compiled by gcc (GCC) 15.2.0, 64-bit"
+    }
+  ],
+  "roles": [
+    {
+      "rolname": "anon",
+      "rolsuper": false,
+      "rolbypassrls": false
+    },
+    {
+      "rolname": "authenticated",
+      "rolsuper": false,
+      "rolbypassrls": false
+    },
+    {
+      "rolname": "postgres",
+      "rolsuper": false,
+      "rolbypassrls": true
+    },
+    {
+      "rolname": "service_role",
+      "rolsuper": false,
+      "rolbypassrls": true
+    },
+    {
+      "rolname": "supabase_admin",
+      "rolsuper": true,
+      "rolbypassrls": true
+    },
+    {
+      "rolname": "supabase_auth_admin",
+      "rolsuper": false,
+      "rolbypassrls": false
+    }
+  ],
+  "counts": [
+    {
+      "application_users": "251250",
+      "auth_users": "1"
+    }
+  ],
+  "provenance": [
+    {
+      "source_class": "other_or_null",
+      "role": "job_seeker",
+      "status": "invited",
+      "count": "249976",
+      "oldest": "2026-11-11T15:44:16.340Z",
+      "newest": "2026-11-14T14:27:34.389Z"
+    },
+    {
+      "source_class": "direct_web",
+      "role": "job_seeker",
+      "status": "active",
+      "count": "527",
+      "oldest": "2026-11-11T15:43:41.052Z",
+      "newest": "2026-11-16T16:53:51.822Z"
+    },
+    {
+      "source_class": "direct_web",
+      "role": "admin",
+      "status": "active",
+      "count": "171",
+      "oldest": "2026-11-11T15:43:49.515Z",
+      "newest": "2026-11-16T14:06:30.516Z"
+    },
+    {
+      "source_class": "direct_web",
+      "role": "employer",
+      "status": "active",
+      "count": "170",
+      "oldest": "2026-11-11T15:43:46.470Z",
+      "newest": "2026-11-16T16:53:51.696Z"
+    },
+    {
+      "source_class": "other_or_null",
+      "role": "intermediary",
+      "status": "active",
+      "count": "126",
+      "oldest": "2026-11-11T15:43:39.167Z",
+      "newest": "2026-11-14T15:13:17.336Z"
+    },
+    {
+      "source_class": "direct_web",
+      "role": "employer",
+      "status": "disabled",
+      "count": "115",
+      "oldest": "2026-11-11T15:43:47.508Z",
+      "newest": "2026-11-16T14:06:30.390Z"
+    },
+    {
+      "source_class": "other_or_null",
+      "role": "job_seeker",
+      "status": "active",
+      "count": "34",
+      "oldest": "2026-11-11T15:43:40.936Z",
+      "newest": "2026-11-14T15:13:18.146Z"
+    },
+    {
+      "source_class": "other_or_null",
+      "role": "job_seeker",
+      "status": "disabled",
+      "count": "32",
+      "oldest": "2026-11-11T15:45:23.268Z",
+      "newest": "2026-11-14T15:14:28.230Z"
+    },
+    {
+      "source_class": "direct_web",
+      "role": "intermediary",
+      "status": "active",
+      "count": "24",
+      "oldest": "2026-11-11T15:45:09.573Z",
+      "newest": "2026-11-16T14:23:25.402Z"
+    },
+    {
+      "source_class": "other_or_null",
+      "role": "employer",
+      "status": "disabled",
+      "count": "19",
+      "oldest": "2026-11-11T15:43:39.420Z",
+      "newest": "2026-11-14T15:12:33.220Z"
+    },
+    {
+      "source_class": "other_or_null",
+      "role": "admin",
+      "status": "active",
+      "count": "17",
+      "oldest": "2026-11-11T15:44:17.686Z",
+      "newest": "2026-11-14T15:13:17.446Z"
+    },
+    {
+      "source_class": "direct_web",
+      "role": "job_seeker",
+      "status": "disabled",
+      "count": "16",
+      "oldest": "2026-11-11T15:43:51.197Z",
+      "newest": "2026-11-14T15:12:39.156Z"
+    },
+    {
+      "source_class": "other_or_null",
+      "role": "employer",
+      "status": "active",
+      "count": "14",
+      "oldest": "2026-11-11T15:44:18.706Z",
+      "newest": "2026-11-14T15:13:18.251Z"
+    },
+    {
+      "source_class": "test_named_source",
+      "role": "job_seeker",
+      "status": "invited",
+      "count": "2",
+      "oldest": "2026-11-13T09:10:08.581Z",
+      "newest": "2026-11-13T09:10:08.670Z"
+    },
+    {
+      "source_class": "test_named_source",
+      "role": "job_seeker",
+      "status": "active",
+      "count": "2",
+      "oldest": "2026-11-13T09:10:08.450Z",
+      "newest": "2026-11-13T09:10:08.652Z"
+    },
+    {
+      "source_class": "test_named_source",
+      "role": "employer",
+      "status": "active",
+      "count": "2",
+      "oldest": "2026-11-13T09:10:08.356Z",
+      "newest": "2026-11-13T09:10:09.057Z"
+    },
+    {
+      "source_class": "test_named_source",
+      "role": "intermediary",
+      "status": "active",
+      "count": "1",
+      "oldest": "2026-11-13T09:10:08.913Z",
+      "newest": "2026-11-13T09:10:08.913Z"
+    },
+    {
+      "source_class": "test_named_source",
+      "role": "employer",
+      "status": "invited",
+      "count": "1",
+      "oldest": "2026-11-13T09:10:08.626Z",
+      "newest": "2026-11-13T09:10:08.626Z"
+    },
+    {
+      "source_class": "test_named_source",
+      "role": "job_seeker",
+      "status": "disabled",
+      "count": "1",
+      "oldest": "2026-11-13T09:10:08.856Z",
+      "newest": "2026-11-13T09:10:08.856Z"
+    }
+  ],
+  "source_fingerprints": [
+    {
+      "source_hash": "1118af31150e5e3549ec00e687a22a86",
+      "count": "249950"
+    },
+    {
+      "source_hash": "66caa5678fff36d91512ad4a4c435b8b",
+      "count": "1023"
+    },
+    {
+      "source_hash": "fe4c0f30aa359c41d9f9a5f69c8c4192",
+      "count": "172"
+    },
+    {
+      "source_hash": "2567a5ec9705eb7ac2c984033e06189d",
+      "count": "35"
+    },
+    {
+      "source_hash": "7caa701b2bd5a182b80c72b9bdf88e2d",
+      "count": "35"
+    },
+    {
+      "source_hash": "308004041664e280b8f21e31d4e0924b",
+      "count": "12"
+    },
+    {
+      "source_hash": "e94de8634b55ad724811406b4175ad24",
+      "count": "6"
+    },
+    {
+      "source_hash": "d091ec2635b52f122488522bcc83382e",
+      "count": "6"
+    },
+    {
+      "source_hash": "2b1eadb2f34bf5092ac15c79f78141e8",
+      "count": "2"
+    },
+    {
+      "source_hash": "bff9bfe08ac08ecc1e7824d3e48f831f",
+      "count": "2"
+    },
+    {
+      "source_hash": "098f6bcd4621d373cade4e832627b4f6",
+      "count": "2"
+    },
+    {
+      "source_hash": "9a2fd7ffae6c3d8eb4f896a4ca29c89e",
+      "count": "1"
+    }
+  ],
+  "reconciliation": [
+    {
+      "malformed_phone": "0",
+      "erasure_tombstones": "1",
+      "noncanonical_email": "0",
+      "noncanonical_pending_email": "0",
+      "missing_contact": "0"
+    }
+  ],
+  "collisions": [
+    {
+      "duplicate_phone_groups": "0",
+      "duplicate_email_groups": "0",
+      "cross_column_collision_groups": "0"
+    }
+  ]
+}

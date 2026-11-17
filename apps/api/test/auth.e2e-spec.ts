@@ -5,6 +5,9 @@ import { AppModule } from '../src/app.module.js';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { OtpRedisService } from '../src/auth/otp-redis.service.js';
 import { OtpGenerator } from '../src/auth/otp-generator.service.js';
+import { UserRepository } from '../src/database/repositories/user.repository.js';
+import { SUPABASE_CLIENT } from '../src/database/supabase.provider.js';
+import { tagLocalUserFixtures } from './fixtures/local-user-fixtures.js';
 
 class MockOtpGenerator extends OtpGenerator {
   override generate(): string {
@@ -15,6 +18,7 @@ class MockOtpGenerator extends OtpGenerator {
 describe('AuthController (e2e) - Issues #6, #7, #8', () => {
   let app: NestFastifyApplication;
   let authToken = '';
+  let cleanup: (() => Promise<void>) | undefined;
   const testPhone = '987' + Math.floor(1000000 + Math.random() * 9000000);
 
   beforeAll(async () => {
@@ -31,12 +35,13 @@ describe('AuthController (e2e) - Issues #6, #7, #8', () => {
       new FastifyAdapter(),
     );
 
+    cleanup = tagLocalUserFixtures(app.get(UserRepository), app.get(SUPABASE_CLIENT), app.get(OtpRedisService));
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
   });
 
   afterAll(async () => {
-    await app.close();
+    try { await cleanup?.(); } finally { await app.close(); }
   });
 
   it('POST /auth/send-otp - sends OTP successfully and enforces cool-down', async () => {

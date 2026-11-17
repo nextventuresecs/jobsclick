@@ -1,0 +1,27 @@
+Exit: 1
+✔ rejects the persistent dev DB even with an explicit opt-in flag (0.9153ms)
+✔ rejects missing or mismatched run manifests (0.1912ms)
+✔ accepts only the exact provisioned localhost endpoints (0.2398ms)
+✔ network backstop rejects hardcoded dev ports and remote connections (0.2124ms)
+✖ parses CLI v3 status JSON surrounded by local startup notices (0.1993ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 4
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 476.4914
+
+✖ failing tests:
+
+test at scripts\testing\disposable-target.test.cjs:25:1
+✖ parses CLI v3 status JSON surrounded by local startup notices (0.1993ms)
+  TypeError: parseCliStatus is not a function
+      at TestContext.<anonymous> (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\scripts\testing\disposable-target.test.cjs:27:20)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7)

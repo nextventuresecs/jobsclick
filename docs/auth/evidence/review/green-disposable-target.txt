@@ -1,0 +1,14 @@
+Exit: 0
+✔ rejects the persistent dev DB even with an explicit opt-in flag (0.9867ms)
+✔ rejects missing or mismatched run manifests (0.2082ms)
+✔ accepts only the exact provisioned localhost endpoints (0.2454ms)
+✔ network backstop rejects hardcoded dev ports and remote connections (0.1536ms)
+✔ parses CLI v3 status JSON surrounded by local startup notices (2.4405ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 559.0597

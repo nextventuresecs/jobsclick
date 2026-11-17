@@ -1,0 +1,29 @@
+Project: jc-auth-test-2005dc01
+Exit: 0
+/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-disposable/jc-auth-test-2005dc01/supabase/tests/auth_claims_v21.pgtap.sql .... ok
+/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-disposable/jc-auth-test-2005dc01/supabase/tests/auth_contacts_v21.pgtap.sql .. ok
+All tests successful.
+Files=2, Tests=12,  0 wallclock secs ( 0.08 usr  0.03 sys +  0.03 cusr  0.03 csys =  0.17 CPU)
+Result: PASS
+Target: local stack (127.0.0.1:62177)
+3.36: Pulling from supabase/pg_prove
+4f4fb700ef54: Pulling fs layer
+06d62d0de6d7: Pulling fs layer
+dcccee43ad5d: Pulling fs layer
+a22cb17b3b93: Pulling fs layer
+4f4fb700ef54: Already exists
+4f4fb700ef54: Pull complete
+a22cb17b3b93: Download complete
+dcccee43ad5d: Download complete
+a008cf086da5: Download complete
+dcccee43ad5d: Pull complete
+06d62d0de6d7: Download complete
+06d62d0de6d7: Pull complete
+a22cb17b3b93: Pull complete
+Digest: sha256:eda7c5e68719e9c8287e78c017118407b48df904a51c935f5ab6098b8c0bc6bc
+Status: Downloaded newer image for public.ecr.aws/supabase/pg_prove:3.36
+public.ecr.aws/supabase/pg_prove:3.36
+psql:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-disposable/jc-auth-test-2005dc01/supabase/tests/auth_claims_v21.pgtap.sql:2: NOTICE:  extension "pgtap" already exists, skipping
+psql:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-disposable/jc-auth-test-2005dc01/supabase/tests/auth_contacts_v21.pgtap.sql:2: NOTICE:  extension "pgtap" already exists, skipping
+A new version of Supabase CLI is available: v3.2.0 (currently installed v3.1.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

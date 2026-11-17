@@ -1,6 +1,6 @@
 # AUTH Migration Plan v2.1 — JobsClick
 
-Date: 2026-11-17. Status: revised execution design, ready for technical review. No migration or provider configuration is applied by this document.
+Date: 2026-11-17. Status: initial local implementation batch underway; see [REVIEW_PACKET.md](REVIEW_PACKET.md) for verified foundations and unfinished slices. No migration or provider configuration is applied by this document.
 
 Use with [CODEX_AUTH_MASTER_PROMPT.md](CODEX_AUTH_MASTER_PROMPT.md). This revision reconciles the supplied v2 plan/master prompt with the team's direct answers, repository rules, and the existing remediation draft. The attachment's labels such as “locked”, “approved”, or “confirmed” are source assertions, not additional user authorization.
 
@@ -111,9 +111,9 @@ Supabase owns OTP generation/verification and refresh rotation. Phone delivery u
 
 Supabase can automatically link identities with matching email. “Turn automatic merge off” is not an established configuration control. Test the actual provider behavior, including direct Auth paths. Authorization must require an explicitly approved application login method and canonical account mapping, not simply an Auth user containing a Google identity. If protected explicit linking cannot be enforced, keep that provider feature disabled and report the unmet requirement. Do not bypass the binding rule to make OAuth work.
 
-Keep provider credentials out of client props, browser storage, JSON, URLs, logs, and analytics. Preserve the BFF design with server-only Auth clients and production HttpOnly/Secure cookie handling; browser code calls same-origin endpoints and receives safe metadata. Do not instantiate a browser Auth client merely because a tutorial uses one. Review where access/refresh credentials live and who writes rotated cookies before implementation; do not add another application JWT issuer.
+Keep provider credentials out of client props, browser storage, JSON, URLs, logs, and analytics. Preserve the BFF design with server-only Auth clients and production HttpOnly/Secure cookie handling; browser code calls same-origin endpoints and receives safe metadata. Do not instantiate a browser Auth client merely because a tutorial uses one. The team selected an opaque HttpOnly browser cookie with provider access/refresh credentials kept in a protected server-side Redis store for the local draft. Cookie installation remains server-controlled; do not add another application JWT issuer.
 
-Server sessions must handle concurrent refresh across instances, stale responses, replay, local/global logout, disable/role changes, and provider/Redis outages. Token-version changes alone do not revoke Supabase refresh sessions. A new access JWT must not reset the application's absolute session start/deadline. Cookie max-age alone does not enforce session lifetime. Numeric durations remain technical-review proposals, not implicit approved policy.
+Server sessions must handle concurrent refresh across instances, stale responses, replay, local/global logout, disable/role changes, and provider/Redis outages. Token-version changes alone do not revoke Supabase refresh sessions. A new access JWT must not reset the application's absolute session start/deadline. Cookie max-age alone does not enforce session lifetime. The team approved 15-minute provider access tokens and absolute limits of 7 days for ordinary accounts and 12 hours for admin/MSME-admin accounts, followed by reauthentication, for the local draft. This does not authorize hosted configuration changes.
 
 Use the observed project's signing configuration; migrate legacy verifier assumptions deliberately, with an explicit bounded cutoff. Do not require custom `tv`/`jti` fields on provider JWTs or confuse Supabase's PostgREST `role` with the application's business role. Canonical role/status come from server-controlled records. Current-provider keys and any rotation are human-configured; do not infer availability from plan tier or create keys automatically.
 
@@ -130,6 +130,8 @@ Phone/email support spans CSV validation and templates, streaming import, nullab
 Invitation delivery must exclude already linked/claimed recipients even when status remains `invited`. Recheck before send/fallback, and define a durable dispatch lease/state transition to narrow claim-versus-send races; an already in-flight external send cannot be recalled. Do not advertise exactly-once delivery without provider support. Cancellation/activation/claim must stop unsent fallback. Preview approved recipient counts, channels, schedule, budget, and server-derived estimates. Delivery retries and provider-outcome persistence failures must not silently duplicate charges. Queue messages should reference private records/storage, not raw contact lists, CSV PII, or tokens.
 
 ## 8. Dependency-ordered draft slices
+
+F0-a through F0-e are explicit legacy exploit gates before cutover. See [F0-REVIEW-GATES.md](F0-REVIEW-GATES.md) for status and the original S-number crosswalk. Run tests only through [the disposable-stack runner](DISPOSABLE_TESTS.md). Complete S4 hook authentication/replay/+91/provider-direct abuse before S6 wiring; keep Google and nullable-phone CSV disabled.
 
 One behavior/slice per reviewable change; roughly 400 changed lines is a reviewability target, not permission to split an inseparable safety transition. Existing dirty worktree changes must not be silently committed into a new slice. Use `codex/` branch prefixes when creating new branches, subject to repository/user instructions. Prepare branch/PR text locally; create commits, pushes, external PRs, or new worktrees only within the user's actual authorization.
 
@@ -171,7 +173,7 @@ Statuses are PASS, FAIL, NOT RUN, or BLOCKED with reason. Distinguish product, t
 
 Create `docs/auth/REVIEW_PACKET.md` during implementation, with slice status, PR text, evidence links, SQL/grant diffs, rollback/recovery limits, threat findings, and explicit approval actions. Migration/rollback/pgTAP apply to database slices; code-only artifacts are N/A with a reason.
 
-Still pending: general email OTP login; orphan deletion thresholds/enablement; legal purposes/wording/withdrawal/retention; numeric session durations and session storage design; function owner after spike; pseudonymous audit-subject retention; independent reviewer assignment; actual project tier/backup configuration and hosted OAuth/linking proof. Local draft work can continue where these do not determine behavior. Unapproved notices and cleanup policies cannot enable production actions.
+Still pending: general email OTP login; orphan deletion thresholds/enablement; legal purposes/wording/withdrawal/retention; hosted session-policy enablement; function owner after spike; pseudonymous audit-subject retention; independent reviewer assignment; actual project tier/backup configuration and hosted OAuth/linking proof. Local draft work can continue where these do not determine behavior. Unapproved notices and cleanup policies cannot enable production actions.
 
 Auth/RLS/data-change human sign-off is mandatory under `AGENTS.md`. Prefer an independent reviewer. The supplied 24-hour cooling-period rule is a proposed team process, not a universally required security control; do not add timers or block local drafting on it. No author/agent self-approval, and a checklist does not establish independent review.
 
