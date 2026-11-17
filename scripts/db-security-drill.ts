@@ -517,9 +517,19 @@ export async function runSecurityDrill(connectionString: string): Promise<{ succ
     });
   }
 
-  // 4. Table owner direct TRUNCATE on payments (trigger path -> 55000)
+  // The receipt FK is an additional denial path; retain the exact trigger check below.
   try {
     await adminClient.query('TRUNCATE public.payments;');
+    results.push({ name: 'Payment receipt FK prevents parent-only TRUNCATE', passed: false, expected: 'Foreign key restriction (0A000)', actual: 'TRUNCATE succeeded' });
+  } catch (error: unknown) {
+    results.push({ name: 'Payment receipt FK prevents parent-only TRUNCATE',
+      passed: typeof error === 'object' && error !== null && 'code' in error && error.code === '0A000',
+      expected: 'Foreign key restriction (0A000)', actual: error instanceof Error ? error.message : 'unknown error' });
+  }
+
+  // 4. Table owner direct TRUNCATE on payments (trigger path -> 55000)
+  try {
+    await adminClient.query('TRUNCATE public.payments, private_payments.payment_grants;');
     results.push({
       name: 'Table owner TRUNCATE on payments blocked by BEFORE TRUNCATE trigger',
       passed: false,

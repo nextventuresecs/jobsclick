@@ -77,6 +77,10 @@ describe('WAL-05 native sponsorship payment transaction', () => {
     }
     expect(await activate(f)).toMatchObject({ success: true, alreadyActive: false });
   });
+  it.each(['1', 'NaN'])('rejects invalid or insufficient captured money %s at the database boundary', async amount => {
+    const f = await fixture(); await db.query('update public.payments set amount_inr=$2 where id=$1', [f.payment, amount]);
+    await expect(activate(f)).rejects.toMatchObject({ message: 'SPONSORSHIP_PAYMENT_INSUFFICIENT' }); await unchanged(f);
+  });
   it.each(['wallet', 'different-target', 'unbound'])('rejects a %s payment rather than double-granting another purpose', async kind => {
     const f = await fixture();
     await db.query('update public.payments set metadata=$2,credits_added=$3 where id=$1', [f.payment, kind === 'unbound' ? {} : { purpose: kind === 'wallet' ? 'wallet' : 'sponsorship', institutionId: randomUUID() }, kind === 'wallet' ? 50 : 0]);
