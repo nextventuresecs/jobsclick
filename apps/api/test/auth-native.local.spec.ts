@@ -1,4 +1,5 @@
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { createSupabaseProvider } from '../src/auth/supabase-provider.js';
@@ -22,6 +23,14 @@ describe.runIf(process.env['RUN_AUTH_NATIVE'] === '1')('AUTH-01 actual GoTrue id
     expect((await service.from('users').insert({ id: applicationId, phone, role: 'employer', status: 'invited', source: process.env['JOBSCLICK_TEST_RUN_ID'] })).error).toBeNull();
     const login = await publicClient.auth.signInWithPassword({ email, password });
     expect(login.error).toBeNull(); accessToken = login.data.session!.access_token;
+    const claims = JSON.parse(Buffer.from(accessToken.split('.')[1]!, 'base64url').toString('utf8')) as Record<string, unknown>;
+    const proof = { project: process.env['JOBSCLICK_TEST_RUN_ID'], issuerMatches: claims['iss'] === url + '/auth/v1',
+      audience: claims['aud'], issuedAt: claims['iat'], expiresAt: claims['exp'], hostNow: Math.floor(Date.now() / 1000),
+      hasUuidSession: typeof claims['session_id'] === 'string' && /^[0-9a-f-]{36}$/.test(claims['session_id']),
+      hasUuidSubject: typeof claims['sub'] === 'string' && /^[0-9a-f-]{36}$/.test(claims['sub']), anonymous: claims['is_anonymous'] };
+    mkdirSync('docs/auth/evidence/followup/CI', { recursive: true });
+    writeFileSync('docs/auth/evidence/followup/CI/native-claims-diagnostic.json', JSON.stringify(proof, null, 2));
+    // Decoded diagnostics above are not authentication; the adapter still verifies signatures and current provider state.
   });
 
   it('verifies an actual provider-issued subject and claims the preserved invited UUID without trusting metadata role', async () => {

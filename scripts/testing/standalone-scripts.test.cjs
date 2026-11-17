@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
 const path = require('node:path');
 const root = path.resolve(__dirname, '../..');
-for (const script of ['db-security-drill.ts', 'smoke-postgrest.ts']) {
+for (const script of ['db-security-drill.ts', 'smoke-postgrest.ts', 'generate-types.js']) {
   test(script + ' refuses an unmarked target before opening a connection', () => {
     const env = { ...process.env, DATABASE_URL: 'postgresql://postgres:postgres@127.0.0.1:1/postgres', SUPABASE_URL: 'http://127.0.0.1:1' };
     delete env.JOBSCLICK_TEST_MANIFEST;

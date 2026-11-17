@@ -6,174 +6,89 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   verify:
     name: Lint, Typecheck, Test & Build
     runs-on: ubuntu-latest
-
-    services:
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
+    timeout-minutes: 35
     env:
       NODE_ENV: test
-      REDIS_URL: redis://127.0.0.1:6379
-      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
-      SUPABASE_URL: http://127.0.0.1:54321
-      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
-      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
-      JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
-      OTP_PEPPER: super-secret-otp-pepper-at-least-32-characters-long
-      TRUSTED_PROXY_CIDRS: 127.0.0.1/32,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
-
+      DO_NOT_TRACK: '1'
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+      - uses: pnpm/action-setup@v3
         with:
-          version: 9
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Check Migration Sync Integrity
-        run: pnpm ci:check-migrations
-
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: 3.1.0
-
-      - name: Start Supabase Local Stack
-        run: |
-          supabase start
-          supabase status -o env >> $GITHUB_ENV
-
-      - name: Run ESLint
-        run: pnpm lint
-
-      - name: Run TypeScript Check
-        run: pnpm typecheck
-
-      - name: Run Test Suite
+          version: 9.15.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm ci:check-migrations
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test:target-guard
+      - name: Full suite on a per-run Supabase and Redis project
         run: pnpm test
+      - run: pnpm build
 
-      - name: Build All Workspaces
-        run: pnpm build
+  auth-disposable:
+    name: AUTH-01 migration contracts on disposable Docker stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NODE_ENV: test
+      DO_NOT_TRACK: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9.15.0
+      - run: pnpm install --frozen-lockfile
+      - name: Check runner Docker service
+        run: docker info
+      - run: pnpm ci:check-migrations
+      - run: pnpm test:auth-migration
 
   db-security-gate:
-    name: Database Security & Migration Gate
+    name: Database security, type freshness and native pgTAP
     runs-on: ubuntu-latest
-
-    services:
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-
+    timeout-minutes: 25
     env:
       NODE_ENV: test
-      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
-      SUPABASE_URL: http://127.0.0.1:54321
-      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
-      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
-
+      DO_NOT_TRACK: '1'
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+      - uses: pnpm/action-setup@v3
         with:
-          version: 9
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Check Migration Sync Integrity
-        run: pnpm ci:check-migrations
-
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: 3.1.0
-
-      - name: Start Supabase Stack & Reset DB
-        run: |
-          supabase start
-          supabase db reset
-
-      - name: Verify Generated Database Types Freshness
-        run: |
-          pnpm db:generate-types
-          git diff --exit-code packages/database/src/generated.types.ts
-
-      - name: Run Database Catalog Security Assertion
-        run: pnpm db:catalog:check
-
-      - name: Run Database Security Attack Suite Drill
-        run: pnpm db:security:drill
-
-      - name: Run PostgREST HTTP Smoke Checks
-        run: pnpm db:smoke:postgrest
-
-      - name: Run Fresh Database Bootstrap Drill
-        run: pnpm db:bootstrap:drill
+          version: 9.15.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm ci:check-migrations
+      - name: Preserve type, catalog, attacker and HTTP smoke gates inside one disposable run
+        run: pnpm test -- --db-tools --auth-contracts packages/database/test
 
   container-build:
     name: Build Container Images
-    needs: [verify, db-security-gate]
+    needs: [verify, auth-disposable, db-security-gate]
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build API Docker Image
-        uses: docker/build-push-action@v5
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v5
         with:
           context: .
           file: apps/api/Dockerfile
           push: false
           tags: indian-job-portal-api:latest
-
-      - name: Build Worker Docker Image
-        uses: docker/build-push-action@v5
+      - uses: docker/build-push-action@v5
         with:
           context: .
           file: apps/worker/Dockerfile
@@ -182,17 +97,14 @@ jobs:
 
   deploy-staging:
     name: Deploy to Staging
-    needs: [verify, db-security-gate, container-build]
+    needs: [verify, auth-disposable, db-security-gate, container-build]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Deploy to Staging Environment
+      - name: Deployment remains unimplemented
         run: |
-          echo "Deploying container build to Staging environment..."
+          # TODO human-approved deploy
+          exit 1
 
   deploy-production:
     name: Deploy to Production
@@ -200,11 +112,8 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     environment: production
-
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Deploy to Production Environment
+      - name: Deployment remains unimplemented
         run: |
-          echo "Deploying container build to Production environment..."
+          # TODO human-approved deploy
+          exit 1
