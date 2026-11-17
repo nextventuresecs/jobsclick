@@ -436,6 +436,14 @@ export interface Database {
       }>;
     };
     Functions: {
+      rpc_activate_sponsorship: {
+        Args: { p_institution: string; p_actor: string; p_reference: string; p_key?: string | null; p_count?: number | null; p_force?: boolean };
+        Returns: import('./generated.types.js').Json;
+      };
+      rpc_settle_payment: {
+        Args: { p_order: string; p_gateway: string; p_amount_paise: number; p_currency: string; p_invoice: string; p_signature?: string | null; p_processed_by?: string };
+        Returns: import('./generated.types.js').Json;
+      };
       anonymise_user: {
         Args: { p_user_id: string };
         Returns: Record<string, unknown>;
@@ -526,3 +534,5 @@ export interface SearchJobsRpcResult extends JobRow {
   is_currently_promoted?: boolean;
   relevance_score?: number;
 }
+
+export type PaymentGrantRow = import('./generated.types.js').Database['private_payments']['Tables']['payment_grants']['Row'];

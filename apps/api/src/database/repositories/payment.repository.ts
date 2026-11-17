@@ -1,3 +1,6 @@
+import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
+import { paymentSettlementResultSchema, type PaymentSettlementResult, type VerifiedPaymentSettlementInput } from '@indian-job-portal/validation';
+import type { PaymentGrantRow } from '@indian-job-portal/database';
 import { Injectable, Inject, InternalServerErrorException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, PaymentRow } from '@indian-job-portal/database';
@@ -14,6 +17,25 @@ export class PaymentRepository {
       process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key');
 
   constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>) {}
+
+  async settleCapturedPayment(input: VerifiedPaymentSettlementInput, testTransaction: () => Promise<PaymentSettlementResult>): Promise<PaymentSettlementResult> {
+    if (this.isTestMode) return this.persistentStore.withFinancialTransaction(testTransaction);
+    const { data, error } = await this.supabase.rpc('rpc_settle_payment', { p_order: input.order_id, p_gateway: input.id,
+      p_amount_paise: input.amount, p_currency: input.currency, p_invoice: input.invoice, p_signature: input.signature ?? null, p_processed_by: input.processedBy });
+    if (error) {
+      if (/^(?:PAYMENT_[A-Z_]+|SPONSORSHIP_[A-Z_]+|DUPLICATE_PAYMENT_CLAIM)$/.test(error.message)) throw new BadRequestException(error.message);
+      throw new ServiceUnavailableException('PAYMENT_TRANSACTION_UNAVAILABLE');
+    }
+    return paymentSettlementResultSchema.parse(data);
+  }
+  findTestPaymentGrant(paymentId: string): PaymentGrantRow | undefined {
+    if (!this.isTestMode) throw new Error('TEST_ADAPTER_ONLY');
+    return this.persistentStore.getTable<PaymentGrantRow>('payment_grants')[paymentId];
+  }
+  saveTestPaymentGrant(row: PaymentGrantRow): void {
+    if (!this.isTestMode) throw new Error('TEST_ADAPTER_ONLY');
+    this.persistentStore.setRow('payment_grants', row.payment_id, row);
+  }
 
   async create(record: PaymentRow): Promise<PaymentRow> {
     if (this.isTestMode) {

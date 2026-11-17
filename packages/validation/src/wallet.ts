@@ -211,3 +211,20 @@ export type SponsorshipTier = z.infer<typeof sponsorshipTierSchema>;
 export type SponsorshipQuote = z.infer<typeof sponsorshipQuoteSchema>;
 export type ActivateSponsorshipInput = z.infer<typeof activateSponsorshipSchema>;
 
+
+export const sponsorshipActivationResultSchema = z.object({
+  success: z.literal(true), quote: sponsorshipQuoteSchema,
+  sponsoredStudentsCount: z.number().int().nonnegative(), expiresAt: z.string(),
+  alreadyActive: z.boolean().optional(), sponsorshipId: z.string().optional(),
+});
+export type SponsorshipActivationResult = z.infer<typeof sponsorshipActivationResultSchema>;
+export type SponsorshipTransactionInput = ActivateSponsorshipInput & { institutionId: string; actorId: string };
+
+export const verifiedCaptureSchema = z.object({ id: z.string().min(1).max(255), order_id: z.string().min(1).max(255),
+  amount: z.number().int().positive(), currency: z.literal('INR'), status: z.literal('captured') });
+export const paymentSettlementResultSchema = z.object({ payment: z.object({ id: z.string().min(1) }), alreadyProcessed: z.boolean(),
+  sponsorship: sponsorshipActivationResultSchema.nullable().optional() });
+export type PaymentSettlementResult = z.infer<typeof paymentSettlementResultSchema>;
+export type VerifiedPaymentSettlementInput = z.infer<typeof verifiedCaptureSchema> & {
+  invoice: string; signature?: string; processedBy: 'razorpay_webhook' | 'client_checkout' | 'admin';
+};

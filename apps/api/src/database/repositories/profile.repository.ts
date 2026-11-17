@@ -1,3 +1,6 @@
+import { BadRequestException, ForbiddenException, ServiceUnavailableException } from '@nestjs/common';
+import { sponsorshipActivationResultSchema, type SponsorshipActivationResult, type SponsorshipTransactionInput } from '@indian-job-portal/validation';
+import type { PaymentGrantRow } from '@indian-job-portal/database';
 import { Injectable, Inject, InternalServerErrorException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type {
@@ -324,6 +327,29 @@ export class ProfileRepository {
   // ==========================================
   // Concurrency & Sponsorship Persistence (WAL-05)
   // ==========================================
+  async activateSponsorshipAtomically(input: SponsorshipTransactionInput, testTransaction: () => Promise<SponsorshipActivationResult>): Promise<SponsorshipActivationResult> {
+    if (this.isTestMode) return this.persistentStore.withFinancialTransaction(testTransaction);
+    const { data, error } = await this.supabase.rpc('rpc_activate_sponsorship', {
+      p_institution: input.institutionId, p_actor: input.actorId, p_reference: input.paymentReference || '',
+      p_key: input.idempotencyKey ?? null, p_count: input.studentCountOverride ?? null, p_force: input.force ?? false,
+    });
+    if (error) {
+      if (error.message === 'SPONSORSHIP_ACTOR_DENIED' || error.message === 'SPONSORSHIP_PAYMENT_OWNER_DENIED') throw new ForbiddenException(error.message);
+      if (/^SPONSORSHIP_[A-Z_]+$/.test(error.message)) throw new BadRequestException(error.message);
+      throw new ServiceUnavailableException('SPONSORSHIP_TRANSACTION_UNAVAILABLE');
+    }
+    return sponsorshipActivationResultSchema.parse(data);
+  }
+
+  findTestPaymentGrant(paymentId: string): PaymentGrantRow | undefined {
+    if (!this.isTestMode) throw new Error('TEST_ADAPTER_ONLY');
+    return this.persistentStore.getTable<PaymentGrantRow>('payment_grants')[paymentId];
+  }
+  saveTestPaymentGrant(row: PaymentGrantRow): void {
+    if (!this.isTestMode) throw new Error('TEST_ADAPTER_ONLY');
+    this.persistentStore.setRow('payment_grants', row.payment_id, row);
+  }
+
   async withLock<T>(institutionId: string, fn: () => Promise<T>): Promise<T> {
     return this.persistentStore.withLock(institutionId, fn);
   }

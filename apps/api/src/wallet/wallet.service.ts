@@ -10,6 +10,7 @@ export interface WalletTransactionInput {
   amount: number;
   reason: string;
   actorId?: string | null;
+  requireAudit?: boolean;
 }
 
 export interface DynamicBalanceResult {
@@ -77,8 +78,9 @@ export class WalletService {
         },
         created_at: now,
       });
-    } catch {
-      // Audit log non-blocking fallback
+    } catch (error) {
+      if (input.requireAudit) throw error;
+      // Legacy standalone transactions retain their existing behavior.
     }
 
     return row;
