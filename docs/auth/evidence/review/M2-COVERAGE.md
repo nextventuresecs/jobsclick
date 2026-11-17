@@ -29,11 +29,11 @@ Cases 9 and 10 deliberately share a legal two-candidate fixture; existing unique
 
 | Provider flow | Exact test / intended seam | Runner | Actual raw_app_meta_data provider | Status |
 | --- | --- | --- | --- | --- |
-| Email OTP through local mail catcher | Step 2.4 native OTP-to-claim chain | native GoTrue + vitest | Not yet observed from OTP flow | NOT RUN |
-| Phone OTP through signed hook/fake delivery | Step 2.4 native OTP-to-claim chain | native GoTrue + vitest | Not yet observed from OTP flow | NOT RUN |
+| Email OTP through local mail catcher | apps/api/test/auth-native-otp.local.spec.ts: verifies email OTP from the local mail catcher and claims without inventing a phone | native GoTrue + vitest (--native-otp --auth-contracts) | provider=email; providers=[email] | PASS |
+| Phone OTP through signed hook/fake delivery | apps/api/test/auth-native-otp.local.spec.ts: completes phone OTP through a real signed hook and claims the preserved invited UUID | native GoTrue + vitest (--native-otp --auth-contracts) | provider=phone; providers=[phone] | PASS |
 | Google OAuth through local GoTrue | Native provider linking proof; no metadata hand-seeding accepted as proof | native GoTrue + vitest | Not yet observed | NOT RUN |
 
-The SQL accepts server-owned provider identifiers `phone`, `email`, `google`. This is source eligibility, not evidence of the current login method, and never grants roles from metadata. The fixture rows use explicit provider metadata solely to exercise the SQL contract. Real OTP/OAuth proof remains separate and must update this table; Google stays disabled.
+The SQL accepts server-owned provider identifiers `phone`, `email`, `google`. This is source eligibility, not evidence of the current login method, and never grants roles from metadata. The fixture rows use explicit provider metadata solely to exercise the SQL contract. Real phone/email OTP proof passed on jc-auth-test-71c56434; see ../followup/clock/green-native-otp-native-auth.txt and ../S4-native/observations.json. Google proof remains NOT RUN and Google stays disabled.
 
 ## Red evidence and fixture corrections
 

@@ -19,3 +19,5 @@ Real email OTP delivered only to disposable Mailpit, verified without an admin-c
 The enabled-CAPTCHA run also captured a real JWT iat exactly one second ahead of the host and rejected it at the strict provider timestamp guard. This reproduces the earlier CI-positive failure; it is a clock-boundary issue, not a reason to retry an auth operation or weaken ban/issuer/audience checks. Timestamp policy correction and fresh native verification are a separate review slice.
 
 Remaining S4 gates: production single-use/hostname/device/IP denial proof, reviewed MSG91 provider-template versus numeric DLT mapping and idempotent transport contract, alert delivery consumer, hosted configuration. S6 cannot start until S4 and F0 gates pass.
+
+Verified follow-up: bounded two-second issue-clock correction plus signed 900-second lifetime checks passed 53 provider/store tests. The fresh CAPTCHA-enabled phone/email OTP run passed six tests; its separate always-fail-secret validation test passed on another stack. Native evidence is in evidence/followup/clock/green-native-otp-native-auth.txt. This does not close the listed production single-use/device/IP/MSG91 gates.

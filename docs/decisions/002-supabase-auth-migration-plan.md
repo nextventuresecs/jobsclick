@@ -126,3 +126,13 @@ The prior review ran 70 existing tests successfully across focused runs after re
 The repository requires: "Human-review-only (agent drafts, human approves)" for "RLS policies, auth/OTP flow, migrations touching existing data, anything with payments, DPDP consent text." Team MCQ answers confirm product scope; they do not substitute for review of concrete SQL, auth code, provider configuration, or a rollout.
 
 Provider references checked on 2026-11-16: [changelog](https://supabase.com/changelog.md), [identity linking](https://supabase.com/docs/guides/auth/auth-identity-linking), [sessions](https://supabase.com/docs/guides/auth/sessions), [sign-out](https://supabase.com/docs/guides/auth/signout), [Send Email hook](https://supabase.com/docs/guides/auth/auth-hooks/send-email-hook), and [server-side guidance](https://supabase.com/docs/guides/auth/server-side/advanced-guide). Recheck pinned SDK/CLI behavior before implementation; no provider configuration is inferred from documentation alone.
+
+## 2026-11-17 local follow-up review draft (AUTH-01/03/05/06, BULK-01/03, WAL-05)
+
+Implementation is authorised only as local drafts, with staging unchanged. See [review packet](../auth/REVIEW_PACKET.md). Disposable CLI-generated migrations and CI target guards replace persistent-target test execution. Human selected reviewed dev backup/reset planning; actual reset is pending backup/ownership confirmation.
+
+Native evidence justified a narrow draft correction: permit at most two seconds of provider issue-clock skew while enforcing signed exp-iat <=900 seconds and no expired-token grace. The 7-day ordinary/12-hour admin absolute deadlines and opaque server-held Redis credential direction stay unchanged. No Google/general-email/nullable-CSV admission is enabled by provider-proof fixtures.
+
+WAL-05 drafts reject insufficient INR captured amount, use institution UUID association exclusively and read current sponsorship expiry/grants in API and native SQL. Payment consumption and capture/grant atomicity require a reviewed schema/reconciliation contract; two attacker tests remain failing. The existing payment flag stays OFF. Public profile QR paths accept only existing route UUIDs, never contact-derived IDs. No new product pricing or legal copy was introduced.
+
+S6 remains not started because S4/F0 gates are incomplete. Three native advisor ERROR findings on existing public projection views also require reviewed access/RLS design. This update does not approve auth/RLS/payment drafts for merge or hosted application.
