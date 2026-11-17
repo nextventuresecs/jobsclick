@@ -1,0 +1,14 @@
+{
+  "item": "18-payment-transactions",
+  "kind": "code",
+  "branch": "codex/auth-18-payment-transactions",
+  "commit": "84160054a98d746a6a4ad7e5290e194fb4c2f945",
+  "files": [
+    "supabase/migrations/20261117184834_sponsorship_payment_transaction.sql",
+    "packages/database/supabase/migrations/20261117184834_sponsorship_payment_transaction.sql",
+    "supabase/rollbacks/20261117184834_sponsorship_payment_transaction.sql",
+    "packages/database/test/payment-transactions.local.test.ts",
+    "docs/auth/PAYMENT_TRANSACTION_PLAN.md"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}

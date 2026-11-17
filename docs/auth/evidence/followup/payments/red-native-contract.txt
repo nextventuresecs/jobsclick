@@ -1,0 +1,136 @@
+Project: jc-auth-test-c0cccbda
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ packages/database/test/payment-transactions.local.test.ts (9 tests | 9 failed) 202ms
+   × WAL-05 native sponsorship payment transaction > consumes the canonical payment once, returns exact retries, and rejects alternate-reference/new-key reuse 28ms
+     → function public.rpc_activate_sponsorship(unknown, unknown, unknown, unknown, unknown, unknown) does not exist
+   × WAL-05 native sponsorship payment transaction > serializes independent connections racing different requests for one payment 29ms
+     → expected [] to have a length of 1 but got +0
+   × WAL-05 native sponsorship payment transaction > rolls back all writes on a grant failure and permits retry 31ms
+     → expected error: function public.rpc_activate_spons… { …(15) } to match object { Object (message) }
+(18 matching properties omitted from actual)
+   × WAL-05 native sponsorship payment transaction > rolls back all writes on a audit failure and permits retry 28ms
+     → expected error: function public.rpc_activate_spons… { …(15) } to match object { Object (message) }
+(18 matching properties omitted from actual)
+   × WAL-05 native sponsorship payment transaction > rejects a wallet payment rather than double-granting another purpose 21ms
+     → expected error: function public.rpc_activate_spons… { …(15) } to match object { Object (message) }
+(18 matching properties omitted from actual)
+   × WAL-05 native sponsorship payment transaction > rejects a different-target payment rather than double-granting another purpose 18ms
+     → expected error: function public.rpc_activate_spons… { …(15) } to match object { Object (message) }
+(18 matching properties omitted from actual)
+   × WAL-05 native sponsorship payment transaction > rejects a unbound payment rather than double-granting another purpose 16ms
+     → expected error: function public.rpc_activate_spons… { …(15) } to match object { Object (message) }
+(18 matching properties omitted from actual)
+   × WAL-05 native sponsorship payment transaction > rejects cross-owner requests and disabled actors even on idempotent retries 15ms
+     → function public.rpc_activate_sponsorship(unknown, unknown, unknown, unknown, unknown, unknown) does not exist
+   × WAL-05 native sponsorship payment transaction > denies client execution and direct service-role mutation of grant receipts 2ms
+     → function "public.rpc_activate_sponsorship(uuid,uuid,text,text,integer,boolean)" does not exist
+
+ Test Files  1 failed (1)
+      Tests  9 failed (9)
+   Start at  00:17:07
+   Duration  9.92s (transform 240ms, setup 3.31s, collect 24ms, tests 202ms, environment 0ms, prepare 201ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/database/test/payment-transactions.local.test.ts > WAL-05 native sponsorship payment transaction > consumes the canonical payment once, returns exact retries, and rejects alternate-reference/new-key reuse
+error: function public.rpc_activate_sponsorship(unknown, unknown, unknown, unknown, unknown, unknown) does not exist
+ ❯ node_modules/.pnpm/pg@8.23.1/node_modules/pg/lib/client.js:694:17
+ ❯ activate packages/database/test/payment-transactions.local.test.ts:20:13
+     18|   type Fixture = Awaited<ReturnType<typeof fixture>>;
+     19|   async function activate(f: Fixture, reference = f.gateway, key = f.k…
+     20|     return (await client.query('select public.rpc_activate_sponsorship…
+       |             ^
+     21|   }
+     22|   async function unchanged(f: Fixture) {
+ ❯ packages/database/test/payment-transactions.local.test.ts:29:40
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+ FAIL  packages/database/test/payment-transactions.local.test.ts > WAL-05 native sponsorship payment transaction > serializes independent connections racing different requests for one payment
+AssertionError: expected [] to have a length of 1 but got +0
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ packages/database/test/payment-transactions.local.test.ts:39:68
+     37|     try {
+     38|       const result = await Promise.allSettled([activate(f), activate(f…
+     39|       expect(result.filter(value => value.status === 'fulfilled')).toH…
+       |                                                                    ^
+     40|       expect(result.filter(value => value.status === 'rejected')).toHa…
+     41|       expect((await db.query('select count(*)::int as count from publi…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+
+ FAIL  packages/database/test/payment-transactions.local.test.ts > WAL-05 native sponsorship payment transaction > rolls back all writes on a grant failure and permits retry
+ FAIL  packages/database/test/payment-transactions.local.test.ts > WAL-05 native sponsorship payment transaction > rolls back all writes on a audit failure and permits retry
+AssertionError: expected error: function public.rpc_activate_spons… { …(15) } to match object { Object (message) }
+(18 matching properties omitted from actual)
+
+- Expected
++ Received
+
+- Object {
+-   "message": "fixture transaction fault",
+- }
++ [error: function public.rpc_activate_sponsorship(unknown, unknown, unknown, unknown, unknown, unknown) does not exist]
+
+ ❯ packages/database/test/payment-transactions.local.test.ts:50:11
+     48|     const condition = point === 'grant' ? `new.institution_id='${f.ins…
+     49|     await db.query(`create trigger ${name} before insert on public.${t…
+     50|     try { await expect(activate(f)).rejects.toMatchObject({ message: '…
+       |           ^
+     51|     finally { await db.query(`drop trigger ${name} on public.${table};…
+     52|     expect(await activate(f)).toMatchObject({ success: true, alreadyAc…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
+
+ FAIL  packages/database/test/payment-transactions.local.test.ts > WAL-05 native sponsorship payment transaction > rejects a wallet payment rather than double-granting another purpose
+ FAIL  packages/database/test/payment-transactions.local.test.ts > WAL-05 native sponsorship payment transaction > rejects a different-target payment rather than double-granting another purpose
+ FAIL  packages/database/test/payment-transactions.local.test.ts > WAL-05 native sponsorship payment transaction > rejects a unbound payment rather than double-granting another purpose
+AssertionError: expected error: function public.rpc_activate_spons… { …(15) } to match object { Object (message) }
+(18 matching properties omitted from actual)
+
+- Expected
++ Received
+
+- Object {
+-   "message": "SPONSORSHIP_PAYMENT_PURPOSE_INVALID",
+- }
++ [error: function public.rpc_activate_sponsorship(unknown, unknown, unknown, unknown, unknown, unknown) does not exist]
+
+ ❯ packages/database/test/payment-transactions.local.test.ts:57:5
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯
+
+ FAIL  packages/database/test/payment-transactions.local.test.ts > WAL-05 native sponsorship payment transaction > rejects cross-owner requests and disabled actors even on idempotent retries
+error: function public.rpc_activate_sponsorship(unknown, unknown, unknown, unknown, unknown, unknown) does not exist
+ ❯ node_modules/.pnpm/pg@8.23.1/node_modules/pg/lib/client.js:694:17
+ ❯ activate packages/database/test/payment-transactions.local.test.ts:20:13
+     18|   type Fixture = Awaited<ReturnType<typeof fixture>>;
+     19|   async function activate(f: Fixture, reference = f.gateway, key = f.k…
+     20|     return (await client.query('select public.rpc_activate_sponsorship…
+       |             ^
+     21|   }
+     22|   async function unchanged(f: Fixture) {
+ ❯ packages/database/test/payment-transactions.local.test.ts:60:32
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
+
+ FAIL  packages/database/test/payment-transactions.local.test.ts > WAL-05 native sponsorship payment transaction > denies client execution and direct service-role mutation of grant receipts
+error: function "public.rpc_activate_sponsorship(uuid,uuid,text,text,integer,boolean)" does not exist
+ ❯ node_modules/.pnpm/pg@8.23.1/node_modules/pg/lib/client.js:694:17
+ ❯ packages/database/test/payment-transactions.local.test.ts:67:15
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
+
