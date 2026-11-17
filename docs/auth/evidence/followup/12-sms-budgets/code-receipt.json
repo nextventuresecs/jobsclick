@@ -1,0 +1,13 @@
+{
+  "item": "12-sms-budgets",
+  "kind": "code",
+  "branch": "codex/auth-12-sms-budgets",
+  "commit": "083eee00eb0f6d6262644676668e96fe977ea2c8",
+  "files": [
+    "apps/api/src/auth/supabase-sms-hook.ts",
+    "apps/api/test/supabase-sms-hook.local.spec.ts",
+    "apps/api/test/supabase-sms-budget.local.spec.ts",
+    "docs/auth/S4_SMS_BUDGETS.md"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}

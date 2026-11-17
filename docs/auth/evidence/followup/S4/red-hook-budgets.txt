@@ -1,0 +1,100 @@
+Project: jc-auth-test-4cdc6f4a
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ apps/api/test/supabase-sms-budget.local.spec.ts (4 tests | 4 failed) 80ms
+   × AUTH-03 signed SMS-hook spend and number limits > opens the shared budget circuit before any send beyond the configured spend 36ms
+     → promise resolved "{}" instead of rejecting
+   × AUTH-03 signed SMS-hook spend and number limits > enforces a daily cap for the same phone across different signed event IDs 10ms
+     → promise resolved "{}" instead of rejecting
+   × AUTH-03 signed SMS-hook spend and number limits > enforces a cooldown independently of the daily cap 6ms
+     → promise resolved "{}" instead of rejecting
+   × AUTH-03 signed SMS-hook spend and number limits > rejects configured blocked ranges before delivery 3ms
+     → promise resolved "{}" instead of rejecting
+
+ Test Files  1 failed (1)
+      Tests  4 failed (4)
+   Start at  21:21:36
+   Duration  17.92s (transform 591ms, setup 10.50s, collect 200ms, tests 80ms, environment 0ms, prepare 700ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/supabase-sms-budget.local.spec.ts > AUTH-03 signed SMS-hook spend and number limits > opens the shared budget circuit before any send beyond the configured spend
+AssertionError: promise resolved "{}" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {}
+
+ ❯ apps/api/test/supabase-sms-budget.local.spec.ts:22:54
+     20|   const {hook,send}=fixture({globalBudgetPaise:1});const first=event()…
+     21|   await hook.handle(first.raw,first.headers);
+     22|   await expect(hook.handle(second.raw,second.headers)).rejects.toMatch…
+       |                                                      ^
+     23|   expect(send).toHaveBeenCalledTimes(1);
+     24|  });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  apps/api/test/supabase-sms-budget.local.spec.ts > AUTH-03 signed SMS-hook spend and number limits > enforces a daily cap for the same phone across different signed event IDs
+AssertionError: promise resolved "{}" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {}
+
+ ❯ apps/api/test/supabase-sms-budget.local.spec.ts:28:54
+     26|   const {hook,send}=fixture({phoneDailyLimit:1});const first=event(),s…
+     27|   await hook.handle(first.raw,first.headers);
+     28|   await expect(hook.handle(second.raw,second.headers)).rejects.toMatch…
+       |                                                      ^
+     29|   expect(send).toHaveBeenCalledTimes(1);
+     30|  });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  apps/api/test/supabase-sms-budget.local.spec.ts > AUTH-03 signed SMS-hook spend and number limits > enforces a cooldown independently of the daily cap
+AssertionError: promise resolved "{}" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {}
+
+ ❯ apps/api/test/supabase-sms-budget.local.spec.ts:34:54
+     32|   const {hook,send}=fixture();const first=event(),second=event();
+     33|   await hook.handle(first.raw,first.headers);
+     34|   await expect(hook.handle(second.raw,second.headers)).rejects.toMatch…
+       |                                                      ^
+     35|   expect(send).toHaveBeenCalledTimes(1);
+     36|  });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  apps/api/test/supabase-sms-budget.local.spec.ts > AUTH-03 signed SMS-hook spend and number limits > rejects configured blocked ranges before delivery
+AssertionError: promise resolved "{}" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {}
+
+ ❯ apps/api/test/supabase-sms-budget.local.spec.ts:39:56
+     37|  it('rejects configured blocked ranges before delivery',async()=>{
+     38|   const {hook,send}=fixture({blockedPrefixes:['876']});const request=e…
+     39|   await expect(hook.handle(request.raw,request.headers)).rejects.toMat…
+       |                                                        ^
+     40|   expect(send).not.toHaveBeenCalled();
+     41|  });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+
