@@ -1,0 +1,2 @@
+[sync:migrations] Synced 2 migration files between supabase/migrations and packages/database/supabase/migrations.
+[check-migration-sync] SUCCESS: supabase/migrations and packages/database/supabase/migrations are byte-identical.

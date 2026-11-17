@@ -1,0 +1,2 @@
+Exit: 2
+packages/database/test/auth-nullable-phone.contract.ts(3,14): error TS2322: Type 'null' is not assignable to type 'string'.

@@ -1,0 +1,53 @@
+Project: jc-auth-test-f2e6aef0
+Fresh Supabase + Redis; no dev data.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ packages/database/test/auth-migrations-replay.local.test.ts (2 tests | 2 failed) 77ms
+   × AUTH-01 shipped M1/M2 migration replay > replays M1/M2 before fixtures using native Supabase roles 21ms
+     → expected [ { links: null, reservations: null } ] to deeply equal [ { …(2) } ]
+   × AUTH-01 shipped M1/M2 migration replay > serializes two independent provider claims on one invite through the shipped RPC 37ms
+     → function public.rpc_claim_invited_account(unknown, unknown) does not exist
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  20:16:55
+   Duration  14.31s (transform 443ms, setup 7.23s, collect 47ms, tests 77ms, environment 0ms, prepare 507ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/database/test/auth-migrations-replay.local.test.ts > AUTH-01 shipped M1/M2 migration replay > replays M1/M2 before fixtures using native Supabase roles
+AssertionError: expected [ { links: null, reservations: null } ] to deeply equal [ { …(2) } ]
+
+- Expected
++ Received
+
+  Array [
+    Object {
+-     "links": "private_auth.auth_user_links",
+-     "reservations": "private_auth.email_reservations",
++     "links": null,
++     "reservations": null,
+    },
+  ]
+
+ ❯ packages/database/test/auth-migrations-replay.local.test.ts:11:8
+      9|   it('replays M1/M2 before fixtures using native Supabase roles', asyn…
+     10|     expect((await db.query("select to_regclass('private_auth.auth_user…
+     11|       .toEqual([{ links: 'private_auth.auth_user_links', reservations:…
+       |        ^
+     12|     expect((await db.query("select is_nullable from information_schema…
+     13|     expect((await db.query("select rolsuper from pg_roles where rolnam…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  packages/database/test/auth-migrations-replay.local.test.ts > AUTH-01 shipped M1/M2 migration replay > serializes two independent provider claims on one invite through the shipped RPC
+error: function public.rpc_claim_invited_account(unknown, unknown) does not exist
+ ❯ node_modules/.pnpm/pg@8.23.1/node_modules/pg/lib/client.js:694:17
+ ❯ packages/database/test/auth-migrations-replay.local.test.ts:23:21
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
