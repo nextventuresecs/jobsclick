@@ -1,0 +1,65 @@
+Project: jc-auth-test-e789bfa3
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ packages/database/test/payment-settlement.local.test.ts (5 tests | 3 failed) 201ms
+   × WAL-03/05 native capture and grant settlement > leaves the order retryable when ledger insertion fails after capture verification 43ms
+     → expected [ { balance: null } ] to deeply equal [ { balance: 10 } ]
+   × WAL-03/05 native capture and grant settlement > leaves the order retryable when audit insertion fails after capture verification 36ms
+     → expected [ { balance: null } ] to deeply equal [ { balance: 10 } ]
+   × WAL-03/05 native capture and grant settlement > settles a bound sponsorship in the same transaction without also granting wallet credits 28ms
+     → expected [ { balance: null } ] to deeply equal [ { balance: 10 } ]
+ ✓ packages/database/test/payment-transactions.local.test.ts (10 tests) 432ms
+
+ Test Files  1 failed | 1 passed (2)
+      Tests  3 failed | 12 passed (15)
+   Start at  00:27:32
+   Duration  8.66s (transform 246ms, setup 4.99s, collect 53ms, tests 633ms, environment 0ms, prepare 378ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/database/test/payment-settlement.local.test.ts > WAL-03/05 native capture and grant settlement > leaves the order retryable when ledger insertion fails after capture verification
+ FAIL  packages/database/test/payment-settlement.local.test.ts > WAL-03/05 native capture and grant settlement > leaves the order retryable when audit insertion fails after capture verification
+AssertionError: expected [ { balance: null } ] to deeply equal [ { balance: 10 } ]
+
+- Expected
++ Received
+
+  Array [
+    Object {
+-     "balance": 10,
++     "balance": null,
+    },
+  ]
+
+ ❯ packages/database/test/payment-settlement.local.test.ts:42:130
+     40|       expect((await db.query('select status,gateway_payment_id from pu…
+     41|       expect((await db.query('select count(*)::int as count from priva…
+     42|       expect((await db.query('select sum(amount)::int as balance from …
+       |                                                                                                                                  ^
+     43|     } finally { await db.query(`drop trigger ${name} on public.${table…
+     44|     expect(await settle(f)).toMatchObject({ alreadyProcessed: false, p…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  packages/database/test/payment-settlement.local.test.ts > WAL-03/05 native capture and grant settlement > settles a bound sponsorship in the same transaction without also granting wallet credits
+AssertionError: expected [ { balance: null } ] to deeply equal [ { balance: 10 } ]
+
+- Expected
++ Received
+
+  Array [
+    Object {
+-     "balance": 10,
++     "balance": null,
+    },
+  ]
+
+ ❯ packages/database/test/payment-settlement.local.test.ts:50:128
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+

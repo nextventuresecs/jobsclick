@@ -1,0 +1,92 @@
+Project: jc-auth-test-faaf6731
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ packages/database/test/payment-settlement.local.test.ts (5 tests | 5 failed) 162ms
+   × WAL-03/05 native capture and grant settlement > commits captured status, one ledger grant and audits once across concurrent verified callbacks 44ms
+     → function public.rpc_settle_payment(unknown, unknown, unknown, unknown, unknown, unknown, unknown) does not exist
+   × WAL-03/05 native capture and grant settlement > leaves the order retryable when ledger insertion fails after capture verification 32ms
+     → expected error: function public.rpc_settle_payment… { …(15) } to match object { message: 'fixture settlement fault' }
+(18 matching properties omitted from actual)
+   × WAL-03/05 native capture and grant settlement > leaves the order retryable when audit insertion fails after capture verification 29ms
+     → expected error: function public.rpc_settle_payment… { …(15) } to match object { message: 'fixture settlement fault' }
+(18 matching properties omitted from actual)
+   × WAL-03/05 native capture and grant settlement > settles a bound sponsorship in the same transaction without also granting wallet credits 22ms
+     → function public.rpc_settle_payment(unknown, unknown, unknown, unknown, unknown, unknown, unknown) does not exist
+   × WAL-03/05 native capture and grant settlement > rejects mismatched verified amount and captured legacy rows without inventing a missing credit grant 18ms
+     → expected error: function public.rpc_settle_payment… { …(15) } to match object { Object (message) }
+(18 matching properties omitted from actual)
+
+ Test Files  1 failed (1)
+      Tests  5 failed (5)
+   Start at  00:25:36
+   Duration  9.08s (transform 226ms, setup 2.86s, collect 33ms, tests 162ms, environment 0ms, prepare 159ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/database/test/payment-settlement.local.test.ts > WAL-03/05 native capture and grant settlement > commits captured status, one ledger grant and audits once across concurrent verified callbacks
+error: function public.rpc_settle_payment(unknown, unknown, unknown, unknown, unknown, unknown, unknown) does not exist
+ ❯ node_modules/.pnpm/pg@8.23.1/node_modules/pg/lib/client.js:694:17
+ ❯ settle packages/database/test/payment-settlement.local.test.ts:20:19
+
+ ❯ packages/database/test/payment-settlement.local.test.ts:26:23
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  packages/database/test/payment-settlement.local.test.ts > WAL-03/05 native capture and grant settlement > leaves the order retryable when ledger insertion fails after capture verification
+ FAIL  packages/database/test/payment-settlement.local.test.ts > WAL-03/05 native capture and grant settlement > leaves the order retryable when audit insertion fails after capture verification
+AssertionError: expected error: function public.rpc_settle_payment… { …(15) } to match object { message: 'fixture settlement fault' }
+(18 matching properties omitted from actual)
+
+- Expected
++ Received
+
+- Object {
+-   "message": "fixture settlement fault",
+- }
++ [error: function public.rpc_settle_payment(unknown, unknown, unknown, unknown, unknown, unknown, unknown) does not exist]
+
+ ❯ packages/database/test/payment-settlement.local.test.ts:39:7
+     37|     await db.query(`create trigger ${name} before insert on public.${t…
+     38|     try {
+     39|       await expect(settle(f)).rejects.toMatchObject({ message: 'fixtur…
+       |       ^
+     40|       expect((await db.query('select status,gateway_payment_id from pu…
+     41|       expect((await db.query('select count(*)::int as count from priva…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  packages/database/test/payment-settlement.local.test.ts > WAL-03/05 native capture and grant settlement > settles a bound sponsorship in the same transaction without also granting wallet credits
+error: function public.rpc_settle_payment(unknown, unknown, unknown, unknown, unknown, unknown, unknown) does not exist
+ ❯ node_modules/.pnpm/pg@8.23.1/node_modules/pg/lib/client.js:694:17
+ ❯ settle packages/database/test/payment-settlement.local.test.ts:20:19
+
+ ❯ packages/database/test/payment-settlement.local.test.ts:47:54
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  packages/database/test/payment-settlement.local.test.ts > WAL-03/05 native capture and grant settlement > rejects mismatched verified amount and captured legacy rows without inventing a missing credit grant
+AssertionError: expected error: function public.rpc_settle_payment… { …(15) } to match object { Object (message) }
+(18 matching properties omitted from actual)
+
+- Expected
++ Received
+
+- Object {
+-   "message": "PAYMENT_VERIFIED_FACTS_MISMATCH",
+- }
++ [error: function public.rpc_settle_payment(unknown, unknown, unknown, unknown, unknown, unknown, unknown) does not exist]
+
+ ❯ packages/database/test/payment-settlement.local.test.ts:55:32
+     53|   });
+     54|   it('rejects mismatched verified amount and captured legacy rows with…
+     55|     const f = await fixture(); await expect(settle(f, db, 100)).reject…
+       |                                ^
+     56|     await db.query("update public.payments set status='captured',gatew…
+     57|     await expect(settle(f)).rejects.toMatchObject({ message: 'PAYMENT_…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+

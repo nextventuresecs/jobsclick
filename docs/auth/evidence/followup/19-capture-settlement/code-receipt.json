@@ -1,0 +1,13 @@
+{
+  "item": "19-capture-settlement",
+  "kind": "code",
+  "branch": "codex/auth-19-capture-settlement",
+  "commit": "a0b83edac9103766cf73c98bacd935a24c5eceff",
+  "files": [
+    "supabase/migrations/20261117185707_captured_payment_settlement.sql",
+    "packages/database/supabase/migrations/20261117185707_captured_payment_settlement.sql",
+    "supabase/rollbacks/20261117185707_captured_payment_settlement.sql",
+    "packages/database/test/payment-settlement.local.test.ts"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}

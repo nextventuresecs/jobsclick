@@ -1,0 +1,48 @@
+Command: node node_modules/typescript/bin/tsc --build packages/database packages/validation --force
+Exit: 0
+
+Command: node C:/Users/jagta/AppData/Roaming/npm/node_modules/pnpm/bin/pnpm.mjs typecheck
+Exit: 0
+
+> indian-job-portal@0.1.0 typecheck D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review
+> pnpm --filter @indian-job-portal/database --filter @indian-job-portal/validation run build && pnpm --recursive run typecheck
+
+Scope: 2 of 7 workspace projects
+packages/database build$ tsc --build
+packages/validation build$ tsc --build
+packages/validation build: Done
+packages/database build: Done
+Scope: 6 of 7 workspace projects
+packages/database typecheck$ tsc --noEmit
+packages/validation typecheck$ tsc --noEmit
+packages/database typecheck: Done
+packages/validation typecheck: Done
+packages/ui typecheck$ tsc --noEmit
+apps/api typecheck$ tsc --noEmit
+apps/worker typecheck$ tsc --noEmit
+packages/ui typecheck: Done
+apps/worker typecheck: Done
+apps/api typecheck: Done
+apps/web typecheck$ tsc --noEmit
+apps/web typecheck: Done
+
+Command: node C:/Users/jagta/AppData/Roaming/npm/node_modules/pnpm/bin/pnpm.mjs lint
+Exit: 0
+
+> indian-job-portal@0.1.0 lint D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review
+> pnpm --recursive run lint
+
+Scope: 6 of 7 workspace projects
+packages/database lint$ eslint .
+packages/validation lint$ eslint .
+packages/validation lint: Done
+packages/database lint: Done
+apps/api lint$ eslint .
+packages/ui lint$ eslint .
+apps/worker lint$ eslint .
+packages/ui lint: Done
+apps/worker lint: Done
+apps/api lint: Done
+apps/web lint$ eslint .
+apps/web lint: Done
+
