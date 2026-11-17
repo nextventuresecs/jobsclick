@@ -1,0 +1,22 @@
+Project: jc-auth-test-91f719ff
+Fresh Supabase + Redis; no dev data.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ apps/api/test/supabase-sms-hook.local.spec.ts (0 test)
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  18:38:10
+   Duration  12.23s (transform 339ms, setup 4.43s, collect 0ms, tests 0ms, environment 0ms, prepare 456ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/supabase-sms-hook.local.spec.ts [ apps/api/test/supabase-sms-hook.local.spec.ts ]
+Error: Failed to load url ../src/auth/supabase-sms-hook.js (resolved id: ../src/auth/supabase-sms-hook.js) in D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/apps/api/test/supabase-sms-hook.local.spec.ts. Does the file exist?
+ ❯ loadAndTransform ../../../../../../../../Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/vite@5.4.21_@types+node@20.19.43_terser@5.51.2/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51969:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

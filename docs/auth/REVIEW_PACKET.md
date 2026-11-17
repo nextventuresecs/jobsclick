@@ -43,6 +43,8 @@ Review checkout: `indian-job-portal-remediation/.scratch/auth-review`. The origi
 | Server-side Supabase identity adapter | `codex/auth-03-provider` | `46503b3` |
 | Encrypted opaque session-store draft | `codex/auth-04-server-sessions` | `24a6455` |
 | Standalone drill and JSON fixture safeguards | `codex/auth-05-test-safety` | `72cbaf4` |
+| Corrective review packet | `codex/auth-06-review-packet` | `d5708af` |
+| S4 hook authentication/replay foundation | `codex/auth-07-sms-hook` | this review unit |
 
 Review each unit against its direct parent. The four requested AUTH units are branches 01 through 04; infrastructure and safety are explicit additional units. Evidence files increase line counts; source still requires focused review. The original assertion bodies were not weakened to resolve lock interference. The historical target-port retargeting belongs to infrastructure; the subsequent identity unit's harness change is only the shared FK-fixture mutex.
 
@@ -53,13 +55,13 @@ Review each unit against its direct parent. The four requested AUTH units are br
 | F0-a/b/c | Existing OTP, privileged-RPC and ledger-denial regressions pass locally. Remaining evidence gaps are listed in [F0 gates and original-number crosswalk](F0-REVIEW-GATES.md). No hosted exploit-closure claim. |
 | F0-d/e | Sponsorship amount/replay/expiry/name-association fix and rendered opaque-ID proof remain open; payment/P2 stays disabled. |
 | S1/M1, S2, S3/M2 | Local draft SQL, contact tests, owner probe, concurrency and native pgTAP pass. No hosted application/migration. |
-| S4 | Provider adapter foundation verified; SMS-hook signature/replay/+91 and provider-direct abuse slice is not implemented. **Do this first.** |
+| S4 | Provider adapter plus disabled hook authentication/replay/+91 foundation verified: **13 hook tests passed**. [Evidence](evidence/S4-hook/README.md). Send authorization/budgets and native provider-direct abuse proof remain unfinished; finish these before S6. |
 | S5 | Encrypted store/deadlines/refresh concurrency verified; cookie/BFF lifecycle and production operations incomplete. |
 | S6 | Server-derived claim API and incomplete-onboarding guard not implemented. Start after S4 controls are verified. |
 | S7-S14 | Remaining consent/activation/registration/method/erasure/bulk/RLS/integrated migration work is not complete. |
 
 The [session ADR](../adr/0002-server-held-provider-sessions.md) records why the approved opaque store was chosen over simpler SSR cookies. Redis and authoritative identity failures explicitly fail closed for **all protected routes, including admin, payment and wallet**; public discovery may remain session-free. TLS/ACL, encryption-key rotation and durable provider sign-out/retry remain operational/cutover gates.
 
-Supabase's signed SMS-hook payload does not carry trusted browser IP/device or a verified Turnstile result. Signature validity alone cannot prove application send authorization. Before S6/cutover, S4 must demonstrate exact-body authentication, timestamp/replay handling, Indian-number restriction, bounded fake delivery and provider-direct abuse denial without trusting user metadata or spoofed forwarding headers. Do not treat BFF-only limits as provider endpoint protection.
+Supabase's signed SMS-hook payload does not carry trusted browser IP/device or a verified Turnstile result. Signature validity alone cannot prove application send authorization. The disabled hook foundation proves signature, timestamp/replay and Indian-number checks with fake delivery. Before S6/cutover, S4 must additionally demonstrate bounded gateway delivery, approved send authorization/caps and native provider-direct abuse denial without trusting user metadata or spoofed forwarding headers. Do not treat BFF-only limits as provider endpoint protection.
 
 Google and nullable-phone CSV admission remain disabled until their denial/completion paths exist. Hosted automatic OAuth identity linking has not been tested; no assumption that matching-email auto-linking is disabled is allowed. General email OTP and orphan deletion remain unapproved. Auth/RLS/migration/payment drafts require the human review specified by AGENTS.md before merge or hosted enablement. This packet is reviewable evidence, not release sign-off.

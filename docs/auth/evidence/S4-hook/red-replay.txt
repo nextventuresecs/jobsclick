@@ -1,0 +1,37 @@
+Project: jc-auth-test-6bf7b092
+Fresh Supabase + Redis; no dev data.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ apps/api/test/supabase-sms-hook.local.spec.ts (11 tests | 1 failed) 33ms
+   × AUTH-01/03 authenticated Supabase SMS hook > rejects a replay across server instances before a second dispatch 6ms
+     → promise resolved "{}" instead of rejecting
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 10 passed (11)
+   Start at  18:44:43
+   Duration  13.73s (transform 300ms, setup 4.81s, collect 109ms, tests 33ms, environment 0ms, prepare 391ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/supabase-sms-hook.local.spec.ts > AUTH-01/03 authenticated Supabase SMS hook > rejects a replay across server instances before a second dispatch
+AssertionError: promise resolved "{}" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {}
+
+ ❯ apps/api/test/supabase-sms-hook.local.spec.ts:58:74
+     56|     const req = request(); const send = vi.fn(); const config = { secr…
+     57|     await new SupabaseSmsHook(config).handle(req.raw, req.headers);
+     58|     await expect(new SupabaseSmsHook(config).handle(req.raw, req.heade…
+       |                                                                          ^
+     59|     expect(send).toHaveBeenCalledTimes(1);
+     60|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
