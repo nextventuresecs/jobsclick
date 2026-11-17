@@ -1,0 +1,15 @@
+{
+  "item": "21-payment-api",
+  "kind": "code",
+  "branch": "codex/auth-21-payment-api",
+  "commit": "da50bf42d5315e9ef3697036ef0414edd5215a38",
+  "files": [
+    "packages/validation/src/wallet.ts",
+    "packages/database/src/index.ts",
+    "apps/api/src/database/supabase.provider.ts",
+    "apps/api/src/database/repositories/profile.repository.ts",
+    "apps/api/src/database/repositories/payment.repository.ts",
+    "apps/api/src/wallet/wallet.service.ts"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}
