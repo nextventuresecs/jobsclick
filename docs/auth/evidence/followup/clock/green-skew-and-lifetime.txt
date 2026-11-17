@@ -1,0 +1,16 @@
+Project: jc-auth-test-2c55d2db
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 0
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ✓ apps/api/test/provider-sessions.local.spec.ts (20 tests) 345ms
+ ✓ apps/api/test/supabase-provider.spec.ts (33 tests) 1093ms
+   ✓ AUTH-01 request-scoped Supabase provider boundary > integrates verified provider refresh with encrypted Redis persistence across two server instances 514ms
+
+ Test Files  2 passed (2)
+      Tests  53 passed (53)
+   Start at  22:31:59
+   Duration  11.46s (transform 344ms, setup 6.54s, collect 111ms, tests 1.44s, environment 0ms, prepare 502ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.

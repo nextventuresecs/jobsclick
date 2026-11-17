@@ -1,0 +1,15 @@
+{
+  "item": "14-provider-clock",
+  "kind": "code",
+  "branch": "codex/auth-14-provider-clock",
+  "commit": "418c7850b0662b660315c88afb13fa0776371c44",
+  "files": [
+    "apps/api/src/auth/provider-time-policy.ts",
+    "apps/api/src/auth/supabase-provider.ts",
+    "apps/api/src/auth/provider-session-store.ts",
+    "apps/api/test/supabase-provider.spec.ts",
+    "apps/api/test/provider-sessions.local.spec.ts",
+    "docs/auth/PROVIDER_TIME_POLICY.md"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}

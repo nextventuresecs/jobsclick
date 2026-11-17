@@ -1,10 +1,105 @@
 {
-  "runId": "jc-auth-test-2430c24a",
+  "runId": "jc-auth-test-71c56434",
   "approvedProductLoginEnabled": false,
   "google": "NOT RUN: reviewed Google OAuth fixture unavailable",
-  "invalidCaptcha": {
+  "noCaptcha": {
     "rejected": true,
     "hookCalls": 0,
     "sends": 0
+  },
+  "phoneRequest": {
+    "hookCalls": 1,
+    "sends": 1
+  },
+  "phoneClaimShape": {
+    "issuerMatches": true,
+    "aud": "authenticated",
+    "iat": 1794935035,
+    "exp": 1794935935,
+    "hostNow": 1794935034,
+    "anonymous": false,
+    "role": "authenticated",
+    "sessionUuid": true
+  },
+  "phoneMetadata": {
+    "provider": "phone",
+    "providers": [
+      "phone"
+    ]
+  },
+  "lastHookFailure": {
+    "status": 429,
+    "code": "AUTH_HOOK_BUDGET_EXHAUSTED"
+  },
+  "phoneChain": {
+    "realGoTrue": true,
+    "adminSeededConfirmedPhone": false,
+    "sends": 1,
+    "replayStatus": 409,
+    "unsignedStatus": 401,
+    "otpInAuthLogs": false
+  },
+  "resendWithoutCaptcha": {
+    "rejected": true,
+    "sends": 1
+  },
+  "deliveryDenials": {
+    "foreignPhoneRejected": true,
+    "emptyBudgetRejected": true,
+    "sends": 0
+  },
+  "ipReality": {
+    "apiSocketIp": "127.0.0.1",
+    "suppliedUntrustedHeader": "203.0.113.77",
+    "direct": [
+      {
+        "ip_address": "",
+        "action": "user_confirmation_requested"
+      },
+      {
+        "ip_address": "",
+        "action": "user_signedup"
+      }
+    ],
+    "serverSideApi": [
+      {
+        "ip_address": "",
+        "action": "user_confirmation_requested"
+      },
+      {
+        "ip_address": "",
+        "action": "user_signedup"
+      }
+    ],
+    "productionBffCutover": false
+  },
+  "mailTransport": {
+    "status": 200,
+    "contentType": "application/json",
+    "server": "mailpit"
+  },
+  "emailClaimShape": {
+    "issuerMatches": true,
+    "aud": "authenticated",
+    "iat": 1794935036,
+    "exp": 1794935936,
+    "hostNow": 1794935037,
+    "anonymous": false,
+    "role": "authenticated",
+    "sessionUuid": true
+  },
+  "emailMetadata": {
+    "provider": "email",
+    "providers": [
+      "email"
+    ]
+  },
+  "emailChain": {
+    "realGoTrue": true,
+    "localMailCatcher": true,
+    "adminSeededConfirmedEmail": false,
+    "importedPhoneRemainsNull": true,
+    "smsSends": 0,
+    "generalEmailLoginEnabled": false
   }
 }

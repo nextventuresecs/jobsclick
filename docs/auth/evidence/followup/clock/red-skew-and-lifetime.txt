@@ -1,0 +1,77 @@
+Project: jc-auth-test-76c09ade
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ apps/api/test/provider-sessions.local.spec.ts (20 tests | 1 failed) 406ms
+   × AUTH-05/06 server-only provider session persistence > accepts a fifteen-minute token with verified issue time one second ahead without extending the session deadline 7ms
+     → AUTH_PROVIDER_INVALID
+ ❯ apps/api/test/supabase-provider.spec.ts (33 tests | 3 failed) 1203ms
+   × AUTH-01 request-scoped Supabase provider boundary > bounds provider issue-time skew to two seconds (offset 1) 19ms
+     → AUTH_PROVIDER_INVALID
+   × AUTH-01 request-scoped Supabase provider boundary > bounds provider issue-time skew to two seconds (offset 2) 10ms
+     → AUTH_PROVIDER_INVALID
+   × AUTH-01 request-scoped Supabase provider boundary > rejects a provider-signed access lifetime above fifteen minutes 29ms
+     → promise resolved "{ …(4) }" instead of rejecting
+   ✓ AUTH-01 request-scoped Supabase provider boundary > integrates verified provider refresh with encrypted Redis persistence across two server instances 707ms
+
+ Test Files  2 failed (2)
+      Tests  4 failed | 49 passed (53)
+   Start at  22:30:43
+   Duration  12.47s (transform 336ms, setup 6.88s, collect 100ms, tests 1.61s, environment 0ms, prepare 460ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/provider-sessions.local.spec.ts > AUTH-05/06 server-only provider session persistence > accepts a fifteen-minute token with verified issue time one second ahead without extending the session deadline
+UnauthorizedException: AUTH_PROVIDER_INVALID
+ ❯ ProviderSessionStore.create apps/api/src/auth/provider-session-store.ts:81:106
+     79|     const currentRole = UserRoleSchema.parse(role);
+     80|     const createdAt = this.now();
+     81|     if (credentials.accessExpiresAt <= createdAt || credentials.access…
+       |                                                                                                          ^
+     82|     const expiresAt = createdAt + (['admin', 'msme_admin'].includes(cu…
+     83|     const sessionId = `s1_${randomBytes(32).toString('base64url')}`;
+ ❯ apps/api/test/provider-sessions.local.spec.ts:107:35
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  apps/api/test/supabase-provider.spec.ts > AUTH-01 request-scoped Supabase provider boundary > bounds provider issue-time skew to two seconds (offset 1)
+ FAIL  apps/api/test/supabase-provider.spec.ts > AUTH-01 request-scoped Supabase provider boundary > bounds provider issue-time skew to two seconds (offset 2)
+UnauthorizedException: AUTH_PROVIDER_INVALID
+ ❯ Object.authenticate apps/api/src/auth/supabase-provider.ts:69:15
+     67|         || claims.data.iat > Math.floor(Date.now() / 1000)
+     68|         || claims.data.exp <= Math.floor(Date.now() / 1000) || claims.…
+     69|         throw new UnauthorizedException('AUTH_PROVIDER_INVALID');
+       |               ^
+     70|       }
+     71|       const user = await client.auth.getUser(accessToken).catch(provid…
+ ❯ apps/api/test/supabase-provider.spec.ts:81:32
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  apps/api/test/supabase-provider.spec.ts > AUTH-01 request-scoped Supabase provider boundary > rejects a provider-signed access lifetime above fifteen minutes
+AssertionError: promise resolved "{ …(4) }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {
++   "authUserId": "48f42b17-7c74-4115-bad9-2e9416d02a2e",
++   "expiresAt": 1794935755,
++   "issuedAt": 1794934854,
++   "providerSessionId": "7dbfc6d5-6ccf-414b-a6fb-7393b703c025",
++ }
+
+ ❯ apps/api/test/supabase-provider.spec.ts:90:156
+     88|     const token = await new SignJWT({ session_id: sessionId }).setProt…
+     89|       .setSubject(id).setIssuer(origin + '/auth/v1').setAudience('auth…
+     90|     await expect(createSupabaseProvider({ url: origin, publishableKey:…
+       |                                                                                                                                                            ^
+     91|       .rejects.toMatchObject({ status: 401, message: 'AUTH_PROVIDER_IN…
+     92|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
