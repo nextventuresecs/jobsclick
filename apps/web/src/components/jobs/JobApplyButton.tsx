@@ -26,7 +26,7 @@ export function JobApplyButton({
   label = 'Apply Now',
   hasAlreadyApplied = false,
 }: JobApplyButtonProps) {
-  const { currentUserRole, accessToken, isAuthenticated, openAuthModal, addToast } = useApp();
+  const { currentUserRole, isAuthenticated, openAuthModal, addToast } = useApp();
   const [hasApplied, setHasApplied] = useState(hasAlreadyApplied);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -54,18 +54,10 @@ export function JobApplyButton({
 
     try {
       const apiUrl =
-        process.env['NEXT_PUBLIC_API_URL'] ||
-        process.env['API_URL'] ||
-        'http://localhost:3001';
-
-      const authHeader = accessToken ? `Bearer ${accessToken}` : '';
+        '/api/backend';
 
       const res = await fetch(`${apiUrl}/jobs/${jobId}/apply`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(authHeader ? { Authorization: authHeader } : {}),
-        },
       });
 
       if (res.ok) {

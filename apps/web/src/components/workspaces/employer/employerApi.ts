@@ -33,10 +33,10 @@ export interface ApiAppRow {
   };
 }
 
-export async function fetchBusinessProfile(apiUrl: string, authHeader: string, userId: string) {
+export async function fetchBusinessProfile(apiUrl: string, _authHeader: string, _userId: string) {
   try {
     const res = await fetch(`${apiUrl}/profiles/business/me`, {
-      headers: { Authorization: authHeader, 'x-user-id': userId },
+      headers: { },
     });
     return res.ok ? await res.json() : null;
   } catch {
@@ -46,8 +46,8 @@ export async function fetchBusinessProfile(apiUrl: string, authHeader: string, u
 
 export async function fetchEmployerJobs(
   apiUrl: string,
-  authHeader: string,
-  userId: string,
+  _authHeader: string,
+  _userId: string,
   companyId?: string,
 ) {
   try {
@@ -55,7 +55,7 @@ export async function fetchEmployerJobs(
       ? `${apiUrl}/jobs?companyId=${encodeURIComponent(companyId)}`
       : `${apiUrl}/jobs`;
     const res = await fetch(url, {
-      headers: { Authorization: authHeader, 'x-user-id': userId },
+      headers: { },
     });
     return res.ok ? await res.json() : null;
   } catch {
@@ -65,13 +65,13 @@ export async function fetchEmployerJobs(
 
 export async function fetchJobApplications(
   apiUrl: string,
-  authHeader: string,
-  userId: string,
+  _authHeader: string,
+  _userId: string,
   jobId: string
 ): Promise<ApiAppRow[]> {
   try {
     const res = await fetch(`${apiUrl}/jobs/${jobId}/applications`, {
-      headers: { Authorization: authHeader, 'x-user-id': userId },
+      headers: { },
     });
     return res.ok ? await res.json() : [];
   } catch {
@@ -79,11 +79,11 @@ export async function fetchJobApplications(
   }
 }
 
-export async function postNewJobApi(apiUrl: string, authHeader: string, userId: string, payload: unknown) {
+export async function postNewJobApi(apiUrl: string, _authHeader: string, _userId: string, payload: unknown) {
   try {
     const res = await fetch(`${apiUrl}/jobs`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: authHeader, 'x-user-id': userId },
+      headers: { 'Content-Type': 'application/json', },
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
@@ -93,22 +93,22 @@ export async function postNewJobApi(apiUrl: string, authHeader: string, userId: 
     }
     return await res.json();
   } catch (err) {
-    Sentry.captureException(err, { tags: { operation: 'postNewJobApi', userId } });
+    Sentry.captureException(err, { tags: { operation: 'postNewJobApi', _userId } });
     throw err;
   }
 }
 
 export async function updateAppStatusApi(
   apiUrl: string,
-  authHeader: string,
-  userId: string,
+  _authHeader: string,
+  _userId: string,
   appId: string,
   status: ApplicationStatus
 ) {
   try {
     const res = await fetch(`${apiUrl}/jobs/applications/${appId}/status`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: authHeader, 'x-user-id': userId },
+      headers: { 'Content-Type': 'application/json', },
       body: JSON.stringify({ status }),
     });
     if (!res.ok) {
@@ -124,14 +124,14 @@ export async function updateAppStatusApi(
 
 export async function updateBusinessProfileApi(
   apiUrl: string,
-  authHeader: string,
-  userId: string,
+  _authHeader: string,
+  _userId: string,
   company: CompanyItem
 ) {
   try {
     const res = await fetch(`${apiUrl}/profiles/business/me`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: authHeader, 'x-user-id': userId },
+      headers: { 'Content-Type': 'application/json', },
       body: JSON.stringify({
         companyName: company.name,
         ownershipType: company.ownershipType,
@@ -166,7 +166,7 @@ export async function updateBusinessProfileApi(
     }
     return await res.json().catch(() => ({ success: true }));
   } catch (err) {
-    Sentry.captureException(err, { tags: { operation: 'updateBusinessProfileApi', userId } });
+    Sentry.captureException(err, { tags: { operation: 'updateBusinessProfileApi', _userId } });
     throw err;
   }
 }

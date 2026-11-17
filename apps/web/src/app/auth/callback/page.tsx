@@ -1,10 +1,12 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppContext } from '@/context/AppContext';
 
 export default function AuthCallbackPage() {
+  const t = useTranslations('Auth');
   const router = useRouter();
   const { refreshSession, addToast } = useAppContext();
   const hasExchangedRef = useRef<boolean>(false);
@@ -25,7 +27,7 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
+        const apiBaseUrl = '/api/auth';
         if (!apiBaseUrl) {
           setErrorState('Service configuration error: Missing API URL.');
           return;
@@ -39,25 +41,15 @@ export default function AuthCallbackPage() {
         });
 
         const data = await response.json().catch(() => ({}));
-        if (!response.ok || !data?.accessToken) {
+        if (!response.ok || !data?.authenticated) {
           setErrorState(data?.message || 'Could not verify your sign-in session.');
           return;
         }
 
-        // Persist into HttpOnly __Host- cookie so Google users get a real isolated session (Fixes P0 usr_seeker_77 collision)
-        const sessionRes = await fetch('/api/auth/session', {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: data.accessToken }),
-        });
-
-        if (!sessionRes.ok) {
-          setErrorState('Failed to establish browser session cookie.');
+        if (!(await refreshSession())) {
+          setErrorState(t('sessionFailed'));
           return;
         }
-
-        await refreshSession();
         addToast({
           type: 'success',
           title: 'Signed in successfully',
@@ -69,7 +61,7 @@ export default function AuthCallbackPage() {
     };
 
     void completeAuthCallback();
-  }, [refreshSession, addToast, router]);
+  }, [refreshSession, addToast, router, t]);
 
   return (
     <main className="flex min-h-[70vh] flex-col items-center justify-center px-4">

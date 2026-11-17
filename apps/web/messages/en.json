@@ -133,6 +133,8 @@
     "admin": "Platform Admin"
   },
   "Auth": {
+    "sessionFailed": "Could not confirm your session. Please try again.",
+    "signOutFailed": "Could not sign out. Please try again.",
     "sendOtp": "Send OTP",
     "verifyOtp": "Verify OTP",
     "mobileNumber": "Mobile Number",

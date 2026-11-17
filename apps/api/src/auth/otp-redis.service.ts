@@ -673,6 +673,15 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
    * Stores active user authentication state in Redis with maximum 60-second TTL (P0-8).
    * Centralizes and enforces TTL <= 60 seconds across all callers.
    */
+  async isAccessTokenRevoked(jti: string): Promise<boolean> {
+    return (await this.client.get('auth:revoked-token:' + jti)) !== null;
+  }
+
+  async revokeAccessToken(jti: string, expiresAt: number): Promise<void> {
+    const ttl = Math.max(1, Math.ceil(expiresAt - Date.now() / 1000));
+    await this.client.set('auth:revoked-token:' + jti, '1', 'EX', ttl);
+  }
+
   async setAuthState(userId: string, state: UserAuthState, ttlSeconds = AUTH_STATE_TTL_SECONDS): Promise<void> {
     const effectiveTtl = Math.min(ttlSeconds, AUTH_STATE_TTL_SECONDS);
     const key = 'auth:state:' + userId;

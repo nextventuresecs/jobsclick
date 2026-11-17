@@ -1,11 +1,18 @@
-import { describe, it, expect } from 'vitest';
+import { createMockSupabase } from './fixtures/import-supabase.js';
+import { beforeEach, describe, it, expect } from 'vitest';
 import { Job } from 'bullmq';
-import { bulkImportProcessor, BulkImportJobData } from '../src/processors/import.processor.js';
-import { inviteWaveProcessor, InviteWaveJobData } from '../src/processors/invite.processor.js';
+import { ImportProcessor, BulkImportJobData } from '../src/processors/import.processor.js';
+import { InviteProcessor, inviteWaveProcessor, InviteWaveJobData } from '../src/processors/invite.processor.js';
 import { pdfGeneratorProcessor, PdfJobData } from '../src/processors/pdf.processor.js';
 
 describe('Worker Processors (Ticket T-07)', () => {
   describe('bulk-import-processor', () => {
+    let database: ReturnType<typeof createMockSupabase>;
+    let processor: ImportProcessor;
+    beforeEach(() => {
+      database = createMockSupabase();
+      processor = new ImportProcessor(database);
+    });
     it('parses CSV via streaming, enforces Indian 10-digit phones, creates users in invited state with zero SMS, and retains source (Hard Invariants #2 & #3)', async () => {
       const p1 = '9' + Math.floor(100000000 + Math.random() * 900000000);
       const p2 = '9' + Math.floor(100000000 + Math.random() * 900000000);
@@ -24,7 +31,7 @@ describe('Worker Processors (Ticket T-07)', () => {
         updateProgress: async () => {},
       } as unknown as Job<BulkImportJobData>;
 
-      const result = await bulkImportProcessor(mockJob);
+      const result = await processor.process(mockJob);
 
       expect(result.batchId).toBe('batch_test_001');
       expect(result.source).toBe('MSME Department MP');
@@ -34,6 +41,8 @@ describe('Worker Processors (Ticket T-07)', () => {
       expect(result.errorRows).toBe(2);
       expect(result.status).toBe('completed');
       expect(result.createdUserCount).toBe(2);
+      expect(database._users).toHaveLength(2);
+      expect(database._users.every((user) => user.status === 'invited' && user.source === 'MSME Department MP')).toBe(true);
       expect(result.errorCsvContent).toContain('Invalid Indian 10-digit mobile number format');
       expect(result.errorCsvContent).toContain('Duplicate mobile number inside file');
     });
@@ -54,9 +63,11 @@ describe('Worker Processors (Ticket T-07)', () => {
         updateProgress: async () => {},
       } as unknown as Job<BulkImportJobData>;
 
-      const result = await bulkImportProcessor(mockJob);
+      const result = await processor.process(mockJob);
       expect(result.validRows).toBe(1);
       expect(result.createdUserCount).toBe(1);
+      expect(database._profiles[0]?.aadhaar_last_four).toBe('1234');
+      expect(JSON.stringify(database._profiles)).not.toContain('999988881234');
       // Ensure result errorCsvContent does not leak full Aadhaar
       expect(result.errorCsvContent).toBeFalsy();
     });
@@ -76,7 +87,7 @@ describe('Worker Processors (Ticket T-07)', () => {
         } as BulkImportJobData,
       } as unknown as Job<BulkImportJobData>;
 
-      await expect(bulkImportProcessor(failingJob1)).rejects.toThrow(
+      await expect(processor.process(failingJob1)).rejects.toThrow(
         'Simulated transient import processing error for retry check (attempt 1)',
       );
 
@@ -91,7 +102,7 @@ describe('Worker Processors (Ticket T-07)', () => {
         } as BulkImportJobData,
       } as unknown as Job<BulkImportJobData>;
 
-      await expect(bulkImportProcessor(failingJob2)).rejects.toThrow(
+      await expect(processor.process(failingJob2)).rejects.toThrow(
         'Simulated transient import processing error for retry check (attempt 2)',
       );
 
@@ -107,7 +118,7 @@ describe('Worker Processors (Ticket T-07)', () => {
         updateProgress: async () => {},
       } as unknown as Job<BulkImportJobData>;
 
-      const result = await bulkImportProcessor(succeedingJob3);
+      const result = await processor.process(succeedingJob3);
       expect(result.validRows).toBe(1);
       expect(result.status).toBe('completed');
     });
@@ -150,7 +161,7 @@ describe('Worker Processors (Ticket T-07)', () => {
       } as unknown as Job<BulkImportJobData>;
 
       const startTime = Date.now();
-      const result = await bulkImportProcessor(mock50kJob);
+      const result = await processor.process(mock50kJob);
       const durationSeconds = (Date.now() - startTime) / 1000;
 
       expect(result.batchId).toBe('batch_50k_benchmark');
@@ -160,6 +171,7 @@ describe('Worker Processors (Ticket T-07)', () => {
       expect(result.errorRows).toBe(10);
       expect(result.status).toBe('completed');
       expect(result.createdUserCount).toBe(49990);
+      expect(database._users).toHaveLength(49990);
       expect(progressUpdateCount).toBeGreaterThanOrEqual(99); // Triggered at least 50k / 500 = 100 times
       expect(result.errorCsvContent).toContain('Invalid Indian 10-digit mobile number format');
       expect(result.errorCsvContent).toContain('Duplicate mobile number inside file');
@@ -182,7 +194,14 @@ describe('Worker Processors (Ticket T-07)', () => {
         } as InviteWaveJobData,
       } as unknown as Job<InviteWaveJobData>;
 
-      const result = await inviteWaveProcessor(mockJob);
+      const processor = new InviteProcessor();
+      const query = {
+        select: () => query, eq: () => query, update: () => query,
+        single: async () => ({ data: { batch_id: 'batch_test_001', status: 'dispatched' }, error: null }),
+        limit: async () => ({ data: Array.from({ length: 5000 }, (_, i) => ({ id: String(i), phone: '9876543210' })), error: null }),
+      };
+      Object.assign(processor, { supabase: { from: () => query }, smsService: { sendInviteSms: async () => ({ success: true }) } });
+      const result = await processor.process(mockJob);
       expect(result.waveId).toBe('wave_test_001');
       expect(result.batchId).toBe('batch_test_001');
       expect(result.waveSize).toBe(5000);

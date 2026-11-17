@@ -80,14 +80,13 @@ export async function fetchInstitutionCms(
 
 export async function updateInstitutionCms(
   apiUrl: string,
-  token: string,
+  _authenticated: boolean,
   cmsData: InstitutionCmsInput,
 ): Promise<InstitutionCmsInput> {
   const res = await fetch(`${apiUrl}/profiles/institution/cms`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(cmsData),
   });
@@ -97,12 +96,11 @@ export async function updateInstitutionCms(
 
 export async function fetchInstitutionInquiries(
   apiUrl: string,
-  token: string,
+  _authenticated: boolean,
 ): Promise<InstitutionInquiryLead[]> {
   try {
     const res = await fetch(`${apiUrl}/profiles/institution/inquiries`, {
       headers: {
-        Authorization: `Bearer ${token}`,
       },
     });
     if (!res.ok) return [];
@@ -114,7 +112,7 @@ export async function fetchInstitutionInquiries(
 
 export async function updateInquiryStatus(
   apiUrl: string,
-  token: string,
+  _authenticated: boolean,
   inquiryId: string,
   status: UpdateInquiryStatusInput['status'],
 ): Promise<InstitutionInquiryLead> {
@@ -122,7 +120,6 @@ export async function updateInquiryStatus(
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ status }),
   });

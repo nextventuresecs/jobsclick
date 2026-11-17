@@ -6,7 +6,7 @@ import { headers } from 'next/headers';
 import { Inter, Noto_Sans_Devanagari } from 'next/font/google';
 
 import { ClientProviders } from '../components/ClientProviders';
-import { getServerSession } from '../lib/auth-session';
+import { currentIdentity } from '../lib/server-api';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -47,7 +47,7 @@ export default async function RootLayout({
 }) {
   const locale = await getLocale();
   const messages = await getMessages();
-  const session = await getServerSession().catch(() => null);
+  const initialUser = await currentIdentity().catch(() => null);
 
   let cleanPath = '/';
   try {
@@ -71,7 +71,7 @@ export default async function RootLayout({
       </head>
       <body className="antialiased bg-[#F3F4F6] text-[#1F2937] min-h-screen flex flex-col font-sans">
         <NextIntlClientProvider messages={messages} locale={locale}>
-          <ClientProviders initialSession={session}>{children}</ClientProviders>
+          <ClientProviders initialUser={initialUser}>{children}</ClientProviders>
         </NextIntlClientProvider>
       </body>
     </html>

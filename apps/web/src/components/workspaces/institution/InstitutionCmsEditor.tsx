@@ -40,8 +40,8 @@ interface InstitutionCmsEditorProps {
 
 export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProps) {
   const t = useTranslations('InstitutionWorkspace');
-  const { addToast, accessToken } = useApp();
-  const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:3001';
+  const { addToast, isAuthenticated } = useApp();
+  const apiUrl = '/api/backend';
 
   const [activeSubTab, setActiveSubTab] = useState<
     'courses' | 'subjects' | 'fees' | 'departments' | 'faculty' | 'paste-ai' | 'inquiries'
@@ -139,7 +139,7 @@ export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProp
       try {
         const [cmsRes, inqRes] = await Promise.all([
           fetchInstitutionCms(apiUrl, institutionId),
-          accessToken ? fetchInstitutionInquiries(apiUrl, accessToken) : Promise.resolve([]),
+          isAuthenticated ? fetchInstitutionInquiries(apiUrl, isAuthenticated) : Promise.resolve([]),
         ]);
 
         if (cmsRes) {
@@ -160,11 +160,11 @@ export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProp
       }
     }
     loadData();
-  }, [apiUrl, institutionId, accessToken]);
+  }, [apiUrl, institutionId, isAuthenticated]);
 
   // Handle Save CMS
   const handleSaveCms = async () => {
-    if (!accessToken) {
+    if (!isAuthenticated) {
       addToast({
         type: 'error',
         title: 'Authentication Required',
@@ -185,7 +185,7 @@ export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProp
         updatedAt: new Date().toISOString(),
       };
 
-      await updateInstitutionCms(apiUrl, accessToken, payload);
+      await updateInstitutionCms(apiUrl, isAuthenticated, payload);
       addToast({
         type: 'success',
         title: t('toastCmsSaved'),
@@ -269,7 +269,7 @@ export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProp
 
   // Update Inquiry Status
   const handleStatusChange = async (inquiryId: string, newStatus: InquiryStatus) => {
-    if (!accessToken) {
+    if (!isAuthenticated) {
       addToast({
         type: 'error',
         title: 'Authentication Required',
@@ -279,7 +279,7 @@ export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProp
     }
 
     try {
-      await updateInquiryStatus(apiUrl, accessToken, inquiryId, newStatus);
+      await updateInquiryStatus(apiUrl, isAuthenticated, inquiryId, newStatus);
       setInquiries((prev) =>
         prev.map((inq) => (inq.id === inquiryId ? { ...inq, status: newStatus } : inq)),
       );

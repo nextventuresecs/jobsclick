@@ -88,14 +88,12 @@ export function SponsorshipCard({
   const handleActivate = async () => {
     setIsActivating(true);
     try {
-      const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:3001';
-      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      const apiUrl = '/api/backend';
 
       const res = await fetch(`${apiUrl}/institutions/${institutionId}/sponsorship/activate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           studentCountOverride: studentCount,

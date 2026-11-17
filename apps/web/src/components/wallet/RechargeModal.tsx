@@ -116,7 +116,7 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
       }
 
       // 2. Create order on backend API
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const apiUrl = '/api/backend';
       const orderRes = await fetch(`${apiUrl}/wallet/recharge/create-order`, {
         method: 'POST',
         headers: {
@@ -227,7 +227,7 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
 
   const handleDownloadInvoice = () => {
     if (!completedPayment) return;
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const apiUrl = '/api/backend';
     window.open(
       `${apiUrl}/wallet/invoice/${completedPayment.paymentRecordId}/html`,
       '_blank',

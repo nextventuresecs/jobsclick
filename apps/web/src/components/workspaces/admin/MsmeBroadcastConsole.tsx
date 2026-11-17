@@ -103,7 +103,7 @@ interface CostPreviewResponse {
 
 export function MsmeBroadcastConsole({ onDispatch }: MsmeBroadcastConsoleProps) {
   const t = useTranslations('MsmeBroadcast');
-  const { accessToken } = useApp();
+  const { isAuthenticated } = useApp();
 
   const [filters, setFilters] = useState<BroadcastFiltersState>({
     district: 'All Districts',
@@ -127,7 +127,7 @@ export function MsmeBroadcastConsole({ onDispatch }: MsmeBroadcastConsoleProps) 
   useEffect(() => {
     let isMounted = true;
     setIsQuoteLoading(true);
-    const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:3001';
+    const apiUrl = '/api/backend';
 
     const reqBody = {
       filters: {
@@ -143,7 +143,6 @@ export function MsmeBroadcastConsole({ onDispatch }: MsmeBroadcastConsoleProps) 
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       },
       body: JSON.stringify(reqBody),
     })
@@ -162,7 +161,7 @@ export function MsmeBroadcastConsole({ onDispatch }: MsmeBroadcastConsoleProps) 
     return () => {
       isMounted = false;
     };
-  }, [filters, selectedTemplateId, customNotice, accessToken]);
+  }, [filters, selectedTemplateId, customNotice, isAuthenticated]);
 
   // Selected DLT template
   const currentTemplate = useMemo(() => {
@@ -238,12 +237,11 @@ export function MsmeBroadcastConsole({ onDispatch }: MsmeBroadcastConsoleProps) 
         });
         setDispatchSuccessId(res.campaignId);
       } else {
-        const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:3001';
+        const apiUrl = '/api/backend';
         const response = await fetch(`${apiUrl}/admin/broadcast/dispatch`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           },
           body: JSON.stringify({
             filters: {

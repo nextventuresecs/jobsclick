@@ -32,7 +32,7 @@ interface ApiStudentRow {
 
 interface UseInstitutionWorkspaceProps {
   readonly user?: { id?: string } | null;
-  readonly accessToken?: string | null;
+  readonly isAuthenticated?: boolean;
   readonly addToast: (toast: {
     type: 'success' | 'error' | 'info';
     title: string;
@@ -51,7 +51,7 @@ export type InstitutionWorkspaceTab =
   | 'cms'
   | 'inquiries';
 
-export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInstitutionWorkspaceProps) {
+export function useInstitutionWorkspace({ user, isAuthenticated, addToast }: UseInstitutionWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<InstitutionWorkspaceTab>('overview');
   const [institution, setInstitution] =
     useState<InstitutionProfileData>(INITIAL_INSTITUTION_PROFILE);
@@ -78,18 +78,14 @@ export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInst
   // Mount effect to fetch remote institution profile, students, corporate tie-ups & placement pipeline
   useEffect(() => {
     let isMounted = true;
-    if (!user?.id || !accessToken) return;
+    if (!user?.id || !isAuthenticated) return;
 
     const apiUrl =
-      process.env['NEXT_PUBLIC_API_URL'] ||
-      process.env['API_URL'] ||
-      'http://localhost:3001';
-    const authHeader = `Bearer ${accessToken}`;
-    const userId = user.id;
+      '/api/backend';
 
     // 1. Fetch Institution Profile
     fetch(`${apiUrl}/profiles/institution/me`, {
-      headers: { Authorization: authHeader, 'x-user-id': userId },
+      headers: { },
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -116,7 +112,7 @@ export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInst
 
     // 2. Fetch Students Roster
     fetch(`${apiUrl}/profiles/institution/students`, {
-      headers: { Authorization: authHeader, 'x-user-id': userId },
+      headers: { },
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -141,7 +137,7 @@ export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInst
 
     // 3. Fetch Corporate Tie-Ups
     fetch(`${apiUrl}/placement/tie-ups`, {
-      headers: { Authorization: authHeader, 'x-user-id': userId },
+      headers: { },
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -152,7 +148,7 @@ export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInst
 
     // 4. Fetch Placement Applications Pipeline
     fetch(`${apiUrl}/placement/pipeline`, {
-      headers: { Authorization: authHeader, 'x-user-id': userId },
+      headers: { },
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -164,7 +160,7 @@ export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInst
     return () => {
       isMounted = false;
     };
-  }, [accessToken, user?.id, institution.id]);
+  }, [isAuthenticated, user?.id, institution.id]);
 
     const bulkUpload = useBulkUploadState(institution.institutionName, addToast);
   const filteredStudents = filterStudentsList(
@@ -294,7 +290,7 @@ export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInst
       return;
     }
 
-    if (!accessToken || !user?.id) {
+    if (!isAuthenticated || !user?.id) {
       addToast({
         type: 'error',
         title: 'Authentication Required',
@@ -304,18 +300,13 @@ export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInst
     }
 
     const apiUrl =
-      process.env['NEXT_PUBLIC_API_URL'] ||
-      process.env['API_URL'] ||
-      'http://localhost:3001';
-    const authHeader = `Bearer ${accessToken}`;
+      '/api/backend';
 
     try {
       const res = await fetch(`${apiUrl}/profiles/institution/me`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: authHeader,
-          'x-user-id': user.id,
         },
         body: JSON.stringify(validationResult.data),
       });

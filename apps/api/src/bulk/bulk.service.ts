@@ -1,4 +1,6 @@
-import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator.js';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject } from '@nestjs/common';
 import { BulkUploadInput, InviteWaveInput, normalizeIndianPhone } from '@indian-job-portal/validation';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { parse as parseCsvSync } from 'csv-parse/sync';
@@ -18,6 +20,7 @@ if (typeof globalThis.WebSocket === 'undefined') {
 }
 
 export interface BulkBatchRecord {
+  createdBy?: string | null;
   id: string;
   source: string;
   entityType: 'student' | 'employer';
@@ -91,13 +94,14 @@ export class BulkService {
     });
   }
 
-  async getSignedUploadUrl(fileName: string, _contentType = 'text/csv'): Promise<{
+  async getSignedUploadUrl(fileName: string, _contentType = 'text/csv', actor?: AuthenticatedUser): Promise<{
     signedUrl: string;
     storagePath: string;
     token: string;
   }> {
+    this.requireImporter(actor);
     const safeName = `${Date.now()}_${fileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-    const storagePath = `bulk-imports/${safeName}`;
+    const storagePath = `bulk-imports/${actor!.id}/${randomUUID()}_${safeName}`;
 
     if (this.isTestMode) {
       return {
@@ -122,22 +126,27 @@ export class BulkService {
     };
   }
 
-  async processBulkImport(input: BulkUploadInput, csvContent?: string): Promise<BulkBatchRecord> {
-    const batchId = `batch_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+  async processBulkImport(input: BulkUploadInput, csvContent?: string, actor?: AuthenticatedUser): Promise<BulkBatchRecord> {
+    this.requireImporter(actor);
+    if (actor!.role !== 'admin' && input.entityType !== (actor!.role === 'intermediary' ? 'student' : 'employer')) {
+      throw new ForbiddenException('BULK_ENTITY_FORBIDDEN');
+    }
+    if (input.storagePath) {
+      const prefix = `bulk-imports/${actor!.id}/`;
+      const leaf = input.storagePath.slice(prefix.length);
+      if (!input.storagePath.startsWith(prefix) || !/^[A-Za-z0-9_-][A-Za-z0-9._-]*$/.test(leaf)) {
+        throw new ForbiddenException('BULK_STORAGE_FORBIDDEN');
+      }
+    }
+    const batchId = randomUUID();
     const now = new Date().toISOString();
 
     // Direct Supabase Storage upload flow (Ticket T-08)
     if (input.storagePath) {
-      await this.queueService.publishBulkImportJob({
-        batchId,
-        source: input.source,
-        entityType: input.entityType,
-        storagePath: input.storagePath,
-      });
-
       if (this.isTestMode) {
         const record: BulkBatchRecord = {
           id: batchId,
+          createdBy: actor!.id,
           source: input.source,
           entityType: input.entityType || 'student',
           totalRows: 0,
@@ -159,6 +168,7 @@ export class BulkService {
       const { data: batch, error: insertError } = await this.supabase
         .from('bulk_import_batches')
         .insert({
+          created_by: actor!.id,
           source: input.source,
           entity_type: input.entityType || 'student',
           total_rows: 0,
@@ -172,6 +182,7 @@ export class BulkService {
         throw new BadRequestException(`Failed to create batch record: ${insertError?.message}`);
       }
 
+      await this.queueService.publishBulkImportJob({ batchId: batch.id, source: input.source, entityType: input.entityType, storagePath: input.storagePath });
       return this.toBatchRecord(batch);
     }
 
@@ -189,14 +200,6 @@ export class BulkService {
     if (records.length === 0) {
       throw new BadRequestException('CSV file is empty or has no data rows');
     }
-
-    // Publish to BullMQ bulk-import queue (Ticket T-07)
-    await this.queueService.publishBulkImportJob({
-      batchId,
-      source: input.source,
-      entityType: input.entityType,
-      csvContent,
-    });
 
     if (this.isTestMode) {
       let validCount = 0;
@@ -225,6 +228,7 @@ export class BulkService {
 
       const record: BulkBatchRecord = {
         id: batchId,
+        createdBy: actor!.id,
         source: input.source,
         entityType: input.entityType || 'student',
         totalRows: records.length,
@@ -246,6 +250,7 @@ export class BulkService {
     const { data: batch, error: insertError } = await this.supabase
       .from('bulk_import_batches')
       .insert({
+        created_by: actor!.id,
         source: input.source,
         entity_type: input.entityType || 'student',
         total_rows: records.length,
@@ -430,12 +435,13 @@ export class BulkService {
     }
   }
 
-  async getBatchStatus(batchId: string): Promise<BulkBatchRecord> {
+  async getBatchStatus(batchId: string, actor?: AuthenticatedUser): Promise<BulkBatchRecord> {
     if (this.isTestMode) {
       const batch = this.memBatches.get(batchId);
       if (!batch) {
         throw new NotFoundException('Import batch not found');
       }
+      this.assertOwner(batch.createdBy, actor);
       return batch;
     }
 
@@ -449,10 +455,12 @@ export class BulkService {
       throw new NotFoundException('Import batch not found');
     }
 
+    this.assertOwner(data.created_by, actor);
     return this.toBatchRecord(data);
   }
 
-  async getBatchErrorCsv(batchId: string): Promise<string> {
+  async getBatchErrorCsv(batchId: string, actor?: AuthenticatedUser): Promise<string> {
+    await this.getBatchStatus(batchId, actor);
     if (this.isTestMode) {
       const batch = this.memBatches.get(batchId);
       return batch?.errorCsvContent || 'row,phone,reason\n';
@@ -476,7 +484,9 @@ export class BulkService {
     return await fileData.text();
   }
 
-  async previewInviteWave(input: InviteWaveInput): Promise<{ waveSize: number; costPerSmsInr: number; totalCostInr: number }> {
+  async previewInviteWave(input: InviteWaveInput, actor?: AuthenticatedUser): Promise<{ waveSize: number; costPerSmsInr: number; totalCostInr: number }> {
+    this.requireInviter(actor);
+    await this.getBatchStatus(input.batchId, actor);
     const totalCostInr = Number((input.waveSize * input.costPerSmsInr).toFixed(2));
     return {
       waveSize: input.waveSize,
@@ -485,10 +495,33 @@ export class BulkService {
     };
   }
 
-  async scheduleInviteWave(input: InviteWaveInput, delaySeconds = 0): Promise<InviteWaveRecord> {
-    const preview = await this.previewInviteWave(input);
-    const waveId = `wave_${Date.now()}`;
+  async scheduleInviteWave(input: InviteWaveInput, delaySeconds = 0, actor?: AuthenticatedUser): Promise<InviteWaveRecord> {
+    const preview = await this.previewInviteWave(input, actor);
+    const waveId = randomUUID();
     const now = new Date().toISOString();
+
+    let wave: Record<string, unknown> | null = null;
+    if (!this.isTestMode) {
+      const { data: storedWave, error: insertError } = await this.supabase
+        .from('invite_waves')
+        .insert({
+          id: waveId,
+          created_by: actor!.id,
+          batch_id: input.batchId,
+          wave_size: input.waveSize,
+          cost_per_sms_inr: input.costPerSmsInr,
+          total_cost_inr: preview.totalCostInr,
+          status: 'dispatched' as TaskStatus,
+        })
+        .select()
+        .single();
+
+      if (insertError || !storedWave) {
+        throw new BadRequestException(`Failed to create wave record: ${insertError?.message}`);
+      }
+
+      wave = storedWave;
+    }
 
     const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
     const qstashResult = await this.qstashService.publishTask({
@@ -523,24 +556,8 @@ export class BulkService {
       return record;
     }
 
-    const { data: wave, error: insertError } = await this.supabase
-      .from('invite_waves')
-      .insert({
-        batch_id: input.batchId,
-        wave_size: input.waveSize,
-        cost_per_sms_inr: input.costPerSmsInr,
-        total_cost_inr: preview.totalCostInr,
-        status: 'dispatched' as TaskStatus,
-        qstash_message_id: qstashResult.messageId,
-      })
-      .select()
-      .single();
-
-    if (insertError || !wave) {
-      throw new BadRequestException(`Failed to create wave record: ${insertError?.message}`);
-    }
-
-    return this.toWaveRecord(wave);
+    await this.supabase.from('invite_waves').update({ qstash_message_id: qstashResult.messageId }).eq('id', waveId);
+    return this.toWaveRecord({ ...wave, qstash_message_id: qstashResult.messageId });
   }
 
   async executeInviteWaveJob(waveId: string): Promise<InviteWaveRecord> {
@@ -599,7 +616,11 @@ export class BulkService {
     return this.toWaveRecord(updated || wave);
   }
 
-  async updateWaveStatus(waveId: string, action: 'pause' | 'resume' | 'cancel'): Promise<InviteWaveRecord> {
+  async updateWaveStatus(waveId: string, action: 'pause' | 'resume' | 'cancel', actor?: AuthenticatedUser): Promise<InviteWaveRecord> {
+    this.requireInviter(actor);
+    const waveBatch = this.isTestMode ? this.memWaves.get(waveId)?.batchId : (await this.supabase.from('invite_waves').select('batch_id').eq('id', waveId).single()).data?.batch_id;
+    if (!waveBatch) throw new NotFoundException('BULK_NOT_FOUND');
+    await this.getBatchStatus(waveBatch, actor);
     if (this.isTestMode) {
       let wave = this.memWaves.get(waveId);
       if (!wave) {
@@ -708,10 +729,22 @@ export class BulkService {
     }
   }
 
+  private requireImporter(actor?: AuthenticatedUser): void {
+    if (!actor?.id || !['admin', 'intermediary', 'msme_admin'].includes(actor.role)) throw new ForbiddenException('BULK_ROLE_FORBIDDEN');
+  }
+  private requireInviter(actor?: AuthenticatedUser): void {
+    if (!actor?.id || !['admin', 'intermediary'].includes(actor.role)) throw new ForbiddenException('BULK_INVITE_FORBIDDEN');
+  }
+  private assertOwner(createdBy: string | null | undefined, actor?: AuthenticatedUser): void {
+    this.requireImporter(actor);
+    if (actor!.role !== 'admin' && (!createdBy || createdBy !== actor!.id)) throw new NotFoundException('BULK_NOT_FOUND');
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private toBatchRecord(row: any, statusOverride?: TaskStatus, messageIdOverride?: string): BulkBatchRecord {
     return {
       id: row.id,
+      createdBy: row.created_by,
       source: row.source,
       entityType: row.entity_type,
       totalRows: row.total_rows,

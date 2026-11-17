@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppContext } from '@/context/AppContext';
@@ -8,6 +9,7 @@ import { IndianPhoneSchema, SelfSignupRoleSchema } from '@indian-job-portal/vali
 const DPDP_CONSENT_VERSION = 'v1.2-2026-10';
 
 export function AuthModal() {
+  const t = useTranslations('Auth');
   const router = useRouter();
   const {
     isAuthModalOpen,
@@ -124,7 +126,7 @@ export function AuthModal() {
       return;
     }
 
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
+    const apiBaseUrl = '/api/auth';
     if (!apiBaseUrl) {
       setErrorMessage('Service configuration error: API URL is not configured.');
       return;
@@ -132,7 +134,7 @@ export function AuthModal() {
 
     try {
       setIsSubmitting(true);
-      const res = await fetch(`${apiBaseUrl}/auth/otp/send`, {
+      const res = await fetch(`${apiBaseUrl}/otp/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -153,7 +155,7 @@ export function AuthModal() {
 
       setNormalizedPhone(parsedPhone.data);
       setStep('otp');
-      setResendCooldown(30);
+      setResendCooldown(body.cooldownSeconds ?? 60);
       resetTurnstile();
       setTimeout(() => otpRefs.current[0]?.focus(), 50);
     } catch {
@@ -221,7 +223,7 @@ export function AuthModal() {
       return;
     }
 
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL;
+    const apiBaseUrl = '/api/auth';
     if (!apiBaseUrl) {
       setErrorMessage('Service configuration error: API URL is not configured.');
       return;
@@ -231,7 +233,7 @@ export function AuthModal() {
       setIsSubmitting(true);
 
       // 1. Verify OTP against NestJS backend
-      const verifyRes = await fetch(`${apiBaseUrl}/auth/otp/verify`, {
+      const verifyRes = await fetch(`${apiBaseUrl}/otp/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -239,31 +241,20 @@ export function AuthModal() {
           code,
           role: roleCheck.data,
           consentVersion: DPDP_CONSENT_VERSION,
-          consentTimestamp: new Date().toISOString(),
         }),
       });
 
       const verifyData = await verifyRes.json().catch(() => ({}));
-      if (!verifyRes.ok || !verifyData?.accessToken) {
+      if (!verifyRes.ok || !verifyData?.authenticated) {
         setErrorMessage(verifyData?.message || 'Invalid or expired verification code.');
         return;
       }
 
-      // 2. Exchange token into strict HttpOnly __Host- cookie via Next.js BFF
-      const sessionRes = await fetch('/api/auth/session', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: verifyData.accessToken }),
-      });
-
-      if (!sessionRes.ok) {
-        setErrorMessage('Failed to establish secure browser session.');
+      // 3. Hydrate server-verified user state and navigate to workspace
+      if (!(await refreshSession())) {
+        setErrorMessage(t('sessionFailed'));
         return;
       }
-
-      // 3. Hydrate server-verified user state and navigate to workspace
-      await refreshSession();
       addToast({
         type: 'success',
         title: 'Signed in securely',

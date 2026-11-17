@@ -44,15 +44,21 @@ export class InviteProcessor {
 
     const totalCostInr = Math.round(waveSize * costPerSmsInr * 100) / 100;
 
-    // Check status in DB if available to respect pause action
+    if (!this.supabase) throw new Error('INVITE_DATABASE_UNAVAILABLE');
+
+    // Check status before any SMS dispatch.
     if (this.supabase) {
-      const { data: currentWave } = await this.supabase
+      const { data: currentWave, error: waveError } = await this.supabase
         .from('invite_waves')
         .select('*')
         .eq('id', waveId)
         .single();
 
-      if (currentWave && (currentWave.status === 'paused' || currentWave.status === 'queued')) {
+      if (waveError || !currentWave || currentWave.batch_id !== batchId) throw new Error('INVITE_WAVE_BATCH_MISMATCH');
+      if (currentWave.status === 'completed' || currentWave.status === 'failed') {
+        return { waveId, batchId, waveSize, sentCount: currentWave.sent_count || 0, failedCount: currentWave.failed_count || 0, totalCostInr, status: currentWave.status };
+      }
+      if (currentWave.status === 'paused' || currentWave.status === 'queued') {
         console.log(`[InviteProcessor] Wave ${waveId} is currently paused/queued. Skipping dispatch.`);
         return {
           waveId,
@@ -74,61 +80,12 @@ export class InviteProcessor {
         .eq('id', waveId);
     }
 
-    // Scope invite dispatch to batchId and track per-recipient status (PR 4)
-    let recipients: Array<{ id?: string; phone: string; language?: 'en' | 'hi' }> = [];
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(batchId);
-
-    if (this.supabase && isUuid) {
-      try {
-        const { data: invitations } = await this.supabase
-          .from('invitations')
-          .select('id, phone')
-          .eq('batch_id', batchId)
-          .eq('status', 'pending')
-          .limit(waveSize);
-
-        if (invitations && invitations.length > 0) {
-          recipients = invitations.map((inv) => ({
-            id: inv.id,
-            phone: inv.phone,
-            language: 'en' as const,
-          }));
-        }
-      } catch {
-        // Fallback to users table if invitations lookup fails
-      }
-    }
-
-    // Fallback: If no invitations table entries, query users table scoped to invited state
-    if (recipients.length === 0 && this.supabase) {
-      try {
-        const { data: users } = await this.supabase
-          .from('users')
-          .select('id, phone, language')
-          .eq('status', 'invited')
-          .limit(waveSize);
-
-        if (users && users.length > 0) {
-          recipients = users.map((u) => ({
-            id: u.id,
-            phone: u.phone,
-            language: (u.language as 'en' | 'hi') || 'en',
-          }));
-        }
-      } catch {
-        // Fallback
-      }
-    }
-
-    // If still empty (e.g. mock unit tests with synthetic waveSize), populate synthetic recipient slots
-    if (recipients.length === 0) {
-      for (let i = 0; i < waveSize; i++) {
-        recipients.push({
-          phone: `9876543${String(i).padStart(3, '0')}`,
-          language: 'en',
-        });
-      }
-    }
+    // Never fall back to global users or synthetic phone numbers.
+    const { data: invitations, error: invitationError } = await this.supabase
+      .from('invitations').select('id, phone').eq('batch_id', batchId)
+      .eq('status', 'pending').limit(waveSize);
+    if (invitationError || !invitations) throw new Error('INVITE_RECIPIENT_LOOKUP_FAILED');
+    const recipients = invitations.map((inv) => ({ id: inv.id as string, phone: inv.phone as string, language: 'en' as const }));
 
     let sentCount = 0;
     let failedCount = 0;

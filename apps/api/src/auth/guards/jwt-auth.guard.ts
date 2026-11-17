@@ -75,6 +75,16 @@ export class JwtAuthGuard implements CanActivate {
     // 1. Cryptographically verify token via jose JwtService
     const claims = await this.jwtService.verifyAccessToken(token);
 
+    try {
+      if (await this.otpRedisService.isAccessTokenRevoked(claims.jti)) {
+        throw new UnauthorizedException('Token has been revoked');
+      }
+    } catch (err) {
+      if (err instanceof UnauthorizedException) throw err;
+      throw new ServiceUnavailableException('Authentication state service temporarily unavailable');
+    }
+    request['auth'] = { jti: claims.jti, exp: claims.exp };
+
     // 2. Load server-side state (Redis cluster with fallback to persistent database)
     const state = await this.loadUserState(claims.sub);
 

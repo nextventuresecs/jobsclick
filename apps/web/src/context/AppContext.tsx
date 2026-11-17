@@ -1,9 +1,9 @@
 'use client';
 
+import { useTranslations } from 'next-intl';
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import type { UserRole, ClientRole } from '@indian-job-portal/validation';
 import { toClientRole } from '@indian-job-portal/validation';
-import type { VerifiedSession } from '../lib/auth-session';
 
 export interface AuthenticatedUser {
   readonly id: string; // Strictly server-issued UUID
@@ -22,7 +22,6 @@ export interface ToastMessage {
 export interface AppContextValue {
   readonly user: AuthenticatedUser | null;
   readonly currentUserRole: ClientRole | null;
-  readonly accessToken: string | null;
   readonly isAuthenticated: boolean;
   readonly isLoadingSession: boolean;
   readonly isAuthModalOpen: boolean;
@@ -35,7 +34,7 @@ export interface AppContextValue {
   readonly closeRoleSwitcher: () => void;
   readonly loginAs: (role: ClientRole, session?: unknown) => void;
   readonly logout: (signOutAll?: boolean) => Promise<void>;
-  readonly refreshSession: () => Promise<AuthenticatedUser | null>;
+  readonly refreshSession: (background?: boolean) => Promise<AuthenticatedUser | null>;
   readonly signOut: () => Promise<void>;
   readonly addToast: (toast: Omit<ToastMessage, 'id'>) => void;
   readonly removeToast: (id: string) => void;
@@ -46,21 +45,12 @@ const AppContext = createContext<AppContextValue | undefined>(undefined);
 export function AppProvider({
   children,
   initialUser = null,
-  initialSession = null,
 }: {
   readonly children: React.ReactNode;
   readonly initialUser?: AuthenticatedUser | null;
-  readonly initialSession?: VerifiedSession | null;
 }) {
-  const resolvedInitialUser: AuthenticatedUser | null =
-    initialUser ??
-    (initialSession
-      ? {
-          id: initialSession.sub,
-          role: initialSession.role as UserRole,
-          status: initialSession.status,
-        }
-      : null);
+  const t = useTranslations('Auth');
+  const resolvedInitialUser = initialUser;
 
   const [user, setUser] = useState<AuthenticatedUser | null>(resolvedInitialUser);
   const [isLoadingSession, setIsLoadingSession] = useState<boolean>(!resolvedInitialUser);
@@ -84,9 +74,9 @@ export function AppProvider({
     [removeToast]
   );
 
-  const refreshSession = useCallback(async (): Promise<AuthenticatedUser | null> => {
+  const refreshSession = useCallback(async (background = false): Promise<AuthenticatedUser | null> => {
     try {
-      setIsLoadingSession(true);
+      if (!background) setIsLoadingSession(true);
       const res = await fetch('/api/auth/session', {
         method: 'GET',
         credentials: 'include',
@@ -101,7 +91,7 @@ export function AppProvider({
 
       const data = await res.json();
       if (data?.authenticated && data?.user?.id && data?.user?.role) {
-        setUser(data.user);
+        setUser((previous) => previous && previous.id === data.user.id && previous.role === data.user.role && previous.status === data.user.status ? previous : data.user);
         return data.user as AuthenticatedUser;
       }
 
@@ -111,7 +101,7 @@ export function AppProvider({
       setUser(null);
       return null;
     } finally {
-      setIsLoadingSession(false);
+      if (!background) setIsLoadingSession(false);
     }
   }, []);
 
@@ -120,6 +110,17 @@ export function AppProvider({
       void refreshSession();
     }
   }, [resolvedInitialUser, refreshSession]);
+
+  useEffect(() => {
+    const refresh = () => { void refreshSession(true); };
+    const onVisibility = () => { if (document.visibilityState === 'visible') refresh(); };
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [refreshSession]);
 
   const openAuthModal = useCallback(
     (defaultRole: 'job_seeker' | 'employer' | ClientRole = 'job_seeker') => {
@@ -142,21 +143,24 @@ export function AppProvider({
     setIsRoleSwitcherOpen(false);
   }, []);
 
-  const signOut = useCallback(async () => {
+  const signOut = useCallback(async (allDevices = false) => {
     try {
-      await fetch('/api/auth/session', {
+      const response = await fetch(`/api/auth/session${allDevices ? '?allDevices=true' : ''}`, {
         method: 'DELETE',
         credentials: 'include',
       });
-    } finally {
+      if (!response.ok) throw new Error('AUTH_SIGNOUT_FAILED');
+
       setUser(null);
       window.location.assign('/');
+    } catch {
+      addToast({ type: 'error', title: t('signOutFailed') });
     }
-  }, []);
+  }, [addToast, t]);
 
   const logout = useCallback(
     async (_signOutAll = false) => {
-      return signOut();
+      return signOut(_signOutAll);
     },
     [signOut]
   );
@@ -172,13 +176,11 @@ export function AppProvider({
   // Strictly derived from verified server user object + active status
   const isAuthenticated = Boolean(user && user.id && user.status === 'active');
   const currentUserRole = user ? toClientRole(user.role) : null;
-  const accessToken = null;
 
   const contextValue = useMemo<AppContextValue>(
     () => ({
       user,
       currentUserRole,
-      accessToken,
       isAuthenticated,
       isLoadingSession,
       isAuthModalOpen,
@@ -199,7 +201,6 @@ export function AppProvider({
     [
       user,
       currentUserRole,
-      accessToken,
       isAuthenticated,
       isLoadingSession,
       isAuthModalOpen,

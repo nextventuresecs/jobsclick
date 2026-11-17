@@ -43,7 +43,7 @@ const defaultEmptySeekerProfile: SeekerProfileData = {
 
 export function useSeekerWorkspace() {
   const t = useTranslations('SeekerWorkspace');
-  const { user, accessToken, addToast } = useApp();
+  const { user, isAuthenticated, addToast } = useApp();
   const [activeTab, setActiveTab] = useState<'overview' | 'applications' | 'profile' | 'cv-preview'>('overview');
   const [profile, setProfile] = useState<SeekerProfileData>(defaultEmptySeekerProfile);
   const [applications, setApplications] = useState<readonly ApplicationData[]>([]);
@@ -59,15 +59,13 @@ export function useSeekerWorkspace() {
   // Mount effect to fetch remote profile, applications, credit balance, & live recommendations
   useEffect(() => {
     let isMounted = true;
-    if (!user?.id && !accessToken) {
+    if (!user?.id && !isAuthenticated) {
       return () => { isMounted = false; };
     }
 
     const apiUrl =
-      process.env['NEXT_PUBLIC_API_URL'] ||
-      process.env['API_URL'] ||
-      'http://localhost:3001';
-    const authHeader = accessToken ? `Bearer ${accessToken}` : '';
+      '/api/backend';
+    const authHeader = '';
     const userId = user?.id || '';
 
     const loadRecommendations = (category?: string) => {
@@ -112,7 +110,7 @@ export function useSeekerWorkspace() {
 
     // 3. Fetch Credit Ledger Balance
     fetch(`${apiUrl}/wallet/balance`, {
-      headers: { Authorization: authHeader, 'x-user-id': userId },
+      headers: { },
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((balanceData) => {
@@ -124,7 +122,7 @@ export function useSeekerWorkspace() {
     return () => {
       isMounted = false;
     };
-  }, [accessToken, user?.id]);
+  }, [isAuthenticated, user?.id]);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,7 +162,7 @@ export function useSeekerWorkspace() {
       return;
     }
 
-    if (!accessToken || !user?.id) {
+    if (!isAuthenticated || !user?.id) {
       addToast({
         type: 'error',
         title: 'Authentication Required',
@@ -174,10 +172,8 @@ export function useSeekerWorkspace() {
     }
 
     const apiUrl =
-      process.env['NEXT_PUBLIC_API_URL'] ||
-      process.env['API_URL'] ||
-      'http://localhost:3001';
-    const authHeader = `Bearer ${accessToken}`;
+      '/api/backend';
+    const authHeader = '';
     const userId = user.id;
 
     try {

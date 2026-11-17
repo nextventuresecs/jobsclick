@@ -7,6 +7,7 @@ import { signSessionToken, SESSION_COOKIE_NAME } from '@/lib/auth-session';
 describe('PR 4: Bulk Onboarding (Web & Normalization)', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000';
     process.env.JWT_SECRET = 'a-super-secret-jwt-key-that-is-at-least-32-characters-long!';
   });
 
@@ -59,7 +60,7 @@ describe('PR 4: Bulk Onboarding (Web & Normalization)', () => {
       const response = await handlePostBatch(req);
       expect(response.status).toBe(401);
       const json = await response.json();
-      expect(json.error).toMatch(/Authentication required/i);
+      expect(json.code).toBe('AUTH_REQUIRED');
     });
 
     it('forwards verified session identity to backend API without spoofable client input', async () => {
@@ -68,7 +69,7 @@ describe('PR 4: Bulk Onboarding (Web & Normalization)', () => {
           return Promise.resolve(
             new Response(
               JSON.stringify({
-                user: { id: 'usr_test_123', name: 'Authorized Officer', phone: '9876543210', role: 'admin' },
+                id: '11111111-2222-3333-4444-555555555555', role: 'msme_admin', status: 'active',
               }),
               { status: 200, headers: { 'Content-Type': 'application/json' } },
             ),
@@ -93,7 +94,7 @@ describe('PR 4: Bulk Onboarding (Web & Normalization)', () => {
 
       const validToken = signSessionToken({
         id: '11111111-2222-3333-4444-555555555555',
-        role: 'employer',
+        role: 'msme_admin',
         status: 'active',
       });
 
@@ -101,6 +102,7 @@ describe('PR 4: Bulk Onboarding (Web & Normalization)', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          origin: 'http://localhost:3000',
           cookie: `${SESSION_COOKIE_NAME}=${validToken}`,
         },
         body: JSON.stringify({
@@ -119,7 +121,7 @@ describe('PR 4: Bulk Onboarding (Web & Normalization)', () => {
       const backendCall = mockFetch.mock.calls.find((call) => call[0].includes('/bulk/batches'));
       expect(backendCall).toBeDefined();
       const sentBody = JSON.parse(backendCall![1].body);
-      expect(sentBody.source).toBe('Enterprise_11111111');
+      expect(sentBody.source).toBe('MSME_11111111');
       expect(sentBody.source).not.toBe('Spoofed Untrusted Source');
     });
   });

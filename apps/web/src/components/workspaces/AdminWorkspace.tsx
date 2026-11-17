@@ -24,7 +24,7 @@ import {
 
 export function AdminWorkspace({ isMsmeDept = false }: { readonly isMsmeDept?: boolean }) {
   const t = useTranslations('AdminWorkspace');
-  const { user, accessToken } = useApp();
+  const { user, isAuthenticated } = useApp();
   const [activeTab, setActiveTab] = useState<'overview' | 'broadcast' | 'reports' | 'jobs' | 'businesses' | 'audit'>(isMsmeDept ? 'broadcast' : 'overview');
   const [auditLogs, setAuditLogs] = useState<readonly AuditLogEntryData[]>([]);
   const [jobs, setJobs] = useState<readonly JobItem[]>([]);
@@ -39,13 +39,11 @@ export function AdminWorkspace({ isMsmeDept = false }: { readonly isMsmeDept?: b
   useEffect(() => {
     let isMounted = true;
     const abortCtrl = new AbortController();
-    const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || process.env['API_URL'] || 'http://localhost:3001';
-    const authHeader = accessToken ? `Bearer ${accessToken}` : `Bearer jwt_session_${user?.id || 'admin_root'}_${Date.now()}`;
-    const adminId = user?.id || 'admin_root';
+    const apiUrl = '/api/backend';
 
     // 1. Fetch Live Audit Logs
     fetch(`${apiUrl}/admin/audit-logs`, {
-      headers: { Authorization: authHeader, 'x-user-id': adminId },
+      headers: { },
       signal: abortCtrl.signal,
     })
       .then((res) => (res.ok ? res.json() : null))
@@ -81,7 +79,7 @@ export function AdminWorkspace({ isMsmeDept = false }: { readonly isMsmeDept?: b
 
     // 3. Fetch Live Analytics Reports
     fetch(`${apiUrl}/admin/reports/analytics`, {
-      headers: { Authorization: authHeader, 'x-user-id': adminId },
+      headers: { },
       signal: abortCtrl.signal,
     })
       .then((res) => (res.ok ? res.json() : null))
@@ -95,7 +93,7 @@ export function AdminWorkspace({ isMsmeDept = false }: { readonly isMsmeDept?: b
       isMounted = false;
       abortCtrl.abort();
     };
-  }, [accessToken, user?.id]);
+  }, [isAuthenticated, user?.id]);
 
   const filteredLogs = auditLogs.filter((l) => {
     if (!searchLog.trim()) return true;

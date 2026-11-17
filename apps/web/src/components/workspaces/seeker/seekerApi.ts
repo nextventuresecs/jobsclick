@@ -18,15 +18,13 @@ interface ApiCandidateAppRow {
 
 export async function fetchSeekerProfile(
   apiUrl: string,
-  authHeader: string,
-  userId: string
+  _authHeader: string,
+  _userId: string
 ): Promise<Partial<SeekerProfileData> | null> {
   try {
     const res = await fetch(`${apiUrl}/profiles/seeker/me`, {
       headers: {
-        Authorization: authHeader,
-        'x-user-id': userId,
-      },
+        },
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -67,15 +65,13 @@ export async function fetchSeekerProfile(
 
 export async function fetchSeekerApplications(
   apiUrl: string,
-  authHeader: string,
-  userId: string
+  _authHeader: string,
+  _userId: string
 ): Promise<ApplicationData[]> {
   try {
     const res = await fetch(`${apiUrl}/jobs/applications/my`, {
       headers: {
-        Authorization: authHeader,
-        'x-user-id': userId,
-      },
+        },
     });
     if (!res.ok) return [];
     const appsData = await res.json();
@@ -102,8 +98,8 @@ export async function fetchSeekerApplications(
 
 export async function saveSeekerProfile(
   apiUrl: string,
-  authHeader: string,
-  userId: string,
+  _authHeader: string,
+  _userId: string,
   payload: Record<string, unknown>
 ): Promise<{ success: boolean; completenessScore?: number }> {
   try {
@@ -111,9 +107,7 @@ export async function saveSeekerProfile(
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: authHeader,
-        'x-user-id': userId,
-      },
+        },
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
@@ -126,7 +120,7 @@ export async function saveSeekerProfile(
     const saved = await res.json();
     return { success: true, completenessScore: saved?.completenessScore };
   } catch (err) {
-    Sentry.captureException(err, { extra: { apiUrl, userId } });
+    Sentry.captureException(err, { extra: { apiUrl, _userId } });
     throw err;
   }
 }

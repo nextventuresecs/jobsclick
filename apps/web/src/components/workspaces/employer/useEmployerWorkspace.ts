@@ -16,11 +16,11 @@ import { loadEmployerWorkspaceData } from './loadEmployerWorkspaceData';
 
 interface UseEmployerWorkspaceProps {
   readonly user: { id?: string } | null;
-  readonly accessToken: string | null;
+  readonly isAuthenticated?: boolean;
   readonly addToast: (toast: { type: 'success' | 'error' | 'info'; title: string; message: string }) => void;
 }
 
-export function useEmployerWorkspace({ user, accessToken, addToast }: UseEmployerWorkspaceProps) {
+export function useEmployerWorkspace({ user, isAuthenticated, addToast }: UseEmployerWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'post-job' | 'manage-jobs' | 'applicants' | 'qr-code' | 'profile'>('overview');
   const [company, setCompany] = useState<CompanyItem>({
     id: user?.id || '',
@@ -61,8 +61,8 @@ export function useEmployerWorkspace({ user, accessToken, addToast }: UseEmploye
     return true;
   });
 
-  const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || process.env['API_URL'] || 'http://localhost:3001';
-  const authHeader = accessToken ? `Bearer ${accessToken}` : '';
+  const apiUrl = '/api/backend';
+  const authHeader = '';
   const userId = user?.id || '';
 
   useEffect(() => {
@@ -70,7 +70,7 @@ export function useEmployerWorkspace({ user, accessToken, addToast }: UseEmploye
       apiUrl, authHeader, userId, company,
       setCompany, syncFromBusinessProfile, setCompanyJobs, setApplicants,
     });
-  }, [accessToken, user, company.id]);
+  }, [isAuthenticated, user, company.id]);
 
   const handlePostJob = async (e: React.FormEvent) => {
     e.preventDefault();

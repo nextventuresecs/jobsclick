@@ -163,7 +163,7 @@ describe('PR 2: No Fake Success (P1)', () => {
       });
 
       await expect(
-        updateInstitutionCms('http://localhost:3001', 'fake_token', {
+        updateInstitutionCms('http://localhost:3001', true, {
           courses: [],
           subjects: [],
           feeStructure: [],
@@ -183,7 +183,7 @@ describe('PR 2: No Fake Success (P1)', () => {
       });
 
       await expect(
-        updateInquiryStatus('http://localhost:3001', 'fake_token', 'inq_123', 'contacted')
+        updateInquiryStatus('http://localhost:3001', true, 'inq_123', 'contacted')
       ).rejects.toThrow(/Failed to update inquiry status/);
     });
   });

@@ -1,9 +1,9 @@
 'use client';
 
+import { useApp } from '../../../context/AppContext';
 import React, { useState } from 'react';
 import * as Sentry from '@sentry/nextjs';
 import { useTranslations } from 'next-intl';
-import { useApp } from '../../../context/AppContext';
 import { Button } from '@indian-job-portal/ui';
 import { Sparkles, CheckCircle, AlertCircle, X, Clock } from 'lucide-react';
 import { RechargeModal } from '../../wallet/RechargeModal';
@@ -24,8 +24,8 @@ export function PromoteJobModal({
   onPromoted,
 }: PromoteJobModalProps) {
   const t = useTranslations('EmployerWorkspace');
-  const { accessToken, user } = useApp();
-  const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:3001';
+  const { user } = useApp();
+  const apiUrl = '/api/backend';
   const [isOpen, setIsOpen] = useState(false);
   const [isRechargeOpen, setIsRechargeOpen] = useState(false);
   const [durationDays, setDurationDays] = useState<7 | 14 | 30>(7);
@@ -42,7 +42,6 @@ export function PromoteJobModal({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify({ durationDays }),
       });

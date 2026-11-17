@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import * as Sentry from '@sentry/nextjs';
 import { useTranslations } from 'next-intl';
-import { useApp } from '../../context/AppContext';
 import { Button } from '@indian-job-portal/ui';
 import { Bell, CheckCircle, AlertCircle, X } from 'lucide-react';
 
@@ -19,8 +18,7 @@ export function SaveSearchAlertModal({
   currentCategory = '',
 }: SaveSearchAlertModalProps) {
   const t = useTranslations('JobsPage');
-  const { accessToken } = useApp();
-  const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:3001';
+  const apiUrl = '/api/backend';
   const [isOpen, setIsOpen] = useState(false);
   const [title, setTitle] = useState(
     currentKeyword || currentCity
@@ -43,7 +41,6 @@ export function SaveSearchAlertModal({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         body: JSON.stringify({
           title: title.trim(),

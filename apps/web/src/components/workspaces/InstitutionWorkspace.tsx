@@ -31,7 +31,7 @@ import {
 
 export function InstitutionWorkspace() {
   const t = useTranslations('InstitutionWorkspace');
-  const { user, accessToken, addToast } = useApp();
+  const { user, isAuthenticated, addToast } = useApp();
 
   const {
     activeTab,
@@ -64,7 +64,7 @@ export function InstitutionWorkspace() {
     handleScheduleWave,
     handleQuickAddStudent,
     handleSaveProfile,
-  } = useInstitutionWorkspace({ user, accessToken, addToast });
+  } = useInstitutionWorkspace({ user, isAuthenticated, addToast });
 
   return (
     <div className="space-y-8">

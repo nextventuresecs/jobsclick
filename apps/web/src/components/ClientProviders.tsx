@@ -4,17 +4,17 @@ import React from 'react';
 import { AppProvider } from '../context/AppContext';
 import { AuthModal } from './auth/AuthModal';
 import { ToastContainer } from './ui/ToastContainer';
-import type { VerifiedSession } from '../lib/auth-session';
+import type { AuthenticatedUser } from '../context/AppContext';
 
 export function ClientProviders({
   children,
-  initialSession,
+  initialUser,
 }: {
   readonly children: React.ReactNode;
-  readonly initialSession?: VerifiedSession | null;
+  readonly initialUser?: AuthenticatedUser | null;
 }) {
   return (
-    <AppProvider initialSession={initialSession}>
+    <AppProvider initialUser={initialUser}>
       {children}
       <AuthModal />
       <ToastContainer />

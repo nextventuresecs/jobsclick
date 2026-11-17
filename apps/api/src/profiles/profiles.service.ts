@@ -113,7 +113,7 @@ export class ProfilesService {
     const completenessScore = this.calculateCompleteness(input);
     const existing = await this.profileRepository.findSeekerProfileByUserId(userId);
     const now = new Date().toISOString();
-    const id = existing?.id || `seeker_${userId}`;
+    const id = existing?.id || randomUUID();
 
     const row: JobSeekerProfileRow = {
       id,
@@ -325,7 +325,7 @@ export class ProfilesService {
     input: InstitutionProfileInput,
   ): Promise<InstitutionProfileRecord> {
     const existing = await this.profileRepository.findInstitutionProfileByUserId(userId);
-    const id = existing?.id || `inst_${userId}`;
+    const id = existing?.id || randomUUID();
     const now = new Date().toISOString();
 
     const row: InstitutionProfileRow = {

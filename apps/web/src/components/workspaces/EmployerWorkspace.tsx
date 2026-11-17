@@ -19,7 +19,7 @@ import { Briefcase, Eye, PlusCircle, Users, Building2, QrCode } from 'lucide-rea
 
 export function EmployerWorkspace() {
   const t = useTranslations('EmployerWorkspace');
-  const { user, accessToken, addToast } = useApp();
+  const { user, isAuthenticated, addToast } = useApp();
 
   const {
     activeTab, setActiveTab, company, isOnboardingComplete,
@@ -28,7 +28,7 @@ export function EmployerWorkspace() {
     handlePostJob, handleUpdateStatus, handleSaveProfile,
     applicantSearch, setApplicantSearch, statusFilter, setStatusFilter,
     editFormData, postJobState,
-  } = useEmployerWorkspace({ user, accessToken, addToast });
+  } = useEmployerWorkspace({ user, isAuthenticated, addToast });
 
   return (
     <div className="space-y-8">

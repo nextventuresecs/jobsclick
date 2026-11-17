@@ -213,7 +213,7 @@ Duplicate Person,9876543210`;
       payload: {
         source: 'Indore Institute of Science & Tech',
         entityType: 'student',
-        storagePath: 'bulk-imports/mock_50k_batch.csv',
+        storagePath: 'bulk-imports/usr_admin_tester/mock_50k_batch.csv',
       },
     });
 

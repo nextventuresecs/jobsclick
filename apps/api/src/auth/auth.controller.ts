@@ -1,5 +1,9 @@
 import {
   Body,
+  Get,
+  Res,
+  ForbiddenException,
+  UnauthorizedException,
   Controller,
   Req,
   Post,
@@ -14,6 +18,9 @@ import { AuthService } from './auth.service.js';
 import { Public } from './decorators/public.decorator.js';
 import { CurrentUser, AuthenticatedUser } from './decorators/current-user.decorator.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
+import { JwtService } from './jwt.service.js';
+import { OtpRedisService } from './otp-redis.service.js';
+import type { FastifyReply } from 'fastify';
 import type { FastifyRequest } from 'fastify';
 import { getClientIp } from '../common/ip-normalizer.js';
 import {
@@ -25,7 +32,11 @@ import {
 @Controller('auth')
 @UseGuards(JwtAuthGuard)
 export class AuthController {
-  constructor(@Inject(AuthService) private readonly authService: AuthService) {}
+  constructor(
+    @Inject(AuthService) private readonly authService: AuthService,
+    @Inject(JwtService) private readonly jwtService: JwtService,
+    @Inject(OtpRedisService) private readonly otpRedisService: OtpRedisService,
+  ) {}
 
   @Public()
   @Post(['otp/send', 'send-otp'])
@@ -54,6 +65,38 @@ export class AuthController {
       throw new BadRequestException(parsed.error.flatten());
     }
     return this.authService.verifyOtp(parsed.data, clientIp);
+  }
+
+  @Public()
+  @Post('browser/otp/verify')
+  @HttpCode(HttpStatus.OK)
+  async browserVerifyOtp(@Body() body: unknown, @Req() req: FastifyRequest, @Res({ passthrough: true }) reply: FastifyReply) {
+    const origin = req.headers.origin;
+    const expectedOrigin = process.env['WEB_URL'];
+    if (!expectedOrigin || !origin || new URL(expectedOrigin).origin !== origin) {
+      throw new ForbiddenException('AUTH_ORIGIN_INVALID');
+    }
+    const result = await this.verifyOtp(body, req);
+    const claims = await this.jwtService.verifyAccessToken(result.accessToken);
+    const name = process.env['NODE_ENV'] === 'production' ? '__Host-jc_session' : 'jc_session';
+    const secure = process.env['NODE_ENV'] === 'production' ? '; Secure' : '';
+    reply.header('Set-Cookie', `${name}=${result.accessToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.max(0, claims.exp - Math.floor(Date.now() / 1000))}${secure}`);
+    reply.header('Cache-Control', 'no-store');
+    return { authenticated: true, user: { id: result.user.id, role: result.user.role, status: result.user.status } };
+  }
+
+  @Get('me')
+  async me(@CurrentUser() user: AuthenticatedUser, @Res({ passthrough: true }) reply: FastifyReply) {
+    reply.header('Cache-Control', 'no-store');
+    return { id: user.id, role: user.role, status: 'active' };
+  }
+
+  @Post('sign-out')
+  @HttpCode(HttpStatus.OK)
+  async signOut(@Req() req: FastifyRequest & { auth?: { jti: string; exp: number } }) {
+    if (!req.auth) throw new UnauthorizedException('AUTH_REQUIRED');
+    await this.otpRedisService.revokeAccessToken(req.auth.jti, req.auth.exp);
+    return { success: true };
   }
 
   @Post('email/add')
