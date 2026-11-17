@@ -752,6 +752,41 @@ isOneToOne: false
           CompositeTypes: {
             [_ in never]: never
           }
+        },"private_payments": {
+          Tables: {
+            "payment_grants": {
+                  Row: {
+                    "created_at": string,"fingerprint": NonNullable<Json>,"payment_id": string,"purpose": string,"request_key": string,"result": NonNullable<Json>,"target_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"fingerprint": NonNullable<Json>,"payment_id": string,"purpose": string,"request_key": string,"result": NonNullable<Json>,"target_id": string
+                  }
+                  Update: {
+                    "created_at"?: string,"fingerprint"?: NonNullable<Json>,"payment_id"?: string,"purpose"?: string,"request_key"?: string,"result"?: NonNullable<Json>,"target_id"?: string
+                  }
+                  Relationships: [
+
+                  ]
+                }
+          }
+          Views: {
+            [_ in never]: never
+          }
+          Functions: {
+            "activate_sponsorship":
+{ Args: { "p_actor": string,"p_count": number,"p_force": boolean,"p_institution": string,"p_key": string,"p_reference": string }; Returns: Json
+                           },
+"settle_payment":
+{ Args: { "p_amount_paise": number,"p_currency": string,"p_gateway": string,"p_invoice": string,"p_order": string,"p_processed_by": string,"p_signature": string }; Returns: Json
+                           }
+          }
+          Enums: {
+            [_ in never]: never
+          }
+          CompositeTypes: {
+            [_ in never]: never
+          }
         },"public": {
           Tables: {
             "alert_deliveries": {
@@ -1485,8 +1520,14 @@ isOneToOne: false
 "promote_job_with_ledger":
 { Args: { "p_cost": number,"p_duration_days": number,"p_job_id": string,"p_user_id": string }; Returns: Json
                            },
+"rpc_activate_sponsorship":
+{ Args: { "p_actor": string,"p_count"?: number,"p_force"?: boolean,"p_institution": string,"p_key"?: string,"p_reference": string }; Returns: Json
+                           },
 "rpc_claim_invited_account":
 { Args: { "p_auth_user_id": string,"p_request_id": string }; Returns: Json
+                           },
+"rpc_settle_payment":
+{ Args: { "p_amount_paise": number,"p_currency": string,"p_gateway": string,"p_invoice": string,"p_order": string,"p_processed_by"?: string,"p_signature"?: string }; Returns: Json
                            },
 "search_jobs":
 { Args: { "p_category"?: string,"p_city"?: string,"p_keyword"?: string,"p_limit"?: number,"p_min_pay"?: number,"p_offset"?: number }; Returns: {
@@ -2084,6 +2125,10 @@ export const Constants = {
 
           }
         },"private_auth": {
+          Enums: {
+
+          }
+        },"private_payments": {
           Enums: {
 
           }
