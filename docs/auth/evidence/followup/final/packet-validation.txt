@@ -1,0 +1,1 @@
+PASS: all local documentation links resolve; current results, known failures, pending decisions and S6 stop are explicit.

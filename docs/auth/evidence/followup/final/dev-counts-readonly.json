@@ -1,0 +1,11 @@
+{
+  "target": "persistent local dev 127.0.0.1:54322/postgres",
+  "transaction": "READ ONLY",
+  "counts": {
+    "application_users": 251250,
+    "fixture_source": 249950,
+    "unclassified": 1300,
+    "auth_users": 1
+  },
+  "disposition": "Reviewed backup/reset planned; reset pending backup and ownership confirmation; no reset or deletion performed"
+}

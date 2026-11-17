@@ -1,0 +1,18 @@
+[
+  {
+    "checkout": "indian-job-portal",
+    "branch": "feat/public-slugs-id-02",
+    "head": "00a58043351dbb4be92b7dfce2eadebcfd3409df",
+    "statusEntries": 1,
+    "statusSha256": "3f9d32bcc982f50ecf24008ce177068fb606c792198df7c4b4ea4c90b62e2a2c",
+    "agentEditsDuringFollowup": false
+  },
+  {
+    "checkout": "indian-job-portal-remediation",
+    "branch": "feat/bulk-onboarding",
+    "head": "65c5f4c2cfb4aebff805ae66d38854a9edc124f9",
+    "statusEntries": 92,
+    "statusSha256": "4cce9585a6480524b452939c532ee8ab3aee24567b6d5385d4e90938bd9debc8",
+    "agentEditsDuringFollowup": false
+  }
+]

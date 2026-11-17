@@ -1,0 +1,12 @@
+Project: jc-auth-test-bc2bf818
+Exit: 0
+/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/.scratch/auth-disposable/jc-auth-test-bc2bf818/supabase/tests/auth_claims_v21.pgtap.sql .... ok
+/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/.scratch/auth-disposable/jc-auth-test-bc2bf818/supabase/tests/auth_contacts_v21.pgtap.sql .. ok
+All tests successful.
+Files=2, Tests=12,  0 wallclock secs ( 0.02 usr  0.01 sys +  0.02 cusr  0.02 csys =  0.07 CPU)
+Result: PASS
+Target: local stack (127.0.0.1:57165)
+psql:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/.scratch/auth-disposable/jc-auth-test-bc2bf818/supabase/tests/auth_claims_v21.pgtap.sql:2: NOTICE:  extension "pgtap" already exists, skipping
+psql:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/.scratch/auth-disposable/jc-auth-test-bc2bf818/supabase/tests/auth_contacts_v21.pgtap.sql:2: NOTICE:  extension "pgtap" already exists, skipping
+A new version of Supabase CLI is available: v3.2.0 (currently installed v3.1.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

@@ -1,0 +1,3 @@
+Project: jc-auth-test-bc2bf818
+Exit: 0
+{"mode":"--check","schemas":["_realtime","auth","extensions","graphql","graphql_public","pgbouncer","private_auth","public","realtime","storage","supabase_functions","supabase_migrations","vault"],"bytes":126467,"target":"packages/database/src/generated.types.ts","project":"jc-auth-test-bc2bf818"}

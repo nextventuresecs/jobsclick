@@ -1,0 +1,25 @@
+Exit: 0
+✔ AUTH CI runs a dedicated disposable migration contract job (0.8777ms)
+✔ AUTH CI contains no shared database targets, credentials or secret expressions (0.4294ms)
+✔ deploy-staging cannot report success from a placeholder (0.6053ms)
+✔ deploy-production cannot report success from a placeholder (0.3283ms)
+✔ test-mode JSON persistence refuses an unmarked working directory (742.0165ms)
+✔ JSON fixtures live only under the marked run directory (863.792ms)
+✔ rejects the persistent dev DB even with an explicit opt-in flag (1.7941ms)
+✔ rejects missing or mismatched run manifests (0.3386ms)
+✔ accepts only the exact provisioned localhost endpoints (0.3342ms)
+✔ network backstop rejects hardcoded dev ports and remote connections (0.2364ms)
+✔ parses CLI v3 status JSON surrounded by local startup notices (2.7359ms)
+✔ standalone database tools refuse an absent run marker before connecting (1.0343ms)
+✔ db-security-drill.ts refuses an unmarked target before opening a connection (832.0578ms)
+✔ smoke-postgrest.ts refuses an unmarked target before opening a connection (718.163ms)
+✔ generate-types.js refuses an unmarked target before opening a connection (744.1471ms)
+✔ fresh drill refuses caller-selected databases (715.7194ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5154.5376

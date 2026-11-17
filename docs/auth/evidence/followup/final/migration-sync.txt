@@ -1,0 +1,5 @@
+[check-migration-sync] SUCCESS: supabase/migrations and packages/database/supabase/migrations are byte-identical.
+(node:22740) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal-remediation/.scratch/auth-review/scripts/ci/check-migration-sync.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)

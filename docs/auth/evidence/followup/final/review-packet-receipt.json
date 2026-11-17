@@ -1,0 +1,15 @@
+{
+  "item": "17-review-packet",
+  "kind": "documentation",
+  "branch": "codex/auth-17-review-packet",
+  "commit": "88ace6fd4acf6144a34a813031b129d66c4c76ba",
+  "files": [
+    "docs/auth/REVIEW_PACKET.md",
+    "docs/auth/evidence/review/M2-COVERAGE.md",
+    "docs/auth/F0-REVIEW-GATES.md",
+    "docs/auth/BLOCKED.md",
+    "docs/auth/S4_NATIVE_OTP.md",
+    "docs/decisions/002-supabase-auth-migration-plan.md"
+  ],
+  "gate": "no code changes; whitespace and explicit-file selection checked"
+}
