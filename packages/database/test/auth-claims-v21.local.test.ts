@@ -16,7 +16,7 @@ describe.runIf(process.env['RUN_LOCAL_SUPABASE'] === '1')('AUTH-01 v2.1 atomic i
     const phone = `8${randomInt(100000000, 999999999)}`;
     providerIds.push(authId);
     await database.query(`insert into ${schema}.users(id,phone,role,status,source) values($1,$2,'employer','invited','synthetic-v21')`, [id, phone]);
-    await database.query('insert into auth.users(id,phone,phone_confirmed_at) values($1,$2,now())', [authId, `91${phone}`]);
+    await database.query('insert into auth.users(id,phone,phone_confirmed_at,raw_app_meta_data) values($1,$2,now(),$3)', [authId, `91${phone}`, { provider: 'phone', providers: ['phone'] }]);
     return { id, authId, phone };
   }
   beforeAll(async () => {
@@ -169,6 +169,7 @@ describe.runIf(process.env['RUN_LOCAL_SUPABASE'] === '1')('AUTH-01 v2.1 atomic i
   it.each([
     ['first', 'banned'], ['retry', 'banned'], ['first', 'unverified'], ['retry', 'unverified'],
     ['first', 'changed-contact'], ['retry', 'changed-contact'],
+    ['first', 'changed-provider'], ['retry', 'changed-provider'],
   ])('revalidates provider proof after the application lock on %s claim: %s', async (attempt, state) => {
     const record = await fixture();
     if (attempt === 'retry') await database.query(`select ${schema}.rpc_claim_invited_account($1,$2)`, [record.authId, randomUUID()]);
@@ -192,6 +193,7 @@ describe.runIf(process.env['RUN_LOCAL_SUPABASE'] === '1')('AUTH-01 v2.1 atomic i
       expect(blocked).toBe(true);
       if (state === 'banned') await database.query("update auth.users set banned_until=now()+interval '1 hour' where id=$1", [record.authId]);
       else if (state === 'unverified') await database.query('update auth.users set phone_confirmed_at=null where id=$1', [record.authId]);
+      else if (state === 'changed-provider') await database.query('update auth.users set raw_app_meta_data=$1 where id=$2', [{ provider: 'saml:unapproved' }, record.authId]);
       else await database.query('update auth.users set phone=$1 where id=$2', [`917${randomInt(100000000, 999999999)}`, record.authId]);
       await blocker.query('commit');
       const result = await pending;
@@ -253,7 +255,7 @@ describe.runIf(process.env['RUN_LOCAL_SUPABASE'] === '1')('AUTH-01 v2.1 atomic i
     await database.query(`update ${schema}.users set email=$1 where id=$2`, [email, record.id]);
     await database.query(`select ${schema}.rpc_claim_invited_account($1,$2)`, [record.authId, randomUUID()]);
     const otherId = randomUUID(); providerIds.push(otherId);
-    await database.query('insert into auth.users(id,email,email_confirmed_at) values($1,$2,now())', [otherId, email]);
+    await database.query('insert into auth.users(id,email,email_confirmed_at,raw_app_meta_data) values($1,$2,now(),$3)', [otherId, email, { provider: 'email', providers: ['email'] }]);
     const result = await database.query(`select ${schema}.rpc_claim_invited_account($1,$2) as result`, [otherId, randomUUID()]);
     expect(result.rows[0].result).toEqual({ outcome: 'rejected', code: 'AUTH_IDENTITY_CONFLICT' });
   });
@@ -293,4 +295,92 @@ describe.runIf(process.env['RUN_LOCAL_SUPABASE'] === '1')('AUTH-01 v2.1 atomic i
       expect((await database.query(`select count(*)::int as count from ${schema}.audit_logs`)).rows[0].count).toBe(before);
     } finally { await database.query('rollback'); }
   });
+  it('rejects a provider outside the allowlist despite verified contacts and spoofed user metadata', async () => {
+    const record = await fixture();
+    await database.query('update auth.users set raw_app_meta_data=$1,raw_user_meta_data=$2 where id=$3', [{ provider: 'saml:unapproved', providers: ['phone'] }, { provider: 'phone', phone_verified: true }, record.authId]);
+    const requestId = randomUUID();
+    const result = await database.query(`select ${schema}.rpc_claim_invited_account($1,$2) as result`, [record.authId, requestId]);
+    expect(result.rows[0].result).toEqual({ outcome: 'rejected', code: 'AUTH_PROVIDER_USER_INVALID' });
+    expect((await database.query(`select count(*)::int as count from ${schema}.auth_user_links where auth_user_id=$1`, [record.authId])).rows).toEqual([{ count: 0 }]);
+  });
+
+  it.each(['anon', 'authenticated'])('denies v2.1 link SELECT to %s', async role => {
+    await database.query('begin');
+    try {
+      await database.query('set local role ' + role);
+      await expect(database.query('select * from ' + schema + '.auth_user_links')).rejects.toMatchObject({ code: '42501' });
+    } finally { await database.query('rollback'); }
+  });
+  it('allows service_role only SELECT on the v2.1 link table', async () => {
+    const record = await fixture();
+    await database.query('select ' + schema + '.rpc_claim_invited_account($1,$2)', [record.authId, randomUUID()]);
+    for (const operation of ['insert', 'update', 'delete']) {
+      await database.query('begin');
+      try {
+        await database.query('set local role service_role');
+        expect((await database.query('select user_id from ' + schema + '.auth_user_links where auth_user_id=$1', [record.authId])).rows).toEqual([{ user_id: record.id }]);
+        const sql = operation === 'insert' ? 'insert into ' + schema + '.auth_user_links(auth_user_id,user_id,claim_method) values($1,$2,\'phone\')'
+          : operation === 'update' ? 'update ' + schema + '.auth_user_links set user_id=$2 where auth_user_id=$1'
+          : 'delete from ' + schema + '.auth_user_links where auth_user_id=$1 and user_id=$2';
+        await expect(database.query(sql, [record.authId, record.id])).rejects.toMatchObject({ code: '42501' });
+      } finally { await database.query('rollback'); }
+    }
+  });
+  it('rejects an unverified email-only identity', async () => {
+    const record = await fixture();
+    await database.query('update auth.users set phone=null,phone_confirmed_at=null,email=$1,email_confirmed_at=null where id=$2', ['unverified-' + record.id + '@example.invalid', record.authId]);
+    const result = await database.query('select ' + schema + '.rpc_claim_invited_account($1,$2) as result', [record.authId, randomUUID()]);
+    expect(result.rows[0].result).toEqual({ outcome: 'rejected', code: 'AUTH_VERIFIED_CONTACT_REQUIRED' });
+  });
+  it('rejects a verified non-Indian phone that shares the invite local digits', async () => {
+    const record = await fixture();
+    await database.query('update auth.users set phone=$1 where id=$2', ['1' + record.phone, record.authId]);
+    const result = await database.query('select ' + schema + '.rpc_claim_invited_account($1,$2) as result', [record.authId, randomUUID()]);
+    expect(result.rows[0].result).toEqual({ outcome: 'rejected', code: 'AUTH_VERIFIED_CONTACT_REQUIRED' });
+  });
+  it.each(['employer', 'job_seeker'])('claims an invited %s once and retries idempotently', async role => {
+    const record = await fixture();
+    await database.query('update ' + schema + '.users set role=$1 where id=$2', [role, record.id]);
+    const first = await database.query('select ' + schema + '.rpc_claim_invited_account($1,$2) as result', [record.authId, randomUUID()]);
+    const retry = await database.query('select ' + schema + '.rpc_claim_invited_account($1,$2) as result', [record.authId, randomUUID()]);
+    expect(first.rows[0].result).toEqual({ outcome: 'success', code: 'AUTH_INVITE_CLAIMED', user_id: record.id });
+    expect(retry.rows[0].result).toEqual({ outcome: 'retry', code: 'AUTH_INVITE_ALREADY_LINKED', user_id: record.id });
+    expect((await database.query('select count(*)::int as count from ' + schema + '.auth_user_links where user_id=$1', [record.id])).rows).toEqual([{ count: 1 }]);
+  });
+  it('rejects two candidates when verified phone and email identify different invitees', async () => {
+    const first = await fixture(), second = await fixture();
+    const email = 'split-' + randomUUID() + '@example.invalid';
+    await database.query('update ' + schema + '.users set email=$1 where id=$2', [email, second.id]);
+    await database.query('update auth.users set email=$1,email_confirmed_at=now() where id=$2', [email, first.authId]);
+    const result = await database.query('select ' + schema + '.rpc_claim_invited_account($1,$2) as result', [first.authId, randomUUID()]);
+    expect(result.rows[0].result).toEqual({ outcome: 'rejected', code: 'AUTH_IDENTITY_CONFLICT' });
+    expect((await database.query('select count(*)::int as count from ' + schema + '.auth_user_links where user_id=any($1::uuid[])', [[first.id, second.id]])).rows).toEqual([{ count: 0 }]);
+  });
+  it('commits a fresh rejected attempt after an outer rollback and rejects unapproved audit reasons', async () => {
+    const record = await fixture(); const requestId = randomUUID();
+    await database.query('update auth.users set phone_confirmed_at=null where id=$1', [record.authId]);
+    await database.query('begin');
+    try { await database.query('select ' + schema + '.rpc_claim_invited_account($1,$2)', [record.authId, requestId]); }
+    finally { await database.query('rollback'); }
+    expect((await database.query('select count(*)::int as count from ' + schema + '.audit_logs where meta->>\'request_id\'=$1', [requestId])).rows).toEqual([{ count: 0 }]);
+    await database.query('select ' + schema + '.rpc_claim_invited_account($1,$2)', [record.authId, requestId]);
+    const audits = await database.query('select actor_id,meta from ' + schema + '.audit_logs where meta->>\'request_id\'=$1', [requestId]);
+    expect(audits.rows).toEqual([{ actor_id: null, meta: { request_id: requestId, outcome: 'rejected', reason: 'AUTH_VERIFIED_CONTACT_REQUIRED', claim_method: 'unknown' } }]);
+    await expect(database.query('select ' + schema + '.finish_invite_claim_v21($1,NULL,\'FREE_TEXT_NOT_ALLOWED\',\'unknown\')', [randomUUID()])).rejects.toMatchObject({ code: '22023' });
+  });
+  it('normalises provider email capitals and surrounding spaces before matching', async () => {
+    const record = await fixture(); const email = 'normalised-' + record.id + '@example.invalid';
+    await database.query('update ' + schema + '.users set email=$1 where id=$2', [email, record.id]);
+    await database.query('update auth.users set phone=null,phone_confirmed_at=null,email=$1,email_confirmed_at=now() where id=$2', ['  ' + email.toUpperCase() + '  ', record.authId]);
+    const result = await database.query('select ' + schema + '.rpc_claim_invited_account($1,$2) as result', [record.authId, randomUUID()]);
+    expect(result.rows[0].result).toEqual({ outcome: 'success', code: 'AUTH_INVITE_CLAIMED', user_id: record.id });
+  });
+  it('never matches an erased application contact', async () => {
+    const record = await fixture();
+    await database.query('update ' + schema + '.users set phone=$1,email=null,pending_email=null,status=\'disabled\' where id=$2', ['DEL_' + record.id.replaceAll('-', '').slice(0, 10), record.id]);
+    const result = await database.query('select ' + schema + '.rpc_claim_invited_account($1,$2) as result', [record.authId, randomUUID()]);
+    expect(result.rows[0].result).toEqual({ outcome: 'rejected', code: 'AUTH_INVITE_NOT_CLAIMABLE' });
+    expect((await database.query('select count(*)::int as count from ' + schema + '.auth_user_links where user_id=$1', [record.id])).rows).toEqual([{ count: 0 }]);
+  });
+
 });

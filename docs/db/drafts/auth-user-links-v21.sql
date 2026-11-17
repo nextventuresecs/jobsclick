@@ -55,7 +55,8 @@ BEGIN
     CASE WHEN a.email_confirmed_at IS NOT NULL THEN nullif(lower(btrim(a.email)),'') END
     INTO v_phone,v_email FROM auth.users a WHERE a.id=p_auth_user_id
       AND a.deleted_at IS NULL AND NOT coalesce(a.is_anonymous,false)
-      AND (a.banned_until IS NULL OR a.banned_until<=now());
+      AND (a.banned_until IS NULL OR a.banned_until<=now())
+      AND a.raw_app_meta_data->>'provider' IN ('phone','email','google');
   IF NOT FOUND THEN
     RETURN private_auth.finish_invite_claim_v21(p_request_id,NULL,'AUTH_PROVIDER_USER_INVALID','unknown');
   END IF;
@@ -79,7 +80,8 @@ BEGIN
     CASE WHEN a.email_confirmed_at IS NOT NULL THEN nullif(lower(btrim(a.email)),'') END
     INTO v_current_phone,v_current_email FROM auth.users a WHERE a.id=p_auth_user_id
       AND a.deleted_at IS NULL AND NOT coalesce(a.is_anonymous,false)
-      AND (a.banned_until IS NULL OR a.banned_until<=now());
+      AND (a.banned_until IS NULL OR a.banned_until<=now())
+      AND a.raw_app_meta_data->>'provider' IN ('phone','email','google');
   IF NOT FOUND THEN
     RETURN private_auth.finish_invite_claim_v21(p_request_id,NULL,'AUTH_PROVIDER_USER_INVALID','unknown');
   END IF;
