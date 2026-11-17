@@ -1,0 +1,38 @@
+Command: node node_modules/vitest/vitest.mjs run apps/worker/test/import-contacts.spec.ts
+Started UTC: 2026-11-17T07:54:09.218Z
+Environment: test; localhost only; fake delivery.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ❯ apps/worker/test/import-contacts.spec.ts (2 tests | 1 failed) 14ms
+   × BULK-02 canonical contact ingestion > reports an invalid provided email instead of silently dropping it 5ms
+     → expected +0 to be 1 // Object.is equality
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  13:24:10
+   Duration  8.57s (transform 225ms, setup 2.02s, collect 87ms, tests 14ms, environment 0ms, prepare 174ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/worker/test/import-contacts.spec.ts > BULK-02 canonical contact ingestion > reports an invalid provided email instead of silently dropping it
+AssertionError: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ apps/worker/test/import-contacts.spec.ts:24:30
+     22|       attemptsMade: 0, updateProgress: vi.fn(),
+     23|     } as unknown as Job<BulkImportJobData>);
+     24|     expect(result.errorRows).toBe(1);
+       |                              ^
+     25|     expect(database._users).toHaveLength(0);
+     26|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

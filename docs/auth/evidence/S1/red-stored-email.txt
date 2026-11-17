@@ -1,0 +1,133 @@
+Command: node node_modules/vitest/vitest.mjs run packages/database/test/auth-contacts.local.test.ts
+Started UTC: 2026-11-17T07:42:34.135Z
+Environment: test; localhost only; fake delivery.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ❯ packages/database/test/auth-contacts.local.test.ts (7 tests | 5 failed) 119ms
+   × AUTH-01 contact schema transition > rejects noncanonical/invalid stored email 0 17ms
+     → promise resolved "Result{ command: 'INSERT', …(9) }" instead of rejecting
+   × AUTH-01 contact schema transition > rejects noncanonical/invalid stored email 1 7ms
+     → promise resolved "Result{ command: 'INSERT', …(9) }" instead of rejecting
+   × AUTH-01 contact schema transition > rejects noncanonical/invalid stored email 2 6ms
+     → promise resolved "Result{ command: 'INSERT', …(9) }" instead of rejecting
+   × AUTH-01 contact schema transition > rejects noncanonical/invalid stored email 3 6ms
+     → promise resolved "Result{ command: 'INSERT', …(9) }" instead of rejecting
+   × AUTH-01 contact schema transition > rejects noncanonical/invalid stored email 4 6ms
+     → promise resolved "Result{ command: 'INSERT', …(9) }" instead of rejecting
+
+ Test Files  1 failed (1)
+      Tests  5 failed | 2 passed (7)
+   Start at  13:12:35
+   Duration  9.10s (transform 189ms, setup 2.18s, collect 65ms, tests 119ms, environment 0ms, prepare 144ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/database/test/auth-contacts.local.test.ts > AUTH-01 contact schema transition > rejects noncanonical/invalid stored email 0
+ FAIL  packages/database/test/auth-contacts.local.test.ts > AUTH-01 contact schema transition > rejects noncanonical/invalid stored email 1
+ FAIL  packages/database/test/auth-contacts.local.test.ts > AUTH-01 contact schema transition > rejects noncanonical/invalid stored email 2
+ FAIL  packages/database/test/auth-contacts.local.test.ts > AUTH-01 contact schema transition > rejects noncanonical/invalid stored email 3
+ FAIL  packages/database/test/auth-contacts.local.test.ts > AUTH-01 contact schema transition > rejects noncanonical/invalid stored email 4
+AssertionError: promise resolved "Result{ command: 'INSERT', …(9) }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Result {
++   "RowCtor": null,
++   "_parsers": undefined,
++   "_prebuiltEmptyResultObject": null,
++   "_types": TypeOverrides {
++     "_types": Object {
++       "arrayParser": Object {
++         "create": [Function create],
++       },
++       "builtins": Object {
++         "ABSTIME": 702,
++         "ACLITEM": 1033,
++         "BIT": 1560,
++         "BOOL": 16,
++         "BPCHAR": 1042,
++         "BYTEA": 17,
++         "CHAR": 18,
++         "CID": 29,
++         "CIDR": 650,
++         "CIRCLE": 718,
++         "DATE": 1082,
++         "FLOAT4": 700,
++         "FLOAT8": 701,
++         "GTSVECTOR": 3642,
++         "INET": 869,
++         "INT2": 21,
++         "INT4": 23,
++         "INT8": 20,
++         "INTERVAL": 1186,
++         "JSON": 114,
++         "JSONB": 3802,
++         "MACADDR": 829,
++         "MACADDR8": 774,
++         "MONEY": 790,
++         "NUMERIC": 1700,
++         "OID": 26,
++         "PATH": 602,
++         "PG_DEPENDENCIES": 3402,
++         "PG_LSN": 3220,
++         "PG_NDISTINCT": 3361,
++         "PG_NODE_TREE": 194,
++         "POLYGON": 604,
++         "REFCURSOR": 1790,
++         "REGCLASS": 2205,
++         "REGCONFIG": 3734,
++         "REGDICTIONARY": 3769,
++         "REGNAMESPACE": 4089,
++         "REGOPER": 2203,
++         "REGOPERATOR": 2204,
++         "REGPROC": 24,
++         "REGPROCEDURE": 2202,
++         "REGROLE": 4096,
++         "REGTYPE": 2206,
++         "RELTIME": 703,
++         "SMGR": 210,
++         "TEXT": 25,
++         "TID": 27,
++         "TIME": 1083,
++         "TIMESTAMP": 1114,
++         "TIMESTAMPTZ": 1184,
++         "TIMETZ": 1266,
++         "TINTERVAL": 704,
++         "TSQUERY": 3615,
++         "TSVECTOR": 3614,
++         "TXID_SNAPSHOT": 2970,
++         "UUID": 2950,
++         "VARBIT": 1562,
++         "VARCHAR": 1043,
++         "XID": 28,
++         "XML": 142,
++       },
++       "getTypeParser": [Function getTypeParser],
++       "setTypeParser": [Function setTypeParser],
++     },
++     "binary": Object {},
++     "text": Object {},
++   },
++   "command": "INSERT",
++   "fields": Array [],
++   "oid": 0,
++   "rowAsArray": false,
++   "rowCount": 1,
++   "rows": Array [],
++ }
+
+ ❯ packages/database/test/auth-contacts.local.test.ts:36:120
+     34| 
+     35|   it.each(['Person@example.invalid', ' person@example.invalid', '', 'i…
+     36|     await expect(pool.query(`insert into ${schema}.users(email,role,st…
+       |                                                                                                                        ^
+     37|   });
+     38| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+

@@ -13,6 +13,7 @@ import {
 import crypto from 'node:crypto';
 import type { UserRow } from '@indian-job-portal/database';
 import {
+  normalizeEmail,
   SendOtpInput,
   VerifyOtpInput,
   AddEmailInput,
@@ -239,7 +240,8 @@ export class AuthService {
    */
   async addEmail(userId: string, inputOrEmail: AddEmailInput | string): Promise<{ success: boolean; message: string }> {
     const rawEmail = typeof inputOrEmail === 'string' ? inputOrEmail : inputOrEmail.email;
-    const email = rawEmail.trim().toLowerCase();
+    const email = normalizeEmail(rawEmail);
+    if (!email) throw new BadRequestException('AUTH_EMAIL_INVALID');
 
     // Check rate limit: max 3/hour per user, max 3/day per target email
     const limitCheck = await this.otpRedisService.checkAddEmailRateLimit(userId, email);

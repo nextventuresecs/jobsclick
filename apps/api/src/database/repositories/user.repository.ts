@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, UserRow } from '@indian-job-portal/database';
-import { normalizeIndianPhone } from '@indian-job-portal/validation';
+import { normalizeIndianPhone, normalizeEmail } from '@indian-job-portal/validation';
 import { SUPABASE_CLIENT } from '../supabase.provider.js';
 
 export const USER_REPOSITORY = Symbol('USER_REPOSITORY');
@@ -75,11 +75,12 @@ export class UserRepository implements IUserRepository {
   }
 
   async findByEmail(email: string): Promise<UserRow | null> {
-    const normalized = email.trim().toLowerCase();
+    const normalized = normalizeEmail(email);
+    if (!normalized) throw new BadRequestException('AUTH_EMAIL_INVALID');
     const { data, error } = await this.supabase
       .from('users')
       .select('*')
-      .ilike('email', normalized)
+      .ilike('email', normalized.replace(/[%_]/g, "\\$&"))
       .maybeSingle();
 
     if (error) {
@@ -89,11 +90,12 @@ export class UserRepository implements IUserRepository {
   }
 
   async findByPendingEmail(pendingEmail: string): Promise<UserRow | null> {
-    const normalized = pendingEmail.trim().toLowerCase();
+    const normalized = normalizeEmail(pendingEmail);
+    if (!normalized) throw new BadRequestException('AUTH_EMAIL_INVALID');
     const { data, error } = await this.supabase
       .from('users')
       .select('*')
-      .ilike('pending_email', normalized)
+      .ilike('pending_email', normalized.replace(/[%_]/g, "\\$&"))
       .maybeSingle();
 
     if (error) {
@@ -146,7 +148,8 @@ export class UserRepository implements IUserRepository {
   }
 
   async setPendingEmail(id: string, pendingEmail: string): Promise<UserRow | null> {
-    const normalized = pendingEmail.trim().toLowerCase();
+    const normalized = normalizeEmail(pendingEmail);
+    if (!normalized) throw new BadRequestException('AUTH_EMAIL_INVALID');
 
     // Check cross-column email uniqueness (email and pending_email across other users)
     const existingConfirmed = await this.findByEmail(normalized);
@@ -182,7 +185,8 @@ export class UserRepository implements IUserRepository {
   }
 
   async confirmEmail(id: string, email: string): Promise<UserRow | null> {
-    const normalized = email.trim().toLowerCase();
+    const normalized = normalizeEmail(email);
+    if (!normalized) throw new BadRequestException('AUTH_EMAIL_INVALID');
     const { data, error } = await this.supabase
       .from('users')
       .update({

@@ -1,0 +1,32 @@
+Command: node node_modules/vitest/vitest.mjs run packages/database/test/auth-contacts.local.test.ts
+Started UTC: 2026-11-17T07:47:34.559Z
+Environment: test; localhost only; fake delivery.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ❯ packages/database/test/auth-contacts.local.test.ts (13 tests | 1 failed) 620ms
+   × AUTH-01 contact schema transition > refuses a rollback with phone-less data without losing that data 45ms
+     → ROLLBACK TO SAVEPOINT can only be used in transaction blocks
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 12 passed (13)
+   Start at  13:17:36
+   Duration  9.43s (transform 207ms, setup 2.11s, collect 56ms, tests 620ms, environment 0ms, prepare 144ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/database/test/auth-contacts.local.test.ts > AUTH-01 contact schema transition > refuses a rollback with phone-less data without losing that data
+error: ROLLBACK TO SAVEPOINT can only be used in transaction blocks
+ ❯ node_modules/.pnpm/pg-pool@3.14.0_pg@8.23.1/node_modules/pg-pool/index.js:45:11
+ ❯ packages/database/test/auth-contacts.local.test.ts:59:5
+     57|     await pool.query('savepoint down_attempt');
+     58|     await expect(pool.query(down)).rejects.toThrow('AUTH_CONTACT_ROLLB…
+     59|     await pool.query('rollback to down_attempt');
+       |     ^
+     60|     expect((await pool.query(`select id,phone from ${schema}.users whe…
+     61|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

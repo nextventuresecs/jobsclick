@@ -1,0 +1,41 @@
+Command: node node_modules/vitest/vitest.mjs run apps/worker/test/import-contacts.spec.ts apps/api/test/auth-contact-lookup.local.spec.ts
+Started UTC: 2026-11-17T07:55:28.903Z
+Environment: test; localhost only; fake delivery.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ❯ apps/api/test/auth-contact-lookup.local.spec.ts (0 test)
+ ❯ apps/worker/test/import-contacts.spec.ts (0 test)
+
+ Test Files  2 failed (2)
+      Tests  no tests
+   Start at  13:25:30
+   Duration  7.20s (transform 192ms, setup 0ms, collect 0ms, tests 0ms, environment 0ms, prepare 562ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯ Failed Suites 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/auth-contact-lookup.local.spec.ts [ apps/api/test/auth-contact-lookup.local.spec.ts ]
+ FAIL  apps/worker/test/import-contacts.spec.ts [ apps/worker/test/import-contacts.spec.ts ]
+Error: Transform failed with 1 error:
+D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/apps/api/src/database/repositories/user.repository.ts:83:63: ERROR: Expected ")" but found "email"
+  Plugin: vite:esbuild
+  File: D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/apps/api/src/database/repositories/user.repository.ts:83:63
+  
+  Expected ")" but found "email"
+  81 |        .from('users')
+  82 |        .select('*')
+  83 |        .ilike('email', normalized.replace(/[\\%_]/g, '\\.ilike('email', normalized)'))
+     |                                                                 ^
+  84 |        .maybeSingle();
+  85 |  
+  
+ ❯ failureErrorWithLog node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:1472:15
+ ❯ node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:755:50
+ ❯ responseCallbacks.<computed> node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:622:9
+ ❯ handleIncomingPacket node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:677:12
+ ❯ Socket.readFromStdout node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:600:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+

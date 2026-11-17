@@ -1,0 +1,44 @@
+Command: node node_modules/vitest/vitest.mjs run packages/validation/test/auth-contacts.test.ts packages/validation/test/auth.test.ts
+Started UTC: 2026-11-17T07:38:08.253Z
+Environment: test; localhost only; fake delivery.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ❯ packages/validation/test/auth-contacts.test.ts (0 test)
+ ❯ packages/validation/test/auth.test.ts (0 test)
+
+ Test Files  2 failed (2)
+      Tests  no tests
+   Start at  13:08:09
+   Duration  9.28s (transform 236ms, setup 4.63s, collect 0ms, tests 0ms, environment 0ms, prepare 346ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯ Failed Suites 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/validation/test/auth-contacts.test.ts [ packages/validation/test/auth-contacts.test.ts ]
+TypeError: z.string(...).refine(...).trim is not a function
+ ❯ packages/validation/src/auth.ts:40:4
+     38|   .string()
+     39|   .refine((value) => !/[\u0000-\u001f\u007f]/.test(value), 'AUTH_PHONE…
+     40|   .trim()
+       |    ^
+     41|   .transform((val) => {
+     42|     const normalized = normalizeIndianPhone(val);
+ ❯ packages/validation/test/auth-contacts.test.ts:2:31
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  packages/validation/test/auth.test.ts [ packages/validation/test/auth.test.ts ]
+TypeError: z.string(...).refine(...).trim is not a function
+ ❯ packages/validation/src/auth.ts:40:4
+     38|   .string()
+     39|   .refine((value) => !/[\u0000-\u001f\u007f]/.test(value), 'AUTH_PHONE…
+     40|   .trim()
+       |    ^
+     41|   .transform((val) => {
+     42|     const normalized = normalizeIndianPhone(val);
+ ❯ packages/validation/test/auth.test.ts:2:31
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+

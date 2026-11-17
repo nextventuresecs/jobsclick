@@ -1,0 +1,32 @@
+Command: node node_modules/vitest/vitest.mjs run apps/api/test/auth-contact-lookup.local.spec.ts
+Started UTC: 2026-11-17T07:53:23.342Z
+Environment: test; localhost only; fake delivery.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ❯ apps/api/test/auth-contact-lookup.local.spec.ts (1 test | 1 failed) 151ms
+   × AUTH-01 literal email lookup > compares legal email wildcard characters literally instead of matching another user 31ms
+     → AUTH_EMAIL_INVALID
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  13:23:24
+   Duration  8.73s (transform 171ms, setup 1.87s, collect 19ms, tests 151ms, environment 0ms, prepare 154ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/auth-contact-lookup.local.spec.ts > AUTH-01 literal email lookup > compares legal email wildcard characters literally instead of matching another user
+BadRequestException: AUTH_EMAIL_INVALID
+ ❯ UserRepository.findByEmail apps/api/src/database/repositories/user.repository.ts:79:28
+     77|   async findByEmail(email: string): Promise<UserRow | null> {
+     78|     const normalized = normalizeEmail(email);
+     79|     if (!normalized) throw new BadRequestException('AUTH_EMAIL_INVALID…
+       |                            ^
+     80|     const { data, error } = await this.supabase
+     81|       .from('users')
+ ❯ apps/api/test/auth-contact-lookup.local.spec.ts:24:29
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

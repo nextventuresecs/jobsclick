@@ -1,0 +1,15 @@
+Command: node node_modules/vitest/vitest.mjs run packages/database/test/auth-contacts.local.test.ts
+Started UTC: 2026-11-17T07:43:06.793Z
+Environment: test; localhost only; fake delivery.
+Exit: 0
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ✓ packages/database/test/auth-contacts.local.test.ts (7 tests) 195ms
+
+ Test Files  1 passed (1)
+      Tests  7 passed (7)
+   Start at  13:13:08
+   Duration  8.49s (transform 173ms, setup 1.93s, collect 54ms, tests 195ms, environment 0ms, prepare 139ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.

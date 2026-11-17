@@ -1,0 +1,75 @@
+Command: node node_modules/vitest/vitest.mjs run packages/database/test/auth-contacts.local.test.ts packages/database/test/auth-contact-race.local.test.ts packages/validation/test/auth-contacts.test.ts packages/validation/test/auth.test.ts apps/worker/test/import-contacts.spec.ts apps/api/test/auth-contact-lookup.local.spec.ts apps/api/test/auth.e2e-spec.ts apps/api/test/session-invalidation-p0-8.spec.ts
+Started UTC: 2026-11-17T07:57:30.639Z
+Environment: test; localhost only; fake delivery.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ✓ packages/validation/test/auth.test.ts (15 tests) 25ms
+ ✓ packages/validation/test/auth-contacts.test.ts (10 tests) 13ms
+ ✓ packages/database/test/auth-contact-race.local.test.ts (1 test) 292ms
+ ❯ apps/api/test/auth-contact-lookup.local.spec.ts (1 test | 1 failed) 425ms
+   × AUTH-01 literal email lookup > compares email underscores literally instead of matching another user 150ms
+     → expected { …(13) } to be null
+ ✓ apps/worker/test/import-contacts.spec.ts (2 tests) 32ms
+ ✓ packages/database/test/auth-contacts.local.test.ts (13 tests) 729ms
+ ✓ apps/api/test/auth.e2e-spec.ts (4 tests) 797ms
+ ✓ apps/api/test/session-invalidation-p0-8.spec.ts (7 tests) 1965ms
+   ✓ Immediate Session Invalidation & Fail-Closed State (P0-8 Integration) > Test 1: Administrator demotion immediately revokes admin access on subsequent requests using existing JWT 503ms
+   ✓ Immediate Session Invalidation & Fail-Closed State (P0-8 Integration) > Test 2: Account deactivation immediately revokes access with HTTP 401 on existing JWT 377ms
+   ✓ Immediate Session Invalidation & Fail-Closed State (P0-8 Integration) > Test 6: Mutation on instance B immediately rejects existing JWT on instance A 392ms
+
+ Test Files  1 failed | 7 passed (8)
+      Tests  1 failed | 52 passed (53)
+   Start at  13:27:32
+   Duration  19.04s (transform 2.42s, setup 41.71s, collect 14.88s, tests 4.28s, environment 2ms, prepare 2.77s)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+Sourcemap for "D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/node_modules/.pnpm/@bull-board+api@5.21.0_@bull-board+ui@5.21.0/node_modules/@bull-board/api/dist/src/index.js" points to missing source files
+Sourcemap for "D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/node_modules/.pnpm/@bull-board+fastify@5.21.0/node_modules/@bull-board/fastify/dist/index.js" points to missing source files
+[Nest] 9988  - 11/17/2026, 1:27:50 PM   ERROR [AdminService] Failed to invalidate session for user b8c90fc2-4d24-4eae-97f4-8d4630a79998 after role update: Simulated Redis network partition during cache invalidation
+[Nest] 9988  - 11/17/2026, 1:27:50 PM   ERROR [JwtAuthGuard] Database failure during auth state lookup for b8c90fc2-4d24-4eae-97f4-8d4630a79998: Database connection down
+[Nest] 9988  - 11/17/2026, 1:27:50 PM   ERROR [HttpExceptionFilter] HTTP 503 on GET /admin/metrics: Authentication database temporarily unavailable
+ServiceUnavailableException: Authentication database temporarily unavailable
+    at JwtAuthGuard.loadUserState (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\apps\api\src\auth\guards\jwt-auth.guard.ts:137:13)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at JwtAuthGuard.verifyAndLoadState (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\apps\api\src\auth\guards\jwt-auth.guard.ts:89:19)
+    at GuardsConsumer.tryActivate (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2\node_modules\@nestjs\core\guards\guards-consumer.js:16:17)
+    at canActivateFn (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2\node_modules\@nestjs\core\router\router-execution-context.js:135:33)
+    at D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2\node_modules\@nestjs\core\router\router-execution-context.js:42:31
+    at Object.<anonymous> (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2\node_modules\@nestjs\core\router\router-proxy.js:9:17)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/auth-contact-lookup.local.spec.ts > AUTH-01 literal email lookup > compares email underscores literally instead of matching another user
+AssertionError: expected { …(13) } to be null
+
+- Expected: 
+null
+
++ Received: 
+Object {
+  "created_at": "2026-11-17T07:57:43.395405+00:00",
+  "created_by": null,
+  "email": "person-a920f020-c6a6-4383-a89b-845ea617623c@example.invalid",
+  "email_verified_at": null,
+  "id": "a920f020-c6a6-4383-a89b-845ea617623c",
+  "pending_email": "pending-a920f020-c6a6-4383-a89b-845ea617623c@example.invalid",
+  "phone": "8414522649",
+  "role": "employer",
+  "source": "contact-lookup-a920f020-c6a6-4383-a89b-845ea617623c",
+  "status": "invited",
+  "token_version": 0,
+  "updated_at": "2026-11-17T07:57:43.395405+00:00",
+  "updated_by": null,
+}
+
+ ❯ apps/api/test/auth-contact-lookup.local.spec.ts:24:74
+     22|   it('compares email underscores literally instead of matching another…
+     23|     expect((await repository.findByEmail(email.toUpperCase()))?.id).to…
+     24|     expect(await repository.findByEmail(`person_${id}@example.invalid`…
+       |                                                                          ^
+     25|     expect(await repository.findByPendingEmail(`pending_${id}@example.…
+     26|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
