@@ -1,0 +1,14 @@
+{
+  "item": "23-payment-boundaries",
+  "kind": "code",
+  "branch": "codex/auth-23-payment-boundaries",
+  "commit": "961e9492b20d9e32eb9050f1c6acb8e89374ae17",
+  "files": [
+    "supabase/migrations/20261117192151_sponsorship_finite_money.sql",
+    "packages/database/supabase/migrations/20261117192151_sponsorship_finite_money.sql",
+    "supabase/rollbacks/20261117192151_sponsorship_finite_money.sql",
+    "packages/database/test/payment-transactions.local.test.ts",
+    "scripts/db-security-drill.ts"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}

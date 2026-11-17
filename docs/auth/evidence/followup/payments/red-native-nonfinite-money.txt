@@ -1,0 +1,57 @@
+Project: jc-auth-test-8f373499
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ packages/database/test/payment-transactions.local.test.ts (12 tests | 1 failed) 538ms
+   × WAL-05 native sponsorship payment transaction > rejects invalid or insufficient captured money NaN at the database boundary 33ms
+     → promise resolved "{ …(6) }" instead of rejecting
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 11 passed (12)
+   Start at  00:50:29
+   Duration  9.96s (transform 267ms, setup 3.59s, collect 47ms, tests 538ms, environment 0ms, prepare 340ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/database/test/payment-transactions.local.test.ts > WAL-05 native sponsorship payment transaction > rejects invalid or insufficient captured money NaN at the database boundary
+AssertionError: promise resolved "{ …(6) }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {
++   "alreadyActive": false,
++   "expiresAt": "2027-11-17T19:20:38.914306+00:00",
++   "quote": Object {
++     "activeSponsoredCount": 1,
++     "baseAnnualFeeInr": 150,
++     "gstAmountInr": 27,
++     "gstRate": 0.18,
++     "institutionId": "bd34de92-5426-4fa8-b4d0-2540a00ee68a",
++     "institutionName": "Fixture College",
++     "isSponsorshipActive": true,
++     "ratePerStudentInr": 150,
++     "sponsorshipExpiresAt": "2027-11-17T19:20:38.914306+00:00",
++     "studentCount": 1,
++     "tier": "Small",
++     "totalAnnualFeeInr": 177,
++   },
++   "sponsoredStudentsCount": 1,
++   "sponsorshipId": "428f33f7-c212-4ea4-8ba5-c575b56de416",
++   "success": true,
++ }
+
+ ❯ packages/database/test/payment-transactions.local.test.ts:82:29
+     80|   it.each(['1', 'NaN'])('rejects invalid or insufficient captured mone…
+     81|     const f = await fixture(); await db.query('update public.payments …
+     82|     await expect(activate(f)).rejects.toMatchObject({ message: 'SPONSO…
+       |                             ^
+     83|   });
+     84|   it.each(['wallet', 'different-target', 'unbound'])('rejects a %s pay…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
