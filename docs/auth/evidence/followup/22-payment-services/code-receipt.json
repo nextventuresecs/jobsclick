@@ -1,0 +1,16 @@
+{
+  "item": "22-payment-services",
+  "kind": "code",
+  "branch": "codex/auth-22-payment-services",
+  "commit": "e317c402d4d43a141ed1d1e2feaeb6c05b7f1f2f",
+  "files": [
+    "apps/api/src/wallet/payment.service.ts",
+    "apps/api/src/wallet/sponsorship.service.ts",
+    "apps/api/src/wallet/razorpay.webhook.ts",
+    "apps/api/test/sponsorship-boundaries.spec.ts",
+    "apps/api/test/sponsorship.e2e-spec.ts",
+    "apps/api/test/payment-settlement-service.spec.ts",
+    "apps/api/test/payment-native-api.local.spec.ts"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}

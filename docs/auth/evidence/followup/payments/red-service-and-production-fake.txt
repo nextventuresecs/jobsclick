@@ -1,0 +1,55 @@
+Project: jc-auth-test-af964ce6
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ apps/api/test/payment-settlement-service.spec.ts (2 tests | 2 failed) 21ms
+   × WAL-03 verified payment settlement service > rejects dummy production gateway credentials even with the legacy test-payment override 12ms
+     → expected [Function] to throw an error
+   × WAL-03 verified payment settlement service > rolls back capture when ledger persistence fails and verified redelivery grants once 8ms
+     → expected 'captured' to be 'created' // Object.is equality
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  00:36:50
+   Duration  9.01s (transform 258ms, setup 2.85s, collect 257ms, tests 21ms, environment 0ms, prepare 172ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/payment-settlement-service.spec.ts > WAL-03 verified payment settlement service > rejects dummy production gateway credentials even with the legacy test-payment override
+AssertionError: expected [Function] to throw an error
+
+- Expected: 
+null
+
++ Received: 
+undefined
+
+ ❯ apps/api/test/payment-settlement-service.spec.ts:20:70
+     18|     vi.stubEnv('RAZORPAY_KEY_ID', 'rzp_test_dummy_key_id'); vi.stubEnv…
+     19|     vi.stubEnv('RAZORPAY_WEBHOOK_SECRET', 'dummy_razorpay_webhook_secr…
+     20|     try { expect(() => new PaymentService(payments, audits, wallet)).t…
+       |                                                                      ^
+     21|     finally { vi.unstubAllEnvs(); }
+     22|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  apps/api/test/payment-settlement-service.spec.ts > WAL-03 verified payment settlement service > rolls back capture when ledger persistence fails and verified redelivery grants once
+AssertionError: expected 'captured' to be 'created' // Object.is equality
+
+Expected: "created"
+Received: "captured"
+
+ ❯ apps/api/test/payment-settlement-service.spec.ts:30:74
+     28|     const fault = vi.spyOn(ledger, 'append').mockRejectedValueOnce(new…
+     29|     await expect(service.processPaymentSuccess(order.orderId, 'pay_' +…
+     30|     expect((await payments.findByGatewayOrderId(order.orderId))?.statu…
+       |                                                                          ^
+     31|     expect((await wallet.getBalance(owner)).balance).toBe(0); fault.mo…
+     32|     expect((await service.processPaymentSuccess(order.orderId, 'pay_' …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
