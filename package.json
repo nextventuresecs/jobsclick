@@ -18,7 +18,7 @@
     "db:smoke:postgrest": "node --experimental-strip-types scripts/smoke-postgrest.ts",
     "db:generate-types": "node scripts/generate-types.js",
     "typecheck": "pnpm --filter @indian-job-portal/database --filter @indian-job-portal/validation run build && pnpm --recursive run typecheck",
-    "test:target-guard": "node --test scripts/testing/disposable-target.test.cjs"
+    "test:target-guard": "node --test scripts/testing/disposable-target.test.cjs scripts/testing/disposable-files.test.cjs"
   },
   "devDependencies": {
     "@sentry/node": "^8.0.0",

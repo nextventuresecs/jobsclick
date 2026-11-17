@@ -39,4 +39,19 @@ function parseCliStatus(text) {
     return status;
   } catch { throw new Error('DISPOSABLE_CLI_STATUS_INVALID'); }
 }
-module.exports = { assertDisposableTargets, assertAllowedConnection, installTestNetworkFence, parseCliStatus };
+async function assertDisposableDatabase(connectionString, manifestPath = process.env.JOBSCLICK_TEST_MANIFEST, apiUrl) {
+  let manifest;
+  try {
+    if (!manifestPath) throw Error();
+    manifest = JSON.parse(require('node:fs').readFileSync(manifestPath, 'utf8'));
+    assertDisposableTargets({ databaseUrl: connectionString, apiUrl: apiUrl || 'http://127.0.0.1:' + manifest.apiPort, redisUrl: 'redis://127.0.0.1:' + manifest.redisPort }, manifest);
+  } catch { throw new Error('DISPOSABLE_TEST_TARGET_REQUIRED'); }
+  const client = new (require('pg').Client)({ connectionString, connectionTimeoutMillis: 2000 });
+  try {
+    await client.connect();
+    const marker = await client.query('select run_id from test_support.run_identity');
+    if (marker.rows.length !== 1 || marker.rows[0].run_id !== manifest.runId) throw Error();
+  } catch { throw new Error('DISPOSABLE_TEST_DATABASE_MARKER_REQUIRED'); }
+  finally { await client.end(); }
+}
+module.exports = { assertDisposableTargets, assertAllowedConnection, installTestNetworkFence, parseCliStatus, assertDisposableDatabase };

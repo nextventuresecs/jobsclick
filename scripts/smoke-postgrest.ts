@@ -1,4 +1,5 @@
 import { createHmac } from 'crypto';
+import { assertDisposableDatabase } from './testing/disposable-target.cjs';
 
 interface TestCase {
   name: string;
@@ -98,6 +99,7 @@ async function getAuthenticatedToken(baseUrl: string, serviceKey: string, anonKe
 
 async function runSmokeTests() {
   const baseUrl = process.env['SUPABASE_URL'] || 'http://127.0.0.1:54321';
+  await assertDisposableDatabase(process.env['DATABASE_URL'] || '', process.env['JOBSCLICK_TEST_MANIFEST'], baseUrl);
   const restUrl = `${baseUrl}/rest/v1`;
   const SUPABASE_JWT_SECRET = process.env['SUPABASE_JWT_SECRET'] || 'super-secret-jwt-token-with-at-least-32-characters-long';
   const WRONG_JWT_SECRET = 'wrong-secret-key-that-does-not-match-at-all-abcdef';

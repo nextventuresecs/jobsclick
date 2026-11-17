@@ -2,6 +2,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@indian-job-portal/database';
 import fs from 'node:fs';
 import path from 'node:path';
+import { threadId } from 'node:worker_threads';
 
 export const SUPABASE_CLIENT = Symbol('SUPABASE_CLIENT');
 export const USER_SCOPED_SUPABASE_FACTORY = Symbol('USER_SCOPED_SUPABASE_FACTORY');
@@ -55,7 +56,19 @@ export class PersistentDatabaseStore {
       this.filePath = '';
       return;
     }
-    const dir = path.resolve(process.cwd(), '.scratch');
+    let dir = path.resolve(process.cwd(), '.scratch');
+    if (process.env['NODE_ENV'] === 'test') {
+      try {
+        const manifestPath = process.env['JOBSCLICK_TEST_MANIFEST'];
+        if (!manifestPath) throw new Error('Missing test manifest');
+        const resolved = path.resolve(manifestPath);
+        const manifest = JSON.parse(fs.readFileSync(resolved, 'utf8'));
+        if (path.basename(resolved) !== 'manifest.json' || manifest.version !== 1
+          || !/^jc-auth-test-[a-f0-9]{8}$/.test(manifest.runId)
+          || path.basename(path.dirname(resolved)) !== manifest.runId) throw new Error('Invalid test manifest');
+        dir = path.join(path.dirname(resolved), 'fixture-json', String(process.pid) + '-' + String(threadId));
+      } catch { throw new Error('DISPOSABLE_TEST_DATA_REQUIRED'); }
+    }
     if (!fs.existsSync(dir)) {
       try {
         fs.mkdirSync(dir, { recursive: true });

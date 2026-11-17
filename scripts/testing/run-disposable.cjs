@@ -44,7 +44,8 @@ async function freePorts(count) {
   } finally { await Promise.all(servers.map(server => new Promise(resolve => server.close(resolve)))); }
 }
 async function main() {
-  fs.mkdirSync(directory, { recursive: true });
+  fs.mkdirSync(path.dirname(directory), { recursive: true });
+  fs.mkdirSync(directory); // Refuse reuse of an existing run directory.
   requireSuccess(localCli(['init']), 'supabase init');
   const [apiPort, databasePort, shadowPort, smtpPort, redisPort] = await freePorts(5);
   const manifest = { version: 1, runId, apiPort, databasePort, redisPort };
@@ -120,5 +121,8 @@ main().catch(error => { console.error(error.message); process.exitCode = 1; }).f
   if (!/^jc-auth-test-[a-f0-9]{8}$/.test(runId) || !directory.startsWith(path.join(root, '.scratch', 'auth-disposable') + path.sep)) throw new Error('DISPOSABLE_CLEANUP_REFUSED');
   if (started) { const result = localCli(['stop', '--project-id', runId, '--no-backup']); if (result.status !== 0) { console.error('Disposable Supabase cleanup failed'); process.exitCode = 1; } }
   if (redisStarted) { const result = command('docker', ['rm', '--force', runId + '-redis']); if (result.status !== 0) { console.error('Disposable Redis cleanup failed'); process.exitCode = 1; } }
+  const fixtureDirectory = path.resolve(directory, 'fixture-json');
+  if (path.dirname(fixtureDirectory) !== path.resolve(directory)) throw new Error('DISPOSABLE_CLEANUP_REFUSED');
+  fs.rmSync(fixtureDirectory, { recursive: true, force: true });
   console.log(`Disposed only ${runId}; developer stack preserved.`);
 });

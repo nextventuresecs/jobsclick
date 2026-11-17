@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { assertDisposableTargets, assertAllowedConnection, parseCliStatus } = require('./disposable-target.cjs');
+const { assertDisposableTargets, assertAllowedConnection, parseCliStatus, assertDisposableDatabase } = require('./disposable-target.cjs');
 
 const manifest = { version: 1, runId: 'jc-auth-test-12345678', apiPort: 56121, databasePort: 56122, redisPort: 56379 };
 const targets = { databaseUrl: 'postgresql://postgres:postgres@127.0.0.1:56122/postgres', apiUrl: 'http://127.0.0.1:56121', redisUrl: 'redis://127.0.0.1:56379' };
@@ -25,4 +25,7 @@ test('network backstop rejects hardcoded dev ports and remote connections', () =
 test('parses CLI v3 status JSON surrounded by local startup notices', () => {
   const status = { DB_URL: targets.databaseUrl, API_URL: targets.apiUrl };
   assert.deepEqual(parseCliStatus(`Started local services.\n${JSON.stringify(status, null, 2)}\nUpdate notice.\n`), status);
+});
+test('standalone database tools refuse an absent run marker before connecting', async () => {
+  await assert.rejects(() => assertDisposableDatabase('postgresql://postgres:postgres@127.0.0.1:54322/postgres', ''), /DISPOSABLE_TEST_TARGET_REQUIRED/);
 });

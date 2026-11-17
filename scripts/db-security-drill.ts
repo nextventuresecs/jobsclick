@@ -2,7 +2,7 @@ import type { ClientConfig } from 'pg';
 import pg from 'pg';
 const { Client } = pg;
 import crypto from 'node:crypto';
-import { assertLocalhostOnly } from './common/host-guard.ts';
+import { assertDisposableDatabase } from './testing/disposable-target.cjs';
 
 export interface DrillResult {
   name: string;
@@ -12,7 +12,7 @@ export interface DrillResult {
 }
 
 export async function runSecurityDrill(connectionString: string): Promise<{ success: boolean; results: DrillResult[] }> {
-  assertLocalhostOnly(connectionString, 'Security Attack Drill');
+  await assertDisposableDatabase(connectionString);
   const results: DrillResult[] = [];
 
   const adminClient = new Client({ connectionString });
