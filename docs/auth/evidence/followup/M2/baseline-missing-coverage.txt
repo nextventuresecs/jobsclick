@@ -1,0 +1,38 @@
+Project: jc-auth-test-c2ad4160
+Fresh Supabase + Redis; no dev data.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ packages/database/test/auth-claims-v21.local.test.ts (0 test)
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  20:07:32
+   Duration  11.32s (transform 261ms, setup 5.10s, collect 0ms, tests 0ms, environment 0ms, prepare 239ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/database/test/auth-claims-v21.local.test.ts [ packages/database/test/auth-claims-v21.local.test.ts ]
+Error: Transform failed with 1 error:
+D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/packages/database/test/auth-claims-v21.local.test.ts:19:116: ERROR: Expected ")" but found "{"
+  Plugin: vite:esbuild
+  File: D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/packages/database/test/auth-claims-v21.local.test.ts:19:116
+  
+  Expected ")" but found "{"
+  17 |      providerIds.push(authId);
+  18 |      await database.query(`insert into ${schema}.users(id,phone,role,status,source) values($1,$2,'employer','invited','synthetic-v21')`, [id, phone]);
+  19 |      await database.query('insert into auth.users(id,phone,phone_confirmed_at,raw_app_meta_data) values($1,$2,now(),'{"provider":"phone","providers":["phone"]}')', [authId, `91${phone}`]);
+     |                                                                                                                      ^
+  20 |      return { id, authId, phone };
+  21 |    }
+  
+ ❯ failureErrorWithLog node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:1472:15
+ ❯ node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:755:50
+ ❯ responseCallbacks.<computed> node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:622:9
+ ❯ handleIncomingPacket node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:677:12
+ ❯ Socket.readFromStdout node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:600:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

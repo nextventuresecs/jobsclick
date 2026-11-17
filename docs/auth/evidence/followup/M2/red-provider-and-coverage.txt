@@ -1,0 +1,109 @@
+Project: jc-auth-test-fd4f9888
+Fresh Supabase + Redis; no dev data.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ packages/database/test/auth-claims-v21.local.test.ts (44 tests | 4 failed) 2179ms
+   × AUTH-01 v2.1 atomic invite claims > revalidates provider proof after the application lock on first claim: changed-provider 159ms
+     → expected { code: 'AUTH_INVITE_CLAIMED', …(2) } to deeply equal { outcome: 'rejected', …(1) }
+   × AUTH-01 v2.1 atomic invite claims > revalidates provider proof after the application lock on retry claim: changed-provider 143ms
+     → expected { …(3) } to deeply equal { outcome: 'rejected', …(1) }
+   × AUTH-01 v2.1 atomic invite claims > rejects a provider outside the allowlist despite verified contacts and spoofed user metadata 32ms
+     → expected { code: 'AUTH_INVITE_CLAIMED', …(2) } to deeply equal { outcome: 'rejected', …(1) }
+   × AUTH-01 v2.1 atomic invite claims > never matches an erased application contact 10ms
+     → value too long for type character varying(15)
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 40 passed (44)
+   Start at  20:09:05
+   Duration  22.23s (transform 865ms, setup 11.97s, collect 128ms, tests 2.18s, environment 0ms, prepare 728ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/database/test/auth-claims-v21.local.test.ts > AUTH-01 v2.1 atomic invite claims > revalidates provider proof after the application lock on first claim: changed-provider
+AssertionError: expected { code: 'AUTH_INVITE_CLAIMED', …(2) } to deeply equal { outcome: 'rejected', …(1) }
+
+- Expected
++ Received
+
+  Object {
+-   "code": "AUTH_PROVIDER_USER_INVALID",
+-   "outcome": "rejected",
++   "code": "AUTH_INVITE_CLAIMED",
++   "outcome": "success",
++   "user_id": "fef5e75a-ab93-46d4-b9ab-6db7704175dc",
+  }
+
+ ❯ packages/database/test/auth-claims-v21.local.test.ts:201:37
+    199|       const result = await pending;
+    200|       if (result instanceof Error) throw result;
+    201|       expect(result.rows[0].result).toEqual({ outcome: 'rejected', cod…
+       |                                     ^
+    202|       expect((await database.query(`select meta->>'outcome' as outcome…
+    203|       expect((await database.query(`select count(*)::int as count from…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  packages/database/test/auth-claims-v21.local.test.ts > AUTH-01 v2.1 atomic invite claims > revalidates provider proof after the application lock on retry claim: changed-provider
+AssertionError: expected { …(3) } to deeply equal { outcome: 'rejected', …(1) }
+
+- Expected
++ Received
+
+  Object {
+-   "code": "AUTH_PROVIDER_USER_INVALID",
+-   "outcome": "rejected",
++   "code": "AUTH_INVITE_ALREADY_LINKED",
++   "outcome": "retry",
++   "user_id": "7300ea2f-1609-489b-af0a-9ed6fda6163d",
+  }
+
+ ❯ packages/database/test/auth-claims-v21.local.test.ts:201:37
+    199|       const result = await pending;
+    200|       if (result instanceof Error) throw result;
+    201|       expect(result.rows[0].result).toEqual({ outcome: 'rejected', cod…
+       |                                     ^
+    202|       expect((await database.query(`select meta->>'outcome' as outcome…
+    203|       expect((await database.query(`select count(*)::int as count from…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  packages/database/test/auth-claims-v21.local.test.ts > AUTH-01 v2.1 atomic invite claims > rejects a provider outside the allowlist despite verified contacts and spoofed user metadata
+AssertionError: expected { code: 'AUTH_INVITE_CLAIMED', …(2) } to deeply equal { outcome: 'rejected', …(1) }
+
+- Expected
++ Received
+
+  Object {
+-   "code": "AUTH_PROVIDER_USER_INVALID",
+-   "outcome": "rejected",
++   "code": "AUTH_INVITE_CLAIMED",
++   "outcome": "success",
++   "user_id": "f301abae-45dd-4d07-ae74-2197d168d23f",
+  }
+
+ ❯ packages/database/test/auth-claims-v21.local.test.ts:303:35
+    301|     const requestId = randomUUID();
+    302|     const result = await database.query(`select ${schema}.rpc_claim_in…
+    303|     expect(result.rows[0].result).toEqual({ outcome: 'rejected', code:…
+       |                                   ^
+    304|     expect((await database.query(`select count(*)::int as count from $…
+    305|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  packages/database/test/auth-claims-v21.local.test.ts > AUTH-01 v2.1 atomic invite claims > never matches an erased application contact
+error: value too long for type character varying(15)
+ ❯ node_modules/.pnpm/pg@8.23.1/node_modules/pg/lib/client.js:694:17
+ ❯ packages/database/test/auth-claims-v21.local.test.ts:380:5
+    378|   it('never matches an erased application contact', async () => {
+    379|     const record = await fixture();
+    380|     await database.query('update ' + schema + '.users set phone=$1,ema…
+       |     ^
+    381|     const result = await database.query('select ' + schema + '.rpc_cla…
+    382|     expect(result.rows[0].result).toEqual({ outcome: 'rejected', code:…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+

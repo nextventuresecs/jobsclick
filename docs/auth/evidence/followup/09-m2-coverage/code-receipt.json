@@ -1,0 +1,13 @@
+{
+  "item": "09-m2-coverage",
+  "kind": "code",
+  "branch": "codex/auth-09-m2-coverage",
+  "commit": "42d4c098ed5fa3d7316d8550d37fdb06ea35f799",
+  "files": [
+    "docs/db/drafts/auth-user-links-v21.sql",
+    "packages/database/test/auth-claims-v21.local.test.ts",
+    "docs/auth/SCHEMA_MISMATCH.md",
+    "docs/auth/FOLLOWUP_EXECUTION.md"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}
