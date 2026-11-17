@@ -1,0 +1,10 @@
+{
+  "runId": "jc-auth-test-2430c24a",
+  "approvedProductLoginEnabled": false,
+  "google": "NOT RUN: reviewed Google OAuth fixture unavailable",
+  "invalidCaptcha": {
+    "rejected": true,
+    "hookCalls": 0,
+    "sends": 0
+  }
+}

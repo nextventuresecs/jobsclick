@@ -1,0 +1,76 @@
+{
+  "runId": "jc-auth-test-362c73b5",
+  "approvedProductLoginEnabled": false,
+  "google": "NOT RUN: reviewed Google OAuth fixture unavailable",
+  "noCaptcha": {
+    "rejected": false,
+    "hookCalls": 1,
+    "sends": 1
+  },
+  "invalidCaptcha": {
+    "rejected": false,
+    "hookCalls": 1,
+    "sends": 1
+  },
+  "phoneRequest": {
+    "hookCalls": 1,
+    "sends": 1
+  },
+  "phoneMetadata": {
+    "provider": "phone",
+    "providers": [
+      "phone"
+    ]
+  },
+  "lastHookFailure": {
+    "status": 429,
+    "code": "AUTH_HOOK_BUDGET_EXHAUSTED"
+  },
+  "phoneChain": {
+    "realGoTrue": true,
+    "adminSeededConfirmedPhone": false,
+    "sends": 1,
+    "replayStatus": 409,
+    "unsignedStatus": 401,
+    "otpInAuthLogs": false
+  },
+  "resendWithoutCaptcha": {
+    "rejected": false,
+    "sends": 2
+  },
+  "deliveryDenials": {
+    "foreignPhoneRejected": true,
+    "emptyBudgetRejected": true,
+    "sends": 0
+  },
+  "ipReality": {
+    "apiSocketIp": "127.0.0.1",
+    "suppliedUntrustedHeader": "203.0.113.77",
+    "direct": [
+      {
+        "ip_address": "",
+        "action": "user_confirmation_requested"
+      },
+      {
+        "ip_address": "",
+        "action": "user_signedup"
+      }
+    ],
+    "serverSideApi": [
+      {
+        "ip_address": "",
+        "action": "user_confirmation_requested"
+      },
+      {
+        "ip_address": "",
+        "action": "user_signedup"
+      }
+    ],
+    "productionBffCutover": false
+  },
+  "mailTransport": {
+    "status": 200,
+    "contentType": "application/json",
+    "server": "mailpit"
+  }
+}

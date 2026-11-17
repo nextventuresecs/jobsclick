@@ -1,0 +1,86 @@
+Project: jc-auth-test-41f2c950
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ apps/api/test/auth-native-otp.local.spec.ts (7 tests | 4 failed) 842ms
+   × AUTH-01/03 real GoTrue OTP, hook and CAPTCHA > completes phone OTP through a real signed hook and claims the preserved invited UUID 221ms
+     → expected true to be false // Object.is equality
+   × AUTH-01/03 real GoTrue OTP, hook and CAPTCHA > requires fresh CAPTCHA on a direct resend and does not double-send 33ms
+     → expected true to be false // Object.is equality
+   × AUTH-01/03 real GoTrue OTP, hook and CAPTCHA > records actual GoTrue IPs for direct and server-side API calls 26ms
+     → expected true to be false // Object.is equality
+   × AUTH-01/03 real GoTrue OTP, hook and CAPTCHA > verifies email OTP from the local mail catcher and claims without inventing a phone 224ms
+     → Unexpected token 'F', "File not found
+" is not valid JSON
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 3 passed (7)
+   Start at  22:17:22
+   Duration  24.16s (transform 1.02s, setup 13.13s, collect 3.11s, tests 842ms, environment 1ms, prepare 793ms)
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/auth-native-otp.local.spec.ts > AUTH-01/03 real GoTrue OTP, hook and CAPTCHA > completes phone OTP through a real signed hook and claims the preserved invited UUID
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ apps/api/test/auth-native-otp.local.spec.ts:89:33
+     87|     const sent = await caller().auth.signInWithOtp({ phone: '+91' + nu…
+     88|     observations['phoneRequest'] = { code: sent.error?.code, status: s…
+     89|     expect(Boolean(sent.error)).toBe(false); expect(deliveries).toHave…
+       |                                 ^
+     90|     const otp = deliveries[0]!.otp; expect(/^[0-9]{6}$/.test(otp)).toB…
+     91|     const verified = await caller().auth.verifyOtp({ phone: '+91' + nu…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  apps/api/test/auth-native-otp.local.spec.ts > AUTH-01/03 real GoTrue OTP, hook and CAPTCHA > requires fresh CAPTCHA on a direct resend and does not double-send
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ apps/api/test/auth-native-otp.local.spec.ts:109:132
+    107|   it('requires fresh CAPTCHA on a direct resend and does not double-se…
+    108|     const number = phone();
+    109|     expect(Boolean((await caller().auth.signInWithOtp({ phone: '+91' +…
+       |                                                                                                                                    ^
+    110|     expect(deliveries).toHaveLength(1);
+    111|     await new Promise(resolve => setTimeout(resolve, 1200));
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  apps/api/test/auth-native-otp.local.spec.ts > AUTH-01/03 real GoTrue OTP, hook and CAPTCHA > records actual GoTrue IPs for direct and server-side API calls
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ apps/api/test/auth-native-otp.local.spec.ts:126:132
+    124|   it('records actual GoTrue IPs for direct and server-side API calls',…
+    125|     const direct = phone();
+    126|     expect(Boolean((await caller().auth.signInWithOtp({ phone: '+91' +…
+       |                                                                                                                                    ^
+    127|     const directSession = await caller().auth.verifyOtp({ phone: '+91'…
+    128|     expect(Boolean(directSession.error)).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  apps/api/test/auth-native-otp.local.spec.ts > AUTH-01/03 real GoTrue OTP, hook and CAPTCHA > verifies email OTP from the local mail catcher and claims without inventing a phone
+SyntaxError: Unexpected token 'F', "File not found
+" is not valid JSON
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+

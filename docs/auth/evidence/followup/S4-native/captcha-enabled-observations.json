@@ -1,0 +1,96 @@
+{
+  "runId": "jc-auth-test-a5600624",
+  "approvedProductLoginEnabled": false,
+  "google": "NOT RUN: reviewed Google OAuth fixture unavailable",
+  "noCaptcha": {
+    "rejected": true,
+    "hookCalls": 0,
+    "sends": 0
+  },
+  "invalidCaptcha": {
+    "rejected": false,
+    "hookCalls": 1,
+    "sends": 1
+  },
+  "phoneRequest": {
+    "hookCalls": 1,
+    "sends": 1
+  },
+  "phoneClaimShape": {
+    "issuerMatches": true,
+    "aud": "authenticated",
+    "iat": 1794934444,
+    "exp": 1794935344,
+    "hostNow": 1794934443,
+    "anonymous": false,
+    "role": "authenticated",
+    "sessionUuid": true
+  },
+  "resendWithoutCaptcha": {
+    "rejected": true,
+    "sends": 1
+  },
+  "lastHookFailure": {
+    "status": 429,
+    "code": "AUTH_HOOK_BUDGET_EXHAUSTED"
+  },
+  "deliveryDenials": {
+    "foreignPhoneRejected": true,
+    "emptyBudgetRejected": true,
+    "sends": 0
+  },
+  "ipReality": {
+    "apiSocketIp": "127.0.0.1",
+    "suppliedUntrustedHeader": "203.0.113.77",
+    "direct": [
+      {
+        "ip_address": "",
+        "action": "user_confirmation_requested"
+      },
+      {
+        "ip_address": "",
+        "action": "user_signedup"
+      }
+    ],
+    "serverSideApi": [
+      {
+        "ip_address": "",
+        "action": "user_confirmation_requested"
+      },
+      {
+        "ip_address": "",
+        "action": "user_signedup"
+      }
+    ],
+    "productionBffCutover": false
+  },
+  "mailTransport": {
+    "status": 200,
+    "contentType": "application/json",
+    "server": "mailpit"
+  },
+  "emailClaimShape": {
+    "issuerMatches": true,
+    "aud": "authenticated",
+    "iat": 1794934445,
+    "exp": 1794935345,
+    "hostNow": 1794934446,
+    "anonymous": false,
+    "role": "authenticated",
+    "sessionUuid": true
+  },
+  "emailMetadata": {
+    "provider": "email",
+    "providers": [
+      "email"
+    ]
+  },
+  "emailChain": {
+    "realGoTrue": true,
+    "localMailCatcher": true,
+    "adminSeededConfirmedEmail": false,
+    "importedPhoneRemainsNull": true,
+    "smsSends": 0,
+    "generalEmailLoginEnabled": false
+  }
+}

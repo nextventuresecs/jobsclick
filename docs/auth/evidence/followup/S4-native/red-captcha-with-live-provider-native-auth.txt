@@ -1,0 +1,96 @@
+Project: jc-auth-test-362c73b5
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ apps/api/test/auth-native-otp.local.spec.ts (7 tests | 4 failed) 3243ms
+   × AUTH-01/03 real GoTrue OTP, hook and CAPTCHA > rejects provider-direct phone OTP without a CAPTCHA before any hook or send 194ms
+     → expected false to be true // Object.is equality
+   × AUTH-01/03 real GoTrue OTP, hook and CAPTCHA > rejects provider-direct phone OTP with an invalid CAPTCHA before any send 127ms
+     → expected false to be true // Object.is equality
+   ✓ AUTH-01/03 real GoTrue OTP, hook and CAPTCHA > completes phone OTP through a real signed hook and claims the preserved invited UUID 574ms
+   × AUTH-01/03 real GoTrue OTP, hook and CAPTCHA > requires fresh CAPTCHA on a direct resend and does not double-send 1391ms
+     → expected false to be true // Object.is equality
+   ✓ AUTH-01/03 real GoTrue OTP, hook and CAPTCHA > records actual GoTrue IPs for direct and server-side API calls 351ms
+   × AUTH-01/03 real GoTrue OTP, hook and CAPTCHA > verifies email OTP from the local mail catcher and claims without inventing a phone 258ms
+     → AUTH_PROVIDER_INVALID
+
+ Test Files  1 failed (1)
+      Tests  4 failed | 3 passed (7)
+   Start at  22:21:57
+   Duration  13.90s (transform 282ms, setup 3.40s, collect 453ms, tests 3.24s, environment 0ms, prepare 223ms)
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 4 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/auth-native-otp.local.spec.ts > AUTH-01/03 real GoTrue OTP, hook and CAPTCHA > rejects provider-direct phone OTP without a CAPTCHA before any hook or send
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ apps/api/test/auth-native-otp.local.spec.ts:77:35
+     75|     const result = await caller().auth.signInWithOtp({ phone: '+91' + …
+     76|     observations['noCaptcha'] = { rejected: Boolean(result.error), hoo…
+     77|     expect(Boolean(result.error)).toBe(true); expect(deliveries).toHav…
+       |                                   ^
+     78|   });
+     79|   it('rejects provider-direct phone OTP with an invalid CAPTCHA before…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/4]⎯
+
+ FAIL  apps/api/test/auth-native-otp.local.spec.ts > AUTH-01/03 real GoTrue OTP, hook and CAPTCHA > rejects provider-direct phone OTP with an invalid CAPTCHA before any send
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ apps/api/test/auth-native-otp.local.spec.ts:82:35
+     80|     const result = await caller().auth.signInWithOtp({ phone: '+91' + …
+     81|     observations['invalidCaptcha'] = { rejected: Boolean(result.error)…
+     82|     expect(Boolean(result.error)).toBe(true); expect(deliveries).toHav…
+       |                                   ^
+     83|   });
+     84|   it('completes phone OTP through a real signed hook and claims the pr…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/4]⎯
+
+ FAIL  apps/api/test/auth-native-otp.local.spec.ts > AUTH-01/03 real GoTrue OTP, hook and CAPTCHA > requires fresh CAPTCHA on a direct resend and does not double-send
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ apps/api/test/auth-native-otp.local.spec.ts:114:35
+    112|     const result = await caller().auth.resend({ type: 'sms', phone: '+…
+    113|     observations['resendWithoutCaptcha'] = { rejected: Boolean(result.…
+    114|     expect(Boolean(result.error)).toBe(true); expect(deliveries).toHav…
+       |                                   ^
+    115|   });
+    116|   it('refuses a foreign phone and exhausted budget before fake deliver…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/4]⎯
+
+ FAIL  apps/api/test/auth-native-otp.local.spec.ts > AUTH-01/03 real GoTrue OTP, hook and CAPTCHA > verifies email OTP from the local mail catcher and claims without inventing a phone
+UnauthorizedException: AUTH_PROVIDER_INVALID
+ ❯ Object.authenticate apps/api/src/auth/supabase-provider.ts:69:15
+     67|         || claims.data.iat > Math.floor(Date.now() / 1000)
+     68|         || claims.data.exp <= Math.floor(Date.now() / 1000) || claims.…
+     69|         throw new UnauthorizedException('AUTH_PROVIDER_INVALID');
+       |               ^
+     70|       }
+     71|       const user = await client.auth.getUser(accessToken).catch(provid…
+ ❯ proveSession apps/api/test/auth-native-otp.local.spec.ts:70:22
+ ❯ apps/api/test/auth-native-otp.local.spec.ts:157:67
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/4]⎯
+

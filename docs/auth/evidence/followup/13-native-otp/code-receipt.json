@@ -1,0 +1,14 @@
+{
+  "item": "13-native-otp",
+  "kind": "code",
+  "branch": "codex/auth-13-native-otp",
+  "commit": "b126148e98ff56b61f26ecbba035781dbb83012e",
+  "files": [
+    "scripts/testing/run-disposable.cjs",
+    "apps/api/test/auth-native-otp.local.spec.ts",
+    "docs/auth/S4_NATIVE_OTP.md",
+    "docs/auth/evidence/S4-ip/README.md",
+    "docs/auth/BLOCKED.md"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}
