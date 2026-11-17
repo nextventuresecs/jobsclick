@@ -2,7 +2,7 @@ import { createServer, type Server } from 'node:http';
 import { randomBytes, randomUUID } from 'node:crypto';
 import Redis from 'ioredis';
 import { SignJWT, jwtVerify, generateKeyPair, exportJWK, decodeProtectedHeader, type JWK } from 'jose';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 describe('AUTH-01 request-scoped Supabase provider boundary', () => {
   const signingKey = randomBytes(32);
@@ -68,6 +68,27 @@ describe('AUTH-01 request-scoped Supabase provider boundary', () => {
     expect(identity).toEqual({ authUserId: id, providerSessionId: sessionId, issuedAt, expiresAt: issuedAt + 900 });
     expect(JSON.stringify(identity)).not.toContain(token);
     expect(JSON.stringify(identity)).not.toContain('admin');
+  });
+
+  it.each([1, 2, 3])('bounds provider issue-time skew to two seconds (offset %s)', async offset => {
+    const { createSupabaseProvider } = await import('../src/auth/supabase-provider.js');
+    const now = Math.floor(Date.now() / 1000);
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(now * 1000);
+    try {
+      const token = await new SignJWT({ session_id: sessionId }).setProtectedHeader({ alg: 'HS256' })
+        .setSubject(id).setIssuer(origin + '/auth/v1').setAudience('authenticated').setIssuedAt(now + offset).setExpirationTime(now + offset + 900).sign(signingKey);
+      const provider = createSupabaseProvider({ url: origin, publishableKey: 'sb_publishable_synthetic-local-fixture', environment: 'test' });
+      if (offset <= 2) expect((await provider.authenticate(token)).issuedAt).toBe(now + offset);
+      else await expect(provider.authenticate(token)).rejects.toMatchObject({ status: 401, message: 'AUTH_PROVIDER_INVALID' });
+    } finally { clock.mockRestore(); }
+  });
+  it('rejects a provider-signed access lifetime above fifteen minutes', async () => {
+    const { createSupabaseProvider } = await import('../src/auth/supabase-provider.js');
+    const now = Math.floor(Date.now() / 1000);
+    const token = await new SignJWT({ session_id: sessionId }).setProtectedHeader({ alg: 'HS256' })
+      .setSubject(id).setIssuer(origin + '/auth/v1').setAudience('authenticated').setIssuedAt(now).setExpirationTime(now + 901).sign(signingKey);
+    await expect(createSupabaseProvider({ url: origin, publishableKey: 'sb_publishable_synthetic-local-fixture', environment: 'test' }).authenticate(token))
+      .rejects.toMatchObject({ status: 401, message: 'AUTH_PROVIDER_INVALID' });
   });
 
   it.each(['issuer', 'audience'])('rejects a validly signed token with the wrong %s', async field => {
@@ -157,7 +178,7 @@ describe('AUTH-01 request-scoped Supabase provider boundary', () => {
     const provider = createSupabaseProvider({ url: origin, publishableKey: 'sb_publishable_synthetic-local-fixture', environment: 'test' });
     const credentials = await provider.refresh('synthetic-refresh');
     expect(credentials).toEqual({ authUserId: id, providerSessionId: sessionId, accessToken: expect.any(String),
-      refreshToken: 'synthetic-rotated-refresh', accessExpiresAt: expect.any(Number) });
+      refreshToken: 'synthetic-rotated-refresh', accessIssuedAt: expect.any(Number), accessExpiresAt: expect.any(Number) });
     expect(await provider.authenticate(credentials.accessToken)).toMatchObject({ authUserId: id, expiresAt: credentials.accessExpiresAt });
     await expect(provider.refresh('synthetic-invalid-refresh')).rejects.toMatchObject({ status: 401, message: 'AUTH_PROVIDER_INVALID' });
   });

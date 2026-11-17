@@ -101,6 +101,14 @@ describe('AUTH-05/06 server-only provider session persistence', () => {
     await expect(store.resolve(browser.sessionId)).rejects.toMatchObject({ status: 401 });
   });
 
+  it('accepts a fifteen-minute token with verified issue time one second ahead without extending the session deadline', async () => {
+      const { ProviderSessionStore } = await import('../src/auth/provider-session-store.js');
+      const store = new ProviderSessionStore(redis, { namespace, encryptionKey, now: () => now });
+      const browser = await store.create({ ...credentials(), accessIssuedAt: now + 1, accessExpiresAt: now + 901 }, 'admin');
+      expect(browser.expiresAt).toBe(now + 12 * 3600);
+      expect((await store.resolve(browser.sessionId)).accessExpiresAt).toBe(now + 901);
+  });
+
   it.each([0, 901])('refuses provider credentials with an unapproved access lifetime of %s seconds', async seconds => {
     const { ProviderSessionStore } = await import('../src/auth/provider-session-store.js');
     const store = new ProviderSessionStore(redis, { namespace, encryptionKey, now: () => now });

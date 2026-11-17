@@ -2,6 +2,7 @@ import { ServiceUnavailableException, UnauthorizedException } from '@nestjs/comm
 import { createClient, isAuthError } from '@supabase/supabase-js';
 import { decodeJwt, decodeProtectedHeader } from 'jose';
 import { z } from 'zod';
+import { PROVIDER_ACCESS_LIFETIME_SECONDS, PROVIDER_ISSUE_SKEW_SECONDS } from './provider-time-policy.js';
 
 const identityClaims = z.object({
   sub: z.string().uuid(), session_id: z.string().uuid(),
@@ -64,8 +65,9 @@ export function createSupabaseProvider(config: { url: string; publishableKey: st
       const claims = identityClaims.safeParse(data.claims);
       if (!claims.success || claims.data.iss !== `${origin}/auth/v1`
         || !(Array.isArray(claims.data.aud) ? claims.data.aud : [claims.data.aud]).includes('authenticated')
-        || claims.data.iat > Math.floor(Date.now() / 1000)
-        || claims.data.exp <= Math.floor(Date.now() / 1000) || claims.data.exp <= claims.data.iat) {
+        || claims.data.iat > Math.floor(Date.now() / 1000) + PROVIDER_ISSUE_SKEW_SECONDS
+        || claims.data.exp <= Math.floor(Date.now() / 1000) || claims.data.exp <= claims.data.iat
+        || claims.data.exp - claims.data.iat > PROVIDER_ACCESS_LIFETIME_SECONDS) {
         throw new UnauthorizedException('AUTH_PROVIDER_INVALID');
       }
       const user = await client.auth.getUser(accessToken).catch(providerFailure);
@@ -95,7 +97,7 @@ export function createSupabaseProvider(config: { url: string; publishableKey: st
       if (!parsed.success) throw new ServiceUnavailableException('AUTH_PROVIDER_UNAVAILABLE');
       const identity = await provider.authenticate(parsed.data.access_token);
       return { authUserId: identity.authUserId, providerSessionId: identity.providerSessionId,
-        accessToken: parsed.data.access_token, refreshToken: parsed.data.refresh_token, accessExpiresAt: identity.expiresAt };
+        accessToken: parsed.data.access_token, refreshToken: parsed.data.refresh_token, accessIssuedAt: identity.issuedAt, accessExpiresAt: identity.expiresAt };
     },
   };
   return provider;

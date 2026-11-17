@@ -3,13 +3,22 @@ import { ServiceUnavailableException, UnauthorizedException } from '@nestjs/comm
 import type Redis from 'ioredis';
 import { UserRoleSchema, type UserRole } from '@indian-job-portal/validation';
 import { z } from 'zod';
+import { PROVIDER_ACCESS_LIFETIME_SECONDS, PROVIDER_ISSUE_SKEW_SECONDS } from './provider-time-policy.js';
 
 const credentialsSchema = z.object({
   authUserId: z.string().uuid(), providerSessionId: z.string().uuid(),
   accessToken: z.string().min(1).max(16384), refreshToken: z.string().min(1).max(16384),
+  accessIssuedAt: z.number().int().positive().optional(),
   accessExpiresAt: z.number().int().positive(),
 });
 export type ProviderCredentials = z.infer<typeof credentialsSchema>;
+// Issue time is supplied only by the verified server provider adapter, never a browser payload.
+function validAccessLifetime(credentials: ProviderCredentials, now: number): boolean {
+  const issuedAt = credentials.accessIssuedAt ?? now;
+  return credentials.accessExpiresAt > now && issuedAt <= now + PROVIDER_ISSUE_SKEW_SECONDS
+    && credentials.accessExpiresAt > issuedAt
+    && credentials.accessExpiresAt - issuedAt <= PROVIDER_ACCESS_LIFETIME_SECONDS;
+}
 const storedSchema = credentialsSchema.extend({ createdAt: z.number().int(), expiresAt: z.number().int() });
 const checkEpoch = `
 if redis.call('HGET', KEYS[1], 'epoch') ~= (redis.call('GET', KEYS[2]) or '0') then
@@ -78,7 +87,7 @@ export class ProviderSessionStore {
     const credentials = credentialsSchema.parse(input);
     const currentRole = UserRoleSchema.parse(role);
     const createdAt = this.now();
-    if (credentials.accessExpiresAt <= createdAt || credentials.accessExpiresAt > createdAt + 900) throw new UnauthorizedException('AUTH_PROVIDER_INVALID');
+    if (!validAccessLifetime(credentials, createdAt)) throw new UnauthorizedException('AUTH_PROVIDER_INVALID');
     const expiresAt = createdAt + (['admin', 'msme_admin'].includes(currentRole) ? 12 * 3600 : 7 * 86400);
     const sessionId = `s1_${randomBytes(32).toString('base64url')}`;
     const key = this.key(sessionId);
@@ -129,7 +138,7 @@ export class ProviderSessionStore {
       try {
         const replacement = credentialsSchema.parse(await refresh(stored));
         if (replacement.authUserId !== stored.authUserId || replacement.providerSessionId !== stored.providerSessionId
-          || replacement.accessExpiresAt <= this.now() || replacement.accessExpiresAt > this.now() + 900
+          || !validAccessLifetime(replacement, this.now())
           || stored.expiresAt <= this.now()) throw new Error('Invalid refreshed identity');
         const updated = { ...stored, ...replacement };
         if (await this.evaluate(finishRefresh, keys, encrypted, owner, this.seal(key, updated)) !== 1) throw new UnauthorizedException('AUTH_SESSION_INVALID');
