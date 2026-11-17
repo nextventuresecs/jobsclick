@@ -91,7 +91,7 @@ export class SponsorshipService {
       institution?.id || institutionId,
     );
 
-    let count = studentCountOverride !== undefined ? studentCountOverride : enrolledStudents.length;
+    let count = Math.max(studentCountOverride ?? 0, enrolledStudents.length);
 
     // Default to at least 1 student for quoting purposes if none enrolled yet
     if (count <= 0) {
@@ -127,7 +127,7 @@ export class SponsorshipService {
    * 1. Authoritative secondary ownership check (service-level gate)
    * 2. Payment verification & mapping
    * 3. Idempotency key evaluation
-   * 4. Atomic transaction / concurrency serialization via withLock
+   * 4. Process-local serialization only; database transaction remains a release gate
    * 5. Append-only audit logging
    */
   async activateSponsorship(
@@ -202,6 +202,13 @@ export class SponsorshipService {
         throw new BadRequestException('Payment not verified: payment status is not captured');
       }
 
+      // Use enrolled UUID-associated students, never the client count override, for the minimum paid amount.
+      const requiredQuote = await this.getSponsorshipQuote(instProfile?.id || institutionId, input.studentCountOverride);
+      if (payment.currency !== 'INR' || !Number.isFinite(payment.amount_inr)
+        || payment.amount_inr < requiredQuote.totalAnnualFeeInr) {
+        throw new BadRequestException('SPONSORSHIP_PAYMENT_INSUFFICIENT');
+      }
+
       const isPaymentOwner =
         payment.user_id === user.id ||
         (instProfile && payment.user_id === instProfile.user_id);
@@ -236,7 +243,7 @@ export class SponsorshipService {
       }
     }
 
-    // 4. Atomic transaction / serialization lock on institution row (SELECT ... FOR UPDATE equivalent)
+    // 4. Process-local lock; this is NOT a database transaction or cross-instance lock
     return this.profileRepository.withLock(institutionId, async () => {
       // Re-read institution state within the transaction lock
       let lockedInst: InstitutionProfileRow | null =
@@ -304,14 +311,7 @@ export class SponsorshipService {
         institution.id,
         true,
       );
-      let countByName = 0;
-      if (institution.institution_name) {
-        countByName = await this.profileRepository.updateStudentSponsorshipByInstitution(
-          institution.institution_name,
-          true,
-        );
-      }
-      const totalSponsoredStudents = Math.max(quote.studentCount, countById, countByName);
+      const totalSponsoredStudents = countById;
 
       // 1-year annual duration
       const now = new Date();

@@ -211,6 +211,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
         gateway_order_id: `order_inst_${Date.now()}`,
         gateway_payment_id: testPaymentId,
         amount_inr: 50000,
+        currency: 'INR',
         status: 'captured',
         created_at: new Date().toISOString(),
       });
@@ -287,6 +288,15 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
+
+      // Current UUID-associated grant is required; a stale student boolean is insufficient.
+      const now = new Date().toISOString(), expires = new Date(Date.now() + 86400000).toISOString();
+      await profileRepo.saveInstitutionProfile({ id: instId, user_id: institutionUser.id, institution_name: 'National Engineering College',
+        affiliation: null, address: null, source: 'fixture', created_by: null, updated_by: null, created_at: now, updated_at: now,
+        is_sponsorship_active: true, sponsorship_expires_at: expires });
+      await profileRepo.saveSponsorship({ id: crypto.randomUUID(), institution_id: instId, status: 'active', tier: 'Small', rate_per_student: 150,
+        annual_fee: 177, student_count: 1, payment_reference: null, idempotency_key: null, started_at: now, expires_at: expires,
+        created_by: null, created_at: now, updated_at: now });
 
       // Candidate applies 15 times (well past the 10-application cap)
       for (let i = 1; i <= 15; i++) {
@@ -416,6 +426,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
         gateway_order_id: `order_owner_${Date.now()}`,
         gateway_payment_id: validOwnerPaymentId,
         amount_inr: 50000,
+        currency: 'INR',
         status: 'captured',
         created_at: new Date().toISOString(),
       });
@@ -473,6 +484,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
         gateway_order_id: `order_c_${Date.now()}`,
         gateway_payment_id: concurrentPaymentId,
         amount_inr: 50000,
+        currency: 'INR',
         status: 'captured',
         created_at: new Date().toISOString(),
       });

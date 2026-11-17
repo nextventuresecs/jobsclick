@@ -114,12 +114,15 @@ export class WalletService {
     jobId: string,
     jobTitle?: string,
   ): Promise<{ success: boolean; remainingBalance: number; isSponsored?: boolean }> {
+    const seekerProfile = await this.profileRepository.findSeekerProfileByUserId(applicantId);
     let isSponsored = false;
-    try {
-      const seekerProfile = await this.profileRepository.findSeekerProfileByUserId(applicantId);
-      isSponsored = Boolean(seekerProfile?.is_sponsored);
-    } catch {
-      // Non-blocking fallback
+    if (seekerProfile?.is_sponsored && seekerProfile.institution_id) {
+      const institution = await this.profileRepository.findInstitutionProfileById(seekerProfile.institution_id);
+      const grants = await this.profileRepository.findSponsorshipsByInstitutionId(seekerProfile.institution_id);
+      const now = Date.now();
+      isSponsored = Boolean(institution?.is_sponsorship_active && institution.sponsorship_expires_at
+        && Date.parse(institution.sponsorship_expires_at) > now
+        && grants.some(grant => grant.status === 'active' && Date.parse(grant.started_at) <= now && Date.parse(grant.expires_at) > now));
     }
 
     if (isSponsored) {
