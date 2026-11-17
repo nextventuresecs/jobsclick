@@ -24,7 +24,7 @@ async function fixture(amount = 177) {
     skills: [], institution_id: institution.id, institution: 'Same College', is_sponsored: false,
     source: 'f0-fixture', created_by: owner, updated_by: null, created_at: now, updated_at: now };
   const payment: PaymentRow = { id: randomUUID(), user_id: owner, gateway_order_id: 'order_' + randomUUID(),
-    gateway_payment_id: 'pay_' + randomUUID(), status: 'captured', amount_inr: amount, currency: 'INR', created_at: now };
+    gateway_payment_id: 'pay_' + randomUUID(), status: 'captured', amount_inr: amount, currency: 'INR', metadata: { purpose: 'sponsorship', institutionId: institution.id }, created_at: now };
   await profiles.saveInstitutionProfile(institution); await profiles.saveSeekerProfile(student); await payments.create(payment);
   const actor = { id: owner, role: 'intermediary' };
   const activate = (extra = {}) => service.activateSponsorship(institution.id, { paymentReference: payment.gateway_payment_id!, ...extra }, actor);

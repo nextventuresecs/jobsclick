@@ -1,3 +1,6 @@
+import { ServiceUnavailableException } from '@nestjs/common';
+import { verifiedCaptureSchema, sponsorshipActivationResultSchema, type SponsorshipActivationResult } from '@indian-job-portal/validation';
+import { SponsorshipService } from './sponsorship.service.js';
 import {
   Injectable,
   Inject,
@@ -53,13 +56,13 @@ export class PaymentService {
     private readonly auditLogRepository: AuditLogRepository,
     @Inject(WalletService)
     private readonly walletService: WalletService,
+    @Inject(SponsorshipService) private readonly sponsorshipService: SponsorshipService,
   ) {
     this.keyId = process.env['RAZORPAY_KEY_ID'] || 'rzp_test_dummy_key_id';
     this.keySecret = process.env['RAZORPAY_KEY_SECRET'] || 'dummy_razorpay_key_secret';
     this.webhookSecret = process.env['RAZORPAY_WEBHOOK_SECRET'] || 'dummy_razorpay_webhook_secret';
 
-    const allowTestPayments = process.env['ALLOW_TEST_PAYMENTS'] === 'true';
-    if (process.env['NODE_ENV'] === 'production' && !allowTestPayments) {
+    if (['production','staging'].includes(process.env['NODE_ENV'] || '')) {
       if (
         !process.env['RAZORPAY_KEY_ID'] ||
         !process.env['RAZORPAY_KEY_SECRET'] ||
@@ -69,17 +72,14 @@ export class PaymentService {
         process.env['RAZORPAY_WEBHOOK_SECRET'] === 'dummy_razorpay_webhook_secret'
       ) {
         throw new Error(
-          'Production environment requires valid RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, and RAZORPAY_WEBHOOK_SECRET. Dummy/test keys are strictly rejected unless ALLOW_TEST_PAYMENTS=true.',
+          'Production environment requires valid RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, and RAZORPAY_WEBHOOK_SECRET. Dummy/test keys are strictly rejected.',
         );
       }
     }
 
-    this.isTestMode =
-      process.env['NODE_ENV'] === 'test' ||
-      this.keyId === 'rzp_test_dummy_key_id' ||
-      !process.env['RAZORPAY_KEY_SECRET'];
+    this.isTestMode = process.env['NODE_ENV'] === 'test' && Boolean(process.env['JOBSCLICK_TEST_MANIFEST']);
 
-    if (!this.isTestMode) {
+    if (!this.isTestMode && this.keyId !== 'rzp_test_dummy_key_id' && this.keySecret !== 'dummy_razorpay_key_secret') {
       try {
         this.razorpayClient = new Razorpay({
           key_id: this.keyId,
@@ -150,6 +150,7 @@ export class PaymentService {
       invoice_number: null,
       status: 'created',
       metadata: {
+        purpose: 'wallet',
         packName: pack.name,
         baseAmountInr: pack.priceInr,
         gstRate: pack.gstRate,
@@ -237,7 +238,7 @@ export class PaymentService {
     expectedAmountInr: number,
   ): Promise<Record<string, unknown>> {
     // In test or local dummy mode without live Razorpay keys, validate mock/test payments defensively
-    if (this.isTestMode || !this.razorpayClient) {
+    if (this.isTestMode) {
       // Basic sanity checks for mock/test runs
       if (!gatewayPaymentId || !expectedOrderId) {
         throw new BadRequestException({
@@ -254,6 +255,8 @@ export class PaymentService {
         currency: 'INR',
       };
     }
+
+    if (!this.razorpayClient) throw new ServiceUnavailableException('PAYMENT_PROVIDER_UNAVAILABLE');
 
     try {
       const basicAuth = Buffer.from(`${this.keyId}:${this.keySecret}`).toString('base64');
@@ -321,107 +324,54 @@ export class PaymentService {
     }
   }
 
-  // Idempotent & Atomic processing of successful payment (webhook or verified callback)
-  async processPaymentSuccess(
-    orderId: string,
-    paymentId: string,
-    signature?: string,
-    extraMetadata?: Record<string, unknown>,
-  ): Promise<{ payment: PaymentRow; invoice: InvoiceResponse; alreadyProcessed: boolean }> {
-    // Atomic synchronization by orderId to prevent race conditions during concurrent webhook retries
-    const store = (this.paymentRepository as unknown as { persistentStore: { withLock: (id: string, fn: () => Promise<unknown>) => Promise<unknown> } }).persistentStore;
-
-    return (await store.withLock(orderId, async () => {
+  // Gateway verification is read-only. All local capture/grant/audit mutations use one RPC.
+  async processPaymentSuccess(orderId: string, paymentId: string, signature?: string, extraMetadata?: Record<string, unknown>): Promise<{
+    payment: PaymentRow; invoice: InvoiceResponse; alreadyProcessed: boolean; sponsorship?: SponsorshipActivationResult | null;
+  }> {
+    const initial = await this.paymentRepository.findByGatewayOrderId(orderId);
+    if (!initial) throw new BadRequestException('PAYMENT_NOT_FOUND');
+    const capture = verifiedCaptureSchema.parse(await this.serverVerifyGatewayPayment(paymentId, orderId, initial.amount_inr));
+    if (capture.id !== paymentId || capture.order_id !== orderId) throw new BadRequestException('PAYMENT_VERIFIED_FACTS_MISMATCH');
+    const by = extraMetadata?.['verifiedBy'];
+    const processedBy = by === 'client_checkout' || by === 'admin' ? by : 'razorpay_webhook';
+    const invoice = 'INV-' + new Date().getFullYear() + '-' + initial.id.replace(/[^a-zA-Z0-9]/g, '').slice(-8).toUpperCase();
+    const settled = await this.paymentRepository.settleCapturedPayment({ ...capture, invoice, signature, processedBy }, async () => {
+      // Disposable JSON adapter only; this callback is never invoked by production persistence.
       const payment = await this.paymentRepository.findByGatewayOrderId(orderId);
-      if (!payment) {
-        throw new BadRequestException({
-          statusCode: 400,
-          code: 'PAYMENT_NOT_FOUND',
-          message: `No payment found for order ID ${orderId}`,
-        });
-      }
-
-      // 1. Idempotency Check: if already captured, return existing invoice without duplicate grant
+      if (!payment) throw new BadRequestException('PAYMENT_NOT_FOUND');
+      const receipt = this.paymentRepository.findTestPaymentGrant(payment.id);
       if (payment.status === 'captured') {
-        const invoice = this.formatInvoice(payment);
-        return { payment, invoice, alreadyProcessed: true };
+        if (payment.gateway_payment_id !== paymentId) throw new BadRequestException('DUPLICATE_PAYMENT_CLAIM');
+        if (!receipt) throw new BadRequestException('PAYMENT_LEGACY_RECONCILIATION_REQUIRED');
+        return { payment: { id: payment.id }, alreadyProcessed: true,
+          sponsorship: receipt.purpose === 'sponsorship' ? { ...sponsorshipActivationResultSchema.parse(receipt.result), alreadyActive: true } : null };
       }
-
-      // Check if another row already claimed this gateway_payment_id
-      const existingByPaymentId = await this.paymentRepository.findByGatewayPaymentId(paymentId);
-      if (existingByPaymentId && existingByPaymentId.id !== payment.id && existingByPaymentId.status === 'captured') {
-        throw new BadRequestException({
-          statusCode: 400,
-          code: 'DUPLICATE_PAYMENT_CLAIM',
-          message: `Gateway payment ID ${paymentId} has already been claimed`,
-        });
-      }
-
-      // 2. Server-side Defensive Second Check with gateway
-      await this.serverVerifyGatewayPayment(paymentId, orderId, payment.amount_inr);
-
-      const now = new Date();
-      const invoiceNumber = `INV-${now.getFullYear()}-${payment.id.replace(/[^a-zA-Z0-9]/g, '').slice(-8).toUpperCase()}`;
-
-      // 3. Atomic Conditional Transition to 'captured'
-      const transitionResult = await this.paymentRepository.transitionToCaptured(payment.id, {
-        gateway_payment_id: paymentId,
-        gateway_signature: signature ?? payment.gateway_signature,
-        invoice_number: invoiceNumber,
-        processed_at: now.toISOString(),
-        processed_by: (extraMetadata?.['verifiedBy'] as string) || 'razorpay_webhook',
-        metadata: {
-          ...(payment.metadata ?? {}),
-          ...(extraMetadata ?? {}),
-          capturedAt: now.toISOString(),
-        },
-      });
-
-      // If already captured by another concurrent execution, return invoice idempotently
-      if (transitionResult.alreadyCaptured || !transitionResult.updated) {
-        const capturedPayment = transitionResult.payment || (await this.paymentRepository.findById(payment.id));
-        if (capturedPayment) {
-          const invoice = this.formatInvoice(capturedPayment);
-          return { payment: capturedPayment, invoice, alreadyProcessed: true };
-        }
-      }
-
-      const updatedPayment = transitionResult.updated!;
-
-      // 4. Grant credits to wallet via ledger (Hard Invariant #7: Ledger is source of truth)
-      const creditsToGrant = updatedPayment.credits_added || 0;
-      if (creditsToGrant > 0) {
-        await this.walletService.grantCredits(
-          updatedPayment.user_id,
-          creditsToGrant,
-          `Wallet recharge: Credit pack ${updatedPayment.pack_id} (Ref: ${paymentId})`,
-          updatedPayment.user_id,
-        );
-      }
-
-      // 5. Hard Invariant #6: Append to persistent audit log inside transaction block
-      try {
-        await this.auditLogRepository.append({
-          id: crypto.randomUUID(),
-          actor_id: updatedPayment.user_id,
-          action: 'PAYMENT_CAPTURED',
-          meta: {
-            paymentId: updatedPayment.id,
-            orderId,
-            gatewayPaymentId: paymentId,
-            amountInr: updatedPayment.amount_inr,
-            creditsAdded: creditsToGrant,
-            invoiceNumber,
-          },
-          created_at: now.toISOString(),
-        });
-      } catch {
-        // Non-blocking audit log
-      }
-
-      const invoice = this.formatInvoice(updatedPayment);
-      return { payment: updatedPayment, invoice, alreadyProcessed: false };
-    })) as { payment: PaymentRow; invoice: InvoiceResponse; alreadyProcessed: boolean };
+      const duplicate = await this.paymentRepository.findByGatewayPaymentId(paymentId);
+      if (duplicate && duplicate.id !== payment.id) throw new BadRequestException('DUPLICATE_PAYMENT_CLAIM');
+      if (!['created','authorized'].includes(payment.status)) throw new BadRequestException('PAYMENT_STATE_INVALID');
+      const transition = await this.paymentRepository.transitionToCaptured(payment.id, { gateway_payment_id: paymentId,
+        gateway_signature: signature, invoice_number: invoice, processed_at: new Date().toISOString(), processed_by: processedBy,
+        metadata: { ...payment.metadata, capturedAt: new Date().toISOString(), verifiedBy: processedBy } });
+      if (!transition.updated) throw new ServiceUnavailableException('PAYMENT_TRANSACTION_UNAVAILABLE');
+      let sponsorship: SponsorshipActivationResult | null = null;
+      if (payment.metadata?.['purpose'] === 'sponsorship' && typeof payment.metadata['institutionId'] === 'string') {
+        sponsorship = await this.sponsorshipService.activateSponsorship(payment.metadata['institutionId'], {
+          paymentReference: payment.id, idempotencyKey: typeof payment.metadata['activationKey'] === 'string' ? payment.metadata['activationKey'] : 'capture:' + paymentId,
+        }, { id: payment.user_id, role: 'intermediary' });
+      } else if (payment.metadata?.['purpose'] === 'wallet' && payment.pack_id && (payment.credits_added ?? 0)>0) {
+        const row = await this.walletService.recordTransaction({ userId: payment.user_id, amount: payment.credits_added!,
+          reason: 'Wallet recharge: Credit pack ' + payment.pack_id + ' (Ref: ' + paymentId + ')', actorId: payment.user_id, requireAudit: true });
+        this.paymentRepository.saveTestPaymentGrant({ payment_id: payment.id, purpose: 'wallet', target_id: payment.user_id,
+          request_key: 'capture:' + paymentId, fingerprint: { gatewayPaymentId: paymentId, amountPaise: capture.amount, currency: capture.currency },
+          result: { ledgerId: row.id }, created_at: new Date().toISOString() });
+      } else throw new BadRequestException('PAYMENT_PURPOSE_INVALID');
+      await this.auditLogRepository.append({ id: crypto.randomUUID(), actor_id: payment.user_id, action: 'PAYMENT_CAPTURED',
+        meta: { paymentId: payment.id, creditsAdded: payment.credits_added ?? 0, amountInr: payment.amount_inr }, created_at: new Date().toISOString() });
+      return { payment: { id: payment.id }, alreadyProcessed: false, sponsorship };
+    });
+    const payment = await this.paymentRepository.findById(settled.payment.id);
+    if (!payment) throw new ServiceUnavailableException('PAYMENT_TRANSACTION_UNAVAILABLE');
+    return { payment, invoice: this.formatInvoice(payment), alreadyProcessed: settled.alreadyProcessed, sponsorship: settled.sponsorship };
   }
 
   // Handle payment.failed event from Razorpay (Industry grade failure reconciliation)
