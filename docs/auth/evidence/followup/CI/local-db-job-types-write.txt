@@ -1,0 +1,3 @@
+Project: jc-auth-test-6da1b394
+Exit: 1
+TYPE_GENERATION_OUTPUT_INVALID

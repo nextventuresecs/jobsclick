@@ -1,0 +1,19 @@
+{
+  "item": "11-ci",
+  "kind": "code",
+  "branch": "codex/auth-11-disposable-ci",
+  "commit": "1caab3733d56ccc40a91b3f5ddc873023f566bec",
+  "files": [
+    ".github/workflows/ci.yml",
+    "package.json",
+    "scripts/generate-types.js",
+    "scripts/testing/run-disposable.cjs",
+    "scripts/testing/standalone-scripts.test.cjs",
+    "scripts/testing/ci-disposable.test.cjs",
+    "scripts/testing/run-auth-review.cjs",
+    "scripts/testing/auth-review-tests.json",
+    "apps/api/test/auth-native.local.spec.ts",
+    "docs/auth/CI_DISPOSABLE.md"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}

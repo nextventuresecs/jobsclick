@@ -1,0 +1,11 @@
+{
+  "item": "11-types",
+  "kind": "code",
+  "branch": "codex/auth-11-disposable-ci",
+  "commit": "b3bd90ea2e30fe8517fbe975676307b239afc93e",
+  "files": [
+    "packages/database/src/generated.types.ts",
+    "docs/auth/GENERATED_TYPES.md"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}

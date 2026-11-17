@@ -1,0 +1,14 @@
+Project: jc-auth-test-53281291
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 0
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ✓ packages/database/test/auth-migrations-replay.local.test.ts (2 tests) 100ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  20:51:19
+   Duration  8.58s (transform 194ms, setup 3.02s, collect 30ms, tests 100ms, environment 0ms, prepare 249ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.

@@ -1,0 +1,543 @@
+Exit: 1
+✖ AUTH CI runs a dedicated disposable migration contract job (1.5912ms)
+✖ AUTH CI contains no shared database targets, credentials or secret expressions (0.9509ms)
+✖ deploy-staging cannot report success from a placeholder (0.2737ms)
+✖ deploy-production cannot report success from a placeholder (0.157ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 0
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 667.7746
+
+✖ failing tests:
+
+test at scripts\testing\ci-disposable.test.cjs:5:1
+✖ AUTH CI runs a dedicated disposable migration contract job (1.5912ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /\n  auth-disposable:/. Input:
+  
+  'name: CI/CD Pipeline\r\n' +
+    '\r\n' +
+    'on:\r\n' +
+    '  push:\r\n' +
+    '    branches: [main, fix/auth-api-lockdown]\r\n' +
+    '  pull_request:\r\n' +
+    '    branches: [main]\r\n' +
+    '\r\n' +
+    'jobs:\r\n' +
+    '  verify:\r\n' +
+    '    name: Lint, Typecheck, Test & Build\r\n' +
+    '    runs-on: ubuntu-latest\r\n' +
+    '\r\n' +
+    '    services:\r\n' +
+    '      redis:\r\n' +
+    '        image: redis:7-alpine\r\n' +
+    '        ports:\r\n' +
+    '          - 6379:6379\r\n' +
+    '        options: >-\r\n' +
+    '          --health-cmd "redis-cli ping"\r\n' +
+    '          --health-interval 10s\r\n' +
+    '          --health-timeout 5s\r\n' +
+    '          --health-retries 5\r\n' +
+    '\r\n' +
+    '    env:\r\n' +
+    '      NODE_ENV: test\r\n' +
+    '      REDIS_URL: redis://127.0.0.1:6379\r\n' +
+    '      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres\r\n' +
+    '      SUPABASE_URL: http://127.0.0.1:54321\r\n' +
+    '      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0\r\n' +
+    '      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU\r\n' +
+    '      JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long\r\n' +
+    '      OTP_PEPPER: super-secret-otp-pepper-at-least-32-characters-long\r\n' +
+    '      TRUSTED_PROXY_CIDRS: 127.0.0.1/32,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16\r\n' +
+    '\r\n' +
+    '    steps:\r\n' +
+    '      - name: Checkout Repository\r\n' +
+    '        uses: actions/checkout@v4\r\n' +
+    '\r\n' +
+    '      - name: Setup Node.js\r\n' +
+    '        uses: actions/setup-node@v4\r\n' +
+    '        with:\r\n' +
+    '          node-version: 22\r\n' +
+    '\r\n' +
+    '      - name: Setup pnpm\r\n' +
+    '        uses: pnpm/action-setup@v3\r\n' +
+    '        with:\r\n' +
+    '          version: 9\r\n' +
+    '\r\n' +
+    '      - name: Get pnpm store directory\r\n' +
+    '        shell: bash\r\n' +
+    '        run: |\r\n' +
+    '          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV\r\n' +
+    '\r\n' +
+    '      - name: Setup pnpm cache\r\n' +
+    '        uses: actions/cache@v4\r\n' +
+    '        with:\r\n' +
+    '          path: ${{ env.STORE_PATH }}\r\n' +
+    "          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}\r\n" +
+    '          restore-keys: |\r\n' +
+    '            ${{ runner.os }}-pnpm-store-\r\n' +
+    '\r\n' +
+    '      - name: Install Dependencies\r\n' +
+    '        run: pnpm install --frozen-lockfile\r\n' +
+    '\r\n' +
+    '      - name: Check Migration Sync Integrity\r\n' +
+    '        run: pnpm ci:check-migrations\r\n' +
+    '\r\n' +
+    '      - name: Setup Supabase CLI\r\n' +
+    '        uses: supabase/setup-cli@v1\r\n' +
+    '        with:\r\n' +
+    '          version: 3.1.0\r\n' +
+    '\r\n' +
+    '      - name: Start Supabase Local Stack\r\n' +
+    '        run: |\r\n' +
+    '          supabase start\r\n' +
+    '          supabase status -o env >> $GITHUB_ENV\r\n' +
+    '\r\n' +
+    '      - name: Run ESLint\r\n' +
+    '        run: pnpm lint\r\n' +
+    '\r\n' +
+    '      - name: Run TypeScript Check\r\n' +
+    '        run: pnpm typecheck\r\n' +
+    '\r\n' +
+    '      - name: Run Test Suite\r\n' +
+    '        run: pnpm test\r\n' +
+    '\r\n' +
+    '      - name: Build All Workspaces\r\n' +
+    '        run: pnpm build\r\n' +
+    '\r\n' +
+    '  db-security-gate:\r\n' +
+    '    name: Database Security & Migration Gate\r\n' +
+    '    runs-on: ubuntu-latest\r\n' +
+    '\r\n' +
+    '    services:\r\n' +
+    '      redis:\r\n' +
+    '        image: redis:7-alpine\r\n' +
+    '        ports:\r\n' +
+    '          - 6379:6379\r\n' +
+    '\r\n' +
+    '    env:\r\n' +
+    '      NODE_ENV: test\r\n' +
+    '      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres\r\n' +
+    '      SUPABASE_URL: http://127.0.0.1:54321\r\n' +
+    '      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0\r\n' +
+    '      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU\r\n' +
+    '\r\n' +
+    '    steps:\r\n' +
+    '      - name: Checkout Repository\r\n' +
+    '        uses: actions/checkout@v4\r\n' +
+    '\r\n' +
+    '      - name: Setup Node.js\r\n' +
+    '        uses: actions/setup-node@v4\r\n' +
+    '        with:\r\n' +
+    '          node-version: 22\r\n' +
+    '\r\n' +
+    '      - name: Setup pnpm\r\n' +
+    '        uses: pnpm/action-setup@v3\r\n' +
+    '        with:\r\n' +
+    '          version: 9\r\n' +
+    '\r\n' +
+    '      - name: Install Dependencies\r\n' +
+    '        run: pnpm install --frozen-lockfile\r\n' +
+    '\r\n' +
+    '      - name: Check Migration Sync Integrity\r\n' +
+    '        run: pnpm ci:check-migrations\r\n' +
+    '\r\n' +
+    '      - name: Setup Supabase CLI\r\n' +
+    '        uses: supabase/setup-cli@v1\r\n' +
+    '        with:\r\n' +
+    '          version: 3.1.0\r\n' +
+    '\r\n' +
+    '      - name: Start Supabase Stack & Reset DB\r\n' +
+    '        run: |\r\n' +
+    '          supabase start\r\n' +
+    '          supabase db reset\r\n' +
+    '\r\n' +
+    '      - name: Verify Generated Database Types Freshness\r\n' +
+    '        run: |\r\n' +
+    '          pnpm db:generate-types\r\n' +
+    '          git diff --exit-code packages/database/src/generated.types.ts\r\n' +
+    '\r\n' +
+    '      - name: Run Database Catalog Security Assertion\r\n' +
+    '        run: pnpm db:catalog:check\r\n' +
+    '\r\n' +
+    '      - name: Run Database Security Attack Suite Drill\r\n' +
+    '        run: pnpm db:security:drill\r\n' +
+    '\r\n' +
+    '      - name: Run PostgREST HTTP Smoke Checks\r\n' +
+    '        run: pnpm db:smoke:postgrest\r\n' +
+    '\r\n' +
+    '      - name: Run Fresh Database Bootstrap Drill\r\n' +
+    '        run: pnpm db:bootstrap:drill\r\n' +
+    '\r\n' +
+    '  container-build:\r\n' +
+    '    name: Build Container Images\r\n' +
+    '    needs: [verify, db-security-gate]\r\n' +
+    '    runs-on: ubuntu-latest\r\n' +
+    '\r\n' +
+    '    steps:\r\n' +
+    '      - name: Checkout Repository\r\n' +
+    '        uses: actions/checkout@v4\r\n' +
+    '\r\n' +
+    '      - name: Set up Docker Buildx\r\n' +
+    '        uses: docker/setup-buildx-action@v3\r\n' +
+    '\r\n' +
+    '      - name: Build API Docker Image\r\n' +
+    '        uses: docker/build-push-action@v5\r\n' +
+    '        with:\r\n' +
+    '          context: .\r\n' +
+    '          file: apps/api/Dockerfile\r\n' +
+    '          push: false\r\n' +
+    '          tags: indian-job-portal-api:latest\r\n' +
+    '\r\n' +
+    '      - name: Build Worker Docker Image\r\n' +
+    '        uses: docker/build-push-action@v5\r\n' +
+    '        with:\r\n' +
+    '          context: .\r\n' +
+    '          file: apps/worker/Dockerfile\r\n' +
+    '          push: false\r\n' +
+    '          tags: indian-job-portal-worker:latest\r\n' +
+    '\r\n' +
+    '  deploy-staging:\r\n' +
+    '    name: Deploy to Staging\r\n' +
+    '    needs: [verify, db-security-gate, container-build]\r\n' +
+    "    if: github.ref == 'refs/heads/main' && github.event_name == 'push'\r\n" +
+    '    runs-on: ubuntu-latest\r\n' +
+    '\r\n' +
+    '    steps:\r\n' +
+    '      - name: Checkout Repository\r\n' +
+    '        uses: actions/checkout@v4\r\n' +
+    '\r\n' +
+    '      - name: Deploy to Staging Environment\r\n' +
+    '        run: |\r\n' +
+    '          echo "Deploying container build to Staging environment..."\r\n' +
+    '\r\n' +
+    '  deploy-production:\r\n' +
+    '    name: Deploy to Production\r\n' +
+    '    needs: [deploy-staging]\r\n' +
+    "    if: github.ref == 'refs/heads/main' && github.event_name == 'push'\r\n" +
+    '    runs-on: ubuntu-latest\r\n' +
+    '    environment: production\r\n' +
+    '\r\n' +
+    '    steps:\r\n' +
+    '      - name: Checkout Repository\r\n' +
+    '        uses: actions/checkout@v4\r\n' +
+    '\r\n' +
+    '      - name: Deploy to Production Environment\r\n' +
+    '        run: |\r\n' +
+    '          echo "Deploying container build to Production environment..."\r\n'
+  
+      at TestContext.<anonymous> (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\scripts\testing\ci-disposable.test.cjs:6:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.start (node:internal/test_runner/test:1191:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'name: CI/CD Pipeline\r\n\r\non:\r\n  push:\r\n    branches: [main, fix/auth-api-lockdown]\r\n  pull_request:\r\n    branches: [main]\r\n\r\njobs:\r\n  verify:\r\n    name: Lint, Typecheck, Test & Build\r\n    runs-on: ubuntu-latest\r\n\r\n    services:\r\n      redis:\r\n        image: redis:7-alpine\r\n        ports:\r\n          - 6379:6379\r\n        options: >-\r\n          --health-cmd "redis-cli ping"\r\n          --health-interval 10s\r\n          --health-timeout 5s\r\n          --health-retries 5\r\n\r\n    env:\r\n      NODE_ENV: test\r\n      REDIS_URL: redis://127.0.0.1:6379\r\n      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres\r\n      SUPABASE_URL: http://127.0.0.1:54321\r\n      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0\r\n      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU\r\n      JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long\r\n      OTP_PEPPER: super-secret-otp-pepper-at-least-32-characters-long\r\n      TRUSTED_PROXY_CIDRS: 127.0.0.1/32,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16\r\n\r\n    steps:\r\n      - name: Checkout Repository\r\n        uses: actions/checkout@v4\r\n\r\n      - name: Setup Node.js\r\n        uses: actions/setup-node@v4\r\n        with:\r\n          node-version: 22\r\n\r\n      - name: Setup pnpm\r\n        uses: pnpm/action-setup@v3\r\n        with:\r\n          version: 9\r\n\r\n      - name: Get pnpm store directory\r\n        shell: bash\r\n        run: |\r\n          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV\r\n\r\n      - name: Setup pnpm cache\r\n        uses: actions/cache@v4\r\n        with:\r\n          path: ${{ env.STORE_PATH }}\r\n          key: ${{ runner.os }}-pnpm-store-${{ hashFiles(\'**/pnpm-lock.yaml\') }}\r\n          restore-keys: |\r\n            ${{ runner.os }}-pnpm-store-\r\n\r\n      - name: Install Dependencies\r\n        run: pnpm install --frozen-lockfile\r\n\r\n      - name: Check Migration Sync Integrity\r\n        run: pnpm ci:check-migrations\r\n\r\n      - name: Setup Supabase CLI\r\n        uses: supabase/setup-cli@v1\r\n        with:\r\n          version: 3.1.0\r\n\r\n      - name: Start Supabase Local Stack\r\n        run: |\r\n          supabase start\r\n          supabase status -o env >> $GITHUB_ENV\r\n\r\n      - name: Run ESLint\r\n        run: pnpm lint\r\n\r\n      - name: Run TypeScript Check\r\n        run: pnpm typecheck\r\n\r\n      - name: Run Test Suite\r\n        run: pnpm test\r\n\r\n      - name: Build All Workspaces\r\n        run: pnpm build\r\n\r\n  db-security-gate:\r\n    name: Database Security & Migration Gate\r\n    runs-on: ubuntu-latest\r\n\r\n    services:\r\n      redis:\r\n        image: redis:7-alpine\r\n        ports:\r\n          - 6379:6379\r\n\r\n    env:\r\n      NODE_ENV: test\r\n      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres\r\n      SUPABASE_URL: http://127.0.0.1:54321\r\n      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0\r\n      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU\r\n\r\n    steps:\r\n      - name: Checkout Repository\r\n        uses: actions/checkout@v4\r\n\r\n      - name: Setup Node.js\r\n        uses: actions/setup-node@v4\r\n        with:\r\n          node-version: 22\r\n\r\n      - name: Setup pnpm\r\n        uses: pnpm/action-setup@v3\r\n        with:\r\n          version: 9\r\n\r\n      - name: Install Dependencies\r\n        run: pnpm install --frozen-lockfile\r\n\r\n      - name: Check Migration Sync Integrity\r\n        run: pnpm ci:check-migrations\r\n\r\n      - name: Setup Supabase CLI\r\n        uses: supabase/setup-cli@v1\r\n        with:\r\n          version: 3.1.0\r\n\r\n      - name: Start Supabase Stack & Reset DB\r\n        run: |\r\n          supabase start\r\n          supabase db reset\r\n\r\n      - name: Verify Generated Database Types Freshness\r\n        run: |\r\n          pnpm db:generate-types\r\n          git diff --exit-code packages/database/src/generated.types.ts\r\n\r\n      - name: Run Database Catalog Security Assertion\r\n        run: pnpm db:catalog:check\r\n\r\n      - name: Run Database Security Attack Suite Drill\r\n        run: pnpm db:security:drill\r\n\r\n      - name: Run PostgREST HTTP Smoke Checks\r\n        run: pnpm db:smoke:postgrest\r\n\r\n      - name: Run Fresh Database Bootstrap Drill\r\n        run: pnpm db:bootstrap:drill\r\n\r\n  container-build:\r\n    name: Build Container Images\r\n    needs: [verify, db-security-gate]\r\n    runs-on: ubuntu-latest\r\n\r\n    steps:\r\n      - name: Checkout Repository\r\n        uses: actions/checkout@v4\r\n\r\n      - name: Set up Docker Buildx\r\n        uses: docker/setup-buildx-action@v3\r\n\r\n      - name: Build API Docker Image\r\n        uses: docker/build-push-action@v5\r\n        with:\r\n          context: .\r\n          file: apps/api/Dockerfile\r\n          push: false\r\n          tags: indian-job-portal-api:latest\r\n\r\n      - name: Build Worker Docker Image\r\n        uses: docker/build-push-action@v5\r\n        with:\r\n          context: .\r\n          file: apps/worker/Dockerfile\r\n          push: false\r\n          tags: indian-job-portal-worker:latest\r\n\r\n  deploy-staging:\r\n    name: Deploy to Staging\r\n    needs: [verify, db-security-gate, container-build]\r\n    if: github.ref == \'refs/heads/main\' && github.event_name == \'push\'\r\n    runs-on: ubuntu-latest\r\n\r\n    steps:\r\n      - name: Checkout Repository\r\n        uses: actions/checkout@v4\r\n\r\n      - name: Deploy to Staging Environment\r\n        run: |\r\n          echo "Deploying container build to Staging environment..."\r\n\r\n  deploy-production:\r\n    name: Deploy to Production\r\n    needs: [deploy-staging]\r\n    if: github.ref == \'refs/heads/main\' && github.event_name == \'push\'\r\n    runs-on: ubuntu-latest\r\n    environment: production\r\n\r\n    steps:\r\n      - name: Checkout Repository\r\n        uses: actions/checkout@v4\r\n\r\n      - name: Deploy to Production Environment\r\n        run: |\r\n          echo "Deploying container build to Production environment..."\r\n',
+    expected: /\n  auth-disposable:/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at scripts\testing\ci-disposable.test.cjs:10:1
+✖ AUTH CI contains no shared database targets, credentials or secret expressions (0.9509ms)
+  AssertionError [ERR_ASSERTION]: The input was expected to not match the regular expression /(?:DATABASE_URL|SUPABASE_SERVICE_ROLE_KEY|SUPABASE_ANON_KEY|JWT_SECRET|OTP_PEPPER|REDIS_URL):/. Input:
+  
+  'name: CI/CD Pipeline\r\n' +
+    '\r\n' +
+    'on:\r\n' +
+    '  push:\r\n' +
+    '    branches: [main, fix/auth-api-lockdown]\r\n' +
+    '  pull_request:\r\n' +
+    '    branches: [main]\r\n' +
+    '\r\n' +
+    'jobs:\r\n' +
+    '  verify:\r\n' +
+    '    name: Lint, Typecheck, Test & Build\r\n' +
+    '    runs-on: ubuntu-latest\r\n' +
+    '\r\n' +
+    '    services:\r\n' +
+    '      redis:\r\n' +
+    '        image: redis:7-alpine\r\n' +
+    '        ports:\r\n' +
+    '          - 6379:6379\r\n' +
+    '        options: >-\r\n' +
+    '          --health-cmd "redis-cli ping"\r\n' +
+    '          --health-interval 10s\r\n' +
+    '          --health-timeout 5s\r\n' +
+    '          --health-retries 5\r\n' +
+    '\r\n' +
+    '    env:\r\n' +
+    '      NODE_ENV: test\r\n' +
+    '      REDIS_URL: redis://127.0.0.1:6379\r\n' +
+    '      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres\r\n' +
+    '      SUPABASE_URL: http://127.0.0.1:54321\r\n' +
+    '      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0\r\n' +
+    '      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU\r\n' +
+    '      JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long\r\n' +
+    '      OTP_PEPPER: super-secret-otp-pepper-at-least-32-characters-long\r\n' +
+    '      TRUSTED_PROXY_CIDRS: 127.0.0.1/32,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16\r\n' +
+    '\r\n' +
+    '    steps:\r\n' +
+    '      - name: Checkout Repository\r\n' +
+    '        uses: actions/checkout@v4\r\n' +
+    '\r\n' +
+    '      - name: Setup Node.js\r\n' +
+    '        uses: actions/setup-node@v4\r\n' +
+    '        with:\r\n' +
+    '          node-version: 22\r\n' +
+    '\r\n' +
+    '      - name: Setup pnpm\r\n' +
+    '        uses: pnpm/action-setup@v3\r\n' +
+    '        with:\r\n' +
+    '          version: 9\r\n' +
+    '\r\n' +
+    '      - name: Get pnpm store directory\r\n' +
+    '        shell: bash\r\n' +
+    '        run: |\r\n' +
+    '          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV\r\n' +
+    '\r\n' +
+    '      - name: Setup pnpm cache\r\n' +
+    '        uses: actions/cache@v4\r\n' +
+    '        with:\r\n' +
+    '          path: ${{ env.STORE_PATH }}\r\n' +
+    "          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}\r\n" +
+    '          restore-keys: |\r\n' +
+    '            ${{ runner.os }}-pnpm-store-\r\n' +
+    '\r\n' +
+    '      - name: Install Dependencies\r\n' +
+    '        run: pnpm install --frozen-lockfile\r\n' +
+    '\r\n' +
+    '      - name: Check Migration Sync Integrity\r\n' +
+    '        run: pnpm ci:check-migrations\r\n' +
+    '\r\n' +
+    '      - name: Setup Supabase CLI\r\n' +
+    '        uses: supabase/setup-cli@v1\r\n' +
+    '        with:\r\n' +
+    '          version: 3.1.0\r\n' +
+    '\r\n' +
+    '      - name: Start Supabase Local Stack\r\n' +
+    '        run: |\r\n' +
+    '          supabase start\r\n' +
+    '          supabase status -o env >> $GITHUB_ENV\r\n' +
+    '\r\n' +
+    '      - name: Run ESLint\r\n' +
+    '        run: pnpm lint\r\n' +
+    '\r\n' +
+    '      - name: Run TypeScript Check\r\n' +
+    '        run: pnpm typecheck\r\n' +
+    '\r\n' +
+    '      - name: Run Test Suite\r\n' +
+    '        run: pnpm test\r\n' +
+    '\r\n' +
+    '      - name: Build All Workspaces\r\n' +
+    '        run: pnpm build\r\n' +
+    '\r\n' +
+    '  db-security-gate:\r\n' +
+    '    name: Database Security & Migration Gate\r\n' +
+    '    runs-on: ubuntu-latest\r\n' +
+    '\r\n' +
+    '    services:\r\n' +
+    '      redis:\r\n' +
+    '        image: redis:7-alpine\r\n' +
+    '        ports:\r\n' +
+    '          - 6379:6379\r\n' +
+    '\r\n' +
+    '    env:\r\n' +
+    '      NODE_ENV: test\r\n' +
+    '      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres\r\n' +
+    '      SUPABASE_URL: http://127.0.0.1:54321\r\n' +
+    '      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0\r\n' +
+    '      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU\r\n' +
+    '\r\n' +
+    '    steps:\r\n' +
+    '      - name: Checkout Repository\r\n' +
+    '        uses: actions/checkout@v4\r\n' +
+    '\r\n' +
+    '      - name: Setup Node.js\r\n' +
+    '        uses: actions/setup-node@v4\r\n' +
+    '        with:\r\n' +
+    '          node-version: 22\r\n' +
+    '\r\n' +
+    '      - name: Setup pnpm\r\n' +
+    '        uses: pnpm/action-setup@v3\r\n' +
+    '        with:\r\n' +
+    '          version: 9\r\n' +
+    '\r\n' +
+    '      - name: Install Dependencies\r\n' +
+    '        run: pnpm install --frozen-lockfile\r\n' +
+    '\r\n' +
+    '      - name: Check Migration Sync Integrity\r\n' +
+    '        run: pnpm ci:check-migrations\r\n' +
+    '\r\n' +
+    '      - name: Setup Supabase CLI\r\n' +
+    '        uses: supabase/setup-cli@v1\r\n' +
+    '        with:\r\n' +
+    '          version: 3.1.0\r\n' +
+    '\r\n' +
+    '      - name: Start Supabase Stack & Reset DB\r\n' +
+    '        run: |\r\n' +
+    '          supabase start\r\n' +
+    '          supabase db reset\r\n' +
+    '\r\n' +
+    '      - name: Verify Generated Database Types Freshness\r\n' +
+    '        run: |\r\n' +
+    '          pnpm db:generate-types\r\n' +
+    '          git diff --exit-code packages/database/src/generated.types.ts\r\n' +
+    '\r\n' +
+    '      - name: Run Database Catalog Security Assertion\r\n' +
+    '        run: pnpm db:catalog:check\r\n' +
+    '\r\n' +
+    '      - name: Run Database Security Attack Suite Drill\r\n' +
+    '        run: pnpm db:security:drill\r\n' +
+    '\r\n' +
+    '      - name: Run PostgREST HTTP Smoke Checks\r\n' +
+    '        run: pnpm db:smoke:postgrest\r\n' +
+    '\r\n' +
+    '      - name: Run Fresh Database Bootstrap Drill\r\n' +
+    '        run: pnpm db:bootstrap:drill\r\n' +
+    '\r\n' +
+    '  container-build:\r\n' +
+    '    name: Build Container Images\r\n' +
+    '    needs: [verify, db-security-gate]\r\n' +
+    '    runs-on: ubuntu-latest\r\n' +
+    '\r\n' +
+    '    steps:\r\n' +
+    '      - name: Checkout Repository\r\n' +
+    '        uses: actions/checkout@v4\r\n' +
+    '\r\n' +
+    '      - name: Set up Docker Buildx\r\n' +
+    '        uses: docker/setup-buildx-action@v3\r\n' +
+    '\r\n' +
+    '      - name: Build API Docker Image\r\n' +
+    '        uses: docker/build-push-action@v5\r\n' +
+    '        with:\r\n' +
+    '          context: .\r\n' +
+    '          file: apps/api/Dockerfile\r\n' +
+    '          push: false\r\n' +
+    '          tags: indian-job-portal-api:latest\r\n' +
+    '\r\n' +
+    '      - name: Build Worker Docker Image\r\n' +
+    '        uses: docker/build-push-action@v5\r\n' +
+    '        with:\r\n' +
+    '          context: .\r\n' +
+    '          file: apps/worker/Dockerfile\r\n' +
+    '          push: false\r\n' +
+    '          tags: indian-job-portal-worker:latest\r\n' +
+    '\r\n' +
+    '  deploy-staging:\r\n' +
+    '    name: Deploy to Staging\r\n' +
+    '    needs: [verify, db-security-gate, container-build]\r\n' +
+    "    if: github.ref == 'refs/heads/main' && github.event_name == 'push'\r\n" +
+    '    runs-on: ubuntu-latest\r\n' +
+    '\r\n' +
+    '    steps:\r\n' +
+    '      - name: Checkout Repository\r\n' +
+    '        uses: actions/checkout@v4\r\n' +
+    '\r\n' +
+    '      - name: Deploy to Staging Environment\r\n' +
+    '        run: |\r\n' +
+    '          echo "Deploying container build to Staging environment..."\r\n' +
+    '\r\n' +
+    '  deploy-production:\r\n' +
+    '    name: Deploy to Production\r\n' +
+    '    needs: [deploy-staging]\r\n' +
+    "    if: github.ref == 'refs/heads/main' && github.event_name == 'push'\r\n" +
+    '    runs-on: ubuntu-latest\r\n' +
+    '    environment: production\r\n' +
+    '\r\n' +
+    '    steps:\r\n' +
+    '      - name: Checkout Repository\r\n' +
+    '        uses: actions/checkout@v4\r\n' +
+    '\r\n' +
+    '      - name: Deploy to Production Environment\r\n' +
+    '        run: |\r\n' +
+    '          echo "Deploying container build to Production environment..."\r\n'
+  
+      at TestContext.<anonymous> (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\scripts\testing\ci-disposable.test.cjs:11:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'name: CI/CD Pipeline\r\n\r\non:\r\n  push:\r\n    branches: [main, fix/auth-api-lockdown]\r\n  pull_request:\r\n    branches: [main]\r\n\r\njobs:\r\n  verify:\r\n    name: Lint, Typecheck, Test & Build\r\n    runs-on: ubuntu-latest\r\n\r\n    services:\r\n      redis:\r\n        image: redis:7-alpine\r\n        ports:\r\n          - 6379:6379\r\n        options: >-\r\n          --health-cmd "redis-cli ping"\r\n          --health-interval 10s\r\n          --health-timeout 5s\r\n          --health-retries 5\r\n\r\n    env:\r\n      NODE_ENV: test\r\n      REDIS_URL: redis://127.0.0.1:6379\r\n      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres\r\n      SUPABASE_URL: http://127.0.0.1:54321\r\n      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0\r\n      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU\r\n      JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long\r\n      OTP_PEPPER: super-secret-otp-pepper-at-least-32-characters-long\r\n      TRUSTED_PROXY_CIDRS: 127.0.0.1/32,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16\r\n\r\n    steps:\r\n      - name: Checkout Repository\r\n        uses: actions/checkout@v4\r\n\r\n      - name: Setup Node.js\r\n        uses: actions/setup-node@v4\r\n        with:\r\n          node-version: 22\r\n\r\n      - name: Setup pnpm\r\n        uses: pnpm/action-setup@v3\r\n        with:\r\n          version: 9\r\n\r\n      - name: Get pnpm store directory\r\n        shell: bash\r\n        run: |\r\n          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV\r\n\r\n      - name: Setup pnpm cache\r\n        uses: actions/cache@v4\r\n        with:\r\n          path: ${{ env.STORE_PATH }}\r\n          key: ${{ runner.os }}-pnpm-store-${{ hashFiles(\'**/pnpm-lock.yaml\') }}\r\n          restore-keys: |\r\n            ${{ runner.os }}-pnpm-store-\r\n\r\n      - name: Install Dependencies\r\n        run: pnpm install --frozen-lockfile\r\n\r\n      - name: Check Migration Sync Integrity\r\n        run: pnpm ci:check-migrations\r\n\r\n      - name: Setup Supabase CLI\r\n        uses: supabase/setup-cli@v1\r\n        with:\r\n          version: 3.1.0\r\n\r\n      - name: Start Supabase Local Stack\r\n        run: |\r\n          supabase start\r\n          supabase status -o env >> $GITHUB_ENV\r\n\r\n      - name: Run ESLint\r\n        run: pnpm lint\r\n\r\n      - name: Run TypeScript Check\r\n        run: pnpm typecheck\r\n\r\n      - name: Run Test Suite\r\n        run: pnpm test\r\n\r\n      - name: Build All Workspaces\r\n        run: pnpm build\r\n\r\n  db-security-gate:\r\n    name: Database Security & Migration Gate\r\n    runs-on: ubuntu-latest\r\n\r\n    services:\r\n      redis:\r\n        image: redis:7-alpine\r\n        ports:\r\n          - 6379:6379\r\n\r\n    env:\r\n      NODE_ENV: test\r\n      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres\r\n      SUPABASE_URL: http://127.0.0.1:54321\r\n      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0\r\n      SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU\r\n\r\n    steps:\r\n      - name: Checkout Repository\r\n        uses: actions/checkout@v4\r\n\r\n      - name: Setup Node.js\r\n        uses: actions/setup-node@v4\r\n        with:\r\n          node-version: 22\r\n\r\n      - name: Setup pnpm\r\n        uses: pnpm/action-setup@v3\r\n        with:\r\n          version: 9\r\n\r\n      - name: Install Dependencies\r\n        run: pnpm install --frozen-lockfile\r\n\r\n      - name: Check Migration Sync Integrity\r\n        run: pnpm ci:check-migrations\r\n\r\n      - name: Setup Supabase CLI\r\n        uses: supabase/setup-cli@v1\r\n        with:\r\n          version: 3.1.0\r\n\r\n      - name: Start Supabase Stack & Reset DB\r\n        run: |\r\n          supabase start\r\n          supabase db reset\r\n\r\n      - name: Verify Generated Database Types Freshness\r\n        run: |\r\n          pnpm db:generate-types\r\n          git diff --exit-code packages/database/src/generated.types.ts\r\n\r\n      - name: Run Database Catalog Security Assertion\r\n        run: pnpm db:catalog:check\r\n\r\n      - name: Run Database Security Attack Suite Drill\r\n        run: pnpm db:security:drill\r\n\r\n      - name: Run PostgREST HTTP Smoke Checks\r\n        run: pnpm db:smoke:postgrest\r\n\r\n      - name: Run Fresh Database Bootstrap Drill\r\n        run: pnpm db:bootstrap:drill\r\n\r\n  container-build:\r\n    name: Build Container Images\r\n    needs: [verify, db-security-gate]\r\n    runs-on: ubuntu-latest\r\n\r\n    steps:\r\n      - name: Checkout Repository\r\n        uses: actions/checkout@v4\r\n\r\n      - name: Set up Docker Buildx\r\n        uses: docker/setup-buildx-action@v3\r\n\r\n      - name: Build API Docker Image\r\n        uses: docker/build-push-action@v5\r\n        with:\r\n          context: .\r\n          file: apps/api/Dockerfile\r\n          push: false\r\n          tags: indian-job-portal-api:latest\r\n\r\n      - name: Build Worker Docker Image\r\n        uses: docker/build-push-action@v5\r\n        with:\r\n          context: .\r\n          file: apps/worker/Dockerfile\r\n          push: false\r\n          tags: indian-job-portal-worker:latest\r\n\r\n  deploy-staging:\r\n    name: Deploy to Staging\r\n    needs: [verify, db-security-gate, container-build]\r\n    if: github.ref == \'refs/heads/main\' && github.event_name == \'push\'\r\n    runs-on: ubuntu-latest\r\n\r\n    steps:\r\n      - name: Checkout Repository\r\n        uses: actions/checkout@v4\r\n\r\n      - name: Deploy to Staging Environment\r\n        run: |\r\n          echo "Deploying container build to Staging environment..."\r\n\r\n  deploy-production:\r\n    name: Deploy to Production\r\n    needs: [deploy-staging]\r\n    if: github.ref == \'refs/heads/main\' && github.event_name == \'push\'\r\n    runs-on: ubuntu-latest\r\n    environment: production\r\n\r\n    steps:\r\n      - name: Checkout Repository\r\n        uses: actions/checkout@v4\r\n\r\n      - name: Deploy to Production Environment\r\n        run: |\r\n          echo "Deploying container build to Production environment..."\r\n',
+    expected: /(?:DATABASE_URL|SUPABASE_SERVICE_ROLE_KEY|SUPABASE_ANON_KEY|JWT_SECRET|OTP_PEPPER|REDIS_URL):/,
+    operator: 'doesNotMatch',
+    diff: 'simple'
+  }
+
+test at scripts\testing\ci-disposable.test.cjs:14:57
+✖ deploy-staging cannot report success from a placeholder (0.2737ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /# TODO human-approved deploy/. Input:
+  
+  '\n' +
+    '  deploy-staging:\r\n' +
+    '    name: Deploy to Staging\r\n' +
+    '    needs: [verify, db-security-gate, container-build]\r\n' +
+    "    if: github.ref == 'refs/heads/main' && github.event_name == 'push'\r\n" +
+    '    runs-on: ubuntu-latest\r\n' +
+    '\r\n' +
+    '    steps:\r\n' +
+    '      - name: Checkout Repository\r\n' +
+    '        uses: actions/checkout@v4\r\n' +
+    '\r\n' +
+    '      - name: Deploy to Staging Environment\r\n' +
+    '        run: |\r\n' +
+    '          echo "Deploying container build to Staging environment..."\r\n' +
+    '\r'
+  
+      at TestContext.<anonymous> (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\scripts\testing\ci-disposable.test.cjs:18:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: `\n  deploy-staging:\r\n    name: Deploy to Staging\r\n    needs: [verify, db-security-gate, container-build]\r\n    if: github.ref == 'refs/heads/main' && github.event_name == 'push'\r\n    runs-on: ubuntu-latest\r\n\r\n    steps:\r\n      - name: Checkout Repository\r\n        uses: actions/checkout@v4\r\n\r\n      - name: Deploy to Staging Environment\r\n        run: |\r\n          echo "Deploying container build to Staging environment..."\r\n\r`,
+    expected: /# TODO human-approved deploy/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at scripts\testing\ci-disposable.test.cjs:14:57
+✖ deploy-production cannot report success from a placeholder (0.157ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /# TODO human-approved deploy/. Input:
+  
+  '\n' +
+    '  deploy-production:\r\n' +
+    '    name: Deploy to Production\r\n' +
+    '    needs: [deploy-staging]\r\n' +
+    "    if: github.ref == 'refs/heads/main' && github.event_name == 'push'\r\n" +
+    '    runs-on: ubuntu-latest\r\n' +
+    '    environment: production\r\n' +
+    '\r\n' +
+    '    steps:\r\n' +
+    '      - name: Checkout Repository\r\n' +
+    '        uses: actions/checkout@v4\r\n' +
+    '\r\n' +
+    '      - name: Deploy to Production Environment\r\n' +
+    '        run: |\r\n' +
+    '          echo "Deploying container build to Production environment..."\r\n'
+  
+      at TestContext.<anonymous> (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\scripts\testing\ci-disposable.test.cjs:18:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: `\n  deploy-production:\r\n    name: Deploy to Production\r\n    needs: [deploy-staging]\r\n    if: github.ref == 'refs/heads/main' && github.event_name == 'push'\r\n    runs-on: ubuntu-latest\r\n    environment: production\r\n\r\n    steps:\r\n      - name: Checkout Repository\r\n        uses: actions/checkout@v4\r\n\r\n      - name: Deploy to Production Environment\r\n        run: |\r\n          echo "Deploying container build to Production environment..."\r\n`,
+    expected: /# TODO human-approved deploy/,
+    operator: 'match',
+    diff: 'simple'
+  }

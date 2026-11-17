@@ -1,0 +1,30 @@
+Project: jc-auth-test-5504d482
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ apps/api/test/auth-native.local.spec.ts (2 tests | 1 failed) 323ms
+   × AUTH-01 actual GoTrue identity and M2 integration > verifies an actual provider-issued subject and claims the preserved invited UUID without trusting metadata role 16ms
+     → AUTH_PROVIDER_INVALID
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  20:48:22
+   Duration  8.43s (transform 282ms, setup 3.47s, collect 134ms, tests 323ms, environment 0ms, prepare 326ms)
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/auth-native.local.spec.ts > AUTH-01 actual GoTrue identity and M2 integration > verifies an actual provider-issued subject and claims the preserved invited UUID without trusting metadata role
+UnauthorizedException: AUTH_PROVIDER_INVALID
+ ❯ Object.authenticate apps/api/src/auth/supabase-provider.ts:69:15
+     67|         || claims.data.iat > Math.floor(Date.now() / 1000)
+     68|         || claims.data.exp <= Math.floor(Date.now() / 1000) || claims.…
+     69|         throw new UnauthorizedException('AUTH_PROVIDER_INVALID');
+       |               ^
+     70|       }
+     71|       const user = await client.auth.getUser(accessToken).catch(provid…
+ ❯ apps/api/test/auth-native.local.spec.ts:28:22
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

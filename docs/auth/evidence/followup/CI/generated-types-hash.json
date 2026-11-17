@@ -1,0 +1,9 @@
+{
+  "file": "packages/database/src/generated.types.ts",
+  "bytes": 126467,
+  "sha256": "933581412993df1795aa9032af7a5a88b83b74d9f7915c59e8af87347589ede4",
+  "cli": "3.1.0",
+  "source": "verified disposable Supabase migration replay; no hand edits",
+  "rawGeneratorSha256": "ec5247dfdfd5332abeddc632a8dde3d6357b6c2077d3362cfd773f608fa0e117",
+  "normalisation": "LF; strip trailing whitespace and outer blank lines; one final newline"
+}
