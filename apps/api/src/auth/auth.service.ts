@@ -185,6 +185,9 @@ export class AuthService {
       });
     }
 
+    // Legacy phone sessions require the exact contact proved by this OTP.
+    if (!userRow.phone || userRow.phone !== input.phone) throw new UnauthorizedException('AUTH_PHONE_REQUIRED');
+
     // Touch last login timestamp safely
     if (typeof this.userRepository.touchLastLogin === 'function') {
       const res = this.userRepository.touchLastLogin(userRow.id);
@@ -400,11 +403,11 @@ export class AuthService {
   async findUserById(id: string): Promise<UserSession | undefined> {
     const fromRedis = await this.otpRedisService.getSession(id);
     if (fromRedis) {
-      return fromRedis;
+      return fromRedis.phone ? fromRedis : undefined;
     }
 
     const row = await this.userRepository.findById(id);
-    if (!row) return undefined;
+    if (!row || !row.phone) return undefined;
 
     const isEmailVerified = Boolean((row as Record<string, unknown>)['email_verified_at']);
     const session: UserSession = {

@@ -1,5 +1,6 @@
+import { AUTH_M1_MIGRATION, AUTH_M1_ROLLBACK } from './auth-migration-artifacts.js';
 import { randomUUID } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import pg from 'pg';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -14,8 +15,8 @@ describe.runIf(process.env['RUN_LOCAL_SUPABASE'] === '1')('AUTH-01 contact schem
     if (process.env['NODE_ENV'] !== 'test' || target.hostname !== '127.0.0.1' || target.port !== process.env['JOBSCLICK_TEST_DB_PORT']) throw new Error('LOCAL_TEST_ONLY');
     safe = true;
     await db.query(`create schema ${schema}; create table ${schema}.users (like public.users including all)`);
-    const draft = 'docs/db/drafts/auth-contacts-v21.sql';
-    if (existsSync(draft)) await db.query(readFileSync(draft, 'utf8').replaceAll('public.users', `${schema}.users`).replaceAll('private_auth', schema));
+    await db.query(`alter table ${schema}.users drop constraint if exists users_contact_required_v21, drop constraint if exists users_email_canonical_v21, drop constraint if exists users_pending_email_canonical_v21;`);
+    await db.query(readFileSync(AUTH_M1_MIGRATION, 'utf8').replaceAll('public.users', `${schema}.users`).replaceAll('private_auth', schema));
   });
   beforeEach(async () => { if (safe) { transaction = await pool.connect(); await transaction.query('begin'); } });
   afterEach(async () => { if (transaction) { await transaction.query('rollback'); transaction.release(); transaction = undefined; } });
@@ -55,7 +56,7 @@ describe.runIf(process.env['RUN_LOCAL_SUPABASE'] === '1')('AUTH-01 contact schem
   it('refuses a rollback with phone-less data without losing that data', async () => {
     const id = randomUUID();
     await db.query(`insert into ${schema}.users(id,email,role,status) values ($1,'rollback@example.invalid','employer','invited')`, [id]);
-    const down = readFileSync('docs/db/drafts/auth-contacts-v21.down.sql', 'utf8').replaceAll('public.users', `${schema}.users`).replaceAll('private_auth', schema).replace(/^BEGIN;$/m, '').replace(/^COMMIT;$/m, '');
+    const down = readFileSync(AUTH_M1_ROLLBACK, 'utf8').replaceAll('public.users', `${schema}.users`).replaceAll('private_auth', schema).replace(/^BEGIN;$/m, '').replace(/^COMMIT;$/m, '');
     await db.query('savepoint down_attempt');
     await expect(db.query(down)).rejects.toThrow('AUTH_CONTACT_ROLLBACK_REQUIRES_FORWARD_RECOVERY');
     await db.query('rollback to down_attempt');
@@ -63,7 +64,7 @@ describe.runIf(process.env['RUN_LOCAL_SUPABASE'] === '1')('AUTH-01 contact schem
   });
 
   it('restores the previous NOT NULL contract when rollback preconditions hold', async () => {
-    const down = readFileSync('docs/db/drafts/auth-contacts-v21.down.sql', 'utf8').replaceAll('public.users', `${schema}.users`).replaceAll('private_auth', schema).replace(/^BEGIN;$/m, '').replace(/^COMMIT;$/m, '');
+    const down = readFileSync(AUTH_M1_ROLLBACK, 'utf8').replaceAll('public.users', `${schema}.users`).replaceAll('private_auth', schema).replace(/^BEGIN;$/m, '').replace(/^COMMIT;$/m, '');
     await db.query(down);
     await expect(db.query(`insert into ${schema}.users(email,role,status) values ('after-down@example.invalid','employer','invited')`)).rejects.toMatchObject({ code: '23502' });
   });

@@ -1,3 +1,4 @@
+import { AUTH_M1_MIGRATION } from './auth-migration-artifacts.js';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import pg from 'pg';
@@ -14,7 +15,8 @@ describe.runIf(process.env['RUN_LOCAL_SUPABASE'] === '1')('AUTH-01 concurrent em
     safe = true;
     await control.connect();
     await control.query(`create schema ${schema}; create table ${schema}.users (like public.users including all)`);
-    await control.query(readFileSync('docs/db/drafts/auth-contacts-v21.sql', 'utf8').replaceAll('public.users', `${schema}.users`).replaceAll('private_auth', schema));
+    await control.query(`alter table ${schema}.users drop constraint if exists users_contact_required_v21, drop constraint if exists users_email_canonical_v21, drop constraint if exists users_pending_email_canonical_v21;`);
+    await control.query(readFileSync(AUTH_M1_MIGRATION, 'utf8').replaceAll('public.users', `${schema}.users`).replaceAll('private_auth', schema));
   });
   afterAll(async () => {
     try { if (safe) await control.query(`drop schema if exists ${schema} cascade`); }

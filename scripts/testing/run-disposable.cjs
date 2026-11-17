@@ -13,8 +13,8 @@ const cli = [path.join(root, 'node_modules/supabase/dist/supabase.js')];
 const environment = { ...process.env, DO_NOT_TRACK: '1' };
 for (const key of ['SUPABASE_ACCESS_TOKEN', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_ANON_KEY', 'JWT_SECRET', 'OTP_PEPPER', 'MSG91_AUTH_KEY', 'TURNSTILE_SECRET_KEY', 'RESEND_API_KEY']) delete environment[key];
 const args = process.argv.slice(2).filter(arg => arg !== '--');
-const drafts = args.includes('--auth-drafts');
-const testArgs = args.filter(arg => arg !== '--auth-drafts');
+const contracts = args.includes('--auth-contracts');
+const testArgs = args.filter(arg => arg !== '--auth-contracts');
 const evidence = process.env.JOBSCLICK_TEST_EVIDENCE;
 let started = false;
 let redisStarted = false;
@@ -90,17 +90,11 @@ async function main() {
   const env = { ...environment, NODE_ENV: 'test', DATABASE_URL: targets.databaseUrl, SUPABASE_URL: targets.apiUrl, REDIS_URL: targets.redisUrl,
     SUPABASE_SERVICE_ROLE_KEY: status.SERVICE_ROLE_KEY, SUPABASE_ANON_KEY: status.ANON_KEY, RUN_LOCAL_SUPABASE: '1', JOBSCLICK_TEST_MANIFEST: manifestPath, JOBSCLICK_TEST_DB_PORT: String(databasePort) };
   const tests = command(process.execPath, ['node_modules/vitest/vitest.mjs', 'run', ...testArgs], env);
-  const output = `Project: ${runId}\nFresh Supabase + Redis; no dev data.\nExit: ${tests.status}\n${redact((tests.stdout || '') + (tests.stderr || ''))}`;
+  const output = `Project: ${runId}\nFresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).\nExit: ${tests.status}\n${redact((tests.stdout || '') + (tests.stderr || ''))}`;
   if (evidence) { fs.mkdirSync(path.dirname(evidence), { recursive: true }); fs.writeFileSync(evidence, output.replace(/\x1b\[[0-9;]*m/g, '')); }
   console.log(redact((tests.stdout || '').slice(-6000)));
   requireSuccess(tests, 'Vitest');
-  if (drafts) {
-    const database = new Client({ connectionString: targets.databaseUrl });
-    await database.connect();
-    try {
-      for (const file of ['auth-contacts-v21.sql', 'auth-user-links-v21.sql']) await database.query(fs.readFileSync(path.join(root, 'docs/db/drafts', file), 'utf8'));
-      await database.query("notify pgrst,'reload schema'");
-    } finally { await database.end(); }
+  if (contracts) {
     const tapPath = path.join(directory, 'supabase/tests');
     fs.mkdirSync(tapPath, { recursive: true });
     for (const file of ['auth_contacts_v21.pgtap.sql', 'auth_claims_v21.pgtap.sql']) {

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 export async function drillFreshDatabase(customMasterConn?: string): Promise<void> {
   if (customMasterConn) throw new Error('DISPOSABLE_TEST_TARGET_REQUIRED');
   const runner = fileURLToPath(new URL('./testing/run-disposable.cjs', import.meta.url));
-  const result = spawnSync(process.execPath, [runner, '--auth-drafts', 'packages/database/test'], { stdio: 'inherit', windowsHide: true });
+  const result = spawnSync(process.execPath, [runner, '--auth-contracts', 'packages/database/test'], { stdio: 'inherit', windowsHide: true });
   if (result.status !== 0) throw new Error('DISPOSABLE_DATABASE_DRILL_FAILED');
 }
 

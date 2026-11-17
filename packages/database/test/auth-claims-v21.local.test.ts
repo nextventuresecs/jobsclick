@@ -1,5 +1,6 @@
+import { AUTH_M1_MIGRATION, AUTH_M2_MIGRATION, AUTH_M2_ROLLBACK } from './auth-migration-artifacts.js';
 import { randomInt, randomUUID } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import pg from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -27,15 +28,9 @@ describe.runIf(process.env['RUN_LOCAL_SUPABASE'] === '1')('AUTH-01 v2.1 atomic i
     // FK teardown locks auth.users; isolate fixture DDL across suites, not claim clients.
     await database.query("select pg_advisory_lock(hashtextextended('auth-tests:auth-fk-ddl',0))");
     await database.query(`create schema ${schema}; create table ${schema}.users(like public.users including all); create table ${schema}.audit_logs(like public.audit_logs including all); alter table ${schema}.audit_logs enable row level security`);
-    await database.query(render(readFileSync('docs/db/drafts/auth-contacts-v21.sql', 'utf8')));
-    const draft = 'docs/db/drafts/auth-user-links-v21.sql';
-    if (existsSync(draft) && process.env['AUTH_TEST_HISTORICAL_CLAIM'] !== '1') await database.query(render(readFileSync(draft, 'utf8')));
-    else {
-      await database.query(render(readFileSync('docs/db/drafts/auth-user-links.sql', 'utf8')));
-      // Expose the old core through the new call seam so the red test detects
-      // its Auth-row locking behavior rather than only a missing function.
-      await database.query(`create function ${schema}.rpc_claim_invited_account(uuid,uuid) returns jsonb language sql as $$select jsonb_build_object('user_id',${schema}.claim_invited_account($1))$$`);
-    }
+    await database.query(`alter table ${schema}.users drop constraint if exists users_contact_required_v21, drop constraint if exists users_email_canonical_v21, drop constraint if exists users_pending_email_canonical_v21;`);
+    await database.query(render(readFileSync(AUTH_M1_MIGRATION, 'utf8')));
+    await database.query(render(readFileSync(AUTH_M2_MIGRATION, 'utf8')));
   });
   afterAll(async () => {
     try {
@@ -265,7 +260,7 @@ describe.runIf(process.env['RUN_LOCAL_SUPABASE'] === '1')('AUTH-01 v2.1 atomic i
     await database.query(`select ${schema}.rpc_claim_invited_account($1,$2)`, [record.authId, randomUUID()]);
     await database.query('begin');
     try {
-      const down = render(readFileSync('docs/db/drafts/auth-user-links-v21.down.sql', 'utf8')).replace(/^BEGIN;$/m, '').replace(/^COMMIT;$/m, '');
+      const down = render(readFileSync(AUTH_M2_ROLLBACK, 'utf8')).replace(/^BEGIN;$/m, '').replace(/^COMMIT;$/m, '');
       await expect(database.query(down)).rejects.toThrow('AUTH_IDENTITY_ROLLBACK_REQUIRES_FORWARD_RECOVERY');
     } finally { await database.query('rollback'); }
     expect((await database.query(`select user_id from ${schema}.auth_user_links where auth_user_id=$1`, [record.authId])).rows).toEqual([{ user_id: record.id }]);
@@ -289,7 +284,7 @@ describe.runIf(process.env['RUN_LOCAL_SUPABASE'] === '1')('AUTH-01 v2.1 atomic i
     try {
       await database.query(`delete from ${schema}.auth_user_links`);
       const before = (await database.query(`select count(*)::int as count from ${schema}.audit_logs`)).rows[0].count;
-      const down = render(readFileSync('docs/db/drafts/auth-user-links-v21.down.sql', 'utf8')).replace(/^BEGIN;$/m, '').replace(/^COMMIT;$/m, '');
+      const down = render(readFileSync(AUTH_M2_ROLLBACK, 'utf8')).replace(/^BEGIN;$/m, '').replace(/^COMMIT;$/m, '');
       await database.query(down);
       expect((await database.query('select to_regclass($1) as links,to_regclass($2) as reservations', [`${schema}.auth_user_links`, `${schema}.email_reservations`])).rows[0]).toMatchObject({ links: null, reservations: `${schema}.email_reservations` });
       expect((await database.query(`select count(*)::int as count from ${schema}.audit_logs`)).rows[0].count).toBe(before);
