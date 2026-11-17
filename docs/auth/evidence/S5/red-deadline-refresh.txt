@@ -1,0 +1,46 @@
+Command: node node_modules/vitest/vitest.mjs run apps/api/test/provider-sessions.local.spec.ts
+Started UTC: 2026-11-17T08:53:36.872Z
+Environment: test; localhost only; fake delivery.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ❯ apps/api/test/provider-sessions.local.spec.ts (5 tests | 1 failed) 141ms
+   × AUTH-05/06 server-only provider session persistence > rejects a refresh response that arrives after the absolute deadline 9ms
+     → promise resolved "{ …(7) }" instead of rejecting
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 4 passed (5)
+   Start at  14:23:38
+   Duration  8.59s (transform 216ms, setup 1.99s, collect 33ms, tests 141ms, environment 0ms, prepare 136ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/provider-sessions.local.spec.ts > AUTH-05/06 server-only provider session persistence > rejects a refresh response that arrives after the absolute deadline
+AssertionError: promise resolved "{ …(7) }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {
++   "accessExpiresAt": 1794951528,
++   "accessToken": "synthetic-access-5c4fc0d3-7a1a-4464-a323-4c03ad5c01d5",
++   "authUserId": "b995a8dd-0967-480f-8c60-ca34cbe71e3d",
++   "createdAt": 1794907428,
++   "expiresAt": 1794950628,
++   "providerSessionId": "358a526d-b8c2-41db-af5f-624fc9d5cf37",
++   "refreshToken": "synthetic-refresh-f80ad6a5-e476-4c78-802e-5d14adad4bcc",
++ }
+
+ ❯ apps/api/test/provider-sessions.local.spec.ts:100:7
+     98|       now = browser.expiresAt;
+     99|       return { ...original, accessExpiresAt: now + 900 };
+    100|     })).rejects.toMatchObject({ status: 401, message: 'AUTH_REAUTHENTI…
+       |       ^
+    101|     await expect(store.resolve(browser.sessionId)).rejects.toMatchObje…
+    102|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

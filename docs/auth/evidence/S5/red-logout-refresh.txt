@@ -1,0 +1,80 @@
+Command: node node_modules/vitest/vitest.mjs run apps/api/test/provider-sessions.local.spec.ts
+Started UTC: 2026-11-17T08:50:57.860Z
+Environment: test; localhost only; fake delivery.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ❯ apps/api/test/provider-sessions.local.spec.ts (3 tests | 1 failed) 131ms
+   × AUTH-05/06 server-only provider session persistence > prevents an in-flight refresh from resurrecting a locally logged-out session 15ms
+     → store.revoke is not a function
+
+⎯⎯⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯⎯⎯
+
+Vitest caught 1 unhandled error during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+ Test Files  1 failed (1)
+      Tests  1 failed | 2 passed (3)
+     Errors  1 error
+   Start at  14:20:59
+   Duration  9.01s (transform 185ms, setup 1.98s, collect 24ms, tests 131ms, environment 0ms, prepare 152ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+stderr | apps/api/test/provider-sessions.local.spec.ts > AUTH-05/06 server-only provider session persistence > prevents an in-flight refresh from resurrecting a locally logged-out session
+Promise returned by `expect(actual).rejects.toMatchObject(expected)` was not awaited. Vitest currently auto-awaits hanging assertions at the end of the test, but this will cause the test to fail in Vitest 3. Please remember to await the assertion.
+    at D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/apps/api/test/provider-sessions.local.spec.ts:68:36
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/provider-sessions.local.spec.ts > AUTH-05/06 server-only provider session persistence > prevents an in-flight refresh from resurrecting a locally logged-out session
+TypeError: store.revoke is not a function
+ ❯ apps/api/test/provider-sessions.local.spec.ts:70:23
+     68|     const rejected = expect(pending).rejects.toMatchObject({ status: 4…
+     69|     await started;
+     70|     try { await store.revoke(browser.sessionId); } finally { release()…
+       |                       ^
+     71|     await rejected;
+     72|     await expect(store.resolve(browser.sessionId)).rejects.toMatchObje…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+⎯⎯⎯⎯ Unhandled Rejection ⎯⎯⎯⎯⎯
+AssertionError: promise resolved "{ …(7) }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {
++   "accessExpiresAt": 1794908169,
++   "accessToken": "synthetic-stale-response",
++   "authUserId": "7b71d7f5-0bee-4165-972f-fb17916be490",
++   "createdAt": 1794906368,
++   "expiresAt": 1795511168,
++   "providerSessionId": "006e9c20-5ea7-4d4f-bb9c-7428e2ee0e08",
++   "refreshToken": "synthetic-refresh-795cfa6c-bce8-4f1f-a5c2-848acb90fbd9",
++ }
+
+ ❯ _Assertion.__VITEST_REJECTS__ ../../../../../../Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal-remediation/node_modules/.pnpm/@vitest+expect@2.1.9/node_modules/@vitest/expect/dist/index.js:1805:21
+ ❯ _Assertion.propertyGetter ../../../../../../Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal-remediation/node_modules/.pnpm/chai@5.3.3/node_modules/chai/index.js:1557:27
+ ❯ Object.proxyGetter [as get] ../../../../../../Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal-remediation/node_modules/.pnpm/chai@5.3.3/node_modules/chai/index.js:1645:22
+ ❯ apps/api/test/provider-sessions.local.spec.ts:68:36
+     66|       return { ...original, accessToken: 'synthetic-stale-response', a…
+     67|     });
+     68|     const rejected = expect(pending).rejects.toMatchObject({ status: 4…
+       |                                    ^
+     69|     await started;
+     70|     try { await store.revoke(browser.sessionId); } finally { release()…
+ ❯ processTicksAndRejections node:internal/process/task_queues:104:5
+ ❯ ../../../../../../Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal-remediation/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:533:5
+ ❯ runTest ../../../../../../Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal-remediation/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1056:11
+ ❯ runSuite ../../../../../../Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal-remediation/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15
+ ❯ runSuite ../../../../../../Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal-remediation/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15
+
+This error originated in "apps/api/test/provider-sessions.local.spec.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "prevents an in-flight refresh from resurrecting a locally logged-out session". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+

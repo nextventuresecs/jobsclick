@@ -1,0 +1,44 @@
+Command: node node_modules/vitest/vitest.mjs run apps/api/test/provider-sessions.local.spec.ts
+Started UTC: 2026-11-17T08:55:10.655Z
+Environment: test; localhost only; fake delivery.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ❯ apps/api/test/provider-sessions.local.spec.ts (7 tests | 2 failed) 149ms
+   × AUTH-05/06 server-only provider session persistence > refuses provider credentials with an unapproved access lifetime of 0 seconds 8ms
+     → promise resolved "{ …(2) }" instead of rejecting
+   × AUTH-05/06 server-only provider session persistence > refuses provider credentials with an unapproved access lifetime of 901 seconds 2ms
+     → promise resolved "{ …(2) }" instead of rejecting
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 5 passed (7)
+   Start at  14:25:12
+   Duration  9.06s (transform 192ms, setup 2.07s, collect 21ms, tests 149ms, environment 0ms, prepare 147ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/provider-sessions.local.spec.ts > AUTH-05/06 server-only provider session persistence > refuses provider credentials with an unapproved access lifetime of 0 seconds
+ FAIL  apps/api/test/provider-sessions.local.spec.ts > AUTH-05/06 server-only provider session persistence > refuses provider credentials with an unapproved access lifetime of 901 seconds
+AssertionError: promise resolved "{ …(2) }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Object {
++   "expiresAt": 1795555522,
++   "sessionId": "s1_0AHIggHIsg0x4mWyyDfBsph3bHoEfof3XeY9vtkrCUw",
++ }
+
+ ❯ apps/api/test/provider-sessions.local.spec.ts:107:98
+    105|     const { ProviderSessionStore } = await import('../src/auth/provide…
+    106|     const store = new ProviderSessionStore(redis, { namespace, encrypt…
+    107|     await expect(store.create({ ...credentials(), accessExpiresAt: now…
+       |                                                                                                  ^
+    108|       .rejects.toMatchObject({ status: 401, message: 'AUTH_PROVIDER_IN…
+    109|     expect(await redis.keys(`${namespace}:*`)).toEqual([]);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+

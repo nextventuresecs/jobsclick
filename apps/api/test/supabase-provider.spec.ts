@@ -1,5 +1,6 @@
 import { createServer, type Server } from 'node:http';
 import { randomBytes, randomUUID } from 'node:crypto';
+import Redis from 'ioredis';
 import { SignJWT, jwtVerify, generateKeyPair, exportJWK, decodeProtectedHeader, type JWK } from 'jose';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -178,4 +179,34 @@ describe('AUTH-01 request-scoped Supabase provider boundary', () => {
     await expect(provider.authenticate(token)).rejects.toMatchObject({ status: 503, message: 'AUTH_PROVIDER_UNAVAILABLE' });
   });
 
+  it('integrates verified provider refresh with encrypted Redis persistence across two server instances', async () => {
+    const { createSupabaseProvider } = await import('../src/auth/supabase-provider.js');
+    const { ProviderSessionStore } = await import('../src/auth/provider-session-store.js');
+    const redis = new Redis(process.env['REDIS_URL']!, { lazyConnect: true, maxRetriesPerRequest: 1 });
+    const namespace = `auth-test:${randomUUID()}`;
+    await redis.connect();
+    try {
+      let now = Math.floor(Date.now() / 1000);
+      const token = await new SignJWT({ session_id: sessionId }).setProtectedHeader({ alg: 'HS256' })
+        .setSubject(id).setIssuer(`${origin}/auth/v1`).setAudience('authenticated').setIssuedAt(now).setExpirationTime(now + 600).sign(signingKey);
+      const config = { url: origin, publishableKey: 'sb_publishable_synthetic-local-fixture', environment: 'test' };
+      const identity = await createSupabaseProvider(config).authenticate(token);
+      const storeConfig = { namespace, encryptionKey: randomBytes(32), now: () => now };
+      const first = new ProviderSessionStore(redis, storeConfig);
+      const second = new ProviderSessionStore(redis, storeConfig);
+      const browser = await first.create({ authUserId: identity.authUserId, providerSessionId: identity.providerSessionId,
+        accessToken: token, refreshToken: 'synthetic-refresh', accessExpiresAt: identity.expiresAt }, 'job_seeker');
+      now += 601;
+      const refresh = (credentials: { refreshToken: string }) => createSupabaseProvider(config).refresh(credentials.refreshToken);
+      const results = await Promise.all([first.resolve(browser.sessionId, refresh), second.resolve(browser.sessionId, refresh)]);
+      expect(refreshRequests).toBe(1);
+      for (const result of results) expect(result).toMatchObject({ authUserId: id, providerSessionId: sessionId,
+        refreshToken: 'synthetic-rotated-refresh', expiresAt: browser.expiresAt });
+      expect(JSON.stringify(browser)).not.toContain('synthetic-refresh');
+    } finally {
+      const keys = await redis.keys(`${namespace}:*`);
+      if (keys.length) await redis.del(...keys);
+      await redis.quit();
+    }
+  });
 });

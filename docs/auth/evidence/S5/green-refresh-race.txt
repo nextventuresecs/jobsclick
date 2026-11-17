@@ -1,0 +1,15 @@
+Command: node node_modules/vitest/vitest.mjs run apps/api/test/provider-sessions.local.spec.ts
+Started UTC: 2026-11-17T08:50:13.697Z
+Environment: test; localhost only; fake delivery.
+Exit: 0
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ✓ apps/api/test/provider-sessions.local.spec.ts (2 tests) 103ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  14:20:15
+   Duration  8.54s (transform 187ms, setup 1.85s, collect 18ms, tests 103ms, environment 0ms, prepare 166ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.

@@ -1,0 +1,13 @@
+> Historical outputs from the earlier persistent dev target are retained for audit only and are not acceptable disposable-run evidence. See docs/auth/evidence/review/ for the replacement fresh Supabase runs.
+
+# S5 - Server session persistence foundation
+
+PASS for local encrypted persistence and provider-adapter integration; NOT RUN / not implemented for full HTTP/BFF lifecycle integration. The team confirmed opaque HttpOnly cookies, protected server-side Redis credentials, 15-minute access tokens, 7-day ordinary absolute sessions and 12-hour admin/MSME-admin absolute sessions with reauthentication. These are local draft choices; hosted settings remain unchanged.
+
+[Session tests](../../../../apps/api/test/provider-sessions.local.spec.ts) exercise real Redis with unique synthetic namespaces. Red/green evidence covers the missing store, multi-instance refresh, logout versus refresh, subject-wide revocation, late refresh after deadline and the access-token lifetime bound. Characterization covers each role's deadline, ciphertext relocation/wrong key, Redis outage, ambiguous refresh outcomes, identity/session substitution and global-logout fencing. The final [combined run](../integration/verification.txt) also verifies the real adapter-to-encrypted-store path.
+
+Browser-facing creation returns only a random opaque handle and absolute expiry. Redis keys use its SHA-256 digest. Access/refresh tokens use AES-256-GCM with random IVs and session-key AAD; the 32-byte encryption key is supplied by the server and never stored with the record. Deployment still needs a reviewed secret-manager/key-rotation protocol and Redis TLS/ACL/log/backup controls. No environment secret was read or written.
+
+Atomic scripts reserve one durable refresh owner, compare ciphertext/ownership before commit, and reject deleted or globally revoked sessions. Refresh never extends the original deadline or Redis record lifetime. A crashed/ambiguous refresh is not retried with the same token; waiting callers eventually require reauthentication. Revocation-generation keys are retained long enough to outlive affected sessions and share a Redis hash tag with session records, avoiding cross-slot scripts. This places the draft's session scripts in one slot; review capacity before scale-out.
+
+`resolve` is internal server code and contains credentials; it must never be serialized by a controller. `revokeAll` establishes an application-store denial barrier only. Provider revocation and durable retry, current role/status and method checks, browser cookie installation, BFF cutover, stale HTTP-response behavior and end-to-end logout remain integration work. The existing legacy runtime remains unchanged; these foundations are not a completed AUTH-06 migration.
