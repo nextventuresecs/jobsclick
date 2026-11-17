@@ -16,7 +16,7 @@ export default defineConfig({
     testTimeout: 60000,
     setupFiles: [path.resolve(__dirname, 'apps/api/test/setup.ts')],
     include: ['**/*.{test,spec,e2e-spec}.ts'],
-    exclude: ['**/node_modules/**', '**/dist/**', '**/.next/**'],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.next/**', '**/.scratch/**'],
     server: {
       deps: {
         inline: [

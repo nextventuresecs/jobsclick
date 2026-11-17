@@ -1,0 +1,207 @@
+Command: node node_modules/vitest/vitest.mjs run packages/database/test/auth-claims-v21.local.test.ts
+Started UTC: 2026-11-17T09:05:16.439Z
+Environment: test; localhost only; fake delivery.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ❯ packages/database/test/auth-claims-v21.local.test.ts (30 tests | 7 failed) 990ms
+   × AUTH-01 v2.1 atomic invite claims > revalidates provider proof after the application lock on first claim: banned 83ms
+     → expected { code: 'AUTH_INVITE_CLAIMED', …(2) } to deeply equal { outcome: 'rejected', …(1) }
+   × AUTH-01 v2.1 atomic invite claims > revalidates provider proof after the application lock on retry claim: banned 78ms
+     → expected { …(3) } to deeply equal { outcome: 'rejected', …(1) }
+   × AUTH-01 v2.1 atomic invite claims > revalidates provider proof after the application lock on first claim: unverified 62ms
+     → expected { code: 'AUTH_INVITE_CLAIMED', …(2) } to deeply equal { outcome: 'rejected', …(1) }
+   × AUTH-01 v2.1 atomic invite claims > revalidates provider proof after the application lock on retry claim: unverified 60ms
+     → expected { …(3) } to deeply equal { outcome: 'rejected', …(1) }
+   × AUTH-01 v2.1 atomic invite claims > revalidates provider proof after the application lock on first claim: changed-contact 62ms
+     → expected { code: 'AUTH_INVITE_CLAIMED', …(2) } to deeply equal { outcome: 'rejected', …(1) }
+   × AUTH-01 v2.1 atomic invite claims > revalidates provider proof after the application lock on retry claim: changed-contact 61ms
+     → expected { …(3) } to deeply equal { outcome: 'rejected', …(1) }
+   × AUTH-01 v2.1 atomic invite claims > refuses snapshot isolation that prevents post-lock provider revalidation 11ms
+     → promise resolved "Result{ command: 'SELECT', …(9) }" instead of rejecting
+
+ Test Files  1 failed (1)
+      Tests  7 failed | 23 passed (30)
+   Start at  14:35:18
+   Duration  9.55s (transform 225ms, setup 1.94s, collect 57ms, tests 990ms, environment 0ms, prepare 176ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/database/test/auth-claims-v21.local.test.ts > AUTH-01 v2.1 atomic invite claims > revalidates provider proof after the application lock on first claim: banned
+ FAIL  packages/database/test/auth-claims-v21.local.test.ts > AUTH-01 v2.1 atomic invite claims > revalidates provider proof after the application lock on first claim: unverified
+ FAIL  packages/database/test/auth-claims-v21.local.test.ts > AUTH-01 v2.1 atomic invite claims > revalidates provider proof after the application lock on first claim: changed-contact
+AssertionError: expected { code: 'AUTH_INVITE_CLAIMED', …(2) } to deeply equal { outcome: 'rejected', …(1) }
+
+- Expected
++ Received
+
+  Object {
+-   "code": "AUTH_PROVIDER_USER_INVALID",
+-   "outcome": "rejected",
++   "code": "AUTH_INVITE_CLAIMED",
++   "outcome": "success",
++   "user_id": "669ca1f4-1115-4684-9384-8fd883dc0988",
+  }
+
+ ❯ packages/database/test/auth-claims-v21.local.test.ts:197:37
+    195|       const result = await pending;
+    196|       if (result instanceof Error) throw result;
+    197|       expect(result.rows[0].result).toEqual({ outcome: 'rejected', cod…
+       |                                     ^
+    198|       expect((await database.query(`select meta->>'outcome' as outcome…
+    199|       expect((await database.query(`select count(*)::int as count from…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/7]⎯
+
+ FAIL  packages/database/test/auth-claims-v21.local.test.ts > AUTH-01 v2.1 atomic invite claims > revalidates provider proof after the application lock on retry claim: banned
+ FAIL  packages/database/test/auth-claims-v21.local.test.ts > AUTH-01 v2.1 atomic invite claims > revalidates provider proof after the application lock on retry claim: unverified
+ FAIL  packages/database/test/auth-claims-v21.local.test.ts > AUTH-01 v2.1 atomic invite claims > revalidates provider proof after the application lock on retry claim: changed-contact
+AssertionError: expected { …(3) } to deeply equal { outcome: 'rejected', …(1) }
+
+- Expected
++ Received
+
+  Object {
+-   "code": "AUTH_PROVIDER_USER_INVALID",
+-   "outcome": "rejected",
++   "code": "AUTH_INVITE_ALREADY_LINKED",
++   "outcome": "retry",
++   "user_id": "c0788f4f-0133-4600-b4e9-c7adeb4a00f5",
+  }
+
+ ❯ packages/database/test/auth-claims-v21.local.test.ts:197:37
+    195|       const result = await pending;
+    196|       if (result instanceof Error) throw result;
+    197|       expect(result.rows[0].result).toEqual({ outcome: 'rejected', cod…
+       |                                     ^
+    198|       expect((await database.query(`select meta->>'outcome' as outcome…
+    199|       expect((await database.query(`select count(*)::int as count from…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/7]⎯
+
+ FAIL  packages/database/test/auth-claims-v21.local.test.ts > AUTH-01 v2.1 atomic invite claims > refuses snapshot isolation that prevents post-lock provider revalidation
+AssertionError: promise resolved "Result{ command: 'SELECT', …(9) }" instead of rejecting
+
+- Expected
++ Received
+
+- [Error: rejected promise]
++ Result {
++   "RowCtor": null,
++   "_parsers": Array [
++     [Function bound parse],
++   ],
++   "_prebuiltEmptyResultObject": Object {
++     "rpc_claim_invited_account": null,
++   },
++   "_types": TypeOverrides {
++     "_types": Object {
++       "arrayParser": Object {
++         "create": [Function create],
++       },
++       "builtins": Object {
++         "ABSTIME": 702,
++         "ACLITEM": 1033,
++         "BIT": 1560,
++         "BOOL": 16,
++         "BPCHAR": 1042,
++         "BYTEA": 17,
++         "CHAR": 18,
++         "CID": 29,
++         "CIDR": 650,
++         "CIRCLE": 718,
++         "DATE": 1082,
++         "FLOAT4": 700,
++         "FLOAT8": 701,
++         "GTSVECTOR": 3642,
++         "INET": 869,
++         "INT2": 21,
++         "INT4": 23,
++         "INT8": 20,
++         "INTERVAL": 1186,
++         "JSON": 114,
++         "JSONB": 3802,
++         "MACADDR": 829,
++         "MACADDR8": 774,
++         "MONEY": 790,
++         "NUMERIC": 1700,
++         "OID": 26,
++         "PATH": 602,
++         "PG_DEPENDENCIES": 3402,
++         "PG_LSN": 3220,
++         "PG_NDISTINCT": 3361,
++         "PG_NODE_TREE": 194,
++         "POLYGON": 604,
++         "REFCURSOR": 1790,
++         "REGCLASS": 2205,
++         "REGCONFIG": 3734,
++         "REGDICTIONARY": 3769,
++         "REGNAMESPACE": 4089,
++         "REGOPER": 2203,
++         "REGOPERATOR": 2204,
++         "REGPROC": 24,
++         "REGPROCEDURE": 2202,
++         "REGROLE": 4096,
++         "REGTYPE": 2206,
++         "RELTIME": 703,
++         "SMGR": 210,
++         "TEXT": 25,
++         "TID": 27,
++         "TIME": 1083,
++         "TIMESTAMP": 1114,
++         "TIMESTAMPTZ": 1184,
++         "TIMETZ": 1266,
++         "TINTERVAL": 704,
++         "TSQUERY": 3615,
++         "TSVECTOR": 3614,
++         "TXID_SNAPSHOT": 2970,
++         "UUID": 2950,
++         "VARBIT": 1562,
++         "VARCHAR": 1043,
++         "XID": 28,
++         "XML": 142,
++       },
++       "getTypeParser": [Function getTypeParser],
++       "setTypeParser": [Function setTypeParser],
++     },
++     "binary": Object {},
++     "text": Object {},
++   },
++   "command": "SELECT",
++   "fields": Array [
++     Field {
++       "columnID": 0,
++       "dataTypeID": 3802,
++       "dataTypeModifier": -1,
++       "dataTypeSize": -1,
++       "format": "text",
++       "name": "rpc_claim_invited_account",
++       "tableID": 0,
++     },
++   ],
++   "oid": null,
++   "rowAsArray": false,
++   "rowCount": 1,
++   "rows": Array [
++     Object {
++       "rpc_claim_invited_account": Object {
++         "code": "AUTH_INVITE_CLAIMED",
++         "outcome": "success",
++         "user_id": "8cff8030-045e-47fc-92cc-9eb7a5a7659d",
++       },
++     },
++   ],
++ }
+
+ ❯ packages/database/test/auth-claims-v21.local.test.ts:211:118
+    209|     await database.query('begin isolation level repeatable read');
+    210|     try {
+    211|       await expect(database.query(`select ${schema}.rpc_claim_invited_…
+       |                                                                                                                      ^
+    212|         .rejects.toThrow('AUTH_CLAIM_READ_COMMITTED_REQUIRED');
+    213|     } finally { await database.query('rollback'); }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/7]⎯
+

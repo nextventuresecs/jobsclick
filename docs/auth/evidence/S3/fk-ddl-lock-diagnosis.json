@@ -1,0 +1,22 @@
+{
+  "target": "localhost:54322",
+  "probe": "FK-table DROP queues AccessExclusiveLock on referenced Auth table; later Auth UPDATE waits behind it",
+  "locks": [
+    {
+      "pid": 125147,
+      "mode": "AccessExclusiveLock",
+      "granted": false,
+      "blockers": [
+        125146
+      ]
+    },
+    {
+      "pid": 125148,
+      "mode": "RowExclusiveLock",
+      "granted": false,
+      "blockers": [
+        125147
+      ]
+    }
+  ]
+}

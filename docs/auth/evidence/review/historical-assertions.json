@@ -1,0 +1,12 @@
+{
+  "file": "packages/database/test/auth-identity.local.test.ts",
+  "originalReportedCases": 17,
+  "unchangedTestDeclarations": 13,
+  "assertionsByteIdentical": true,
+  "originalTestDeclarationsSha256": "fcffe8fd7918f121db42a6140eb6afe83cb7fda5799048aa07be7a26c8f48975",
+  "currentTestDeclarationsSha256": "fcffe8fd7918f121db42a6140eb6afe83cb7fda5799048aa07be7a26c8f48975",
+  "harnessChanges": {
+    "infrastructure": "one target-port guard change, separately committed to reject persistent dev endpoints",
+    "M2": "shared FK-fixture mutex only; no assertion/name/input/expected-outcome changes"
+  }
+}

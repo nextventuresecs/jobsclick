@@ -1,0 +1,38 @@
+Command: node node_modules/vitest/vitest.mjs run packages/database/test/auth-claims-v21.local.test.ts
+Started UTC: 2026-11-17T08:09:25.027Z
+Environment: test; localhost only; fake delivery.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ❯ packages/database/test/auth-claims-v21.local.test.ts (2 tests | 1 failed) 144ms
+   × AUTH-01 v2.1 atomic invite claims > audits both the first claim and idempotent retry without recording contacts or credentials 20ms
+     → expected [] to have a length of 2 but got +0
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  13:39:26
+   Duration  8.68s (transform 187ms, setup 2.14s, collect 53ms, tests 144ms, environment 0ms, prepare 140ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/database/test/auth-claims-v21.local.test.ts > AUTH-01 v2.1 atomic invite claims > audits both the first claim and idempotent retry without recording contacts or credentials
+AssertionError: expected [] to have a length of 2 but got +0
+
+- Expected
++ Received
+
+- 2
++ 0
+
+ ❯ packages/database/test/auth-claims-v21.local.test.ts:70:18
+     68|     for (const request of requests) await database.query(`select ${sch…
+     69|     const { rows } = await database.query(`select actor_id,meta from $…
+     70|     expect(rows).toHaveLength(2);
+       |                  ^
+     71|     expect(rows.map(row => row.meta.outcome).sort()).toEqual(['retry',…
+     72|     for (const row of rows) {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

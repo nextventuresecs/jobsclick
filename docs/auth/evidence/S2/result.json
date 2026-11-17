@@ -1,0 +1,29 @@
+{
+  "target": "local PostgreSQL 127.0.0.1:54322",
+  "at": "2026-11-17T08:04:21.578Z",
+  "limited": {
+    "privileges": {
+      "provider_select_grant": true,
+      "auth_schema_usage": false,
+      "bypass_rls": false
+    },
+    "failure": {
+      "code": "42501",
+      "message": "permission denied for schema auth"
+    },
+    "application_visible": 0,
+    "audit_failure": {
+      "code": "42501",
+      "message": "new row violates row-level security policy for table \"audit_logs\""
+    }
+  },
+  "postgres": {
+    "probe": {
+      "result": {
+        "provider_visible": 1,
+        "application_visible": 1
+      }
+    },
+    "audit_rows": 1
+  }
+}

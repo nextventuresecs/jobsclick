@@ -1,0 +1,32 @@
+Command: node node_modules/vitest/vitest.mjs run packages/database/test/auth-claims-v21.local.test.ts
+Started UTC: 2026-11-17T08:07:56.273Z
+Environment: test; localhost only; fake delivery.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ❯ packages/database/test/auth-claims-v21.local.test.ts (1 test | 1 failed) 1540ms
+   × AUTH-01 v2.1 atomic invite claims > does not lock an Auth-managed row while claiming its invited application record 1463ms
+     → canceling statement due to statement timeout
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  13:37:58
+   Duration  9.61s (transform 224ms, setup 2.15s, collect 61ms, tests 1.54s, environment 0ms, prepare 147ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/database/test/auth-claims-v21.local.test.ts > AUTH-01 v2.1 atomic invite claims > does not lock an Auth-managed row while claiming its invited application record
+error: canceling statement due to statement timeout
+ ❯ node_modules/.pnpm/pg@8.23.1/node_modules/pg/lib/client.js:694:17
+ ❯ packages/database/test/auth-claims-v21.local.test.ts:57:22
+     55|       await blocker.query('select id from auth.users where id=$1 for n…
+     56|       await claimer.query("set statement_timeout='1500ms'");
+     57|       const result = await claimer.query(`select ${schema}.rpc_claim_i…
+       |                      ^
+     58|       expect(result.rows[0].result.user_id).toBe(record.id);
+     59|     } finally {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

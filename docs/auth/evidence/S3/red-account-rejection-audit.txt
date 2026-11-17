@@ -1,0 +1,59 @@
+Command: node node_modules/vitest/vitest.mjs run packages/database/test/auth-claims-v21.local.test.ts
+Started UTC: 2026-11-17T08:13:14.795Z
+Environment: test; localhost only; fake delivery.
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation
+
+ ❯ packages/database/test/auth-claims-v21.local.test.ts (12 tests | 6 failed) 257ms
+   × AUTH-01 v2.1 atomic invite claims > audits the rejected active account without using the matched victim as actor 13ms
+     → AUTH_INVITE_NOT_CLAIMABLE
+   × AUTH-01 v2.1 atomic invite claims > audits the rejected disabled account without using the matched victim as actor 10ms
+     → AUTH_INVITE_NOT_CLAIMABLE
+   × AUTH-01 v2.1 atomic invite claims > audits the rejected admin account without using the matched victim as actor 10ms
+     → AUTH_INVITE_NOT_CLAIMABLE
+   × AUTH-01 v2.1 atomic invite claims > audits the rejected msme_admin account without using the matched victim as actor 12ms
+     → AUTH_INVITE_NOT_CLAIMABLE
+   × AUTH-01 v2.1 atomic invite claims > audits the rejected intermediary account without using the matched victim as actor 10ms
+     → AUTH_INVITE_NOT_CLAIMABLE
+   × AUTH-01 v2.1 atomic invite claims > does not accept a retry after the linked account is disabled 13ms
+     → AUTH_INVITE_NOT_CLAIMABLE
+
+ Test Files  1 failed (1)
+      Tests  6 failed | 6 passed (12)
+   Start at  13:43:16
+   Duration  9.13s (transform 186ms, setup 2.11s, collect 54ms, tests 257ms, environment 0ms, prepare 154ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 6 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/database/test/auth-claims-v21.local.test.ts > AUTH-01 v2.1 atomic invite claims > audits the rejected active account without using the matched victim as actor
+ FAIL  packages/database/test/auth-claims-v21.local.test.ts > AUTH-01 v2.1 atomic invite claims > audits the rejected disabled account without using the matched victim as actor
+ FAIL  packages/database/test/auth-claims-v21.local.test.ts > AUTH-01 v2.1 atomic invite claims > audits the rejected admin account without using the matched victim as actor
+ FAIL  packages/database/test/auth-claims-v21.local.test.ts > AUTH-01 v2.1 atomic invite claims > audits the rejected msme_admin account without using the matched victim as actor
+ FAIL  packages/database/test/auth-claims-v21.local.test.ts > AUTH-01 v2.1 atomic invite claims > audits the rejected intermediary account without using the matched victim as actor
+error: AUTH_INVITE_NOT_CLAIMABLE
+ ❯ node_modules/.pnpm/pg@8.23.1/node_modules/pg/lib/client.js:694:17
+ ❯ packages/database/test/auth-claims-v21.local.test.ts:99:20
+     97|     await database.query(`update ${schema}.users set ${column}=$1 wher…
+     98|     const request = randomUUID();
+     99|     const result = await database.query(`select ${schema}.rpc_claim_in…
+       |                    ^
+    100|     expect(result.rows[0].result).toEqual({ outcome: 'rejected', code:…
+    101|     expect((await database.query(`select actor_id from ${schema}.audit…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/6]⎯
+
+ FAIL  packages/database/test/auth-claims-v21.local.test.ts > AUTH-01 v2.1 atomic invite claims > does not accept a retry after the linked account is disabled
+error: AUTH_INVITE_NOT_CLAIMABLE
+ ❯ node_modules/.pnpm/pg@8.23.1/node_modules/pg/lib/client.js:694:17
+ ❯ packages/database/test/auth-claims-v21.local.test.ts:108:20
+    106|     await database.query(`select ${schema}.rpc_claim_invited_account($…
+    107|     await database.query(`update ${schema}.users set status='disabled'…
+    108|     const result = await database.query(`select ${schema}.rpc_claim_in…
+       |                    ^
+    109|     expect(result.rows[0].result).toEqual({ outcome: 'rejected', code:…
+    110|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/6]⎯
+
