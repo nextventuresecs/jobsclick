@@ -1,0 +1,19 @@
+Project: jc-auth-test-ff281ff3
+Exit: 0
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mD:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-packaged[39m
+
+ [32m✓[39m apps/api/test/auth-native-otp.local.spec.ts [2m([22m[2m8 tests[22m[2m | [22m[33m1 skipped[39m[2m)[22m[33m 4248[2mms[22m[39m
+   [33m[2m✓[22m[39m AUTH-01/03 real GoTrue OTP, hook and CAPTCHA[2m > [22mcompletes phone OTP through a real signed hook and claims the preserved invited UUID [33m704[2mms[22m[39m
+   [33m[2m✓[22m[39m AUTH-01/03 real GoTrue OTP, hook and CAPTCHA[2m > [22mrequires fresh CAPTCHA on a direct resend and does not double-send [33m1396[2mms[22m[39m
+   [33m[2m✓[22m[39m AUTH-01/03 real GoTrue OTP, hook and CAPTCHA[2m > [22mrefuses a foreign phone and exhausted budget before fake delivery [33m426[2mms[22m[39m
+   [33m[2m✓[22m[39m AUTH-01/03 real GoTrue OTP, hook and CAPTCHA[2m > [22mrecords actual GoTrue IPs for direct and server-side API calls [33m819[2mms[22m[39m
+   [33m[2m✓[22m[39m AUTH-01/03 real GoTrue OTP, hook and CAPTCHA[2m > [22mverifies email OTP from the local mail catcher and claims without inventing a phone [33m384[2mms[22m[39m
+   [33m[2m✓[22m[39m AUTH-01/03 real GoTrue OTP, hook and CAPTCHA[2m > [22msuppresses native unknown-number sends and verifies BFF admission metadata on real GoTrue [33m406[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m1 passed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[32m7 passed[39m[22m[2m | [22m[33m1 skipped[39m[90m (8)[39m
+[2m   Start at [22m 21:00:56
+[2m   Duration [22m 12.25s[2m (transform 365ms, setup 3.93s, collect 883ms, tests 4.25s, environment 0ms, prepare 191ms)[22m
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m

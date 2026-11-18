@@ -1,0 +1,40 @@
+Project: jc-auth-test-c57bc286
+Exit: 1
+
+[1m[7m[36m RUN [39m[27m[22m [36mv2.1.9 [39m[90mD:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-packaged[39m
+
+ [31m❯[39m apps/api/test/auth-native-otp.local.spec.ts [2m([22m[2m8 tests[22m[2m | [22m[33m8 skipped[39m[2m)[22m[90m 56[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [33m8 skipped[39m[90m (8)[39m
+[2m   Start at [22m 20:55:59
+[2m   Duration [22m 8.29s[2m (transform 438ms, setup 4.14s, collect 752ms, tests 56ms, environment 0ms, prepare 267ms)[22m
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+[31m⎯⎯⎯⎯⎯⎯[1m[7m Failed Suites 1 [27m[22m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[31m[1m[7m FAIL [27m[22m[39m apps/api/test/auth-native-otp.local.spec.ts[2m > [22mAUTH-01/03 real GoTrue OTP, hook and CAPTCHA
+[31m[1mAssertionError[22m: expected [ { users: 1, auth: 1 } ] to deeply equal [ { users: +0, auth: +0 } ][39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[2m  Array [[22m
+[2m    Object {[22m
+[32m-     "auth": 0,[39m
+[32m-     "users": 0,[39m
+[31m+     "auth": 1,[39m
+[31m+     "users": 1,[39m
+[2m    },[22m
+[2m  ][22m
+
+[36m [2m❯[22m apps/api/test/auth-native-otp.local.spec.ts:[2m48:8[22m[39m
+    [90m 46| [39m    [35mawait[39m db[33m.[39m[34mconnect[39m()[33m;[39m [35mawait[39m redis[33m.[39m[34mconnect[39m()[33m;[39m
+    [90m 47| [39m    [34mexpect[39m(([35mawait[39m db[33m.[39m[34mquery[39m([32m'select (select count(*)::int from public.u[39m…
+    [90m 48| [39m      [33m.[39m[34mtoEqual[39m([{ users[33m:[39m [34m0[39m[33m,[39m auth[33m:[39m [34m0[39m }])[33m;[39m
+    [90m   | [39m       [31m^[39m
+    [90m 49| [39m    server [33m=[39m [34mfastify[39m({ logger[33m:[39m [35mfalse[39m[33m,[39m bodyLimit[33m:[39m [34m65536[39m })[33m;[39m
+    [90m 50| [39m    server[33m.[39m[34mremoveContentTypeParser[39m([32m'application/json'[39m)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
+

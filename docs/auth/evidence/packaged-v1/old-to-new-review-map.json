@@ -1,0 +1,392 @@
+{
+  "source": "43b69c5b9722a335c8b882e834a95bccf07442fe",
+  "base": "e91f5e285880dbb0656f2a54233adaf40a19bfbe",
+  "scope": "File ownership; shared nullable-profile boundary appears in contacts and final public projection units. Raw historical outputs remain on preserved original refs.",
+  "rows": [
+    {
+      "branch": "codex/auth-00-disposable-tests",
+      "commit": "0396c240e229d75051d2df540edf07c7791f9022",
+      "newReviewBranches": [
+        "codex/review-auth-01-test-infra",
+        "codex/review-auth-02-contacts-m1-m2",
+        "codex/review-auth-03-provider-sessions",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 10
+    },
+    {
+      "branch": "codex/auth-01-contacts",
+      "commit": "1e326f4f495d6424ca171b88a1755e747b896011",
+      "newReviewBranches": [
+        "codex/review-auth-02-contacts-m1-m2"
+      ],
+      "historicalEvidenceFiles": 27
+    },
+    {
+      "branch": "codex/auth-02-identity-claims",
+      "commit": "b19f7ee560c355bdd31a120dad57ff7ef64b16fb",
+      "newReviewBranches": [
+        "codex/review-auth-01-test-infra",
+        "codex/review-auth-02-contacts-m1-m2",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 22
+    },
+    {
+      "branch": "codex/auth-03-provider",
+      "commit": "46503b345611ac17f318bdcaa871f61275a75e9c",
+      "newReviewBranches": [
+        "codex/review-auth-01-test-infra",
+        "codex/review-auth-03-provider-sessions"
+      ],
+      "historicalEvidenceFiles": 18
+    },
+    {
+      "branch": "codex/auth-04-server-sessions",
+      "commit": "24a6455fc73fa3043d32396e21cb55188863e78f",
+      "newReviewBranches": [
+        "codex/review-auth-03-provider-sessions",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 14
+    },
+    {
+      "branch": "codex/auth-05-test-safety",
+      "commit": "72cbaf4219a39334f2677c84e79dd1973c7cb1d7",
+      "newReviewBranches": [
+        "codex/review-auth-01-test-infra",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 1
+    },
+    {
+      "branch": "codex/auth-06-review-packet",
+      "commit": "d5708afe74db2d14865b75b4d68666e34b17c926",
+      "newReviewBranches": [
+        "codex/review-auth-01-test-infra",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 26
+    },
+    {
+      "branch": "codex/auth-07-sms-hook",
+      "commit": "119e001487ea8d09937bc2c84b1821344a8446f0",
+      "newReviewBranches": [
+        "codex/review-auth-01-test-infra",
+        "codex/review-auth-04-sms-budgets",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 6
+    },
+    {
+      "branch": "codex/auth-08-housekeeping",
+      "commit": "bfc818b392009f99eb6c36e168c2ac0dc1d00c04",
+      "newReviewBranches": [
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 2
+    },
+    {
+      "branch": "codex/auth-09-m2-coverage",
+      "commit": "942a1fcbafad1fa3c432f2baf80b00e90655c7c7",
+      "newReviewBranches": [
+        "codex/review-auth-02-contacts-m1-m2",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 9
+    },
+    {
+      "branch": "codex/auth-10-migrations",
+      "commit": "5c9ed46566abd8b65217b35f033240afc556c5f9",
+      "newReviewBranches": [
+        "codex/review-auth-01-test-infra",
+        "codex/review-auth-02-contacts-m1-m2",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 11
+    },
+    {
+      "branch": "codex/auth-11-disposable-ci",
+      "commit": "bba8c444eff4a75fa1cfee936f3d3b1cbcf78c9a",
+      "newReviewBranches": [
+        "codex/review-auth-01-test-infra",
+        "codex/review-auth-02-contacts-m1-m2",
+        "codex/review-auth-03-provider-sessions",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 37
+    },
+    {
+      "branch": "codex/auth-12-sms-budgets",
+      "commit": "83a8a199c02e5e5dec4018cedb4289811c40b8fb",
+      "newReviewBranches": [
+        "codex/review-auth-04-sms-budgets",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 5
+    },
+    {
+      "branch": "codex/auth-13-native-otp",
+      "commit": "aed1b5be092fd0231ffa8bacbcaab18fad3a0d7d",
+      "newReviewBranches": [
+        "codex/review-auth-01-test-infra",
+        "codex/review-auth-04-sms-budgets",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 25
+    },
+    {
+      "branch": "codex/auth-14-provider-clock",
+      "commit": "893649c210d5a871b0b7cd2de535e8b1efe7242d",
+      "newReviewBranches": [
+        "codex/review-auth-03-provider-sessions",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 9
+    },
+    {
+      "branch": "codex/auth-15-sponsorship-boundaries",
+      "commit": "1c6ee9d28465edb0b5ec10beca9f9073d17f5241",
+      "newReviewBranches": [
+        "codex/review-auth-05-payments-off",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 9
+    },
+    {
+      "branch": "codex/auth-16-opaque-render",
+      "commit": "f0aff82374400a08ec11c61b85350ae88cb90daf",
+      "newReviewBranches": [
+        "codex/review-auth-02-contacts-m1-m2",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 7
+    },
+    {
+      "branch": "codex/auth-17-review-packet",
+      "commit": "1d6388c16c98ca69e56ad6491246411750e171a7",
+      "newReviewBranches": [
+        "codex/review-auth-02-contacts-m1-m2",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 17
+    },
+    {
+      "branch": "codex/auth-18-payment-transactions",
+      "commit": "5dec126d5d734c5eaf23c0166f995611ece2bf95",
+      "newReviewBranches": [
+        "codex/review-auth-05-payments-off",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 6
+    },
+    {
+      "branch": "codex/auth-19-capture-settlement",
+      "commit": "3fb36cd395fe26cee6c11da1d767e9961555749a",
+      "newReviewBranches": [
+        "codex/review-auth-05-payments-off"
+      ],
+      "historicalEvidenceFiles": 5
+    },
+    {
+      "branch": "codex/auth-20-payment-types",
+      "commit": "0e74ccbe0d068ab80467b3c0b2e36faa5b416c09",
+      "newReviewBranches": [
+        "codex/review-auth-02-contacts-m1-m2"
+      ],
+      "historicalEvidenceFiles": 4
+    },
+    {
+      "branch": "codex/auth-21-payment-api",
+      "commit": "26b66cd3a6ca020c637280c0aa17ab5d45fa9e7b",
+      "newReviewBranches": [
+        "codex/review-auth-01-test-infra",
+        "codex/review-auth-02-contacts-m1-m2",
+        "codex/review-auth-05-payments-off"
+      ],
+      "historicalEvidenceFiles": 2
+    },
+    {
+      "branch": "codex/auth-22-payment-services",
+      "commit": "8a4b75bd852b6e649fb149d0e8b4717b6aa41c34",
+      "newReviewBranches": [
+        "codex/review-auth-05-payments-off"
+      ],
+      "historicalEvidenceFiles": 6
+    },
+    {
+      "branch": "codex/auth-23-payment-boundaries",
+      "commit": "e1f64dbae5161c2eeab5e0e0c5b8925849781bd4",
+      "newReviewBranches": [
+        "codex/review-auth-05-payments-off",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 9
+    },
+    {
+      "branch": "codex/auth-24-payment-review",
+      "commit": "4bd8920193746740174702e405da0a40dfecbf88",
+      "newReviewBranches": [
+        "codex/review-auth-02-contacts-m1-m2",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 22
+    },
+    {
+      "branch": "codex/auth-25-test-environment",
+      "commit": "26d7791c73423ad1e0df68b18709d27bbc4d32a1",
+      "newReviewBranches": [
+        "codex/review-auth-01-test-infra",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 4
+    },
+    {
+      "branch": "codex/auth-26-native-fixtures",
+      "commit": "98d411a0efb57a54cb29cdc7a0c84737f707b05e",
+      "newReviewBranches": [
+        "codex/review-auth-01-test-infra",
+        "codex/review-auth-02-contacts-m1-m2",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 8
+    },
+    {
+      "branch": "codex/auth-27-privacy-contracts",
+      "commit": "063790785947fbe39dee17b28ff4e7f10eb4dc7d",
+      "newReviewBranches": [
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 3
+    },
+    {
+      "branch": "codex/auth-28-hindi-routing-review",
+      "commit": "364990aafba7fa7b75c2b66476602d30c37a1993",
+      "newReviewBranches": [
+        "codex/review-i18n-hindi-routing"
+      ],
+      "historicalEvidenceFiles": 6
+    },
+    {
+      "branch": "codex/auth-29-provider-revocation-review",
+      "commit": "e4b272448b03fe50c3a28a77aee97a98058c7f97",
+      "newReviewBranches": [
+        "codex/review-auth-03-provider-sessions",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 3
+    },
+    {
+      "branch": "codex/auth-30-ci-build-order",
+      "commit": "a932a4f6a8b510d860f51737ef47f0376bf3c2f6",
+      "newReviewBranches": [
+        "codex/review-auth-01-test-infra",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 8
+    },
+    {
+      "branch": "codex/auth-31-critical-review",
+      "commit": "cfd8fafc7ac2b5ffc5615e6d387982401773637a",
+      "newReviewBranches": [
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 1
+    },
+    {
+      "branch": "codex/auth-32-morning-handoff",
+      "commit": "808e29fb1ac27dfe422baf91f5522de2f1717d25",
+      "newReviewBranches": [
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 22
+    },
+    {
+      "branch": "codex/auth-33-public-views",
+      "commit": "9e80f23b592940de8d2e622d6991cc262c865f20",
+      "newReviewBranches": [
+        "codex/review-auth-01-test-infra",
+        "codex/review-auth-02-contacts-m1-m2",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 20
+    },
+    {
+      "branch": "codex/auth-34-public-api",
+      "commit": "3837d091651a82529402c8b3af1dfb074a20a391",
+      "newReviewBranches": [
+        "codex/review-auth-02-contacts-m1-m2",
+        "codex/review-auth-05-payments-off",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 23
+    },
+    {
+      "branch": "codex/auth-35-node-runtime",
+      "commit": "f6534a703ad8dfe52fecd93a15d46dc25f66fbce",
+      "newReviewBranches": [
+        "codex/review-auth-01-test-infra",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 4
+    },
+    {
+      "branch": "codex/auth-36-lifetime-guard",
+      "commit": "22ab64598ea7c80fb698f20e8c7ce2b53985b586",
+      "newReviewBranches": [
+        "codex/review-auth-03-provider-sessions",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 5
+    },
+    {
+      "branch": "codex/auth-37-hook-admission",
+      "commit": "a170083d6dd83bb4d8bbf15441148ac5054e422c",
+      "newReviewBranches": [
+        "codex/review-auth-02-contacts-m1-m2",
+        "codex/review-auth-04-sms-budgets",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 37
+    },
+    {
+      "branch": "codex/auth-38-otp-fallback",
+      "commit": "888e8436ead183c1187adf2164adf57460073d4f",
+      "newReviewBranches": [
+        "codex/review-auth-01-test-infra",
+        "codex/review-auth-04-sms-budgets",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 13
+    },
+    {
+      "branch": "codex/auth-39-public-company-links",
+      "commit": "167c083d31a664fea1b884885c52617fed613b5d",
+      "newReviewBranches": [
+        "codex/review-auth-02-contacts-m1-m2",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 16
+    },
+    {
+      "branch": "codex/auth-40-claim-observability",
+      "commit": "f2855d40375458a964aff218d85da6ea146c2583",
+      "newReviewBranches": [
+        "codex/review-auth-01-test-infra",
+        "codex/review-auth-02-contacts-m1-m2",
+        "codex/review-auth-03-provider-sessions",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 12
+    },
+    {
+      "branch": "codex/auth-41-review-ci",
+      "commit": "43b69c5b9722a335c8b882e834a95bccf07442fe",
+      "newReviewBranches": [
+        "codex/review-auth-01-test-infra",
+        "codex/review-auth-06-public-projections"
+      ],
+      "historicalEvidenceFiles": 4
+    }
+  ]
+}
