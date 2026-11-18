@@ -1,0 +1,13 @@
+{
+  "item": "27-privacy-contracts",
+  "kind": "code",
+  "branch": "codex/auth-27-privacy-contracts",
+  "commit": "88e81d48ea021f67229c0b05ab7d505833f08532",
+  "files": [
+    "apps/web/test/components.test.ts",
+    "apps/web/test/ticket-t10-workspace-wiring.test.ts",
+    "apps/web/test/ticket-t19-placement-dashboard.test.ts",
+    "docs/auth/F0_OPAQUE_RENDER.md"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}

@@ -1,0 +1,20 @@
+Project: jc-auth-test-253bc21d
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 0
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ✓ apps/web/test/ticket-t19-placement-dashboard.test.ts (15 tests) 2962ms
+   ✓ Ticket T-19: Placement Cell HR Dashboard & Institutional Placement Pipeline > PlacementDashboard Component Export & Contract > exports PlacementDashboard from institution workspace index 2943ms
+ ✓ apps/web/test/ticket-t10-workspace-wiring.test.ts (3 tests) 3565ms
+   ✓ Ticket T-10 Web Wiring: Workspace Forms & 1-Click Apply (PRD JOB-01, JOB-03, JS-02, EMP-01) > exports JobApplyButton with expected props contract 362ms
+   ✓ Ticket T-10 Web Wiring: Workspace Forms & 1-Click Apply (PRD JOB-01, JOB-03, JS-02, EMP-01) > exports EmployerWorkspace and SeekerWorkspace components 3200ms
+ ✓ apps/web/test/components.test.ts (15 tests) 4202ms
+   ✓ Authentication Modal, Role Switcher & Workspaces - Feature 6 > exports all 4 distinct role workspaces and main /workspace router 3751ms
+
+ Test Files  3 passed (3)
+      Tests  33 passed (33)
+   Start at  07:12:20
+   Duration  13.91s (transform 1.71s, setup 11.02s, collect 416ms, tests 10.73s, environment 1ms, prepare 819ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
