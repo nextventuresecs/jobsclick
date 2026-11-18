@@ -2,6 +2,8 @@
 
 Local drafts only; no cutover, hosted apply, push or real notification.
 
+2026-11-18 continuation: 1,105 full-suite tests pass with 12 documented conditional skips; build/startup/native proofs pass. This does not waive the gates below. [Morning handoff](MORNING_HANDOFF.md), [separate critical review branch/decisions](CRITICAL_HUMAN_REVIEW.md).
+
 ## S4
 
 Google native metadata and automatic-linking proof: NOT RUN. Pinned GoTrue Google provider hardcodes accounts.google.com and ignores configurable external URL; a fabricated provider=google Auth row would not test OAuth. Reviewed OAuth fixture and linking-denial evidence are required before enablement. [Pinned source](https://github.com/supabase/auth/blob/v2.197.0/internal/api/provider/google.go).

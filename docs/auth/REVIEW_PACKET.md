@@ -2,15 +2,19 @@
 
 2026-11-18. **NOT MERGEABLE: remaining auth and public-view gates.** The F0-d payment reuse and crash-atomicity failures are resolved in the local draft; the formerly failing assertions pass unchanged. S4 still lacks the reviewed MSG91 transport contract and production single-use/device/IP proof. S6 was **not started**, following the supplied dependency gate. Three pre-existing public owner-privilege views remain advisor ERROR findings. These are local review drafts; staging and the persistent dev DB were not modified.
 
+## Latest continuation result
+
+2026-11-18: the corrected **full repository command passes 1,105 tests / 12 conditional skips**, plus native pgTAP/Auth and fake-delivery OTP phases. Production workspace build and all six startup checks pass; 19 offline guards pass. [Morning handoff](MORNING_HANDOFF.md) lists scope, skips, receipts and exact limits. Critical decisions are separated on `codex/auth-31-critical-review`: [human review queue](CRITICAL_HUMAN_REVIEW.md). S6 remains NOT STARTED. The earlier selected payment-stage results below are preserved as history, not the current broad-suite limit.
+
 ## Database and original checkouts
 
 The persistent target is actual Docker Supabase `indian-job-portal-local`, database `127.0.0.1:54322/postgres`, API 54321, volume/container `supabase_db_indian-job-portal-local`. Native `postgres` is not a superuser; it has BYPASSRLS. The previous persistent-target synthetic fixture writes and exact-ID cleanup were a process violation. They are not accepted as disposable verification.
 
-Read-only counts remain **251,250 application users / one Auth user**. Exactly 249,950 rows have source `Govt ITI Bhopal`, consistent with five 49,990-accepted import fixtures; this does not prove all data synthetic. The other **1,300 rows and Auth user remain unclassified**. [PII-free inventory](evidence/review/UNEXPLAINED-DATA.md), [row fingerprints](evidence/review/unexplained-data.json), [final read-only counts](evidence/followup/payments/dev-counts-readonly.json). Human chose reviewed backup/reset planning; reset remains pending until backup and ownership are confirmed. Nothing was deleted or reset.
+Read-only counts remain **251,250 application users / one Auth user**. Exactly 249,950 rows have source `Govt ITI Bhopal`, consistent with five 49,990-accepted import fixtures; this does not prove all data synthetic. The other **1,300 rows and Auth user remain unclassified**. [PII-free inventory](evidence/review/UNEXPLAINED-DATA.md), [row fingerprints](evidence/review/unexplained-data.json), [final read-only counts](evidence/followup/overnight/dev-counts-readonly.json). Human chose reviewed backup/reset planning; reset remains pending until backup and ownership are confirmed. Nothing was deleted or reset.
 
-The original main checkout remains `feat/public-slugs-id-02` / `00a5804`; original dirty remediation remains `feat/bulk-onboarding` / `65c5f4c`. Work is in remediation `.scratch/auth-review`, on stacked local branches. [Preserved checkout snapshot](evidence/followup/payments/preserved-checkouts.json). The prerequisite has 63 files and 1,167 changed production-source lines: [review index](PREREQUISITE-REVIEW.md), [proposed split](PREREQUISITE-SPLIT.md). A git review note was added; no split or history rewrite occurred.
+The original main checkout remains `feat/public-slugs-id-02` / `00a5804`; original dirty remediation remains `feat/bulk-onboarding` / `65c5f4c`. Work is in remediation `.scratch/auth-review`, on stacked local branches. [Preserved checkout snapshot](evidence/followup/overnight/preserved-checkouts.json). The prerequisite has 63 files and 1,167 changed production-source lines: [review index](PREREQUISITE-REVIEW.md), [proposed split](PREREQUISITE-SPLIT.md). A git review note was added; no split or history rewrite occurred.
 
-## Final verification
+## Payment-stage verification (historical selected run)
 
 Every run created fresh Supabase/Redis projects, replayed canonical migrations, and asserted **users=0 / auth=0 before fixtures**. Current replay is 41 canonical migrations. Generated types cover 14 schemas, including private_payments. Supabase CLI 3.1.0 and Docker Desktop 29.9.2 were available; CLI was pinned rather than upgraded. Test JSON files are isolated per run; the network/marker guards exclude persistent and hosted targets.
 
@@ -45,7 +49,7 @@ Each row is reviewed against its direct parent; source and evidence are separate
 | S5/provider-time follow-up from native failure | `codex/auth-14-provider-clock` | `418c785` / `893649c` | 53 provider/session tests + native OTP PASS |
 | Step 3.1 / F0-d initial payment drafts | `codex/auth-15-sponsorship-boundaries` | `e5e56b2` / `1c6ee9d` | Historical red retained; replay/atomicity resolved by units 18–23 |
 | Step 3.2 / F0-e rendered identity | `codex/auth-16-opaque-render` | `6f39aae` / `f0aff82` | 25 focused render/API/privacy tests PASS; browser QR/toasts NOT RUN |
-| Step 3.3 + final deliverable | `codex/auth-17-review-packet` | This documentation/evidence unit; see final receipt | Review packet only |
+| Step 3.3 + final deliverable | `codex/auth-17-review-packet` | `88ace6f` / `1d6388c` | Historical packet |
 | WAL-05 sponsorship transaction | `codex/auth-18-payment-transactions` | `8416005` / `5dec126` | Native canonical receipt, locking, rollback and termination PASS |
 | WAL-03 capture settlement | `codex/auth-19-capture-settlement` | `a0b83ed` / `3fb36cd` | Captured status + grant/ledger + audit atomic PASS |
 | Generated financial types | `codex/auth-20-payment-types` | `01925de` / `0e74ccb` | Mechanical snapshot freshness PASS |
@@ -53,6 +57,14 @@ Each row is reviewed against its direct parent; source and evidence are separate
 | Verified payment service integration | `codex/auth-22-payment-services` | `e317c40` / `8a4b75b` | Original attackers + capture/webhook regressions PASS |
 | Finite money / receipt security drill | `codex/auth-23-payment-boundaries` | `961e949` / `e1f64db` | NaN denial red-to-green; original trigger assertion preserved |
 | Final payment review packet | `codex/auth-24-payment-review` | See documentation/evidence receipts | Selected 382-test run and current limits retained |
+| Test child environment | `codex/auth-25-test-environment` | `d685082` / `26d7791` | Synthetic credential-leak red; OS allowlist, 18 guards PASS |
+| Native fixture isolation | `codex/auth-26-native-fixtures` | `41b7085` / `98d411a` | 53 checks PASS; business assertions preserved |
+| Full-mask test contracts | `codex/auth-27-privacy-contracts` | `88e81d4` / `0637907` | 33 checks PASS; production masking unchanged |
+| AUTH-07 locale/auth boundaries | `codex/auth-28-hindi-routing-review` | `c621655` / `364990a` | Red-first routing/ambiguity; 47 checks PASS; auth review required |
+| Native provider logout/deletion | `codex/auth-29-provider-revocation-review` | `118c09c` / `e4b2724` | 55 provider/store/native checks PASS; no provider implementation change |
+| Production build before startup tests | `codex/auth-30-ci-build-order` | `59069f8` / `a932a4f` | 19 guards, workspace build without JWT and 6 startup cases PASS |
+| Critical human decisions | `codex/auth-31-critical-review` | `6e420ec` / `cfd8faf` | Notes only; no critical configuration/SQL enabled |
+| Morning packet | `codex/auth-32-morning-handoff` | See documentation/evidence receipts | Full local results, limits and next actions |
 | Step 4 / S6 claim API and HTTP guards | No implementation branch | None | **NOT STARTED: other S4/auth gates remain** |
 
 Earlier foundations are preserved: prerequisite `e91f5e2`, disposable infrastructure `0396c24`, contacts `1e326f4`, identity claims `b19f7ee`, provider `46503b3`, encrypted sessions `24a6455`, test safety `72cbaf4`, prior packet `d5708af`, hook foundation `119e001`. The prerequisite needs its own review; none is merge-ready merely because tests pass.
