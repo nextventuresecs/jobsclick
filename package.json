@@ -7,7 +7,7 @@
     "build": "pnpm --recursive run build",
     "dev": "pnpm --parallel --recursive run dev",
     "lint": "pnpm --recursive run lint",
-    "test": "vitest run",
+    "test": "node scripts/testing/run-disposable.cjs",
     "audit:migrations": "vitest run apps/worker/test/audit-migrations.spec.ts",
     "sync:migrations": "node scripts/sync-migrations.js",
     "ci:check-migrations": "node --experimental-strip-types scripts/ci/check-migration-sync.ts",
@@ -17,7 +17,9 @@
     "db:security:drill": "node --experimental-strip-types scripts/db-security-drill.ts",
     "db:smoke:postgrest": "node --experimental-strip-types scripts/smoke-postgrest.ts",
     "db:generate-types": "node scripts/generate-types.js",
-    "typecheck": "pnpm --filter @indian-job-portal/database --filter @indian-job-portal/validation run build && pnpm --recursive run typecheck"
+    "typecheck": "pnpm --filter @indian-job-portal/database --filter @indian-job-portal/validation run build && pnpm --recursive run typecheck",
+    "test:target-guard": "node --test scripts/testing/disposable-target.test.cjs scripts/testing/disposable-files.test.cjs scripts/testing/standalone-scripts.test.cjs scripts/testing/ci-disposable.test.cjs scripts/testing/disposable-environment.test.cjs scripts/testing/node-runtime.test.cjs",
+    "test:auth-migration": "node scripts/testing/run-auth-review.cjs"
   },
   "devDependencies": {
     "@sentry/node": "^8.0.0",
@@ -33,11 +35,12 @@
     "qrcode": "^1.5.3",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
+    "supabase": "3.1.0",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
   },
   "engines": {
-    "node": ">=22.0.0",
+    "node": "24.22.3",
     "pnpm": ">=9.0.0"
   },
   "dependencies": {

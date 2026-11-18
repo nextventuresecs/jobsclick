@@ -1,4 +1,7 @@
 import crypto from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import pg from 'pg';
+import { assertDisposableTargets, installTestNetworkFence } from '../../../scripts/testing/disposable-target.cjs';
 import { Test, type ModuleMetadata } from '@nestjs/testing';
 import { TestAuthModule } from './test-auth.module.js';
 import { TurnstileVerifier } from '../src/auth/turnstile.service.js';
@@ -39,27 +42,19 @@ if (process.env['REDIS_URL'].includes('upstash.io')) {
   process.env['REDIS_URL'] = 'redis://127.0.0.1:6379';
 }
 
-const ALLOWED_LOCALHOST = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0']);
-function assertTestTargetLocalhost(urlStr: string | undefined, name: string): void {
-  if (!urlStr) return;
-  try {
-    const url = new URL(urlStr);
-    if (!ALLOWED_LOCALHOST.has(url.hostname.toLowerCase())) {
-      throw new Error(
-        `[SECURITY REFUSAL] Test suite target ${name} "${url.hostname}" is not localhost! ` +
-        `Tests are strictly forbidden from executing against remote infrastructure.`
-      );
-    }
-  } catch (err: unknown) {
-    if (err instanceof Error && err.message.includes('[SECURITY REFUSAL]')) {
-      throw err;
-    }
-  }
-}
-
-assertTestTargetLocalhost(process.env['DATABASE_URL'], 'DATABASE_URL');
-assertTestTargetLocalhost(process.env['SUPABASE_URL'], 'SUPABASE_URL');
-assertTestTargetLocalhost(process.env['REDIS_URL'], 'REDIS_URL');
+// Every Vitest run must be provisioned by scripts/testing/run-disposable.cjs.
+// Loopback alone is insufficient: the developer's persistent stack is also loopback.
+const manifestPath = process.env['JOBSCLICK_TEST_MANIFEST'];
+if (!manifestPath) throw new Error('DISPOSABLE_TEST_TARGET_REQUIRED');
+const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+assertDisposableTargets({ databaseUrl: process.env['DATABASE_URL'], apiUrl: process.env['SUPABASE_URL'], redisUrl: process.env['REDIS_URL'] }, manifest);
+installTestNetworkFence();
+const marker = new pg.Client({ connectionString: process.env['DATABASE_URL'] });
+try {
+  await marker.connect();
+  const proof = await marker.query('select run_id from test_support.run_identity');
+  if (proof.rows.length !== 1 || proof.rows[0].run_id !== manifest.runId) throw new Error('DISPOSABLE_TEST_TARGET_REQUIRED');
+} finally { await marker.end(); }
 
 const origCreateTestingModule = Test.createTestingModule.bind(Test);
 const testContainer = Test as unknown as {

@@ -5,7 +5,8 @@ import { AppModule } from '../src/app.module.js';
 import { OtpGenerator } from '../src/auth/otp-generator.service.js';
 import { UserRepository } from '../src/database/repositories/user.repository.js';
 import { OtpRedisService } from '../src/auth/otp-redis.service.js';
-import { PersistentDatabaseStore } from '../src/database/supabase.provider.js';
+import { PersistentDatabaseStore, SUPABASE_CLIENT } from '../src/database/supabase.provider.js';
+import { randomInt, randomUUID } from 'node:crypto';
 
 class MockOtpGenerator extends OtpGenerator {
   override generate(): string {
@@ -17,6 +18,7 @@ describe('Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E)'
   let app: NestFastifyApplication;
   let userRepo: UserRepository;
   let otpRedisService: OtpRedisService;
+  let restoreFixtureMethods: (() => void) | undefined;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -33,6 +35,29 @@ describe('Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E)'
     userRepo = app.get(UserRepository);
     otpRedisService = app.get(OtpRedisService);
     PersistentDatabaseStore.getInstance().clearTable('users');
+    // Real database counts are scoped to this suite, never a shared database total.
+    const source = 'role-fixture-' + randomUUID();
+    const originalCreate = userRepo.create.bind(userRepo);
+    const originalCount = userRepo.count.bind(userRepo);
+    const database =
+      app.get<
+        import('@supabase/supabase-js').SupabaseClient<
+          import('@indian-job-portal/database').Database
+        >
+      >(SUPABASE_CLIENT);
+    userRepo.create = (input) => originalCreate({ ...input, source });
+    userRepo.count = async () => {
+      const result = await database
+        .from('users')
+        .select('id', { count: 'exact', head: true })
+        .eq('source', source);
+      if (result.error || result.count === null) throw new Error('ROLE_FIXTURE_COUNT_FAILED');
+      return result.count;
+    };
+    restoreFixtureMethods = () => {
+      userRepo.create = originalCreate;
+      userRepo.count = originalCount;
+    };
     const keys = await otpRedisService.client.keys('auth:verify_ip_rate:*');
     if (keys.length > 0) await otpRedisService.client.del(...keys);
   });
@@ -43,6 +68,7 @@ describe('Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E)'
   });
 
   afterAll(async () => {
+    restoreFixtureMethods?.();
     await app.close();
   });
 
@@ -181,6 +207,17 @@ describe('Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E)'
       const countAfter = await userRepo.count();
       expect(countAfter).toBe(countBefore + 1);
     });
+  });
+
+  it('counts only this suite fixtures when another real repository creates a user', async () => {
+    const before = await userRepo.count();
+    const otherRepository = new UserRepository(app.get(SUPABASE_CLIENT));
+    await otherRepository.create({
+      phone: '8' + randomInt(100000000, 999999999),
+      role: 'job_seeker',
+      source: 'unrelated-' + randomUUID(),
+    });
+    expect(await userRepo.count()).toBe(before);
   });
 
   describe('Existing User Role Preservation', () => {
