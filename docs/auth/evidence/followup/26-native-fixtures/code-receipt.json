@@ -1,0 +1,14 @@
+{
+  "item": "26-native-fixtures",
+  "kind": "code",
+  "branch": "codex/auth-26-native-fixtures",
+  "commit": "41b708541d06daf53ad988c92e4331d21bd1d170",
+  "files": [
+    "apps/api/test/user-repository-contract.spec.ts",
+    "apps/api/test/user-mutations-concurrency.spec.ts",
+    "scripts/bootstrap-staging-db.spec.ts",
+    "scripts/common/host-guard.spec.ts",
+    "docs/auth/DISPOSABLE_TESTS.md"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}
