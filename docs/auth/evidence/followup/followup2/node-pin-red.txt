@@ -1,0 +1,28 @@
+Exit: 1
+✖ one exact Node runtime for local, CI and all production containers (9.5979ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1794.7111
+
+✖ failing tests:
+
+test at scripts\testing\node-runtime.test.cjs:6:1
+✖ one exact Node runtime for local, CI and all production containers (9.5979ms)
+  Error: ENOENT: no such file or directory, open 'D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\.nvmrc'
+      at Object.readFileSync (node:fs:441:20)
+      at read (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\scripts\testing\node-runtime.test.cjs:5:21)
+      at TestContext.<anonymous> (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\scripts\testing\node-runtime.test.cjs:7:16)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.start (node:internal/test_runner/test:1191:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:385:17) {
+    errno: -4058,
+    code: 'ENOENT',
+    syscall: 'open',
+    path: 'D:\\Trun Dada\\Projects\\Products\\Indian Job Portal\\application\\indian-job-portal-remediation\\.scratch\\auth-review\\.nvmrc'
+  }

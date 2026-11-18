@@ -1,0 +1,17 @@
+{
+  "item": "35-node-runtime",
+  "kind": "code",
+  "branch": "codex/auth-35-node-runtime",
+  "commit": "4d6e2bc5f69e71d2fdd0b48fa5a3c9c41289b681",
+  "files": [
+    ".nvmrc",
+    "package.json",
+    ".github/workflows/ci.yml",
+    "apps/api/Dockerfile",
+    "apps/web/Dockerfile",
+    "apps/worker/Dockerfile",
+    "scripts/testing/node-runtime.test.cjs",
+    "docs/auth/NODE_RUNTIME.md"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}
