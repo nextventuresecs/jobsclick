@@ -90,7 +90,10 @@ export class PublicDiscoveryRepository {
     if (view === 'public_jobs') {
       const companies = await this.fixtureRows('public_business_profiles');
       const published = Object.values(this.store.getTable<BusinessProfileRow>('business_profiles')).filter(p => companies.some(c => c['id'] === p.id));
-      return Object.values(this.store.getTable<JobRow>('jobs')).filter(j => j.is_active && (!j.expiry_date || Date.parse(j.expiry_date) > Date.now()) && published.some(p => p.user_id === j.employer_id));
+      return Object.values(this.store.getTable<JobRow>('jobs')).filter(j => j.is_active && (!j.expiry_date || Date.parse(j.expiry_date) > Date.now())).flatMap(j=>{
+        const company=published.find(p=>p.user_id===j.employer_id);
+        return company?[{...j,company_id:company.id,company_name:company.company_name}]:[];
+      });
     }
     const business = view === 'public_business_profiles';
     const profiles = business ? Object.values(this.store.getTable<BusinessProfileRow>('business_profiles')) : Object.values(this.store.getTable<InstitutionProfileRow>('institution_profiles'));
@@ -111,7 +114,22 @@ export class PublicDiscoveryRepository {
   }
   company(id: string) { return this.one('public_business_profiles', id); }
   institution(id: string) { return this.one('public_institution_profiles', id); }
-  async job(id: string) { const row = await this.one('public_jobs', id); return { ...row, title: z.string().parse(row.title), isPromoted: Boolean(row.isFeatured && row.featuredUntil && Date.parse(row.featuredUntil) > Date.now()), isActive: true }; }
+  private projectJob(row:Record<string,unknown>){
+    const company=z.object({company_id:z.string().uuid(),company_name:z.string().min(1),title:z.string()}).safeParse(row);
+    if(!company.success)return this.unavailable();
+    return {...project('public_jobs',row),title:company.data.title,companyId:company.data.company_id,companyName:company.data.company_name,isPromoted:promoted(row),isActive:true};
+  }
+  async job(id:string){
+    uuid(id);let row:Record<string,unknown>|null;
+    if(this.testMode)row=(await this.fixtureRows('public_jobs')).find(r=>r['id']===id)??null;
+    else{
+      const {data,error}=await this.db.rpc('read_public_job',{p_id:id});
+      if(error)return this.unavailable();
+      const parsed=z.record(z.unknown()).nullable().safeParse(data);if(!parsed.success)return this.unavailable();row=parsed.data;
+    }
+    if(!row)throw new NotFoundException('PUBLIC_RESOURCE_NOT_FOUND');
+    return this.projectJob(row);
+  }
   async directory(kind: 'business' | 'institution', input: PublicDirectoryQuery) {
     const query = publicDirectoryQuerySchema.parse(input);
     const view = kind === 'business' ? 'public_business_profiles' : 'public_institution_profiles';
@@ -133,13 +151,13 @@ export class PublicDiscoveryRepository {
     if (this.testMode) {
       const company = filters.companyId ? this.store.getTable<BusinessProfileRow>('business_profiles')[filters.companyId] : null;
       const rows = (await this.fixtureRows('public_jobs')).filter(r => (!filters.companyId || r['employer_id'] === company?.user_id) && (!filters.keyword || [r['title'],r['description'],...(Array.isArray(r['skills']) ? r['skills'] : [])].some(text => String(text).toLowerCase().includes(filters.keyword!.toLowerCase()))) && (!filters.city || r['city'] === filters.city) && (!filters.category || r['category'] === filters.category) && (filters.minPay === undefined || Number(r['max_pay']) >= filters.minPay));
-      return { jobs: rows.sort((a,b)=>Number(promoted(b))-Number(promoted(a)) || Date.parse(String(b['created_at']))-Date.parse(String(a['created_at'])) || String(a['id']).localeCompare(String(b['id']))).slice(filters.offset,filters.offset+filters.limit).map(row => ({...project('public_jobs',row),isPromoted:promoted(row),isActive:true})), total: rows.length };
+      return { jobs: rows.sort((a,b)=>Number(promoted(b))-Number(promoted(a)) || Date.parse(String(b['created_at']))-Date.parse(String(a['created_at'])) || String(a['id']).localeCompare(String(b['id']))).slice(filters.offset,filters.offset+filters.limit).map(row => this.projectJob(row)), total: rows.length };
     }
     const { data, error } = await this.db.rpc('search_public_jobs', { p_keyword:filters.keyword,p_city:filters.city,p_category:filters.category,p_min_pay:filters.minPay,p_company:filters.companyId,p_limit:Math.min(filters.limit,100),p_offset:Math.min(filters.offset,10000) });
     if (error) return this.unavailable();
     const result = z.object({ jobs:z.array(z.record(z.unknown())),total:z.number().int().nonnegative() }).safeParse(data);
     if (!result.success) return this.unavailable();
-    return { jobs: result.data.jobs.map(row => ({...project('public_jobs',row),isPromoted:promoted(row),isActive:true})), total:result.data.total };
+    return { jobs: result.data.jobs.map(row => this.projectJob(row)), total:result.data.total };
   }
   async cms(id: string) {
     uuid(id);

@@ -437,6 +437,7 @@ export interface Database {
       }>;
     };
     Functions: {
+      read_public_job: {Args:{p_id:string};Returns:import('./generated.types.js').Json};
       rpc_sms_phone_is_known: {Args:{p_phone:string};Returns:boolean};
       search_public_jobs: { Args: { p_keyword?: string | null; p_city?: string | null; p_category?: string | null; p_min_pay?: number | null; p_company?: string | null; p_limit?: number; p_offset?: number }; Returns: import('./generated.types.js').Json };
       read_public_institution_cms: { Args: { p_id: string }; Returns: import('./generated.types.js').Json };

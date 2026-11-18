@@ -1505,6 +1505,9 @@ isOneToOne: false
 "read_public_institution_cms":
 { Args: { "p_id": string }; Returns: Json
                            },
+"read_public_job":
+{ Args: { "p_id": string }; Returns: Json
+                           },
 "rpc_activate_sponsorship":
 { Args: { "p_actor": string,"p_count"?: number,"p_force"?: boolean,"p_institution": string,"p_key"?: string,"p_reference": string }; Returns: Json
                            },

@@ -1,3 +1,4 @@
+import { mapApiJobToJobItem } from '../../web/src/lib/job-mapper.js';
 import { randomInt, randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { Test } from '@nestjs/testing';
@@ -115,6 +116,21 @@ describe('AUTH-05 F0-f native public API projection boundary', () => {
     const anon=createClient(process.env['SUPABASE_URL']!,process.env['SUPABASE_ANON_KEY']!);
     expect((await anon.rpc('search_public_jobs',{})).error?.code).toBe('42501');
     expect((await anon.rpc('read_public_institution_cms',{p_id:f.institution})).error?.code).toBe('42501');
+  });
+
+  it('public job detail/search carry the company profile slug used by SSR links and JobPosting metadata',async()=>{
+    const f=await fixture();
+    const detail=await app.inject({method:'GET',url:'/jobs/'+f.job});expect(detail.statusCode).toBe(200);
+    const payload=detail.json() as {companyId:string;companyName:string};expect(payload.companyId).toBe(f.company);expect(payload.companyName).toBe(marker+' company');
+    const mapped=mapApiJobToJobItem(detail.json());expect(mapped.companyId).toBe(f.company);expect(mapped.companyName).toBe(payload.companyName);
+    expect(Object.keys(detail.json()).sort()).toEqual(['id','employerId','title','description','category','employmentType','experienceLevel','minPay','maxPay','city','district','state','openings','skills','expiryDate','isFeatured','featuredUntil','createdAt','companyId','companyName','isActive','isPromoted'].sort());
+    const anon=createClient(process.env['SUPABASE_URL']!,process.env['SUPABASE_ANON_KEY']!);
+    expect((await anon.rpc('read_public_job',{p_id:f.job})).error?.code).toBe('42501');
+
+    expect((await app.inject({method:'GET',url:'/profiles/business/'+payload.companyId})).statusCode).toBe(200);
+    const search=await app.inject({method:'GET',url:'/jobs?companyId='+f.company});expect(search.statusCode).toBe(200);
+    const rows=search.json().jobs as {id:string;companyId:string;companyName:string}[];
+    expect(rows.find(row=>row.id===f.job)).toMatchObject({companyId:f.company,companyName:marker+' company'});
   });
 
 });
