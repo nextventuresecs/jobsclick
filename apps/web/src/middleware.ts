@@ -14,6 +14,8 @@ export function middleware(req: NextRequest) {
   requestHeaders.delete('x-user-id');
   requestHeaders.delete('x-user-role');
   requestHeaders.delete('x-user-status');
+  requestHeaders.delete('x-next-locale');
+  requestHeaders.delete('x-locale');
   // Cookie-authenticated mutations always require the configured web origin.
   if (pathname.startsWith('/api/') && pathname !== '/api/sentry-test' && !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && !validOrigin(req)) {
     return NextResponse.json({ code: 'AUTH_ORIGIN_INVALID' }, { status: 403, headers: { 'Cache-Control': 'no-store' } });
@@ -35,9 +37,17 @@ export function middleware(req: NextRequest) {
     } catch { return NextResponse.json({ code: 'API_UNAVAILABLE' }, { status: 503 }); }
   }
 
+  const pagePath = pathname.replace(/^\/(?:hi|en)(?=\/|$)/, '') || '/';
+  const localized = pagePath !== pathname;
+  if (pagePath.startsWith('//')) return NextResponse.json({ code: 'INVALID_PATH' }, { status: 400 });
+  // Locale rewrites apply to pages only; never create alternate API entry points.
+  if (localized && (pagePath === '/api' || pagePath.startsWith('/api/'))) {
+    return NextResponse.json({ code: 'NOT_FOUND' }, { status: 404 });
+  }
+
   // 2. Enforce authentication gate on protected routes
   const isProtected = PROTECTED_PATH_PREFIXES.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+    (prefix) => pagePath === prefix || pagePath.startsWith(`${prefix}/`)
   );
 
   const sessionCookie = req.cookies.get(SESSION_COOKIE_NAME)?.value;
@@ -54,11 +64,30 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(loginRedirectUrl);
   }
 
-  return NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
-  });
+  if (pathname === '/api' || pathname.startsWith('/api/') || pathname.startsWith('/_next/') || pathname === '/monitoring') {
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  }
+  const target = req.nextUrl.clone();
+  target.pathname = pagePath;
+  if (pathname === '/en' || pathname.startsWith('/en/')) return NextResponse.redirect(target, 308);
+
+  const locale = pathname === '/hi' || pathname.startsWith('/hi/') ? 'hi' : 'en';
+  requestHeaders.set('x-next-locale', locale);
+  const response = localized
+    ? NextResponse.rewrite(target, { request: { headers: requestHeaders } })
+    : NextResponse.next({ request: { headers: requestHeaders } });
+  response.cookies.set('NEXT_LOCALE', locale, { path: '/', sameSite: 'lax', maxAge: 31536000, secure: process.env.NODE_ENV === 'production' });
+  const english = new URL(req.url);
+  english.pathname = pagePath;
+  english.search = '';
+  english.hash = '';
+  const hindi = new URL(english);
+  hindi.pathname = pagePath === '/' ? '/hi' : '/hi' + pagePath;
+  response.headers.set('Link', [
+    '<' + english.href + '>; rel="alternate"; hreflang="en"',
+    '<' + hindi.href + '>; rel="alternate"; hreflang="hi"',
+  ].join(', '));
+  return response;
 }
 
 export const config = {
