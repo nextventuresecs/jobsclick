@@ -49,3 +49,17 @@ test('stacked review pull requests run verification without permitting deploymen
     assert.ok(block.includes("if: github.ref == 'refs/heads/main' && github.event_name == 'push'"));
   }
 });
+
+for(const job of ['auth-disposable','db-security-gate','auth-native-otp'])test(job+' builds runtime shared exports before selected native tests',()=>{
+  const begin=workflow.indexOf('\n  '+job+':');assert.ok(begin>=0,'native job is required: '+job);
+  const next=workflow.slice(begin+1).search(/\n  [a-z][a-z-]+:/);
+  const block=next<0?workflow.slice(begin):workflow.slice(begin,begin+1+next);
+  const build=block.indexOf('pnpm --filter @indian-job-portal/database --filter @indian-job-portal/validation run build');
+  const tests=block.indexOf('run: pnpm test');
+  assert.ok(build>=0&&tests>build,'cold runtime exports must be built before selected tests');
+  if(job==='auth-native-otp'){
+    assert.ok(block.includes('--native-otp --auth-contracts apps/api/test/supabase-sms-hook.local.spec.ts'));
+    assert.ok(block.includes('--native-otp apps/api/test/otp-fallback-native.local.spec.ts'));
+    assert.ok(block.includes('--native-otp --captcha-reject --auth-contracts apps/api/test/supabase-sms-hook.local.spec.ts'));
+  }
+});
