@@ -3,7 +3,7 @@ import { parse } from 'csv-parse';
 import { Readable } from 'node:stream';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@indian-job-portal/database';
-import { normalizeIndianPhone, udyamNumberSchema } from '@indian-job-portal/validation';
+import { normalizeIndianPhone, normalizeEmail, udyamNumberSchema } from '@indian-job-portal/validation';
 
 export { normalizeIndianPhone };
 
@@ -494,6 +494,12 @@ export class ImportProcessor {
           }
         }
 
+        const rawEmail = getField(record, 'email', 'Email', 'email_address');
+        const email = normalizeEmail(rawEmail);
+        if (rawEmail && !email) {
+          errors.push({ row: rowNumber, phone: rawPhone, reason: 'BULK_EMAIL_INVALID' });
+          continue;
+        }
         seenPhones.add(phone);
 
         currentChunk.push({
@@ -511,7 +517,7 @@ export class ImportProcessor {
           district: getField(record, 'district', 'District') || undefined,
           state: getField(record, 'state', 'State') || undefined,
           address: getField(record, 'address', 'Address') || undefined,
-          email: getField(record, 'email', 'Email', 'email_address') || undefined,
+          email: email || undefined,
           udyamNumber: rawUdyam || undefined,
           gstin: rawGstin || undefined,
           pincode: rawPincode || undefined,

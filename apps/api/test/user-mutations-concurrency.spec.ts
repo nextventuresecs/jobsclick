@@ -11,12 +11,10 @@ import { OtpRedisService } from '../src/auth/otp-redis.service.js';
 import { EmailService } from '../src/email/email.service.js';
 import { HttpExceptionFilter } from '../src/common/http-exception.filter.js';
 
-const SUPABASE_LOCAL_URL = 'http://127.0.0.1:54321';
-const SUPABASE_SERVICE_ROLE_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU';
-const SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
-const SUPABASE_JWT_SECRET = 'super-secret-jwt-token-with-at-least-32-characters-long';
+const SUPABASE_LOCAL_URL = process.env['SUPABASE_URL']!;
+const SUPABASE_SERVICE_ROLE_KEY = process.env['SUPABASE_SERVICE_ROLE_KEY']!;
+const SUPABASE_ANON_KEY = process.env['SUPABASE_ANON_KEY']!;
+const SUPABASE_JWT_SECRET = process.env['SUPABASE_JWT_SECRET']!;
 
 function createPostgrestJwt(payload: Record<string, unknown>, secret: string): string {
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
@@ -72,7 +70,7 @@ describe('User Mutations, Concurrency & Security Hardening (Real PostgreSQL & Re
   });
 
   afterAll(async () => {
-    await app.close();
+    await app?.close();
   });
 
   describe('1. grant_starter_credits RPC & Permissions', () => {
@@ -132,7 +130,7 @@ describe('User Mutations, Concurrency & Security Hardening (Real PostgreSQL & Re
     it('aborts user creation when an insert trigger fails (atomic rollback)', async () => {
       const { Client } = await import('pg');
       const pgClient = new Client({
-        connectionString: 'postgresql://postgres:postgres@127.0.0.1:54322/postgres',
+        connectionString: process.env['DATABASE_URL']!,
       });
       await pgClient.connect();
 

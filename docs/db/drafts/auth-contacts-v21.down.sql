@@ -1,0 +1,2 @@
+-- SUPERSEDED: manual rollback is supabase/rollbacks/20261117144921_auth_contacts_v21.sql
+-- Not auto-run. Preserve populated mappings/audits; review forward recovery.

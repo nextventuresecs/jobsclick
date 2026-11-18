@@ -1,3 +1,4 @@
+export { publicProfilePathSchema } from './public-profile.js';
 import { z } from 'zod';
 export { z } from 'zod';
 
@@ -88,3 +89,5 @@ export function validateSecretKey(keyName: string, key?: string, minLength = 32)
   }
   return null;
 }
+
+export * from './public-discovery';

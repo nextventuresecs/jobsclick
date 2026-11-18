@@ -6,7 +6,7 @@ import { z } from 'zod';
  * Returns null if the resulting number is not a valid 10-digit mobile number starting with 6-9.
  */
 export function normalizeIndianPhone(input: string | null | undefined): string | null {
-  if (!input) return null;
+  if (!input || /[\u0000-\u001f\u007f]/.test(input) || !/^\+?[0-9 ()-]+$/.test(input.trim())) return null;
   const digits = String(input).replace(/\D/g, '');
   let normalized = digits;
 
@@ -36,10 +36,11 @@ export function normalizeIndianPhone(input: string | null | undefined): string |
  */
 export const IndianPhoneSchema = z
   .string()
+  .regex(/^[^\u0000-\u001f\u007f]*$/, 'AUTH_PHONE_INVALID')
   .trim()
   .transform((val) => {
     const normalized = normalizeIndianPhone(val);
-    return normalized ?? val.replace(/\D/g, '');
+    return normalized ?? val;
   })
   .refine((digits) => /^[6-9]\d{9}$/.test(digits), {
     message: 'Invalid mobile number. Must be a valid 10-digit number starting with 6-9.',
@@ -160,14 +161,21 @@ export const VerifyOtpSchema = z
   })
   .strict();
 
-export const AddEmailSchema = z.object({
-  email: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .max(254, 'Email must not exceed 254 characters')
-    .email('Valid email address is required'),
-});
+export const EmailAddressSchema = z
+  .string()
+  .regex(/^[^\u0000-\u001f\u007f]*$/, 'AUTH_EMAIL_INVALID')
+  .trim()
+  .toLowerCase()
+  .max(254, 'Email must not exceed 254 characters')
+  .email('Valid email address is required');
+
+/** Canonical contact value; never verifies ownership or merges accounts. */
+export function normalizeEmail(input: string | null | undefined): string | null {
+  const result = EmailAddressSchema.safeParse(input);
+  return result.success ? result.data : null;
+}
+
+export const AddEmailSchema = z.object({ email: EmailAddressSchema });
 
 export const verifyEmailSchema = z.object({
   token: z.string().min(1, 'Token is required'),
