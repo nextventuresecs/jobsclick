@@ -1,0 +1,99 @@
+Project: jc-auth-test-4a6aff40
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ apps/api/test/provider-lifetime-policy.local.spec.ts (9 tests | 9 failed) 365ms
+   × AUTH-01/06 provider lifetime startup and readiness > fails startup for invalid configured lifetime 901 103ms
+     → promise resolved "undefined" instead of rejecting
+   × AUTH-01/06 provider lifetime startup and readiness > fails startup for invalid configured lifetime 3600 43ms
+     → promise resolved "undefined" instead of rejecting
+   × AUTH-01/06 provider lifetime startup and readiness > fails startup for invalid configured lifetime 0 27ms
+     → promise resolved "undefined" instead of rejecting
+   × AUTH-01/06 provider lifetime startup and readiness > fails startup for invalid configured lifetime 900.5 25ms
+     → promise resolved "undefined" instead of rejecting
+   × AUTH-01/06 provider lifetime startup and readiness > fails startup for invalid configured lifetime invalid 27ms
+     → promise resolved "undefined" instead of rejecting
+   × AUTH-01/06 provider lifetime startup and readiness > fails startup for invalid configured lifetime  29ms
+     → promise resolved "undefined" instead of rejecting
+   × AUTH-01/06 provider lifetime startup and readiness > starts and becomes ready at 899 seconds 62ms
+     → expected 404 to be 200 // Object.is equality
+   × AUTH-01/06 provider lifetime startup and readiness > starts and becomes ready at 900 seconds 20ms
+     → expected 404 to be 200 // Object.is equality
+   × AUTH-01/06 provider lifetime startup and readiness > readiness fails loudly when declared configuration drifts beyond 900 seconds 29ms
+     → expected 404 to be 503 // Object.is equality
+
+ Test Files  1 failed (1)
+      Tests  9 failed (9)
+   Start at  14:56:37
+   Duration  16.14s (transform 756ms, setup 2.10s, collect 1.79s, tests 365ms, environment 0ms, prepare 192ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+Sourcemap for "D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/@bull-board+api@5.21.0_@bull-board+ui@5.21.0/node_modules/@bull-board/api/dist/src/index.js" points to missing source files
+Sourcemap for "D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/@bull-board+fastify@5.21.0/node_modules/@bull-board/fastify/dist/index.js" points to missing source files
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/provider-lifetime-policy.local.spec.ts > AUTH-01/06 provider lifetime startup and readiness > fails startup for invalid configured lifetime 901
+ FAIL  apps/api/test/provider-lifetime-policy.local.spec.ts > AUTH-01/06 provider lifetime startup and readiness > fails startup for invalid configured lifetime 3600
+ FAIL  apps/api/test/provider-lifetime-policy.local.spec.ts > AUTH-01/06 provider lifetime startup and readiness > fails startup for invalid configured lifetime 0
+ FAIL  apps/api/test/provider-lifetime-policy.local.spec.ts > AUTH-01/06 provider lifetime startup and readiness > fails startup for invalid configured lifetime 900.5
+ FAIL  apps/api/test/provider-lifetime-policy.local.spec.ts > AUTH-01/06 provider lifetime startup and readiness > fails startup for invalid configured lifetime invalid
+ FAIL  apps/api/test/provider-lifetime-policy.local.spec.ts > AUTH-01/06 provider lifetime startup and readiness > fails startup for invalid configured lifetime 
+AssertionError: promise resolved "undefined" instead of rejecting
+
+- Expected: 
+[Error: rejected promise]
+
++ Received: 
+undefined
+
+ ❯ apps/api/test/provider-lifetime-policy.local.spec.ts:15:29
+     13| describe('AUTH-01/06 provider lifetime startup and readiness',()=>{
+     14|  it.each(['901','3600','0','900.5','invalid',''])('fails startup for i…
+     15|    await expect(start(value)).rejects.toThrow('AUTH_PROVIDER_LIFETIME_…
+       |                             ^
+     16|  });
+     17|  it.each(['899','900'])('starts and becomes ready at %s seconds',async…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+ FAIL  apps/api/test/provider-lifetime-policy.local.spec.ts > AUTH-01/06 provider lifetime startup and readiness > starts and becomes ready at 899 seconds
+ FAIL  apps/api/test/provider-lifetime-policy.local.spec.ts > AUTH-01/06 provider lifetime startup and readiness > starts and becomes ready at 900 seconds
+AssertionError: expected 404 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 404
+
+ ❯ apps/api/test/provider-lifetime-policy.local.spec.ts:18:112
+     16|  });
+     17|  it.each(['899','900'])('starts and becomes ready at %s seconds',async…
+     18|    await start(value);const api=app!;expect((await api.inject({method:…
+       |                                                                                                                ^
+     19|  });
+     20|  it('readiness fails loudly when declared configuration drifts beyond …
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+
+ FAIL  apps/api/test/provider-lifetime-policy.local.spec.ts > AUTH-01/06 provider lifetime startup and readiness > readiness fails loudly when declared configuration drifts beyond 900 seconds
+AssertionError: expected 404 to be 503 // Object.is equality
+
+- Expected
++ Received
+
+- 503
++ 404
+
+ ❯ apps/api/test/provider-lifetime-policy.local.spec.ts:23:32
+     21|    await start('900');const api=app!;vi.stubEnv('SUPABASE_ACCESS_TOKEN…
+     22|    const response=await api.inject({method:'GET',url:'/health/ready'});
+     23|    expect(response.statusCode).toBe(503);expect(response.body).toConta…
+       |                                ^
+     24|  });
+     25| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
+

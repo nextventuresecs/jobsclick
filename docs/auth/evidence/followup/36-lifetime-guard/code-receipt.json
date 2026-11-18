@@ -1,0 +1,17 @@
+{
+  "item": "36-lifetime-guard",
+  "kind": "code",
+  "branch": "codex/auth-36-lifetime-guard",
+  "commit": "19bff8d423d03f70ce7e2ea807a6f0168c7b05f5",
+  "files": [
+    "apps/api/src/auth/supabase-provider.ts",
+    "apps/api/src/config/env.ts",
+    "apps/api/src/health/health.controller.ts",
+    "apps/api/src/health/health.module.ts",
+    "docs/auth/FOLLOWUP_2_REVIEW.md",
+    "docs/auth/PROVIDER_TIME_POLICY.md",
+    "apps/api/src/auth/provider-lifetime-policy.ts",
+    "apps/api/test/provider-lifetime-policy.local.spec.ts"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}
