@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -26,15 +26,18 @@ describe('Ticket T-11: Missing Routes (/how-it-works, /institutions)', () => {
     expect(mod.metadata.title).toContain('Institutions');
   });
 
-  it('renders InstitutionsDirectoryPage with sample institutions and filtering', async () => {
+  it('renders InstitutionsDirectoryPage using only server API results and filtering', async () => {
     const mod = (await import('../src/app/institutions/page.jsx')) as unknown as {
       default: (props: { searchParams?: { query?: string; type?: string } }) => Promise<React.ReactElement>;
     };
+    const fetchMock=vi.spyOn(globalThis,'fetch').mockResolvedValue(Response.json([]));
     const jsx = await mod.default({
       searchParams: { query: 'Indore', type: 'iti' },
     });
     expect(jsx).toBeDefined();
     expect(jsx.type).toBe('div');
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/profiles/institution'),{cache:'no-store'});
+    fetchMock.mockRestore();
   });
 
   it('renders HowItWorksPage detailing candidate, employer, and institution workflows', async () => {

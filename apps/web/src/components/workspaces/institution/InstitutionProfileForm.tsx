@@ -8,6 +8,8 @@ import { Save } from 'lucide-react';
 import { InstitutionGovernanceFields } from './InstitutionGovernanceFields';
 
 export interface InstitutionEditFormData {
+  formIsPublished: boolean;
+  setFormIsPublished: (value: boolean) => void;
   formInstName: string;
   setFormInstName: (val: string) => void;
   formInstType: InstitutionProfileData['institutionType'];
@@ -76,6 +78,11 @@ export function InstitutionProfileForm({ formData: d, onSubmit, onCancel }: Inst
           </Button>
         </div>
       </div>
+
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={d.formIsPublished} onChange={event => d.setFormIsPublished(event.target.checked)} />
+        {t('publishProfile')}
+      </label>
 
       <InstitutionGovernanceFields formData={d} />
 

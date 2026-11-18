@@ -413,7 +413,6 @@ export interface Database {
         annual_capacity: number | null;
         placement_brochure_url: string | null;
         about: string | null;
-        cms_data: Record<string, unknown> | null;
         created_at: string | null;
       }>;
       public_jobs: ViewDefinition<{
@@ -438,6 +437,9 @@ export interface Database {
       }>;
     };
     Functions: {
+      search_public_jobs: { Args: { p_keyword?: string | null; p_city?: string | null; p_category?: string | null; p_min_pay?: number | null; p_company?: string | null; p_limit?: number; p_offset?: number }; Returns: import('./generated.types.js').Json };
+      read_public_institution_cms: { Args: { p_id: string }; Returns: import('./generated.types.js').Json };
+
       rpc_activate_sponsorship: {
         Args: { p_institution: string; p_actor: string; p_reference: string; p_key?: string | null; p_count?: number | null; p_force?: boolean };
         Returns: import('./generated.types.js').Json;

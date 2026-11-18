@@ -1,3 +1,4 @@
+import { PublicDiscoveryRepository } from '../database/repositories/public-discovery.repository.js';
 import {
   Injectable,
   NotFoundException,
@@ -161,6 +162,7 @@ export const DEFAULT_INSTITUTION_CMS: InstitutionCmsInput = {
 @Injectable()
 export class InstitutionCmsService {
   constructor(
+    @Inject(PublicDiscoveryRepository) private readonly publicDiscovery: PublicDiscoveryRepository,
     @Inject(ProfileRepository) private readonly profileRepository: ProfileRepository,
     @Inject(InquiryRepository) private readonly inquiryRepository: InquiryRepository,
   ) {}
@@ -168,23 +170,11 @@ export class InstitutionCmsService {
   /**
    * Public retrieval of Institution CMS Tabs data (INT-02)
    */
-  async getCmsData(institutionId: string): Promise<InstitutionCmsInput> {
-    const profile = await this.profileRepository.findInstitutionProfileById(institutionId);
-    if (!profile) {
-      // Fallback to sensible defaults
-      return DEFAULT_INSTITUTION_CMS;
-    }
-
-    if (profile.cms_data && Object.keys(profile.cms_data).length > 0) {
-      try {
-        return institutionCmsSchema.parse(profile.cms_data);
-      } catch {
-        // Fall back to default if stored JSON does not match schema
-        return DEFAULT_INSTITUTION_CMS;
-      }
-    }
-
-    return DEFAULT_INSTITUTION_CMS;
+  getCmsData(institutionId: string) { return this.publicDiscovery.cms(institutionId); }
+  async getOwnedCmsData(userId: string): Promise<InstitutionCmsInput> {
+    const profile = await this.profileRepository.findInstitutionProfileByUserId(userId);
+    if (!profile) throw new NotFoundException('INSTITUTION_PROFILE_NOT_FOUND');
+    return institutionCmsSchema.parse(profile.cms_data ?? {});
   }
 
   /**
@@ -200,6 +190,7 @@ export class InstitutionCmsService {
     const updatedProfile: InstitutionProfileRow = {
       id,
       user_id: userId,
+      is_published: existing?.is_published ?? false,
       institution_name: existing?.institution_name || 'Institution Campus',
       institution_type: existing?.institution_type || 'iti',
       affiliation: existing?.affiliation || null,

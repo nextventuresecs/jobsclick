@@ -377,6 +377,7 @@
     "toastValidationError": "सत्यापन त्रुटि"
   },
   "EmployerWorkspace": {
+    "publishProfile": "प्रोफ़ाइल सार्वजनिक निर्देशिका में प्रकाशित करें",
     "title": "एमएसएमई नियोक्ता पोर्टल",
     "verifiedMsmeBadge": "सत्यापित एमएसएमई",
     "dpiitBadge": "डीपीआईआईटी मान्यता प्राप्त स्टार्टअप",
@@ -510,6 +511,7 @@
     "insufficientCredits": "वॉलेट में अपर्याप्त क्रेडिट्स। कृपया वॉलेट रीचार्ज करें।"
   },
   "InstitutionWorkspace": {
+    "publishProfile": "प्रोफ़ाइल सार्वजनिक निर्देशिका में प्रकाशित करें",
     "title": "प्लेसमेंट सेल निदेशालय",
     "verifiedCampusBadge": "सत्यापित तकनीकी परिसर",
     "viewPublicProfile": "सार्वजनिक प्रोफ़ाइल देखें",

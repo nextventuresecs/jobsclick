@@ -1454,7 +1454,7 @@ isOneToOne: false
                   ]
                 },"public_institution_profiles": {
                   Row: {
-                    "about": string | null,"affiliation": string | null,"annual_capacity": number | null,"city": string | null,"cms_data": Json | null,"created_at": string,"district": string | null,"establishment_year": number | null,"id": string,"institution_name": string,"institution_type": string | null,"placement_brochure_url": string | null,"state": string | null,"trades_offered": (string)[] | null,"website": string | null
+                    "about": string | null,"affiliation": string | null,"annual_capacity": number | null,"city": string | null,"created_at": string,"district": string | null,"establishment_year": number | null,"id": string,"institution_name": string,"institution_type": string | null,"placement_brochure_url": string | null,"state": string | null,"trades_offered": (string)[] | null,"website": string | null
                   }
                   ComputedFields: never
                   Relationships: [
@@ -1502,6 +1502,9 @@ isOneToOne: false
 "promote_job_with_ledger":
 { Args: { "p_cost": number,"p_duration_days": number,"p_job_id": string,"p_user_id": string }; Returns: Json
                            },
+"read_public_institution_cms":
+{ Args: { "p_id": string }; Returns: Json
+                           },
 "rpc_activate_sponsorship":
 { Args: { "p_actor": string,"p_count"?: number,"p_force"?: boolean,"p_institution": string,"p_key"?: string,"p_reference": string }; Returns: Json
                            },
@@ -1515,6 +1518,9 @@ isOneToOne: false
 { Args: { "p_category"?: string,"p_city"?: string,"p_keyword"?: string,"p_limit"?: number,"p_min_pay"?: number,"p_offset"?: number }; Returns: {
               "category": Database["public"]['Enums']["job_category"],"city": string,"created_at": string,"created_by": string,"description": string,"district": string,"employer_id": string,"employment_type": string,"experience_level": string,"expiry_date": string,"featured_until": string,"id": string,"is_active": boolean,"is_featured": boolean,"max_pay": number,"min_pay": number,"openings": number,"skills": (string)[],"source": string,"state": string,"title": string,"total_count": number,"updated_at": string,"updated_by": string
             }[]
+                           },
+"search_public_jobs":
+{ Args: { "p_category"?: string,"p_city"?: string,"p_company"?: string,"p_keyword"?: string,"p_limit"?: number,"p_min_pay"?: number,"p_offset"?: number }; Returns: Json
                            },
 "unlock_contact_with_ledger":
 { Args: { "p_cost"?: number,"p_employer_id": string,"p_seeker_id": string }; Returns: Json

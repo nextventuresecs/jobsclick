@@ -89,3 +89,5 @@ export function validateSecretKey(keyName: string, key?: string, minLength = 32)
   }
   return null;
 }
+
+export * from './public-discovery';

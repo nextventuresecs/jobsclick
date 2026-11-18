@@ -1,4 +1,5 @@
 export interface CompanyItem {
+  isPublished?: boolean;
   readonly id: string;
   readonly name: string;
   readonly sector: string;

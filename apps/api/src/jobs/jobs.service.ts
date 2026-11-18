@@ -1,3 +1,4 @@
+import { PublicDiscoveryRepository } from '../database/repositories/public-discovery.repository.js';
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import {
@@ -83,6 +84,7 @@ function mapJobRowToRecord(row: JobRow): JobRecord {
 export class JobsService {
   private readonly logger = new Logger(JobsService.name);
   constructor(
+    @Inject(PublicDiscoveryRepository) private readonly publicDiscovery: PublicDiscoveryRepository,
     @Inject(JobRepository) private readonly jobRepository: JobRepository,
     @Inject(ApplicationRepository) private readonly applicationRepository: ApplicationRepository,
     @Inject(ProfileRepository) private readonly profileRepository: ProfileRepository,
@@ -120,30 +122,8 @@ export class JobsService {
     return mapJobRowToRecord(row);
   }
 
-  async getJobs(filters: JobFilterInput): Promise<{ jobs: JobRecord[]; total: number }> {
-    const { jobs: rows, total } = await this.jobRepository.findMany({
-      keyword: filters.keyword,
-      city: filters.city,
-      category: filters.category,
-      minPay: filters.minPay,
-      companyId: filters.companyId,
-      limit: filters.limit,
-      offset: filters.offset,
-    });
-
-    return {
-      jobs: rows.map(mapJobRowToRecord),
-      total,
-    };
-  }
-
-  async getJobById(id: string): Promise<JobRecord> {
-    const row = await this.jobRepository.findById(id);
-    if (!row) {
-      throw new NotFoundException('Job not found');
-    }
-    return mapJobRowToRecord(row);
-  }
+  async getJobs(filters: JobFilterInput) { return this.publicDiscovery.jobs(filters); }
+  async getJobById(id: string) { return this.publicDiscovery.job(id); }
 
   async updateJob(employerId: string, jobId: string, input: UpdateJobInput, role?: string): Promise<JobRecord> {
     const existing = await this.jobRepository.findById(jobId);

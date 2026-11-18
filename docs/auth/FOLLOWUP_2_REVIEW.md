@@ -18,3 +18,18 @@ The red showed exposed view grants, missing invoker/publication state and three 
 - New snapshot packages/database/test/fixtures/public-view-columns.json independently fixes the three ordered column lists. Adding a view column fails until the snapshot change is reviewed. Existing privacy assertions from auth-27 will also be enumerated in the packaging PR notes; none are hidden by this contract update.
 
 Manual rollback refuses automatic reopening of client grants. Apply and publication of existing data require human review. API/read-path wiring is the next A sub-slice, before B. No claim that the DB-only checkpoint completes public pages.
+
+## A2 — API/SSR projection boundary
+
+Status: **A locally green**. Public directories/details/job search use the service-only invoker views; job search keeps indexed FTS and featured-before-pagination ordering. Public output uses an explicit camel-case projection allowlist. No private-table/RPC fallback is permitted. CMS uses one eligibility/content snapshot, drops raw CMS from the view and strips department phone/email at the API. Unpublished owners retain private CMS editing. Business/institution publication defaults false, is explicit in authenticated owner forms (EN/HI), and survives ordinary edits/CMS saves. Public SSR remains server rendered with JobPosting JSON-LD; no-store prevents cached disabled/erased/unpublished owners. No samples substitute for directory API failures.
+
+Fresh native Supabase/Redis under checksum-verified **Node 24.22.3**: **77 PASS / 11 files**, including workspace/apply/persistence, cross-owner denial, original search ranking/skills assertions, private CMS and public projection tests. Catalog/security drill/type freshness/25 HTTP smoke PASS; native advisors results=[]/exit 0. Initial HTTP red had 9 failures; full regression red had 25, a corrected run had one missed owner fixture, and final affected regression passes. Earlier red outputs remain. A1's 12 native projection/advisor tests and pgTAP/Auth evidence remain separate. Full-suite rerun after all follow-ups is still required; this selected run does not claim it.
+
+### Additional assertion changes requiring PR sign-off
+
+- public-job-discovery.e2e-spec.ts: two absent-resource prose expectations become the generic code PUBLIC_RESOURCE_NOT_FOUND (404 unchanged); two cache values change from public/stale-while-revalidate to no-store so ban/unpublish/erasure cannot be served stale. Every search/ranking/count assertion remains.
+- ticket-t11-missing-routes.test.ts supplies an empty server API fixture instead of relying on invented sample records; existing render assertions remain and a no-store API-call assertion is added. The separate sample fixture integrity assertions are unchanged.
+- Other existing tests gain explicit active owned published profiles and UUID employer fixtures. Cross-owner, credit, privacy and application-result assertions are retained. workspace-profile-uuid.spec.ts only gains the new constructor dependency; its UUID/save assertions remain.
+- Institution view snapshot removes cms_data: arbitrary JSON cannot serve as a non-PII column allowlist. Public CMS is schema projected through a separate service-only API RPC. Adding a future view column still fails the independent snapshot.
+
+SQL remains a draft; no hosted schema/data/provider setting changed. Direct client RPC calls are denied. Final source review and human approval precede apply/merge.

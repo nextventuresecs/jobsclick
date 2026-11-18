@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { SaveSearchAlertModal } from '../../components/jobs/SaveSearchAlertModal';
 
-export const revalidate = 30;
+export const dynamic = 'force-dynamic';
 
 interface JobsPageProps {
   readonly searchParams?: {
@@ -68,7 +68,7 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
       headers: {
         Accept: 'application/json',
       },
-      next: { revalidate: 30 },
+      cache: 'no-store',
     });
     if (res.ok) {
       const data = (await res.json()) as { readonly jobs?: readonly ApiJobPayload[] } | null;

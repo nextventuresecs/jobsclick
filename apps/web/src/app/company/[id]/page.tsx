@@ -52,7 +52,7 @@ export default async function PublicCompanyPage({ params }: CompanyPageProps) {
   }
 
   const res = await fetch(`${apiUrl}/profiles/business/${companyId}`, {
-    next: { revalidate: 60 },
+    cache: 'no-store',
   });
 
   if (res.status === 404) {
@@ -89,7 +89,7 @@ export default async function PublicCompanyPage({ params }: CompanyPageProps) {
   try {
     const jobsRes = await fetch(`${apiUrl}/jobs?companyId=${encodeURIComponent(companyId)}`, {
       headers: { Accept: 'application/json' },
-      next: { revalidate: 30 },
+      cache: 'no-store',
     });
     if (jobsRes.ok) {
       const jobsData = (await jobsRes.json()) as { readonly jobs?: readonly ApiJobPayload[] } | null;

@@ -47,6 +47,7 @@ export const jobSeekerProfileSchema = z
   );
 
 export const businessProfileSchema = z.object({
+  isPublished: z.boolean().optional(),
   companyName: z.string().min(2, 'Company name is required'),
   ownershipType: z.enum([
     'Proprietorship',
@@ -99,6 +100,7 @@ export const institutionTypeSchema = z.enum([
 ]);
 
 export const institutionProfileSchema = z.object({
+  isPublished: z.boolean().optional(),
   institutionName: z.string().min(2, 'Institution name is required'),
   institutionType: institutionTypeSchema.default('iti'),
   affiliation: z.string().min(2, 'Affiliation is required'),
