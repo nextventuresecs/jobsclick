@@ -1,0 +1,52 @@
+Project: jc-auth-test-fae5f4c6
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ apps/api/test/claim-failure-observability.local.spec.ts (4 tests | 2 failed) 197ms
+   × AUTH-01 E unexpected claim-path failure privacy > keeps an injected database failure out of the client, one log line and its alert 41ms
+     → expected '{"statusCode":500,"error":"Internal S…' not to contain 'synthetic-private-db-token-and-email@…'
+   × AUTH-01 E unexpected claim-path failure privacy > keeps an injected outage failure out of the client, one log line and its alert 3ms
+     → expected '{"message":"private diagnostic synthe…' not to contain 'synthetic-private-db-token-and-email@…'
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 2 passed (4)
+   Start at  19:23:21
+   Duration  23.81s (transform 649ms, setup 8.09s, collect 1.13s, tests 197ms, environment 1ms, prepare 738ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/claim-failure-observability.local.spec.ts > AUTH-01 E unexpected claim-path failure privacy > keeps an injected database failure out of the client, one log line and its alert
+AssertionError: expected '{"statusCode":500,"error":"Internal S…' not to contain 'synthetic-private-db-token-and-email@…'
+
+Expected: "synthetic-private-db-token-and-email@example.invalid"
+Received: "{"statusCode":500,"error":"Internal Server Error","message":"synthetic-private-db-token-and-email@example.invalid"}"
+
+ ❯ apps/api/test/claim-failure-observability.local.spec.ts:29:70
+     27|  it.each([['database',500,'DatabaseError'],['outage',503,'DependencyEr…
+     28|   const response=await app.inject({method:'POST',url:'/claim-failure-f…
+     29|   expect(response.statusCode).toBe(status);expect(response.body).not.t…
+       |                                                                      ^
+     30|   expect(log).toHaveBeenCalledTimes(1);expect(log.mock.calls[0]).toHav…
+     31|   const record=JSON.parse(String(log.mock.calls[0]![0]));expect(Object…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  apps/api/test/claim-failure-observability.local.spec.ts > AUTH-01 E unexpected claim-path failure privacy > keeps an injected outage failure out of the client, one log line and its alert
+AssertionError: expected '{"message":"private diagnostic synthe…' not to contain 'synthetic-private-db-token-and-email@…'
+
+Expected: "synthetic-private-db-token-and-email@example.invalid"
+Received: "{"message":"private diagnostic synthetic-private-db-token-and-email@example.invalid","error":"Service Unavailable","statusCode":503}"
+
+ ❯ apps/api/test/claim-failure-observability.local.spec.ts:29:70
+     27|  it.each([['database',500,'DatabaseError'],['outage',503,'DependencyEr…
+     28|   const response=await app.inject({method:'POST',url:'/claim-failure-f…
+     29|   expect(response.statusCode).toBe(status);expect(response.body).not.t…
+       |                                                                      ^
+     30|   expect(log).toHaveBeenCalledTimes(1);expect(log.mock.calls[0]).toHav…
+     31|   const record=JSON.parse(String(log.mock.calls[0]![0]));expect(Object…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+

@@ -1,0 +1,23 @@
+{
+  "item": "40-claim-observability",
+  "kind": "code",
+  "branch": "codex/auth-40-claim-observability",
+  "commit": "8cf438528ff5e3a0e2015b7947d9d68e19832d96",
+  "files": [
+    "apps/api/src/common/http-exception.filter.ts",
+    "apps/api/src/config/sentry.ts",
+    "apps/api/test/auth-role-lockdown.e2e-spec.ts",
+    "apps/api/test/auth-server-state-lockdown.spec.ts",
+    "apps/api/test/profiles.e2e-spec.ts",
+    "docs/auth/AUTH_MIGRATION_PLAN_V2.md",
+    "docs/auth/F0-REVIEW-GATES.md",
+    "docs/auth/FOLLOWUP_2_REVIEW.md",
+    "docs/auth/REVIEW_PACKET.md",
+    "docs/auth/SCHEMA_MISMATCH.md",
+    "docs/auth/evidence/review/M2-COVERAGE.md",
+    "vitest.config.ts",
+    "apps/api/src/common/request-id.ts",
+    "apps/api/test/claim-failure-observability.local.spec.ts"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}

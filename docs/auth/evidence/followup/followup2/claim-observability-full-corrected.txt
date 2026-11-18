@@ -1,0 +1,1683 @@
+Project: jc-auth-test-3628d2ec
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 0
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ✓ packages/database/test/auth-claims-v21.local.test.ts (44 tests) 2019ms
+ ✓ apps/api/src/config/env.spec.ts (111 tests) 15539ms
+   ✓ Child process startup gate (NODE_ENV=staging without required var) > exits non-zero, names the missing variable, and makes no network connections 15332ms
+ ✓ apps/api/test/sponsorship.e2e-spec.ts (11 tests) 933ms
+ ✓ apps/api/test/admin-rbac.spec.ts (51 tests) 640ms
+ ✓ apps/api/test/otp-ratelimit-concurrency.spec.ts (13 tests) 2884ms
+   ✓ OTP Rate Limiting & Concurrency Lockdown (Atomic Redis & Two-Instance) > rolling windows have no date in key and roll over cleanly on expiration 1156ms
+ ✓ apps/worker/test/import.processor.spec.ts (12 tests) 364ms
+   ✓ ImportProcessor - Hardened Bulk Candidate Ingestion > Verification Criterion 4: Streaming Architecture & 50k-Row Memory Benchmark > streams 50,000 rows without heap exhaustion, keeping memory delta strictly bounded 304ms
+ ✓ apps/api/test/auth-server-state-lockdown.spec.ts (19 tests) 1271ms
+stdout | apps/api/test/broadcast-engine.spec.ts > Ticket T-20: MSME Department Broadcast Engine & District Employment Reports > Worker Consumer & Idempotency Guarantee > skips duplicate message dispatch when identical idempotency key is processed
+[BroadcastProcessor] Skipping duplicate delivery for idempotencyKey=idemp_key_unique_abc123
+
+ ✓ apps/api/test/broadcast-engine.spec.ts (17 tests) 568ms
+ ✓ apps/api/test/user-mutations-concurrency.spec.ts (13 tests) 1699ms
+ ✓ apps/api/test/jobs-featured-alerts.spec.ts (16 tests) 991ms
+ ✓ apps/api/test/payment.e2e-spec.ts (10 tests) 590ms
+ ✓ apps/api/test/supabase-provider.spec.ts (33 tests) 502ms
+ ↓ apps/api/test/auth-native-otp.local.spec.ts (8 tests | 8 skipped)
+ ✓ apps/api/test/session-invalidation-p0-8.spec.ts (7 tests) 1255ms
+ ✓ apps/api/test/public-job-discovery.e2e-spec.ts (10 tests) 853ms
+ ✓ apps/api/test/auth-role-lockdown.e2e-spec.ts (19 tests) 2353ms
+   ✓ Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E) > Table-Driven Role Whitelist Matrix for /auth/verify-otp > enforces role gate for "valid job_seeker role" (role: "job_seeker") -> HTTP 200 346ms
+ ✓ apps/api/test/institution-cms.e2e-spec.ts (6 tests) 763ms
+ ✓ apps/api/test/wallet.e2e-spec.ts (6 tests) 748ms
+   ✓ Ticket T-15: Credit Wallet Ledger & Dynamic Balance Engine (WAL-01, WAL-02, WAL-04 & Hard Invariant #7) > AC #2 & WAL-02: Job seekers receive 10 free applications; 11th application prompts for credit recharge 307ms
+ ✓ apps/web/test/sentry-observability.test.ts (17 tests) 70ms
+ ✓ apps/api/test/provider-sessions.local.spec.ts (20 tests) 516ms
+ ✓ apps/api/test/public-projections-native.local.spec.ts (12 tests) 1209ms
+stdout | apps/api/test/sentry-telemetry.spec.ts > API Sentry Telemetry & Trace Propagation Suite > 3. Fastify onError Hook & Wire Envelope Capture > captures console.log and console.warn via consoleLoggingIntegration with PII scrubbing
+Admin verified Aadhaar 9999 8888 7777 successfully
+
+ ✓ apps/api/test/sentry-telemetry.spec.ts (10 tests) 2751ms
+   ✓ API Sentry Telemetry & Trace Propagation Suite > 1. Inbound Fastify Trace Extraction & Propagation > seamlessly bridges request trace into QueueService job publication 2499ms
+ ✓ apps/api/test/concurrency-and-security.spec.ts (6 tests) 876ms
+ ✓ apps/api/test/placement-security-fsm.spec.ts (9 tests) 599ms
+ ✓ packages/database/test/auth-identity.local.test.ts (17 tests) 976ms
+ ✓ apps/api/test/persistence.e2e-spec.ts (4 tests) 817ms
+   ✓ T-01: Database Persistence Across API Restarts (E2E) > persists jobs, seeker profiles, and applications across service reboots 798ms
+ ✓ apps/api/test/sms-turnstile.spec.ts (9 tests) 126ms
+ ✓ apps/api/test/sms-known-number.local.spec.ts (8 tests) 1453ms
+   ✓ AUTH-01/03 known-number SMS admission > keeps slow transport outside known/unknown hook response timing 1108ms
+ ✓ apps/api/test/p2-feature-flags-boundary.spec.ts (12 tests) 502ms
+ ✓ apps/worker/test/processors.spec.ts (7 tests) 70613ms
+   ✓ Worker Processors (Ticket T-07) > bulk-import-processor > streams 50,000-row CSV fixture in 500-row chunks in under 30 minutes (Ticket T-08) 69674ms
+   ✓ Worker Processors (Ticket T-07) > pdf-generator-processor > renders vector PDF resume and serves from cache in sub-500ms 879ms
+ ✓ packages/validation/test/auth.test.ts (15 tests) 43ms
+stdout | scripts/bootstrap-staging-db.spec.ts > Staging Database Bootstrap Runner URL Validation & Safety Gates > --dry-run Zero-Writes Proof on Fresh Database > performs zero writes and leaves database with no supabase_migrations schema
+========================================================================
+🚀 DATABASE BOOTSTRAP RUNNER (Phase 1.2 DB Hardening)
+Target: 127.0.0.1:62344
+Dry-Run: YES (No writes will occur)
+========================================================================
+
+
+stdout | scripts/bootstrap-staging-db.spec.ts > Staging Database Bootstrap Runner URL Validation & Safety Gates > --dry-run Zero-Writes Proof on Fresh Database > performs zero writes and leaves database with no supabase_migrations schema
+ℹ️  [DRY RUN] supabase_migrations schema does not exist yet (zero writes performed).
+Found 45 total migration files.
+Already applied: 0
+Pending execution: 45
+
+--> [20261008000000] init_schema...
+    [DRY RUN] Would execute 5350 bytes
+--> [20261008000001] db_schema_v1_rls...
+    [DRY RUN] Would execute 4443 bytes
+--> [20261013000000] bulk_tasks_and_waves...
+    [DRY RUN] Would execute 2536 bytes
+--> [20261015000000] public_profiles_and_applications_rls...
+    [DRY RUN] Would execute 6679 bytes
+--> [20261015000001] harden_security_linter_remediations...
+    [DRY RUN] Would execute 1646 bytes
+--> [20261016000000] audit_log_immutability...
+    [DRY RUN] Would execute 1164 bytes
+--> [20261016000001] remediate_rls_enabled_no_policy...
+    [DRY RUN] Would execute 8143 bytes
+--> [20261017000000] credit_ledgers_and_rls...
+    [DRY RUN] Would execute 2325 bytes
+--> [20261017100000] payments_and_invoicing...
+    [DRY RUN] Would execute 2928 bytes
+--> [20261017200000] institution_sponsorship_tiers...
+    [DRY RUN] Would execute 1667 bytes
+--> [20261017300000] institution_cms_and_inquiries...
+    [DRY RUN] Would execute 2765 bytes
+--> [20261017400000] institution_sponsorship_guards_and_rls...
+    [DRY RUN] Would execute 3901 bytes
+--> [20261018100000] payments_hardening...
+    [DRY RUN] Would execute 2478 bytes
+--> [20261018100001] expand_payments...
+    [DRY RUN] Would execute 1861 bytes
+--> [20261018100002] contract_payments...
+    [DRY RUN] Would execute 844 bytes
+--> [20261023000000] corporate_tieups_and_placement_pipeline...
+    [DRY RUN] Would execute 8211 bytes
+--> [20261024000000] msme_broadcast_and_district_reports...
+    [DRY RUN] Would execute 5715 bytes
+--> [20261025000000] featured_jobs_and_search_alerts...
+    [DRY RUN] Would execute 2925 bytes
+--> [20261025100000] atomic_job_promotion_procedure...
+    [DRY RUN] Would execute 3505 bytes
+--> [20261025200000] jobs_full_text_search_and_ranking...
+    [DRY RUN] Would execute 4597 bytes
+--> [20261025300000] alert_deliveries_and_job_alerts_rls...
+    [DRY RUN] Would execute 4043 bytes
+--> [20261026000000] audit_remediation_indexes...
+    [DRY RUN] Would execute 759 bytes
+--> [20261026100000] atomic_application_deduction_procedure...
+    [DRY RUN] Would execute 2898 bytes
+--> [20261026200000] atomic_contact_unlock_procedure...
+    [DRY RUN] Would execute 2363 bytes
+--> [20261026300000] get_user_credit_balance...
+    [DRY RUN] Would execute 846 bytes
+--> [20261102000000] users_token_version...
+    [DRY RUN] Would execute 1159 bytes
+--> [20261102100000] user_mutations_and_starter_credits...
+    [DRY RUN] Would execute 5832 bytes
+--> [20261110000000] private_storage_bucket...
+    [DRY RUN] Would execute 1215 bytes
+--> [20261110000001] lockdown_definer_functions...
+    [DRY RUN] Would execute 16063 bytes
+--> [20261110000002] rls_pii_and_policy_fixes...
+    [DRY RUN] Would execute 16425 bytes
+--> [20261110000003] dpdp_erasure_model...
+    [DRY RUN] Would execute 8029 bytes
+--> [20261110000004] prohibit_truncate...
+    [DRY RUN] Would execute 3986 bytes
+--> [20261110000005] prohibit_truncate_invoker...
+    [DRY RUN] Would execute 1556 bytes
+--> [20261110000006] index_foreign_keys...
+    [DRY RUN] Would execute 2592 bytes
+--> [20261110000007] reset_views_security_invoker...
+    [DRY RUN] Would execute 384 bytes
+--> [20261117144921] auth_contacts_v21...
+    [DRY RUN] Would execute 3264 bytes
+--> [20261117144925] auth_user_links_v21...
+    [DRY RUN] Would execute 7363 bytes
+--> [20261117171132] sponsorship_current_grant...
+    [DRY RUN] Would execute 3507 bytes
+--> [20261117184834] sponsorship_payment_transaction...
+    [DRY RUN] Would execute 8715 bytes
+--> [20261117185707] captured_payment_settlement...
+    [DRY RUN] Would execute 5529 bytes
+--> [20261117192151] sponsorship_finite_money...
+    [DRY RUN] Would execute 6692 bytes
+--> [20261118081337] public_discovery_option_a...
+    [DRY RUN] Would execute 2450 bytes
+--> [20261118085644] public_api_projection_reads...
+    [DRY RUN] Would execute 3011 bytes
+--> [20261118094137] sms_known_number_admission...
+    [DRY RUN] Would execute 702 bytes
+--> [20261118102745] public_job_company_slugs...
+    [DRY RUN] Would execute 2576 bytes
+
+========================================================================
+🎉 ALL PENDING MIGRATIONS APPLIED SUCCESSFULLY
+========================================================================
+
+
+ ✓ scripts/bootstrap-staging-db.spec.ts (17 tests) 460ms
+   ✓ Staging Database Bootstrap Runner URL Validation & Safety Gates > --dry-run Zero-Writes Proof on Fresh Database > performs zero writes and leaves database with no supabase_migrations schema 441ms
+ ✓ packages/database/test/payment-transactions.local.test.ts (12 tests) 669ms
+ ✓ apps/web/test/ticket-t19-placement-dashboard.test.ts (15 tests) 6333ms
+   ✓ Ticket T-19: Placement Cell HR Dashboard & Institutional Placement Pipeline > PlacementDashboard Component Export & Contract > exports PlacementDashboard from institution workspace index 6236ms
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3801. Locked out for 15m.
+[Nest] 32916  - 11/18/2026, 7:57:41 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3805. Locked out for 15m.
+ ✓ apps/api/test/otp-parallel-guessing.spec.ts (6 tests) 1479ms
+   ✓ OTP Parallel Guessing & Atomic Verification Lockdown (AUTH-03) > after lockout TTL expires, a new send/verify cycle works cleanly 1126ms
+ ✓ apps/web/test/env.spec.ts (12 tests) 2308ms
+   ✓ Web Environment Configuration (Phase 1.1 Remediation) > Next.js Runtime Startup Validation (instrumentation) > executes at server startup and fails closed when mandatory config is missing 2251ms
+ ✓ packages/database/test/rls.test.ts (10 tests) 31ms
+stdout | apps/api/test/bulk-local-supabase.spec.ts > BULK-01–03 local Supabase isolation > denies another uploader storage references and invitation controls
+[QStash Service (Mock)] Dispatched task to http://localhost:3001/webhooks/qstash/send-invite-wave (delay: 0s): { waveId: '166765a0-bf33-4de1-8c63-d2bc3fd9a097' }
+
+ ✓ apps/api/test/bulk-local-supabase.spec.ts (5 tests) 1903ms
+   ✓ BULK-01–03 local Supabase isolation > persists uploader ownership and imports invited users without SMS 665ms
+ ✓ apps/worker/test/sentry-worker-telemetry.spec.ts (5 tests) 584ms
+   ✓ Worker Sentry Telemetry & BullMQ Alert Hygiene Suite > 1. Distributed Trace Continuity Across Request-Job Boundary > propagates distributed trace from job._traceContext into Sentry execution span 436ms
+ ✓ apps/web/test/session-boundary.spec.ts (11 tests) 81ms
+ ✓ apps/web/test/components.test.ts (15 tests) 4003ms
+   ✓ Authentication Modal, Role Switcher & Workspaces - Feature 6 > exports all 4 distinct role workspaces and main /workspace router 3306ms
+ ✓ apps/api/test/otp-predictability.spec.ts (5 tests) 1090ms
+   ✓ Audit P0-3: Predictable OTP Removal and OTP Security Lockdown > positive control: injected OTP "654321" verifies successfully for 9876543210..9876543219 424ms
+stdout | apps/api/test/bulk.e2e-spec.ts > BulkController (e2e) - Epic 4 (Issues #16-#20, #38, #39) > POST /bulk/invites/preview & /schedule - previews SMS cost & schedules wave (BULK-03 & Issue #38)
+[QStash Service (Mock)] Dispatched task to http://localhost:3001/webhooks/qstash/send-invite-wave (delay: 0s): { waveId: 'df7b7fef-c830-45f5-8c57-157862150496' }
+
+ ✓ apps/api/test/bulk.e2e-spec.ts (10 tests) 730ms
+ ✓ apps/web/test/no-fake-success.test.ts (9 tests) 696ms
+   ✓ PR 2: No Fake Success (P1) > Razorpay Configuration: No Dummy Key Fallbacks > RechargeModal configuration fails closed if NEXT_PUBLIC_RAZORPAY_KEY_ID is missing 651ms
+ ✓ apps/api/test/jwt-guard.spec.ts (10 tests) 109ms
+ ✓ apps/web/test/auth-otp.test.ts (9 tests) 344ms
+   ✓ Phone OTP Frontend Integration - Ticket T-04 (AUTH-01, AUTH-02) > AppContext Session & User State Hydration > exports AppProvider and useApp hook 316ms
+ ✓ apps/api/test/postgrest-lockdown.spec.ts (16 tests) 306ms
+ ✓ apps/api/test/ticket-t10-workspace-apply.e2e-spec.ts (5 tests) 473ms
+ ✓ apps/web/test/xss-url-safety.test.ts (18 tests) 49ms
+ ↓ apps/api/test/otp-fallback-native.local.spec.ts (1 test | 1 skipped)
+ ✓ apps/api/test/profiles.e2e-spec.ts (5 tests) 1216ms
+   ✓ ProfilesController (e2e) - Issues #9, #10, #11 > GET & PUT /profiles/business/me & /qr - updates business profile and generates QR code (EMP-01, EMP-03) 414ms
+stdout | apps/api/test/bulk-ownership.e2e-spec.ts > BULK-01–03 uploader isolation > denies cross-owner previews and schedules before queueing
+[QStash Service (Mock)] Dispatched task to http://localhost:3001/webhooks/qstash/send-invite-wave (delay: 0s): { waveId: '4916d0d1-be40-46c2-8a81-1705f8a9feab' }
+
+stdout | apps/api/test/bulk-ownership.e2e-spec.ts > BULK-01–03 uploader isolation > persists the wave before publishing the same id to workers
+[QStash Service (Mock)] Dispatched task to http://localhost:3001/webhooks/qstash/send-invite-wave (delay: 0s): { waveId: 'e322dace-bae4-4a71-9fba-2c1e498a5d34' }
+
+ ✓ apps/api/test/bulk-ownership.e2e-spec.ts (7 tests) 337ms
+ ✓ packages/database/test/auth-contacts.local.test.ts (13 tests) 507ms
+ ✓ apps/api/test/user-repository-contract.spec.ts (13 tests) 356ms
+ ✓ apps/web/test/opaque-render.spec.ts (12 tests) 234ms
+ ✓ apps/api/test/supabase-sms-hook.local.spec.ts (13 tests) 171ms
+ ✓ packages/database/test/payment-settlement.local.test.ts (5 tests) 544ms
+stdout | apps/worker/test/broadcast-concurrency.spec.ts > Mixed Cluster (N vs N-1) Dual-Worker Rolling Deployment Invariance > guarantees 0 duplicate deliveries when N and N-1 workers consume identical batches concurrently under load
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_0 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_1 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_2 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_3 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_4 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_5 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_6 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_7 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_8 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_9 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_10 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_11 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_12 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_13 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_14 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_15 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_16 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_17 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_18 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_19 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_20 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_21 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_22 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_23 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_24 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_25 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_26 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_27 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_28 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_29 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_30 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_31 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_32 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_33 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_34 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_35 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_36 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_37 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_38 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_39 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_40 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_41 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_42 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_43 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_44 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_45 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_46 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_47 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_48 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_49 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_50 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_51 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_52 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_53 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_54 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_55 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_56 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_57 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_58 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_59 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_60 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_61 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_62 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_63 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_64 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_65 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_66 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_67 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_68 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_69 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_70 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_71 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_72 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_73 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_74 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_75 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_76 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_77 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_78 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_79 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_80 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_81 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_82 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_83 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_84 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_85 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_86 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_87 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_88 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_89 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_90 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_91 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_92 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_93 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_94 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_95 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_96 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_97 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_98 already sent.
+[BroadcastProcessor] Idempotency match in DB: delivery del_idemp_shared_token_99 already sent.
+
+ ✓ apps/worker/test/broadcast-concurrency.spec.ts (2 tests) 148ms
+ ✓ packages/database/test/public-views-option-a.local.test.ts (12 tests) 15299ms
+   ✓ AUTH-05 F0-f Option A private public projections > native advisor exits nonzero for an injected ERROR and zero after removal 14816ms
+ ✓ apps/web/test/auth-session.test.ts (10 tests) 48ms
+ ✓ apps/api/test/sponsorship-boundaries.spec.ts (7 tests) 139ms
+ ✓ apps/api/test/auth-rls.e2e-spec.ts (5 tests) 399ms
+ ✓ apps/api/test/audit-log-persistence.e2e-spec.ts (3 tests) 967ms
+   ✓ T-03: Persistent Immutable Audit Log Engine (E2E & Invariant #6) > records sensitive actions (admin logins, bulk imports, data exports, status updates) 576ms
+ ✓ apps/api/test/payment-native-api.local.spec.ts (2 tests) 437ms
+ ✓ apps/api/test/p2-feature-flags-defaults.spec.ts (10 tests) 486ms
+ ✓ apps/worker/test/env.spec.ts (17 tests) 33ms
+ ✓ apps/api/test/acceptance-walkthrough.e2e-spec.ts (4 tests) 976ms
+   ✓ PRD 14.1 Full Acceptance Walkthrough (Epic 6 Launch Readiness) > runs complete end-to-end user workflow vs PRD 14.1 (Issue #29) 502ms
+ ✓ apps/worker/test/pdf.test.ts (5 tests) 3762ms
+   ✓ PdfGeneratorService - Ticket T-09 (JS-03 & Hard Invariant #8a) > generates valid vector PDF and serves from cache in under 500ms (AC #1) 1253ms
+   ✓ PdfGeneratorService - Ticket T-09 (JS-03 & Hard Invariant #8a) > renders Hindi (Devanagari) characters cleanly without glyph corruption (Hard Invariant #8a & AC #2) 1097ms
+   ✓ PdfGeneratorService - Ticket T-09 (JS-03 & Hard Invariant #8a) > renders candidate education, experience, and clickable verification link (AC #3) 571ms
+   ✓ PdfGeneratorService - Ticket T-09 (JS-03 & Hard Invariant #8a) > evicts cache properly on profile update or explicit clear 748ms
+ ✓ apps/api/src/common/ip-normalizer.spec.ts (14 tests) 26ms
+ ✓ apps/web/test/identity-leaks-trust-badges.test.ts (8 tests) 89ms
+ ✓ apps/api/test/jobs.e2e-spec.ts (4 tests) 596ms
+[Nest] 30136  - 11/18/2026, 8:01:05 PM    WARN [RateLimitService] OTP rate limit rejected: reason=COOLDOWN retryAfter=45s
+[Nest] 30136  - 11/18/2026, 8:01:05 PM    WARN [RateLimitService] OTP rate limit rejected: reason=DAILY retryAfter=86400s
+[Nest] 30136  - 11/18/2026, 8:01:05 PM    WARN [RateLimitService] OTP rate limit rejected: reason=IP retryAfter=3600s
+ ✓ apps/api/test/rate-limit.spec.ts (8 tests) 389ms
+ ✓ apps/web/test/bulk-onboard.spec.ts (6 tests) 31ms
+stdout | apps/api/test/qstash.e2e-spec.ts > QStash Service & Webhooks - Tickets 1, 2, 3, 4 > QstashService publishes task and returns messageId
+[QStash Service (Mock)] Dispatched task to http://localhost:3001/webhooks/qstash/ping (delay: 5s): { event: 'ping.test', timestamp: 1795012274677 }
+
+stdout | apps/api/test/qstash.e2e-spec.ts > QStash Service & Webhooks - Tickets 1, 2, 3, 4 > POST /webhooks/qstash/send-invite-wave processes delayed invite wave via QStash webhook (Ticket 3)
+[QStash Service (Mock)] Dispatched task to http://localhost:3001/webhooks/qstash/send-invite-wave (delay: 0s): { waveId: 'd3889308-0784-402f-aee8-434d1c750db4' }
+
+stdout | apps/api/test/qstash.e2e-spec.ts > QStash Service & Webhooks - Tickets 1, 2, 3, 4 > POST /webhooks/qstash/generate-pdf renders and caches PDF asynchronously (Ticket 4)
+[QStash Service (Mock)] Dispatched task to http://localhost:3001/webhooks/qstash/generate-pdf (delay: 0s): {
+  seekerId: 'seeker_async_99',
+  fullName: 'Vikas Sharma',
+  seekerType: 'individual',
+  city: 'Indore',
+  skills: [ 'Tally', 'Accounting' ]
+}
+
+stdout | apps/api/test/qstash.e2e-spec.ts > QStash Service & Webhooks - Tickets 1, 2, 3, 4 > POST /webhooks/qstash/generate-pdf renders and caches PDF asynchronously (Ticket 4)
+[QStash Webhook] Completed async PDF generation for candidate Vikas Sharma (seeker_async_99)
+
+ ✓ apps/api/test/qstash.e2e-spec.ts (6 tests) 413ms
+[Nest] 1428  - 11/18/2026, 8:01:19 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3210. Locked out for 15m.
+[Nest] 1428  - 11/18/2026, 8:01:19 PM    WARN [OtpRedisService] [Brute-Force Guard] 3 invalid OTP attempts on +91******3210. Locked out for 15m.
+ ✓ apps/api/test/otp-redis.spec.ts (7 tests) 156ms
+ ✓ apps/web/test/ticket-t21-featured-alerts.test.ts (8 tests) 3344ms
+   ✓ Ticket T-21 Web Components: Featured Promotions & Search Alerts > Component Exports & Module Contract > exports SaveSearchAlertModal component 3037ms
+ ✓ apps/api/test/supabase-sms-budget.local.spec.ts (6 tests) 199ms
+ ✓ apps/web/test/startup.integration.spec.ts (6 tests) 20401ms
+   ✓ Next.js Production Startup Verification (Finding 4) > fails startup with non-zero exit code when mandatory JWT_SECRET is missing 4219ms
+   ✓ Next.js Production Startup Verification (Finding 4) > fails startup when JWT_SECRET violates 64-hex format requirement 3071ms
+   ✓ Next.js Production Startup Verification (Finding 4) > fails startup when JWT_SECRET contains obvious weak repeating pattern 3480ms
+   ✓ Next.js Production Startup Verification (Finding 4) > fails startup when NEXT_PUBLIC_API_URL does not use HTTPS in production 4004ms
+   ✓ Next.js Production Startup Verification (Finding 4) > successfully starts server when valid production configuration is supplied 5623ms
+ ✓ apps/api/test/placement.e2e-spec.ts (5 tests) 522ms
+ ✓ apps/api/test/placement-persistence.e2e-spec.ts (2 tests) 526ms
+ ✓ apps/api/test/auth-fail-open-startup.spec.ts (9 tests) 20ms
+ ✓ apps/api/test/jwt-guard-hardening.spec.ts (4 tests) 77ms
+ ✓ apps/api/test/authenticated-flows.spec.ts (3 tests) 237ms
+ ✓ apps/api/test/admin.e2e-spec.ts (5 tests) 444ms
+ ↓ apps/api/test/auth-native.local.spec.ts (2 tests | 2 skipped)
+ ↓ apps/worker/test/cluster.spec.ts (3 tests | 3 skipped)
+ ✓ packages/validation/test/institution-cms.test.ts (6 tests) 24ms
+ ✓ scripts/common/host-guard.spec.ts (10 tests) 33ms
+ ✓ apps/web/test/ticket-t20-msme-broadcast.test.ts (7 tests) 5173ms
+   ✓ Ticket T-20 Web Components: MSME Broadcast Console & District Reports > Component Exports & Module Contract > exports MsmeBroadcastConsole from admin workspace barrel 5027ms
+ ✓ apps/api/test/auth-fail-open-behaviour.spec.ts (3 tests) 147ms
+ ✓ apps/api/test/claim-failure-observability.local.spec.ts (4 tests) 536ms
+ ✓ apps/api/test/otp-fallback.local.spec.ts (6 tests) 45ms
+ ✓ apps/api/test/auth.e2e-spec.ts (4 tests) 795ms
+ ✓ apps/web/test/ticket-t12-multilingual-routing.test.ts (5 tests) 19ms
+ ✓ apps/api/test/auth-fail-open-static.spec.ts (5 tests) 26ms
+ ✓ apps/web/test/ticket-t11-missing-routes.test.ts (6 tests) 1020ms
+   ✓ Ticket T-11: Missing Routes (/how-it-works, /institutions) > exports HowItWorksPage server component with SEO metadata 884ms
+ ✓ apps/api/test/browser-auth-pipeline.spec.ts (4 tests) 189ms
+stdout | apps/worker/test/email-sms.spec.ts > WorkerEmailService & WorkerSmsService > WorkerEmailService dispatches job alert digest with bilingual copy and list unsubscribe header
+[Worker Resend Mock] Dispatched email to seeker@example.com | Subject: "Your Job Alert Digest (2 new matches) - JobsClick" (From: JobsClick Alerts <alerts@jobsclick.live>)
+
+stdout | apps/worker/test/email-sms.spec.ts > WorkerEmailService & WorkerSmsService > WorkerEmailService renders Hindi email alert digest without corrupting characters
+[Worker Resend Mock] Dispatched email to seeker_hi@example.com | Subject: "आपकी जॉब अलर्ट सूचना (1 नए मैच) - JobsClick" (From: JobsClick Alerts <alerts@jobsclick.live>)
+
+stdout | apps/worker/test/email-sms.spec.ts > WorkerEmailService & WorkerSmsService > WorkerSmsService handles invite SMS dispatch in test and whitelist modes
+[Worker SMS Hook - QA Whitelist] Invite SMS for +919876543210 via 1277179291746795224 (Static QA Bypass)
+[Worker SMS Hook - Mock] Invite SMS for +919123456780 via 1277179291746795224
+
+stdout | apps/worker/test/email-sms.spec.ts > WorkerEmailService & WorkerSmsService > WorkerSmsService calls MSG91 flow API when in live mode
+[Worker MSG91 Live] Successfully delivered Invite SMS to +918888899999 via template 1277179291746795224
+
+ ✓ apps/worker/test/email-sms.spec.ts (4 tests) 19ms
+[Nest] 4744  - 11/18/2026, 8:03:24 PM     LOG [EmailService] [Resend Email Mock] Dispatched email to candidate@example.com | Subject: "Test Subject" (Sender: JobsClick <notifications@jobsclick.live>)
+[Nest] 4744  - 11/18/2026, 8:03:24 PM     LOG [EmailService] [Resend Email Mock] Dispatched email to candidate_en@example.com | Subject: "JobsClick - Verify your email address" (Sender: JobsClick <notifications@jobsclick.live>)
+[Nest] 4744  - 11/18/2026, 8:03:24 PM     LOG [EmailService] [Resend Email Mock] Dispatched email to candidate_hi@example.com | Subject: "JobsClick - अपना ईमेल पता सत्यापित करें" (Sender: JobsClick <notifications@jobsclick.live>)
+[Nest] 4744  - 11/18/2026, 8:03:24 PM     LOG [EmailService] [Resend Live] Successfully sent email to hiring@msme.in (ID: email_live_987654)
+ ✓ apps/api/test/email.spec.ts (4 tests) 7ms
+ ✓ apps/api/test/admin-export.e2e-spec.ts (5 tests) 427ms
+ ✓ apps/api/test/payment-settlement-service.spec.ts (2 tests) 28ms
+ ✓ apps/web/test/page.test.ts (9 tests) 4567ms
+   ✓ Web Application Baseline & Homepage - Feature 3 > imports HomePage component successfully 840ms
+   ✓ Find Jobs & Job Details Pages - Feature 4 > exports JobsListPage server component with industry category tabs 3523ms
+ ✓ apps/web/test/institution-cms.test.ts (5 tests) 2348ms
+   ✓ Ticket T-18 Web Components: Institution CMS & Inquiry Routing (INT-02, INT-03) > exports InstitutionCmsEditor with standard editor contracts (AC #1) 1998ms
+   ✓ Ticket T-18 Web Components: Institution CMS & Inquiry Routing (INT-02, INT-03) > exports PublicInstitutionPage server component with schema.org EducationalOrganization JSON-LD 327ms
+ ✓ apps/web/test/locale-boundary.spec.ts (12 tests) 45ms
+ ✓ packages/validation/test/jobs.test.ts (4 tests) 5ms
+ ✓ packages/database/test/auth-contact-race.local.test.ts (1 test) 106ms
+ ✓ apps/api/test/provider-revocation.local.spec.ts (2 tests) 671ms
+   ✓ AUTH-06 native provider revocation boundary > denies copied credentials after local/global provider logout while preserving the unrelated local session 456ms
+ ✓ packages/database/test/auth-migrations-replay.local.test.ts (2 tests) 108ms
+ ✓ apps/web/test/feature-flags-defaults.test.ts (6 tests) 4ms
+ ✓ apps/api/test/sms-known-lookup-native.local.spec.ts (2 tests) 142ms
+ ✓ packages/database/test/sponsorship-expiry.local.test.ts (4 tests) 122ms
+ ✓ packages/validation/test/bulk.test.ts (5 tests) 18ms
+ ✓ apps/api/test/workspace-profile-uuid.spec.ts (2 tests) 17ms
+ ✓ apps/api/test/provider-lifetime-policy.local.spec.ts (10 tests) 1272ms
+   ✓ AUTH-01/06 provider lifetime startup and readiness > fails startup for invalid configured lifetime 901 330ms
+ ✓ apps/web/test/ticket-t10-workspace-wiring.test.ts (3 tests) 3459ms
+   ✓ Ticket T-10 Web Wiring: Workspace Forms & 1-Click Apply (PRD JOB-01, JOB-03, JS-02, EMP-01) > exports JobApplyButton with expected props contract 596ms
+   ✓ Ticket T-10 Web Wiring: Workspace Forms & 1-Click Apply (PRD JOB-01, JOB-03, JS-02, EMP-01) > exports EmployerWorkspace and SeekerWorkspace components 2857ms
+ ✓ packages/validation/test/profiles.test.ts (3 tests) 9ms
+ ✓ apps/api/test/health.e2e-spec.ts (3 tests) 375ms
+ ✓ apps/worker/test/import-contacts.spec.ts (2 tests) 45ms
+ ✓ apps/api/test/auth-contact-lookup.local.spec.ts (1 test) 108ms
+ ✓ apps/api/test/session-revocation.spec.ts (2 tests) 59ms
+ ✓ apps/web/test/google-auth.test.ts (4 tests) 8ms
+ ✓ apps/worker/test/invite-isolation.spec.ts (2 tests) 21ms
+ ✓ apps/api/test/auth-nullable-legacy.local.spec.ts (1 test) 9ms
+ ✓ packages/validation/test/auth-contacts.test.ts (10 tests) 19ms
+ ✓ apps/api/test/hindi.test.ts (2 tests) 15ms
+ ✓ packages/validation/test/admin.test.ts (3 tests) 10ms
+ ✓ apps/worker/test/audit-migrations.spec.ts (2 tests) 134ms
+ ✓ apps/worker/test/health.test.ts (2 tests) 10ms
+ ✓ packages/validation/test/resume.test.ts (1 test) 2ms
+
+ Test Files  125 passed | 4 skipped (129)
+      Tests  1160 passed | 14 skipped (1174)
+   Start at  19:53:48
+   Duration  678.53s (transform 10.15s, setup 667.61s, collect 207.26s, tests 211.90s, environment 36ms, prepare 45.82s)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+Sourcemap for "D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/@bull-board+api@5.21.0_@bull-board+ui@5.21.0/node_modules/@bull-board/api/dist/src/index.js" points to missing source files
+Sourcemap for "D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/@bull-board+fastify@5.21.0/node_modules/@bull-board/fastify/dist/index.js" points to missing source files
+stderr | apps/api/src/config/env.spec.ts > OTP limits bounded coerced integers & isStrictEnv > rejects OTP_COOLDOWN_SEC out of bounds (<30 or >600 or non-int)
+Invalid API Environment Variables: {
+  _errors: [],
+  OTP_COOLDOWN_SEC: { _errors: [ 'Number must be greater than or equal to 30' ] }
+}
+Invalid API Environment Variables: {
+  _errors: [],
+  OTP_COOLDOWN_SEC: { _errors: [ 'Number must be less than or equal to 600' ] }
+}
+Invalid API Environment Variables: {
+  _errors: [],
+  OTP_COOLDOWN_SEC: { _errors: [ 'Expected number, received nan' ] }
+}
+
+stderr | apps/api/src/config/env.spec.ts > OTP limits bounded coerced integers & isStrictEnv > rejects OTP_IP_PER_HOUR out of bounds (<1 or >10000)
+Invalid API Environment Variables: {
+  _errors: [],
+  OTP_IP_PER_HOUR: { _errors: [ 'Number must be greater than or equal to 1' ] }
+}
+Invalid API Environment Variables: {
+  _errors: [],
+  OTP_IP_PER_HOUR: { _errors: [ 'Number must be less than or equal to 10000' ] }
+}
+
+stderr | apps/api/src/config/env.spec.ts > OTP limits bounded coerced integers & isStrictEnv > rejects OTP_IP_PHONE_PER_DAY out of bounds (<1 or >100)
+Invalid API Environment Variables: {
+  _errors: [],
+  OTP_IP_PHONE_PER_DAY: { _errors: [ 'Number must be greater than or equal to 1' ] }
+}
+Invalid API Environment Variables: {
+  _errors: [],
+  OTP_IP_PHONE_PER_DAY: { _errors: [ 'Number must be less than or equal to 100' ] }
+}
+
+stderr | apps/api/src/config/env.spec.ts > OTP limits bounded coerced integers & isStrictEnv > rejects OTP_PHONE_PER_DAY out of bounds (<1 or >50)
+Invalid API Environment Variables: {
+  _errors: [],
+  OTP_PHONE_PER_DAY: { _errors: [ 'Number must be greater than or equal to 1' ] }
+}
+Invalid API Environment Variables: {
+  _errors: [],
+  OTP_PHONE_PER_DAY: { _errors: [ 'Number must be less than or equal to 50' ] }
+}
+
+stderr | apps/api/src/config/env.spec.ts > OTP limits bounded coerced integers & isStrictEnv > rejects OTP_VERIFY_IP_PER_HOUR out of bounds (<1 or >1000)
+Invalid API Environment Variables: {
+  _errors: [],
+  OTP_VERIFY_IP_PER_HOUR: { _errors: [ 'Number must be greater than or equal to 1' ] }
+}
+Invalid API Environment Variables: {
+  _errors: [],
+  OTP_VERIFY_IP_PER_HOUR: { _errors: [ 'Number must be less than or equal to 1000' ] }
+}
+
+stderr | apps/api/src/config/env.spec.ts > safeBoolean feature flag parsing > rejects malformed boolean values rather than silently coercing them to false
+Invalid API Environment Variables: {
+  _errors: [],
+  ENABLE_P2_PAYMENTS: {
+    _errors: [
+      "Invalid boolean value: must be 'true', 'false', '1', '0', or empty"
+    ]
+  }
+}
+Invalid API Environment Variables: {
+  _errors: [],
+  ENABLE_P2_PAYMENTS: {
+    _errors: [
+      "Invalid boolean value: must be 'true', 'false', '1', '0', or empty"
+    ]
+  }
+}
+Invalid API Environment Variables: {
+  _errors: [],
+  ENABLE_P2_PAYMENTS: {
+    _errors: [
+      "Invalid boolean value: must be 'true', 'false', '1', '0', or empty"
+    ]
+  }
+}
+Invalid API Environment Variables: {
+  _errors: [],
+  ENABLE_P2_PAYMENTS: {
+    _errors: [
+      "Invalid boolean value: must be 'true', 'false', '1', '0', or empty"
+    ]
+  }
+}
+Invalid API Environment Variables: {
+  _errors: [],
+  ENABLE_P2_PAYMENTS: {
+    _errors: [
+      "Invalid boolean value: must be 'true', 'false', '1', '0', or empty"
+    ]
+  }
+}
+Invalid API Environment Variables: {
+  _errors: [],
+  ENABLE_P2_PAYMENTS: {
+    _errors: [
+      "Invalid boolean value: must be 'true', 'false', '1', '0', or empty"
+    ]
+  }
+}
+
+[Nest] 33288  - 11/18/2026, 7:54:25 PM   ERROR [HttpExceptionFilter] {"requestId":"5abbe25a-945f-4acd-8169-2e462052932a","errorClass":"DependencyError"}
+[Nest] 33288  - 11/18/2026, 7:54:25 PM   ERROR [OtpRedisService] Redis failure during OTP rate check: Stream isn't writeable and enableOfflineQueue options is false
+[Nest] 37532  - 11/18/2026, 7:54:36 PM   ERROR [JwtAuthGuard] Redis failure during auth state lookup for 5a311377-5c96-424a-a9fa-a3e5c050d626: Connection refused: redis cluster unavailable
+[Nest] 37532  - 11/18/2026, 7:54:36 PM   ERROR [HttpExceptionFilter] {"requestId":"783cbc47-6c6c-41f5-8e10-086ba29aa266","errorClass":"DependencyError"}
+[Nest] 24500  - 11/18/2026, 7:54:54 PM   ERROR [HttpExceptionFilter] {"requestId":"3b95f04f-16a2-4986-b7e0-5bb471d41e90","errorClass":"InternalError"}
+[Nest] 19632  - 11/18/2026, 7:55:12 PM   ERROR [AdminService] Failed to invalidate session for user 1971b220-e882-48ba-94bd-6ceeaf95255b after role update: Simulated Redis network partition during cache invalidation
+[Nest] 19632  - 11/18/2026, 7:55:12 PM   ERROR [JwtAuthGuard] Database failure during auth state lookup for 1971b220-e882-48ba-94bd-6ceeaf95255b: Database connection down
+[Nest] 19632  - 11/18/2026, 7:55:12 PM   ERROR [HttpExceptionFilter] {"requestId":"3cc1c801-2807-4188-b56c-0087fc6761df","errorClass":"DependencyError"}
+[Nest] 16504  - 11/18/2026, 7:55:18 PM   ERROR [JobRepository] Error fetching job test-db-drop-id from Supabase: Connection terminated unexpectedly: PG_CONNECTION_DROP
+[Nest] 16504  - 11/18/2026, 7:55:18 PM   ERROR [JobRepository] Error executing findMany query: Database timeout
+ETIMEDOUT
+(node:35140) MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 beforeExit listeners added to [process]. MaxListeners is 10. Use emitter.setMaxListeners() to increase limit
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:35140) MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 uncaughtException listeners added to [process]. MaxListeners is 10. Use emitter.setMaxListeners() to increase limit
+(node:35140) MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 unhandledRejection listeners added to [process]. MaxListeners is 10. Use emitter.setMaxListeners() to increase limit
+stderr | apps/api/test/sentry-telemetry.spec.ts > API Sentry Telemetry & Trace Propagation Suite > 3. Fastify onError Hook & Wire Envelope Capture > captures console.log and console.warn via consoleLoggingIntegration with PII scrubbing
+Temporary delay sending OTP: 654321
+
+[Nest] 31764  - 11/18/2026, 7:56:39 PM   ERROR [JobRepository] Error fetching job job_test_fail_closed from Supabase: Connection refused: connection to server at "postgres.production" failed
+stderr | apps/worker/test/processors.spec.ts > Worker Processors (Ticket T-07) > pdf-generator-processor > renders vector PDF resume and serves from cache in sub-500ms
+[PdfProcessor] Supabase storage upload warning for seeker_test_123: mime type application/pdf is not supported
+
+stderr | apps/worker/test/processors.spec.ts > Worker Processors (Ticket T-07) > pdf-generator-processor > renders vector PDF resume and serves from cache in sub-500ms
+[PdfProcessor] Supabase storage upload warning for seeker_test_123: mime type application/pdf is not supported
+
+stderr | apps/web/test/env.spec.ts > Web Environment Configuration (Phase 1.1 Remediation) > Development & Default Behavior > rejects malformed boolean values rather than silently coercing them to false
+Invalid Web Environment Variables: {
+  _errors: [],
+  NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN: {
+    _errors: [
+      "Invalid boolean value: must be 'true', 'false', '1', '0', or empty"
+    ]
+  }
+}
+Invalid Web Environment Variables: {
+  _errors: [],
+  NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN: {
+    _errors: [
+      "Invalid boolean value: must be 'true', 'false', '1', '0', or empty"
+    ]
+  }
+}
+Invalid Web Environment Variables: {
+  _errors: [],
+  NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN: {
+    _errors: [
+      "Invalid boolean value: must be 'true', 'false', '1', '0', or empty"
+    ]
+  }
+}
+Invalid Web Environment Variables: {
+  _errors: [],
+  NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN: {
+    _errors: [
+      "Invalid boolean value: must be 'true', 'false', '1', '0', or empty"
+    ]
+  }
+}
+Invalid Web Environment Variables: {
+  _errors: [],
+  NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN: {
+    _errors: [
+      "Invalid boolean value: must be 'true', 'false', '1', '0', or empty"
+    ]
+  }
+}
+Invalid Web Environment Variables: {
+  _errors: [],
+  NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN: {
+    _errors: [
+      "Invalid boolean value: must be 'true', 'false', '1', '0', or empty"
+    ]
+  }
+}
+
+stderr | apps/web/test/env.spec.ts > Web Environment Configuration (Phase 1.1 Remediation) > Next.js Runtime Startup Validation (instrumentation) > executes at server startup and fails closed when mandatory config is missing
+[FATAL] Next.js production runtime environment validation failed: Error: Unsafe Web configuration for production:
+  - JWT_SECRET must be set in production/staging
+    at validateWebEnv (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\apps\web\src\config\env.ts:50:13)
+    at register (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\apps\web\src\instrumentation.ts:18:7)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\apps\web\test\env.spec.ts:177:9
+    at file:///D:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:533:5
+    at runTest (file:///D:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1056:11)
+    at runSuite (file:///D:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+    at runSuite (file:///D:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+    at runSuite (file:///D:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1205:15)
+    at runFiles (file:///D:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/@vitest+runner@2.1.9/node_modules/@vitest/runner/dist/index.js:1262:5)
+
+stderr | apps/worker/test/sentry-worker-telemetry.spec.ts > Worker Sentry Telemetry & BullMQ Alert Hygiene Suite > 2. BullMQ Alert Hygiene (Suppress Retries, Alert on Exhaustion) > suppresses Sentry exception alert on transient retry (attemptsMade < attempts)
+[Worker - invite-wave] Job job_retry_1 transient failure (1/3) - retrying via BullMQ backoff: Transient SMS gateway timeout
+
+stderr | apps/worker/test/sentry-worker-telemetry.spec.ts > Worker Sentry Telemetry & BullMQ Alert Hygiene Suite > 2. BullMQ Alert Hygiene (Suppress Retries, Alert on Exhaustion) > captures Sentry exception when job permanently exhausts all attempts (attemptsMade >= attempts)
+[Worker - bulk-import] Job job_exhausted_99 PERMANENTLY FAILED after 3/3 attempts: Database integrity constraint violation
+
+(node:32704) MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 beforeExit listeners added to [process]. MaxListeners is 10. Use emitter.setMaxListeners() to increase limit
+(Use `node --trace-warnings ...` to show where the warning was created)
+stderr | apps/worker/test/sentry-worker-telemetry.spec.ts > Worker Sentry Telemetry & BullMQ Alert Hygiene Suite > 3. Monorepo Zero-PII Invariant Scrubbing on Worker Failures > redacts full 12-digit Aadhaar, phone numbers, and OTPs on wire when job fails permanently
+[Worker - generate-pdf] Job job_pii_fail_42 PERMANENTLY FAILED after 3/3 attempts: Failed generating resume PDF for applicant [PHONE_REDACTED]
+
+stderr | apps/worker/test/sentry-worker-telemetry.spec.ts > Worker Sentry Telemetry & BullMQ Alert Hygiene Suite > 3. Monorepo Zero-PII Invariant Scrubbing on Worker Failures > worker Sentry.logger.info emits scrubbed log records
+Worker queue delayed OTP: 987654
+
+stderr | apps/api/test/acceptance-walkthrough.e2e-spec.ts
+================================================================
+[SYNTHETIC FACADE: Not evidence of live load testing or speed]
+================================================================
+
+stderr | apps/api/test/acceptance-walkthrough.e2e-spec.ts
+================================================================
+[SYNTHETIC FACADE: Not evidence of authentic backup or restore]
+================================================================
+
+stderr | apps/api/test/acceptance-walkthrough.e2e-spec.ts
+================================================================
+[SYNTHETIC FACADE: Not evidence of security compliance or audit]
+================================================================
+
+[Nest] 4744  - 11/18/2026, 8:03:24 PM   ERROR [EmailService] [Resend API Error] HTTP 403: Domain jobsclick.live not verified yet
+[Nest] 38296  - 11/18/2026, 8:04:10 PM   ERROR [HttpExceptionFilter] {"requestId":"9eabcc15-e371-4b57-9b2e-fc6fba628d4e","errorClass":"DependencyError"}
+[Nest] 38296  - 11/18/2026, 8:04:10 PM   ERROR [HttpExceptionFilter] {"requestId":"b86a9550-3ce3-44f5-bfba-13150e330624","errorClass":"DependencyError"}

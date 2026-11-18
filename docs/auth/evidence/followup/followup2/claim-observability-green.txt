@@ -1,0 +1,35 @@
+Project: jc-auth-test-22374df4
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 0
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ✓ packages/database/test/auth-claims-v21.local.test.ts (44 tests) 2526ms
+ ✓ apps/api/test/claim-failure-observability.local.spec.ts (4 tests) 533ms
+stdout | apps/api/test/sentry-telemetry.spec.ts > API Sentry Telemetry & Trace Propagation Suite > 3. Fastify onError Hook & Wire Envelope Capture > captures console.log and console.warn via consoleLoggingIntegration with PII scrubbing
+Admin verified Aadhaar 9999 8888 7777 successfully
+
+ ✓ apps/api/test/sentry-telemetry.spec.ts (10 tests) 5677ms
+   ✓ API Sentry Telemetry & Trace Propagation Suite > 1. Inbound Fastify Trace Extraction & Propagation > extracts W3C / sentry-trace headers in Fastify hook and establishes request trace context 447ms
+   ✓ API Sentry Telemetry & Trace Propagation Suite > 1. Inbound Fastify Trace Extraction & Propagation > seamlessly bridges request trace into QueueService job publication 5026ms
+ ✓ apps/api/test/health.e2e-spec.ts (3 tests) 363ms
+ ✓ apps/api/test/provider-lifetime-policy.local.spec.ts (10 tests) 1042ms
+   ✓ AUTH-01/06 provider lifetime startup and readiness > fails startup for invalid configured lifetime 901 310ms
+
+ Test Files  5 passed (5)
+      Tests  71 passed (71)
+   Start at  19:26:15
+   Duration  48.03s (transform 5.32s, setup 89.21s, collect 27.84s, tests 10.14s, environment 4ms, prepare 4.30s)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+Sourcemap for "D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/@bull-board+api@5.21.0_@bull-board+ui@5.21.0/node_modules/@bull-board/api/dist/src/index.js" points to missing source files
+Sourcemap for "D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/@bull-board+fastify@5.21.0/node_modules/@bull-board/fastify/dist/index.js" points to missing source files
+(node:24128) MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 beforeExit listeners added to [process]. MaxListeners is 10. Use emitter.setMaxListeners() to increase limit
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:24128) MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 uncaughtException listeners added to [process]. MaxListeners is 10. Use emitter.setMaxListeners() to increase limit
+(node:24128) MaxListenersExceededWarning: Possible EventEmitter memory leak detected. 11 unhandledRejection listeners added to [process]. MaxListeners is 10. Use emitter.setMaxListeners() to increase limit
+stderr | apps/api/test/sentry-telemetry.spec.ts > API Sentry Telemetry & Trace Propagation Suite > 3. Fastify onError Hook & Wire Envelope Capture > captures console.log and console.warn via consoleLoggingIntegration with PII scrubbing
+Temporary delay sending OTP: 654321
+
+[Nest] 31300  - 11/18/2026, 7:27:01 PM   ERROR [HttpExceptionFilter] {"requestId":"2b00e329-3b78-4f25-a84c-0ce0d0626be3","errorClass":"DependencyError"}
+[Nest] 31300  - 11/18/2026, 7:27:01 PM   ERROR [HttpExceptionFilter] {"requestId":"5af413d3-6699-4d76-925f-314329def3c7","errorClass":"DependencyError"}

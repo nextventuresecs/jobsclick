@@ -1,0 +1,39 @@
+Project: jc-auth-test-eb27892f
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ apps/api/test/auth-role-lockdown.e2e-spec.ts (19 tests | 1 failed) 1201ms
+   × Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E) > counts only this suite fixtures when another real repository creates a user 36ms
+     → expected 5 to be 4 // Object.is equality
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 18 passed (19)
+   Start at  19:51:44
+   Duration  32.15s (transform 2.20s, setup 6.90s, collect 5.77s, tests 1.20s, environment 1ms, prepare 919ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+Sourcemap for "D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/@bull-board+api@5.21.0_@bull-board+ui@5.21.0/node_modules/@bull-board/api/dist/src/index.js" points to missing source files
+Sourcemap for "D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/@bull-board+fastify@5.21.0/node_modules/@bull-board/fastify/dist/index.js" points to missing source files
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/auth-role-lockdown.e2e-spec.ts > Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E) > counts only this suite fixtures when another real repository creates a user
+AssertionError: expected 5 to be 4 // Object.is equality
+
+- Expected
++ Received
+
+- 4
++ 5
+
+ ❯ apps/api/test/auth-role-lockdown.e2e-spec.ts:191:36
+    189|     const otherRepository = new UserRepository(app.get(SUPABASE_CLIENT…
+    190|     await otherRepository.create({ phone: '8' + randomInt(100000000, 9…
+    191|     expect(await userRepo.count()).toBe(before);
+       |                                    ^
+    192|   });
+    193| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
