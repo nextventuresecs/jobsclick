@@ -1,0 +1,161 @@
+Project: jc-auth-test-2024a01e
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ apps/api/test/sms-known-lookup-native.local.spec.ts (0 test)
+ ❯ apps/api/test/sms-known-number.local.spec.ts (7 tests | 3 failed) 114ms
+   × AUTH-01/03 known-number SMS admission > suppresses an unknown number with the identical successful provider response 5ms
+     → Cannot read properties of undefined (reading 'prefix')
+   × AUTH-01/03 known-number SMS admission > does not treat editable role/verified/admission metadata as signup permission 0ms
+     → Cannot read properties of undefined (reading 'prefix')
+   × AUTH-01/03 known-number SMS admission > counts suppressed attempts toward number controls and records a safe alert 0ms
+     → Cannot read properties of undefined (reading 'prefix')
+ ❯ apps/api/test/supabase-sms-budget.local.spec.ts (6 tests | 3 failed) 135ms
+   × AUTH-03 signed SMS-hook spend and number limits > enforces a daily cap for the same phone across different signed event IDs 25ms
+     → expected HttpException: Http Exception { …(3) } to match object { status: 429, …(1) }
+(5 matching properties omitted from actual)
+   × AUTH-03 signed SMS-hook spend and number limits > enforces a cooldown independently of the daily cap 14ms
+     → expected HttpException: Http Exception { …(3) } to match object { status: 429, …(1) }
+(5 matching properties omitted from actual)
+   × AUTH-03 signed SMS-hook spend and number limits > stores only HMAC phone keys and PII-free budget alerts, not contacts or OTPs 32ms
+     → expected [ [ '1794994660319-0', …(1) ], …(2) ] to have a length of 1 but got 3
+ ❯ apps/api/test/supabase-sms-hook.local.spec.ts (13 tests | 1 failed) 1075ms
+   × AUTH-01/03 authenticated Supabase SMS hook > rejects a replay across server instances before a second dispatch 981ms
+     → AUTH_HOOK_CAPTCHA_REQUIRED
+
+ Test Files  4 failed (4)
+      Tests  7 failed | 19 passed (26)
+   Start at  15:07:24
+   Duration  19.42s (transform 389ms, setup 16.61s, collect 2.36s, tests 1.32s, environment 1ms, prepare 1.21s)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/sms-known-lookup-native.local.spec.ts [ apps/api/test/sms-known-lookup-native.local.spec.ts ]
+Error: Transform failed with 1 error:
+D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/apps/api/test/sms-known-lookup-native.local.spec.ts:14:284: ERROR: Expected ")" but found "provider"
+  Plugin: vite:esbuild
+  File: D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/apps/api/test/sms-known-lookup-native.local.spec.ts:14:284
+  
+  Expected ")" but found "provider"
+  12 |     await db.query("insert into public.users(id,phone,role,status,source) values($1,$2,'job_seeker',$3,'known-phone-test')",[id,phone,state==='linked'?'active':state]);
+  13 |     if(state==='linked'){
+  14 |      const authId=randomUUID();await db.query("insert into auth.users(id,instance_id,aud,role,phone,phone_confirmed_at,raw_app_meta_data,raw_user_meta_data,is_anonymous,created_at,updated_at) values($1,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',$2,now(),'{"provider":"phone","providers":["phone"]}','{}',false,now(),now())",[authId,'91'+phone]);
+     |                                                                                                                                                                                                                                                                                              ^
+  15 |      await db.query("insert into private_auth.auth_user_links(auth_user_id,user_id,proof_channel) values($1,$2,'phone')",[authId,id]);
+  16 |     }
+  
+ ❯ failureErrorWithLog node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:1472:15
+ ❯ node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:755:50
+ ❯ responseCallbacks.<computed> node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:622:9
+ ❯ handleIncomingPacket node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:677:12
+ ❯ Socket.readFromStdout node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:600:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 7 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/sms-known-number.local.spec.ts > AUTH-01/03 known-number SMS admission > suppresses an unknown number with the identical successful provider response
+TypeError: Cannot read properties of undefined (reading 'prefix')
+ ❯ new SupabaseSmsHook apps/api/src/auth/supabase-sms-hook.ts:60:66
+
+ ❯ fixture apps/api/test/sms-known-number.local.spec.ts:18:13
+ ❯ apps/api/test/sms-known-number.local.spec.ts:23:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  apps/api/test/sms-known-number.local.spec.ts > AUTH-01/03 known-number SMS admission > does not treat editable role/verified/admission metadata as signup permission
+TypeError: Cannot read properties of undefined (reading 'prefix')
+ ❯ new SupabaseSmsHook apps/api/src/auth/supabase-sms-hook.ts:60:66
+
+ ❯ fixture apps/api/test/sms-known-number.local.spec.ts:18:13
+ ❯ apps/api/test/sms-known-number.local.spec.ts:29:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  apps/api/test/sms-known-number.local.spec.ts > AUTH-01/03 known-number SMS admission > counts suppressed attempts toward number controls and records a safe alert
+TypeError: Cannot read properties of undefined (reading 'prefix')
+ ❯ new SupabaseSmsHook apps/api/src/auth/supabase-sms-hook.ts:60:66
+
+ ❯ fixture apps/api/test/sms-known-number.local.spec.ts:18:13
+ ❯ apps/api/test/sms-known-number.local.spec.ts:33:12
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  apps/api/test/supabase-sms-budget.local.spec.ts > AUTH-03 signed SMS-hook spend and number limits > enforces a daily cap for the same phone across different signed event IDs
+AssertionError: expected HttpException: Http Exception { …(3) } to match object { status: 429, …(1) }
+(5 matching properties omitted from actual)
+
+- Expected
++ Received
+
+- Object {
+-   "message": "AUTH_HOOK_PHONE_DAILY_CAP",
++ HttpException {
++   "message": "Http Exception",
+    "status": 429,
+  }
+
+ ❯ apps/api/test/supabase-sms-budget.local.spec.ts:28:3
+     26|   const {hook,send}=fixture({phoneDailyLimit:1});const first=event(),s…
+     27|   await hook.handle(first.raw,first.headers);
+     28|   await expect(hook.handle(second.raw,second.headers)).rejects.toMatch…
+       |   ^
+     29|   expect(send).toHaveBeenCalledTimes(1);
+     30|  });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  apps/api/test/supabase-sms-budget.local.spec.ts > AUTH-03 signed SMS-hook spend and number limits > enforces a cooldown independently of the daily cap
+AssertionError: expected HttpException: Http Exception { …(3) } to match object { status: 429, …(1) }
+(5 matching properties omitted from actual)
+
+- Expected
++ Received
+
+- Object {
+-   "message": "AUTH_HOOK_COOLDOWN",
++ HttpException {
++   "message": "Http Exception",
+    "status": 429,
+  }
+
+ ❯ apps/api/test/supabase-sms-budget.local.spec.ts:34:3
+     32|   const {hook,send}=fixture();const first=event(),second=event();
+     33|   await hook.handle(first.raw,first.headers);
+     34|   await expect(hook.handle(second.raw,second.headers)).rejects.toMatch…
+       |   ^
+     35|   expect(send).toHaveBeenCalledTimes(1);
+     36|  });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  apps/api/test/supabase-sms-budget.local.spec.ts > AUTH-03 signed SMS-hook spend and number limits > stores only HMAC phone keys and PII-free budget alerts, not contacts or OTPs
+AssertionError: expected [ [ '1794994660319-0', …(1) ], …(2) ] to have a length of 1 but got 3
+
+- Expected
++ Received
+
+- 1
++ 3
+
+ ❯ apps/api/test/supabase-sms-budget.local.spec.ts:64:61
+     62|    if(kind==='string')expect((await redis.get(key))?.includes('654321'…
+     63|    if(kind==='stream'){
+     64|     const rows=await redis.xrange(key,'-','+');expect(rows).toHaveLeng…
+       |                                                             ^
+     65|     expect(rows[0]![1]).toEqual(['kind','spend-threshold','used_paise'…
+     66|    }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  apps/api/test/supabase-sms-hook.local.spec.ts > AUTH-01/03 authenticated Supabase SMS hook > rejects a replay across server instances before a second dispatch
+Error: AUTH_HOOK_CAPTCHA_REQUIRED
+ ❯ new SupabaseSmsHook apps/api/src/auth/supabase-sms-hook.ts:60:170
+
+ ❯ apps/api/test/supabase-sms-hook.local.spec.ts:69:18
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+

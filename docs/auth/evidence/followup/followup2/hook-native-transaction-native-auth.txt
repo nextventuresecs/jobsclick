@@ -1,0 +1,37 @@
+Project: jc-auth-test-8d8302c3
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ apps/api/test/auth-native-otp.local.spec.ts (8 tests | 1 failed | 1 skipped) 1792ms
+   ✓ AUTH-01/03 real GoTrue OTP, hook and CAPTCHA > completes phone OTP through a real signed hook and claims the preserved invited UUID 755ms
+   × AUTH-01/03 real GoTrue OTP, hook and CAPTCHA > requires fresh CAPTCHA on a direct resend and does not double-send 119ms
+     → expected [] to have a length of 1 but got +0
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 6 passed | 1 skipped (8)
+   Start at  15:20:17
+   Duration  16.06s (transform 231ms, setup 2.16s, collect 590ms, tests 1.79s, environment 0ms, prepare 160ms)
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/auth-native-otp.local.spec.ts > AUTH-01/03 real GoTrue OTP, hook and CAPTCHA > requires fresh CAPTCHA on a direct resend and does not double-send
+AssertionError: expected [] to have a length of 1 but got +0
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ apps/api/test/auth-native-otp.local.spec.ts:128:24
+    126|     const number = phone();
+    127|     expect(Boolean((await caller().auth.signInWithOtp({ phone: '+91' +…
+    128|     expect(deliveries).toHaveLength(1);
+       |                        ^
+    129|     await new Promise(resolve => setTimeout(resolve, 1200));
+    130|     const result = await caller().auth.resend({ type: 'sms', phone: '+…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

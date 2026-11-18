@@ -1,0 +1,60 @@
+Project: jc-auth-test-e1de939a
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ apps/api/test/sms-known-lookup-native.local.spec.ts (2 tests | 2 failed) 79ms
+   × AUTH-01/03 native known-number lookup > allows invited or linked active users only, never arbitrary active/unlisted/disabled contacts 45ms
+     → expected { code: 'PGRST202', …(3) } to be null
+   × AUTH-01/03 native known-number lookup > rejects direct anon access and noncanonical phone lookup 13ms
+     → expected 'PGRST202' to be '42501' // Object.is equality
+
+ Test Files  1 failed (1)
+      Tests  2 failed (2)
+   Start at  15:09:42
+   Duration  16.14s (transform 235ms, setup 4.38s, collect 33ms, tests 79ms, environment 0ms, prepare 238ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/sms-known-lookup-native.local.spec.ts > AUTH-01/03 native known-number lookup > allows invited or linked active users only, never arbitrary active/unlisted/disabled contacts
+AssertionError: expected { code: 'PGRST202', …(3) } to be null
+
+- Expected: 
+null
+
++ Received: 
+Object {
+  "code": "PGRST202",
+  "details": "Searched for the function public.rpc_sms_phone_is_known with parameter p_phone or with a single unnamed json/jsonb parameter, but no matches were found in the schema cache.",
+  "hint": null,
+  "message": "Could not find the function public.rpc_sms_phone_is_known(p_phone) in the schema cache",
+}
+
+ ❯ apps/api/test/sms-known-lookup-native.local.spec.ts:17:98
+     15|     await db.query("insert into private_auth.auth_user_links(auth_user…
+     16|    }
+     17|    const result=await backend.rpc('rpc_sms_phone_is_known',{p_phone:ph…
+       |                                                                                                  ^
+     18|   }
+     19|   expect((await backend.rpc('rpc_sms_phone_is_known',{p_phone:'7999999…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  apps/api/test/sms-known-lookup-native.local.spec.ts > AUTH-01/03 native known-number lookup > rejects direct anon access and noncanonical phone lookup
+AssertionError: expected 'PGRST202' to be '42501' // Object.is equality
+
+Expected: "42501"
+Received: "PGRST202"
+
+ ❯ apps/api/test/sms-known-lookup-native.local.spec.ts:23:89
+     21|  it('rejects direct anon access and noncanonical phone lookup',async()…
+     22|   const anon=createClient(process.env['SUPABASE_URL']!,process.env['SU…
+     23|   expect((await anon.rpc('rpc_sms_phone_is_known',{p_phone:'8765432109…
+       |                                                                                         ^
+     24|   expect((await backend.rpc('rpc_sms_phone_is_known',{p_phone:'+918765…
+     25|  });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+

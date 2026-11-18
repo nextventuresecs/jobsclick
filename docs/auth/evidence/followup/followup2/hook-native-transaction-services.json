@@ -1,0 +1,18 @@
+[
+  {
+    "image": "public.ecr.aws/supabase/gotrue:v2.197.0",
+    "environment": [
+      "GOTRUE_SMTP_HOST=supabase_inbucket_jc-auth-test-8d8302c3",
+      "GOTRUE_SMTP_PORT=1025",
+      "GOTRUE_HOOK_SEND_SMS_ENABLED=true",
+      "GOTRUE_SMS_AUTOCONFIRM=false",
+      "GOTRUE_SECURITY_CAPTCHA_ENABLED=true",
+      "GOTRUE_EXTERNAL_PHONE_ENABLED=true",
+      "GOTRUE_HOOK_SEND_SMS_URI=http://host.docker.internal:63108/supabase-sms-hook"
+    ]
+  },
+  {
+    "image": "public.ecr.aws/supabase/mailpit:v1.31.3",
+    "environment": []
+  }
+]

@@ -1,0 +1,25 @@
+{
+  "item": "37-hook-admission",
+  "kind": "code",
+  "branch": "codex/auth-37-hook-admission",
+  "commit": "b1dfda541e147a5de35b032d0d3f3c5bc4da5a19",
+  "files": [
+    "apps/api/src/auth/supabase-sms-hook.ts",
+    "apps/api/test/auth-native-otp.local.spec.ts",
+    "apps/api/test/supabase-sms-budget.local.spec.ts",
+    "apps/api/test/supabase-sms-hook.local.spec.ts",
+    "docs/auth/FOLLOWUP_2_REVIEW.md",
+    "packages/database/src/generated.types.ts",
+    "packages/database/src/index.ts",
+    "apps/api/src/auth/sms-admission.ts",
+    "apps/api/src/auth/sms-hook-outbox.ts",
+    "apps/api/src/auth/sms-known-number.ts",
+    "apps/api/test/fixtures/sms-hook.ts",
+    "apps/api/test/sms-known-lookup-native.local.spec.ts",
+    "apps/api/test/sms-known-number.local.spec.ts",
+    "packages/database/supabase/migrations/20261118094137_sms_known_number_admission.sql",
+    "supabase/migrations/20261118094137_sms_known_number_admission.sql",
+    "supabase/rollbacks/20261118094137_sms_known_number_admission.sql"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}

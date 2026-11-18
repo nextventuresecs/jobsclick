@@ -1,0 +1,40 @@
+Project: jc-auth-test-e0046615
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ apps/api/test/auth-native-otp.local.spec.ts (8 tests | 8 skipped) 37ms
+
+ Test Files  1 failed (1)
+      Tests  8 skipped (8)
+   Start at  15:15:02
+   Duration  14.86s (transform 234ms, setup 2.37s, collect 589ms, tests 37ms, environment 0ms, prepare 152ms)
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/auth-native-otp.local.spec.ts > AUTH-01/03 real GoTrue OTP, hook and CAPTCHA
+AssertionError: expected [ { users: 4, auth: 1 } ] to deeply equal [ { users: +0, auth: +0 } ]
+
+- Expected
++ Received
+
+  Array [
+    Object {
+-     "auth": 0,
+-     "users": 0,
++     "auth": 1,
++     "users": 4,
+    },
+  ]
+
+ ❯ apps/api/test/auth-native-otp.local.spec.ts:48:8
+     46|     await db.connect(); await redis.connect();
+     47|     expect((await db.query('select (select count(*)::int from public.u…
+     48|       .toEqual([{ users: 0, auth: 0 }]);
+       |        ^
+     49|     server = fastify({ logger: false, bodyLimit: 65536 });
+     50|     server.removeContentTypeParser('application/json');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

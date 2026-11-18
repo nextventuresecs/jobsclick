@@ -1,0 +1,32 @@
+Project: jc-auth-test-b319e8c2
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ apps/api/test/sms-known-number.local.spec.ts (8 tests | 1 failed) 1247ms
+   ✓ AUTH-01/03 known-number SMS admission > keeps slow transport outside known/unknown hook response timing 1108ms
+   × AUTH-01/03 known-number SMS admission > accepts a trusted canonical IPv6 /64 and rejects absent ingress addresses 12ms
+     → AUTH_ADMISSION_INVALID
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 7 passed (8)
+   Start at  15:22:28
+   Duration  19.71s (transform 369ms, setup 5.85s, collect 88ms, tests 1.25s, environment 0ms, prepare 388ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/sms-known-number.local.spec.ts > AUTH-01/03 known-number SMS admission > accepts a trusted canonical IPv6 /64 and rejects absent ingress addresses
+ServiceUnavailableException: AUTH_ADMISSION_INVALID
+ ❯ SmsAdmission.mint apps/api/src/auth/sms-admission.ts:26:91
+     24|  async mint(input:{phone:string;ip:string;deviceId:string}){
+     25|   const number=normalizeIndianPhone(input.phone);
+     26|   if(!number||!isIP(input.ip)||!z.string().uuid().safeParse(input.devi…
+       |                                                                                           ^
+     27|   const iat=this.now(),nonce=randomUUID(),phone=this.hash(number);
+     28|   const claims={purpose:'sms-signup' as const,nonce,phone,ip:this.hash…
+ ❯ apps/api/test/sms-known-number.local.spec.ts:84:26
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

@@ -1,0 +1,143 @@
+Project: jc-auth-test-c288b788
+Exit: 0
+Running Security & Attack Drill against: postgresql://postgres:****@127.0.0.1:58167/postgres
+--- 1. Testing Role "anon" Attack Vectors ---
+--- 2. Testing Role "authenticated" Attack Vectors ---
+--- 3. Testing Seed Rows, View Isolation & is_active Filtering ---
+--- 4. Testing Immutability Triggers (Audit, Ledger, Alert Deliveries) ---
+--- 4b. Testing TRUNCATE Revocation & Statement Triggers ---
+--- 5. Testing actor_id Foreign Key ON DELETE RESTRICT ---
+--- 6. Testing Service Role Wallet Positive RPC Flows ---
+--- 7. Testing 20-Parallel-Deduct Concurrency ---
+--- 8. Testing DPDP Erasure Model (ON DELETE RESTRICT & Anonymisation) ---
+--- 9. Testing Job Expiry, Active Filtering & search_jobs Hardening ---
+
+======================================================
+🛡️ SECURITY ATTACK DRILL RESULTS:
+======================================================
+✅ Anon blocked from SELECT on users base table
+   Expected: Permission denied (42501)
+   Actual:   42501: permission denied for table users
+✅ Anon blocked from SELECT on job_seeker_profiles (PII)
+   Expected: Permission denied (42501)
+   Actual:   42501: permission denied for table job_seeker_profiles
+✅ Anon blocked from SELECT on credit_ledgers
+   Expected: Permission denied (42501)
+   Actual:   42501: permission denied for table credit_ledgers
+✅ Anon blocked from executing grant_starter_credits RPC
+   Expected: Permission denied (42501)
+   Actual:   42501: permission denied for function grant_starter_credits
+✅ Anon blocked from executing increment_token_version RPC
+   Expected: Permission denied (42501)
+   Actual:   42501: permission denied for function increment_token_version
+✅ Anon blocked from executing anonymise_user RPC
+   Expected: Permission denied (42501)
+   Actual:   42501: permission denied for function anonymise_user
+✅ Anon blocked with forged admin role & non-UUID sub claim spoofing
+   Expected: Permission denied (42501)
+   Actual:   42501: permission denied for table users
+✅ Authenticated client blocked from direct credit_ledgers INSERT
+   Expected: Permission denied (42501)
+   Actual:   42501: permission denied for table credit_ledgers
+✅ Authenticated client blocked from DELETE on audit_logs
+   Expected: Permission denied (42501)
+   Actual:   42501: permission denied for table audit_logs
+✅ Authenticated client blocked from direct wallet RPC execution
+   Expected: Permission denied (42501)
+   Actual:   42501: permission denied for function promote_job_with_ledger
+✅ anon denied direct SELECT on public_jobs
+   Expected: 42501
+   Actual:   true
+✅ anon denied direct SELECT on public_business_profiles
+   Expected: 42501
+   Actual:   true
+✅ anon denied direct SELECT on public_institution_profiles
+   Expected: 42501
+   Actual:   true
+✅ authenticated denied direct SELECT on public_jobs
+   Expected: 42501
+   Actual:   true
+✅ authenticated denied direct SELECT on public_business_profiles
+   Expected: 42501
+   Actual:   true
+✅ authenticated denied direct SELECT on public_institution_profiles
+   Expected: 42501
+   Actual:   true
+✅ public_jobs view strictly filters WHERE is_active = true and unexpired
+   Expected: Active job included, inactive & expired jobs filtered out
+   Actual:   active=true, inactiveFiltered=true, expiredFiltered=true
+✅ public_jobs view returns exact sanitized columns without internal metadata
+   Expected: 18 specific public columns, 0 fts/source/created_by leaks
+   Actual:   colsCount=18, exactMatch=true, noLeak=true
+✅ public_business_profiles view scrubs contact phone, email, director, and udyam numbers
+   Expected: Company found, phone/email/director/udyam columns stripped from view
+   Actual:   found=1, noPiiLeak=true
+✅ Service role UPDATE on credit_ledgers blocked by immutability trigger
+   Expected: Trigger exception P0001
+   Actual:   P0001: Credit ledger entries are immutable and cannot be updated or deleted.
+✅ Service role DELETE on credit_ledgers blocked by immutability trigger
+   Expected: Trigger exception P0001
+   Actual:   P0001: Credit ledger entries are immutable and cannot be updated or deleted.
+✅ Service role UPDATE on audit_logs blocked by immutability trigger
+   Expected: Trigger exception P0001
+   Actual:   P0001: Audit log entries are immutable and cannot be updated or deleted.
+✅ Service role DELETE on audit_logs blocked by immutability trigger
+   Expected: Trigger exception P0001
+   Actual:   P0001: Audit log entries are immutable and cannot be updated or deleted.
+✅ Service role UPDATE on alert_deliveries blocked by immutability trigger
+   Expected: Trigger exception P0001
+   Actual:   P0001: Alert delivery entries are immutable deduplication logs and cannot be updated or deleted.
+✅ Service role DELETE on alert_deliveries blocked by immutability trigger
+   Expected: Trigger exception P0001
+   Actual:   P0001: Alert delivery entries are immutable deduplication logs and cannot be updated or deleted.
+✅ Service role TRUNCATE on audit_logs blocked by privilege check
+   Expected: Permission denied (42501)
+   Actual:   42501: permission denied for table audit_logs
+✅ Service role TRUNCATE on credit_ledgers blocked by privilege check
+   Expected: Permission denied (42501)
+   Actual:   42501: permission denied for table credit_ledgers
+✅ Table owner TRUNCATE on audit_logs blocked by BEFORE TRUNCATE trigger
+   Expected: Trigger exception (55000)
+   Actual:   55000: TRUNCATE operation is strictly prohibited on table audit_logs to preserve immutable audit logs, delivery records, and statutory financial ledgers
+✅ Payment receipt FK prevents parent-only TRUNCATE
+   Expected: Foreign key restriction (0A000)
+   Actual:   cannot truncate a table referenced in a foreign key constraint
+✅ Table owner TRUNCATE on payments blocked by BEFORE TRUNCATE trigger
+   Expected: Trigger exception (55000)
+   Actual:   55000: TRUNCATE operation is strictly prohibited on table payments to preserve immutable audit logs, delivery records, and statutory financial ledgers
+✅ TRUNCATE users without CASCADE blocked by foreign key constraint
+   Expected: Feature not supported / foreign key restriction (0A000)
+   Actual:   0A000: cannot truncate a table referenced in a foreign key constraint
+✅ TRUNCATE users CASCADE blocked by BEFORE TRUNCATE triggers on referencing immutable tables
+   Expected: Trigger exception (55000)
+   Actual:   55000: TRUNCATE operation is strictly prohibited on table audit_logs to preserve immutable audit logs, delivery records, and statutory financial ledgers
+✅ actor_id ON DELETE RESTRICT blocks user deletion when referenced as audit actor
+   Expected: Foreign key violation (23503)
+   Actual:   23503: update or delete on table "users" violates foreign key constraint "audit_logs_actor_id_fkey" on table "audit_logs"
+✅ Service role wallet flow: starter credits, promote job, unlock contact, and deduct application credit
+   Expected: 10 credits granted -> 3 spent on promo -> 5 on unlock -> 1 on app -> 1 remaining
+   Actual:   starter=true, idempotentBlocked=true, promoteRemaining=7, unlockRemaining=2, deductRemaining=1
+✅ 20 concurrent parallel deductions strictly serialize: 5 succeed, 15 fail, balance stops at 0
+   Expected: Exactly 5 successes, exactly 15 failures, final balance = 0
+   Actual:   successes=5, failures=15, finalBalance=0
+✅ Foreign key ON DELETE RESTRICT prevents accidental user deletion when ledgers/payments exist
+   Expected: Foreign key violation (23503)
+   Actual:   23503: update or delete on table "users" violates foreign key constraint "broadcast_campaigns_created_by_fkey" on table "broadcast_campaigns"
+✅ DPDP anonymise_user scrubs PII across all profiles, placements, broadcasts, payments, invitations, inquiries, search, alerts while preserving immutable ledger audit trail
+   Expected: PII scrubbed, DEL_* tombstone, session revoked, placement/broadcast/payment/invitations/inquiries scrubbed, ledger preserved
+   Actual:   success=true, phone=DEL_b8bf76d295, status=disabled, placementScrubbed=true, broadcastScrubbed=true, paymentScrubbed=true, invScrubbed=true, inqScrubbed=true, ledgerCount=2
+✅ jobs.expiry_date column is TIMESTAMPTZ (timestamp with time zone)
+   Expected: timestamp with time zone
+   Actual:   timestamp with time zone
+✅ public_jobs view strictly filters out expired and inactive jobs
+   Expected: Only [15f556bf-7280-4435-be8e-25a8e5f2d664, a1469c23-5092-42b7-afdd-2ba851da5a3e] visible
+   Actual:   Visible IDs: [15f556bf-7280-4435-be8e-25a8e5f2d664, a1469c23-5092-42b7-afdd-2ba851da5a3e]
+✅ search_jobs RPC strictly filters out expired and inactive jobs
+   Expected: Only [15f556bf-7280-4435-be8e-25a8e5f2d664, a1469c23-5092-42b7-afdd-2ba851da5a3e] visible
+   Actual:   Visible IDs: [a1469c23-5092-42b7-afdd-2ba851da5a3e, 15f556bf-7280-4435-be8e-25a8e5f2d664]
+======================================================
+🎉 ALL SECURITY DRILL CHECKS PASSED!
+(node:34048) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal-remediation/.scratch/auth-review/scripts/db-security-drill.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)

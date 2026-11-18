@@ -1,0 +1,32 @@
+Project: jc-auth-test-f836085c
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ apps/api/test/sms-known-lookup-native.local.spec.ts (2 tests) 265ms
+ ✓ apps/api/test/supabase-sms-budget.local.spec.ts (6 tests) 179ms
+ ✓ apps/api/test/supabase-sms-hook.local.spec.ts (13 tests) 183ms
+ ✓ apps/api/test/sms-known-number.local.spec.ts (7 tests) 234ms
+
+ Test Files  1 failed | 3 passed (4)
+      Tests  28 passed (28)
+   Start at  15:16:36
+   Duration  19.88s (transform 385ms, setup 17.64s, collect 634ms, tests 861ms, environment 1ms, prepare 1.10s)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/sms-known-lookup-native.local.spec.ts [ apps/api/test/sms-known-lookup-native.local.spec.ts ]
+error: update or delete on table "users" violates foreign key constraint "credit_ledgers_user_id_fkey" on table "credit_ledgers"
+ ❯ node_modules/.pnpm/pg@8.23.1/node_modules/pg/lib/client.js:694:17
+ ❯ apps/api/test/sms-known-lookup-native.local.spec.ts:11:3
+      9|  try {
+     10|   await db.query('delete from private_auth.auth_user_links where user_…
+     11|   await db.query("delete from public.users where id=any($1::uuid[]) an…
+       |   ^
+     12|   await db.query('delete from auth.users where id=any($1::uuid[])',[au…
+     13|  } finally {await db.end();}
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

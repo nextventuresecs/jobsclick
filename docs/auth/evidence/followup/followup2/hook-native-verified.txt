@@ -1,0 +1,19 @@
+Project: jc-auth-test-91eda5f9
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 0
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ✓ apps/api/test/sms-known-lookup-native.local.spec.ts (2 tests) 291ms
+ ✓ apps/api/test/supabase-sms-budget.local.spec.ts (6 tests) 277ms
+ ✓ apps/api/test/supabase-sms-hook.local.spec.ts (13 tests) 1128ms
+   ✓ AUTH-01/03 authenticated Supabase SMS hook > rejects a replay across server instances before a second dispatch 922ms
+ ✓ apps/api/test/sms-known-number.local.spec.ts (8 tests) 1424ms
+   ✓ AUTH-01/03 known-number SMS admission > keeps slow transport outside known/unknown hook response timing 1093ms
+
+ Test Files  4 passed (4)
+      Tests  29 passed (29)
+   Start at  15:24:42
+   Duration  23.58s (transform 680ms, setup 31.18s, collect 858ms, tests 3.12s, environment 1ms, prepare 2.26s)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
