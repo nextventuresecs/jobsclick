@@ -166,31 +166,11 @@ async function runSmokeTests() {
       expectedStatus: 403,
       payloadValidator: (body) => /permission denied for table users|42501/i.test(body),
     },
-    // 3. Public Views Allow (Exact 200 for anon and authenticated)
-    {
-      name: '5. Anon Key -> Public View (public_jobs) [Expect EXACT 200]',
-      url: `${restUrl}/public_jobs?select=id`,
-      method: 'GET',
-      token: anonToken,
-      expectedStatus: 200,
-      payloadValidator: (body) => body.startsWith('['),
-    },
-    {
-      name: '6. Authenticated JWT -> Public View (public_jobs) [Expect EXACT 200]',
-      url: `${restUrl}/public_jobs?select=id`,
-      method: 'GET',
-      token: authenticatedToken,
-      expectedStatus: 200,
-      payloadValidator: (body) => body.startsWith('['),
-    },
-    {
-      name: '7. Anon Key -> Public View (public_business_profiles) [Expect EXACT 200]',
-      url: `${restUrl}/public_business_profiles?select=id`,
-      method: 'GET',
-      token: anonToken,
-      expectedStatus: 200,
-      payloadValidator: (body) => body.startsWith('['),
-    },
+    // Approved Option A: direct clients are denied; public delivery is through the API.
+    ...['public_jobs','public_business_profiles','public_institution_profiles'].flatMap(view => [
+      { name: 'Anon -> private projection ' + view + ' [EXACT 401]', url: restUrl + '/' + view + '?select=id', method: 'GET', token: anonToken, expectedStatus: 401, payloadValidator: (body: string) => /42501/.test(body) },
+      { name: 'Authenticated -> private projection ' + view + ' [EXACT 403]', url: restUrl + '/' + view + '?select=id', method: 'GET', token: authenticatedToken, expectedStatus: 403, payloadValidator: (body: string) => /42501/.test(body) },
+    ]),
     // 4. Invalid Signature Rejection (Exact 401)
     {
       name: '8. Wrong-Secret JWT -> Base Table (public.jobs) [Expect EXACT 401]',

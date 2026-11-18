@@ -260,10 +260,21 @@ export async function runSecurityDrill(connectionString: string): Promise<{ succ
     ($3, $4, 'Expired Contract Role', 'Expired past role', 'technology', 'Pune', 1, true, NOW() - INTERVAL '2 days', 'view_test');
   `, [activeJobId, inactiveJobId, expiredJobId, empId]);
 
-  // Read public_jobs as anon
+  // Approved Option A: clients lose direct projection access; keep positive service checks.
   const anonViewer = new Client({ connectionString });
   await anonViewer.connect();
-  await anonViewer.query('SET ROLE anon;');
+  for (const role of ['anon','authenticated']) {
+    for (const view of ['public_jobs','public_business_profiles','public_institution_profiles']) {
+      await anonViewer.query('SET ROLE ' + role);
+      let denied = false;
+      try { await anonViewer.query('SELECT * FROM public.' + view + ' LIMIT 1'); }
+      catch (error: unknown) { denied = typeof error === 'object' && error !== null && 'code' in error && error.code === '42501'; }
+      finally { await anonViewer.query('RESET ROLE'); }
+      results.push({ name: role + ' denied direct SELECT on ' + view, passed: denied, expected: '42501', actual: String(denied) });
+    }
+  }
+  await adminClient.query('UPDATE public.business_profiles SET is_published=true WHERE user_id=$1', [empId]);
+  await anonViewer.query('SET ROLE service_role');
 
   const jobsRes = await anonViewer.query(`
     SELECT * FROM public.public_jobs WHERE employer_id = $1;
@@ -299,7 +310,7 @@ export async function runSecurityDrill(connectionString: string): Promise<{ succ
     actual: `colsCount=${actualJobCols.length}, exactMatch=${exactJobCols}, noLeak=${noFtsLeak}`,
   });
 
-  // Read public_business_profiles as anon
+  // Read public_business_profiles through the privileged API role
   const bizRes = await anonViewer.query(`
     SELECT * FROM public.public_business_profiles WHERE company_name = $1;
   `, [bizName]);
@@ -947,6 +958,7 @@ export async function runSecurityDrill(connectionString: string): Promise<{ succ
     INSERT INTO public.users (id, phone, role, status, source)
     VALUES ($1, $2, 'employer', 'active', 'job_expiry_test');
   `, [testEmployerId, employerPhone]);
+  await adminClient.query(`INSERT INTO public.business_profiles(user_id,company_name,ownership_type,company_size,sector,city,district,is_published,source) VALUES ($1,'Published expiry fixture','Private Limited','Small','technology','Pune','Pune',true,'test')`, [testEmployerId]);
 
   // Seed 4 test jobs
   const jobActiveValid = crypto.randomUUID();

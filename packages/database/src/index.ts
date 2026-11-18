@@ -68,6 +68,7 @@ export interface Database {
         updated_at: string;
       }>;
       business_profiles: TableDefinition<{
+        is_published?: boolean;
         id: string;
         user_id: string;
         company_name: string;
@@ -102,6 +103,7 @@ export interface Database {
         updated_at: string;
       }>;
       institution_profiles: TableDefinition<{
+        is_published?: boolean;
         id: string;
         user_id: string;
         institution_name: string;

@@ -28,3 +28,11 @@ test('full-suite CI produces the production artifact before startup integration 
   assert.ok(build>=0&&tests>build,'production build must precede the full test command');
   assert.match(block.slice(build,tests),/NODE_ENV: production/);
 });
+
+test('native database security verification fails on advisor ERROR findings',()=>{
+  const runner=fs.readFileSync(path.resolve(__dirname,'run-disposable.cjs'),'utf8');
+  assert.match(runner,/'security-advisors'/);
+  assert.match(runner,/'--fail-on',\s*'error'/);
+  const gate=workflow.slice(workflow.indexOf('\n  db-security-gate:'),workflow.indexOf('\n  container-build:'));
+  assert.match(gate,/--db-tools/);
+});

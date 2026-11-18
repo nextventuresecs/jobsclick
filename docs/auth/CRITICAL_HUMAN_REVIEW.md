@@ -1,5 +1,7 @@
 # Critical review queue — 2026-11-18
 
+**Superseded design statuses:** Follow-up 2 explicitly authorises Option A, transaction-local audit, revised hook admission/cooldowns/fallback, a Node pin and new review packaging. These are no longer reasons to stop local drafting. This older table remains historical; see [current authority](CODEX_AUTH_FOLLOWUP_2_PROMPT.md) and [current progress](FOLLOWUP_2_REVIEW.md). Hosted apply/enablement and final sign-off remain human.
+
 Local branch: codex/auth-31-critical-review, directly above the verified auth-30 CI slice. This unit contains review notes only; no SQL, provider, account, payment or deployment changes. Source auth/middleware/payment drafts remain on their separate branches. Nothing is approved for merge or enablement.
 
 [AGENTS.md](../../AGENTS.md) requires: "Human-review-only (agent drafts, human approves)" for "RLS policies, auth/OTP flow, migrations touching existing data, anything with payments, DPDP consent text." The unattended instruction authorises local work and notes, not those production approvals.

@@ -136,7 +136,8 @@ async function main() {
   if (dbTools) toolsToRun.push(['types-check', ['scripts/generate-types.js', '--check']],
     ['catalog', ['--experimental-strip-types', 'scripts/db-catalog-check.ts']],
     ['security-drill', ['--experimental-strip-types', 'scripts/db-security-drill.ts']],
-    ['http-smoke', ['--experimental-strip-types', 'scripts/smoke-postgrest.ts']]);
+    ['http-smoke', ['--experimental-strip-types', 'scripts/smoke-postgrest.ts']],
+    ['security-advisors', ['node_modules/supabase/dist/supabase.js', 'db', 'advisors', '--type', 'all', '--fail-on', 'error', '--output-format', 'json', '--agent', 'no', '--workdir', directory]]);
   for (const [name, toolArgs] of toolsToRun) {
     const result = command(process.execPath, toolArgs, env);
     const receipt = 'Project: ' + runId + '\nExit: ' + result.status + '\n' + redact((result.stdout || '') + (result.stderr || ''));
