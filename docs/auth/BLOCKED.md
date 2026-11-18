@@ -16,6 +16,6 @@ Not started: step 2 and step 3 must pass first. Separate-attempt-audit and liter
 
 ## F0-d and native advisor findings
 
-Payment reference replay and partial grant after an injected write crash remain two active failing tests. The schema has no canonical payment consumption/purpose/transaction contract; follow the stop-on-mismatch instruction in SCHEMA_MISMATCH.md. The native expiry RPC and independent amount/membership/expiry checks pass but do not close that gate.
+Resolved locally on 2026-11-18 under explicit user authorisation: canonical payment receipts, trusted purpose/target binding and atomic database settlement close the payment-reference replay and partial-grant crash failures. Original attacker assertions remain intact. The selected 382-test run includes these cases. Independent human payment/migration/RLS review and legacy receipt reconciliation remain release gates; payment enablement and real gateway capture are NOT RUN. See PAYMENT_TRANSACTION_PLAN.md and REVIEW_PACKET.md.
 
 Read-only native db advisors ran successfully with fail-on=none and reported three existing ERROR findings for the public owner-privilege projection views. This is not clean signoff. The original public-discovery design deliberately withholds base-table access; review its column-grant/RLS/projection contract before changing view semantics. No view was changed.
