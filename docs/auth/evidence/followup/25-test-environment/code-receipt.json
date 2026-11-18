@@ -1,0 +1,13 @@
+{
+  "item": "25-test-environment",
+  "kind": "code",
+  "branch": "codex/auth-25-test-environment",
+  "commit": "d6850826096384c61d1bbf4c5df3cad94e91293c",
+  "files": [
+    "scripts/testing/run-disposable.cjs",
+    "scripts/testing/disposable-environment.test.cjs",
+    "package.json",
+    "docs/auth/DISPOSABLE_TESTS.md"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}

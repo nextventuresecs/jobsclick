@@ -1,0 +1,32 @@
+Exit: 1
+✖ disposable child processes never inherit parent credentials, provider settings or runtime injection (170.3012ms)
+✔ disposable children retain OS tool discovery and force local telemetry opt-out (4.7866ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 896.5532
+
+✖ failing tests:
+
+test at scripts\testing\disposable-environment.test.cjs:31:1
+✖ disposable child processes never inherit parent credentials, provider settings or runtime injection (170.3012ms)
+  AssertionError [ERR_ASSERTION]: inherited forbidden parent variable: RAZORPAY_KEY_SECRET
+  + actual - expected
+  
+  + 'synthetic-payment-secret'
+  - undefined
+  
+      at TestContext.<anonymous> (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\scripts\testing\disposable-environment.test.cjs:44:12)
+      at async Test.run (node:internal/test_runner/test:1332:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:385:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'synthetic-payment-secret',
+    expected: undefined,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
