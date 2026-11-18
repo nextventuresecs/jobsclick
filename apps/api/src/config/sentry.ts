@@ -275,3 +275,27 @@ export const sentryLogger = {
  * Re-export native Sentry logger for direct usage
  */
 export const logger = Sentry.logger;
+
+export interface SafeApiIncident {
+  requestId: string;
+  errorClass: 'DatabaseError' | 'DependencyError' | 'InternalError';
+}
+/** No original Error, URL, headers, subject, contacts or credentials enter this alert. */
+export function captureSafeApiFailure(incident: SafeApiIncident): string {
+  if (!process.env['SENTRY_DSN']) return 'sentry_disabled_stub_id';
+  try {
+    return Sentry.withIsolationScope((isolation) => {
+      isolation.clear();
+      return Sentry.withScope((scope) => {
+        scope.clear();
+        return Sentry.captureEvent({
+          message: 'API_DEPENDENCY_FAILURE',
+          level: 'error',
+          extra: { requestId: incident.requestId, errorClass: incident.errorClass },
+        });
+      });
+    });
+  } catch {
+    return 'sentry_unavailable';
+  }
+}

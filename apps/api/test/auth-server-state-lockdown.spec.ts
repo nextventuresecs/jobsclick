@@ -508,7 +508,9 @@ describe('Server-Side State Validation & Session Revocation (P0-8, PR #97 B2)', 
         });
 
         expect(res.statusCode).toBe(503);
-        expect(res.payload).toContain('temporarily unavailable');
+        expect(res.json().code).toBe('DEPENDENCY_UNAVAILABLE');
+        expect(res.json().requestId).toMatch(/^[0-9a-f-]{36}$/);
+        expect(res.payload).not.toContain('redis cluster unavailable');
       } finally {
         otpRedisA.getAuthState = originalGetAuthState;
       }
