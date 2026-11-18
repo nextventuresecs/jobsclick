@@ -12,6 +12,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { SupabaseSmsHook, type SmsHookPolicy } from '../src/auth/supabase-sms-hook.js';
 import { createSupabaseProvider } from '../src/auth/supabase-provider.js';
 import { getClientIp } from '../src/common/ip-normalizer.js';
+import { waitForNativeEmailOtp } from './fixtures/native-email-wait.js';
 
 describe.runIf(process.env['RUN_AUTH_NATIVE_OTP'] === '1')('AUTH-01/03 real GoTrue OTP, hook and CAPTCHA', () => {
   const url = process.env['SUPABASE_URL']!, key = process.env['SUPABASE_ANON_KEY']!;
@@ -161,17 +162,16 @@ describe.runIf(process.env['RUN_AUTH_NATIVE_OTP'] === '1')('AUTH-01/03 real GoTr
     const sent = await caller().auth.signInWithOtp({ email, options: { captchaToken: validCaptcha } });
     expect(Boolean(sent.error)).toBe(false);
     const mailApi = process.env['JOBSCLICK_TEST_MAIL_URL']! + '/api/v1';
-    let otp = '';
-    for (let attempt = 0; attempt < 40 && !otp; attempt++) {
-      const response = await fetch(mailApi + '/search?query=' + encodeURIComponent('to:' + email));
+    const otp = await waitForNativeEmailOtp(async signal => {
+      const response = await fetch(mailApi + '/search?query=' + encodeURIComponent('to:' + email), { signal });
       observations['mailTransport'] = { status: response.status, contentType: response.headers.get('content-type'), server: 'mailpit' }; save();
       const list = await response.json() as { messages: { ID: string }[] };
       if (list.messages.length) {
-        const message = await (await fetch(mailApi + '/message/' + list.messages[0]!.ID)).json() as { Text?: string; HTML?: string };
-        otp = ((message.Text || '') + (message.HTML || '')).match(/\b[0-9]{6}\b/)?.[0] || '';
+        const message = await (await fetch(mailApi + '/message/' + list.messages[0]!.ID, { signal })).json() as { Text?: string; HTML?: string };
+        return ((message.Text || '') + (message.HTML || '')).match(/\b[0-9]{6}\b/)?.[0] || '';
       }
-      if (!otp) await new Promise(resolve => setTimeout(resolve, 100));
-    }
+      return '';
+    });
     expect(Boolean(otp)).toBe(true);
     const verified = await caller().auth.verifyOtp({ email, token: otp, type: 'email' });
     expect(Boolean(verified.error)).toBe(false); const identity = await proveSession(verified.data.session!.access_token, 'email');

@@ -63,3 +63,12 @@ for(const job of ['auth-disposable','db-security-gate','auth-native-otp'])test(j
     assert.ok(block.includes('--native-otp --captcha-reject --auth-contracts apps/api/test/supabase-sms-hook.local.spec.ts'));
   }
 });
+
+test('native evidence moves each fresh observation even after failure, preventing stale phase reuse',()=>{
+  for(const name of ['phone-native-observations.json','fallback-native-observations.json','captcha-native-observations.json']){
+    const marker='$RUNNER_TEMP/'+name;
+    const line=workflow.split('\n').findIndex(value=>value.includes(marker)&&value.includes('mv ')&&!value.includes('cp '));
+    assert.ok(line>=0,'move current observation before the next phase: '+name);
+    assert.equal(workflow.split('\n')[line+1]?.trim(),'if: always()');
+  }
+});

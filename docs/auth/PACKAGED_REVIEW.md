@@ -1,6 +1,6 @@
 # AUTH v2.1 packaged review
 
-2026-11-18. LOCAL VERIFIED; **not approved for merge, apply or cutover**. Remote CI is NOT RUN at this checkpoint. S6 is NOT STARTED. Staging, provider settings and persistent data were not targeted.
+2026-11-18. LOCAL VERIFIED; **not approved for merge, apply or cutover**. Initial remote CI ran. It passed build/auth-migration/DB gates and exposed a startup-probe port collision and delayed mailbox fixture; deterministic local reds and green fixes are retained. Remote rerun is pending. S6 is NOT STARTED. Staging, provider settings and persistent data were not targeted.
 
 ## Review stack
 
@@ -85,3 +85,7 @@ File ownership is explicit; shared nullable-profile changes occur in contacts an
 | `codex/auth-39-public-company-links` | `167c083` | `codex/review-auth-02-contacts-m1-m2`, `codex/review-auth-06-public-projections` |
 | `codex/auth-40-claim-observability` | `f2855d4` | `codex/review-auth-01-test-infra`, `codex/review-auth-02-contacts-m1-m2`, `codex/review-auth-03-provider-sessions`, `codex/review-auth-06-public-projections` |
 | `codex/auth-41-review-ci` | `43b69c5` | `codex/review-auth-01-test-infra`, `codex/review-auth-06-public-projections` |
+
+## Linux CI fixture follow-up
+
+The complete i18n composition passed native OTP and DB jobs; its full suite failed because a random 40000�44999 startup-probe port collided with an occupied listener. The auth-only branch also retains the five existing Hindi assertions until composed with the separate i18n PR. Startup probes now request port 0 for atomic OS binding. A locally occupied IPv6 socket reproduced the exact EADDRINUSE failure before the fix; the first IPv4-only control did not reproduce it on Windows and is not claimed as a red. Mailbox availability beyond four seconds has a separate deterministic red; readiness is bounded at 15 seconds with abortable reads and still requires a real extracted OTP/provider verification. Original startup/OTP assertions are unchanged. Native observation files now move to phase-specific artifacts even after failure, preventing lost or stale evidence. Local checks: 22 focused PASS, 12 pgTAP PASS, 7 native OTP PASS / one mode skip, 26 offline guards PASS. No application runtime/auth behavior was changed by these fixture fixes.
