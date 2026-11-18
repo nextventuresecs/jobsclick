@@ -36,3 +36,16 @@ test('native database security verification fails on advisor ERROR findings',()=
   const gate=workflow.slice(workflow.indexOf('\n  db-security-gate:'),workflow.indexOf('\n  container-build:'));
   assert.match(gate,/--db-tools/);
 });
+
+test('stacked review pull requests run verification without permitting deployment',()=>{
+  const events=workflow.slice(0,workflow.indexOf('\npermissions:'));
+  const pullRequest=events.slice(events.indexOf('  pull_request:'));
+  assert.ok(events.includes('  pull_request:'),'pull request verification is required');
+  assert.doesNotMatch(pullRequest,/branches(?:-ignore)?:/,'stacked bases need the same verification');
+  for(const job of ['deploy-staging','deploy-production']){
+    const begin=workflow.indexOf('\n  '+job+':');
+    const next=workflow.slice(begin+1).search(/\n  [a-z][a-z-]+:/);
+    const block=next<0?workflow.slice(begin):workflow.slice(begin,begin+1+next);
+    assert.ok(block.includes("if: github.ref == 'refs/heads/main' && github.event_name == 'push'"));
+  }
+});

@@ -9,3 +9,7 @@ Both deployment placeholders deliberately exit 1 with TODO human-approved deploy
 ## 2026-11-18 build/startup dependency (AUTH-05/06)
 
 The verify job builds production packages/web before the full test command: production startup assertions require a real .next/BUILD_ID. Build configuration uses public example.invalid origins and an unreachable local API port, never provider credentials or hosted targets. Runtime authentication validation remains tested separately; a build artifact is not a valid login or permission to deploy. Dedicated auth/database jobs still provision their own disposable stacks; deployment placeholders remain failing. The exact local production workspace build is verified with JWT_SECRET absent, followed by startup integration checks. Remote GitHub Actions remain NOT RUN.
+
+## Follow-up 2 stacked review verification
+
+Pull requests to any base branch receive the same verification jobs, including stacked review units. A failing test first proved that the main-only filter skipped stacked bases. Push/deployment conditions are unchanged: review PR events cannot enter either deployment job. No hosted secret expressions or shared database targets are added. Native advisor ERROR remains a blocking gate. Remote results must be recorded; local offline checks do not substitute for a GitHub Actions run.
