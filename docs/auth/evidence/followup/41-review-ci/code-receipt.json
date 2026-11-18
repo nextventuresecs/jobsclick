@@ -1,0 +1,12 @@
+{
+  "item": "41-review-ci",
+  "kind": "code",
+  "branch": "codex/auth-41-review-ci",
+  "commit": "1dc9ac9d7ac82cd0d74fca83a60051b97c260b98",
+  "files": [
+    ".github/workflows/ci.yml",
+    "scripts/testing/ci-disposable.test.cjs",
+    "docs/auth/CI_DISPOSABLE.md"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}

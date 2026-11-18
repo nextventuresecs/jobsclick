@@ -1,0 +1,36 @@
+Node v24.22.3
+Exit: 0
+
+> indian-job-portal@0.1.0 test:target-guard D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review
+> node --test scripts/testing/disposable-target.test.cjs scripts/testing/disposable-files.test.cjs scripts/testing/standalone-scripts.test.cjs scripts/testing/ci-disposable.test.cjs scripts/testing/disposable-environment.test.cjs scripts/testing/node-runtime.test.cjs
+
+✔ AUTH CI runs a dedicated disposable migration contract job (1.2771ms)
+✔ AUTH CI contains no shared database targets, credentials or secret expressions (0.3193ms)
+✔ deploy-staging cannot report success from a placeholder (0.3131ms)
+✔ deploy-production cannot report success from a placeholder (0.3768ms)
+✔ full-suite CI produces the production artifact before startup integration assertions (1.7613ms)
+✔ native database security verification fails on advisor ERROR findings (1.1578ms)
+✔ stacked review pull requests run verification without permitting deployment (0.2759ms)
+✔ disposable child processes never inherit parent credentials, provider settings or runtime injection (114.9039ms)
+✔ disposable children retain OS tool discovery and force local telemetry opt-out (2.1713ms)
+✔ test-mode JSON persistence refuses an unmarked working directory (1576.6393ms)
+✔ JSON fixtures live only under the marked run directory (1538.2765ms)
+✔ rejects the persistent dev DB even with an explicit opt-in flag (2.2991ms)
+✔ rejects missing or mismatched run manifests (0.5815ms)
+✔ accepts only the exact provisioned localhost endpoints (0.7248ms)
+✔ network backstop rejects hardcoded dev ports and remote connections (3.5191ms)
+✔ parses CLI v3 status JSON surrounded by local startup notices (1.2689ms)
+✔ standalone database tools refuse an absent run marker before connecting (0.3195ms)
+✔ one exact Node runtime for local, CI and all production containers (9.4043ms)
+✔ db-security-drill.ts refuses an unmarked target before opening a connection (1285.1523ms)
+✔ smoke-postgrest.ts refuses an unmarked target before opening a connection (1207.5634ms)
+✔ generate-types.js refuses an unmarked target before opening a connection (1198.6246ms)
+✔ fresh drill refuses caller-selected databases (1156.6464ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11978.8113
