@@ -1,0 +1,7 @@
+{
+  "file": "apps/api/test/sponsorship-boundaries.spec.ts",
+  "unchangedSince": "4bd8920",
+  "wholeFileDiffEmpty": true,
+  "sha256": "b6fc13497a2cd2ac83290d07c6dec700127bade463613e89b40c3a3ba42bbe3f",
+  "priorSevenDeclarationComparison": "../payments/original-test-integrity.json"
+}

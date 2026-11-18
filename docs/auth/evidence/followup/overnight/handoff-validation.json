@@ -1,0 +1,38 @@
+{
+  "checkedRelativeLinks": 86,
+  "brokenLinks": [],
+  "fullSuite": {
+    "passed": 1105,
+    "skipped": 12,
+    "total": 1117
+  },
+  "migrationTreeUnchangedSince": "4bd8920",
+  "originalCheckoutSnapshotsIdentical": true,
+  "sourceGates": [
+    {
+      "item": "25-test-environment",
+      "commit": "d6850826096384c61d1bbf4c5df3cad94e91293c"
+    },
+    {
+      "item": "26-native-fixtures",
+      "commit": "41b708541d06daf53ad988c92e4331d21bd1d170"
+    },
+    {
+      "item": "27-privacy-contracts",
+      "commit": "88e81d48ea021f67229c0b05ab7d505833f08532"
+    },
+    {
+      "item": "28-hindi-routing",
+      "commit": "c6216556f0c67e03bc4852a3d575178b9ea35eb1"
+    },
+    {
+      "item": "29-provider-revocation",
+      "commit": "118c09cb311d0983da47393115228de6a8c02e01"
+    },
+    {
+      "item": "30-ci-build-order",
+      "commit": "59069f8222a00aead25f43f8211b6a6df85fa43f"
+    }
+  ],
+  "validatedAt": "2026-11-18T02:13:55.720Z"
+}

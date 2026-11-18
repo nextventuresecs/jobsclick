@@ -1,0 +1,11 @@
+{
+  "project": "jc-auth-test-4379e5ea",
+  "issuerMatches": true,
+  "audience": "authenticated",
+  "issuedAt": 1794967181,
+  "expiresAt": 1794968081,
+  "hostNow": 1794967181,
+  "hasUuidSession": true,
+  "hasUuidSubject": true,
+  "anonymous": false
+}

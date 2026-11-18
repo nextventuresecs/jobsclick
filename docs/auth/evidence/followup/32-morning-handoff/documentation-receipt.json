@@ -1,0 +1,14 @@
+{
+  "item": "32-morning-handoff",
+  "kind": "documentation",
+  "branch": "codex/auth-32-morning-handoff",
+  "commit": "527c7cc9c1afbe5a4cd9bb3b05afeb72c6b7f062",
+  "files": [
+    "docs/auth/MORNING_HANDOFF.md",
+    "docs/auth/REVIEW_PACKET.md",
+    "docs/auth/BLOCKED.md",
+    "docs/auth/S4_SMS_HOOK_PLAN.md",
+    "docs/auth/GENERATED_TYPES.md"
+  ],
+  "gate": "no code changes; whitespace and explicit-file selection checked"
+}

@@ -1,0 +1,16 @@
+Project: jc-auth-test-8208c984
+Exit: 0
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ✓ apps/api/test/auth-native-otp.local.spec.ts (7 tests | 1 skipped) 3016ms
+   ✓ AUTH-01/03 real GoTrue OTP, hook and CAPTCHA > completes phone OTP through a real signed hook and claims the preserved invited UUID 679ms
+   ✓ AUTH-01/03 real GoTrue OTP, hook and CAPTCHA > requires fresh CAPTCHA on a direct resend and does not double-send 1345ms
+   ✓ AUTH-01/03 real GoTrue OTP, hook and CAPTCHA > records actual GoTrue IPs for direct and server-side API calls 390ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed | 1 skipped (7)
+   Start at  07:33:53
+   Duration  11.68s (transform 272ms, setup 2.56s, collect 628ms, tests 3.02s, environment 0ms, prepare 165ms)
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
