@@ -1,0 +1,152 @@
+Project: jc-auth-test-a3ec7e6b
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ apps/api/test/public-projections-native.local.spec.ts (9 tests | 9 failed) 579ms
+   × AUTH-05 F0-f native public API projection boundary > serves published company/institution directories through actual unauthenticated API routes 79ms
+     → expected 404 to be 200 // Object.is equality
+   × AUTH-05 F0-f native public API projection boundary > uses explicit non-PII public detail projections without owner/contact/internal fields 78ms
+     → the given combination of arguments (undefined and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+   × AUTH-05 F0-f native public API projection boundary > hides invited owners on public details and CMS 52ms
+     → expected 200 to be 404 // Object.is equality
+   × AUTH-05 F0-f native public API projection boundary > hides disabled owners on public details and CMS 27ms
+     → expected 200 to be 404 // Object.is equality
+   × AUTH-05 F0-f native public API projection boundary > hides erased owners on public details and CMS 51ms
+     → expected 200 to be 404 // Object.is equality
+   × AUTH-05 F0-f native public API projection boundary > hides unpublished owners on public details and CMS 39ms
+     → expected 200 to be 404 // Object.is equality
+   × AUTH-05 F0-f native public API projection boundary > keeps job search on public projections rather than a private table/RPC fallback 49ms
+     → expected { …(21) } to not have property "source"
+   × AUTH-05 F0-f native public API projection boundary > publishes only on explicit authenticated owner intent and preserves it on ordinary edits 61ms
+     → expected [ { is_published: false } ] to deeply equal [ { is_published: true } ]
+   × AUTH-05 F0-f native public API projection boundary > does not expose private roster routes or admit a phone-derived slug 25ms
+     → expected 500 to be 404 // Object.is equality
+
+ Test Files  1 failed (1)
+      Tests  9 failed (9)
+   Start at  14:06:59
+   Duration  12.47s (transform 872ms, setup 3.65s, collect 2.89s, tests 579ms, environment 0ms, prepare 228ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+Sourcemap for "D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/@bull-board+api@5.21.0_@bull-board+ui@5.21.0/node_modules/@bull-board/api/dist/src/index.js" points to missing source files
+Sourcemap for "D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/@bull-board+fastify@5.21.0/node_modules/@bull-board/fastify/dist/index.js" points to missing source files
+[Nest] 6980  - 11/18/2026, 2:07:11 PM   ERROR [HttpExceptionFilter] HTTP 500 on GET /profiles/business/usr_9876543210: DATABASE_ERROR: invalid input syntax for type uuid: "usr_9876543210"
+InternalServerErrorException: DATABASE_ERROR: invalid input syntax for type uuid: "usr_9876543210"
+    at ProfileRepository.findBusinessProfileById (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\apps\api\src\database\repositories\profile.repository.ts:190:17)
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at ProfilesService.getBusinessProfilePublic (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\apps\api\src\profiles\profiles.service.ts:247:21)
+    at D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2\node_modules\@nestjs\core\router\router-execution-context.js:46:28
+    at Object.<anonymous> (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2\node_modules\@nestjs\core\router\router-proxy.js:9:17)
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/public-projections-native.local.spec.ts > AUTH-05 F0-f native public API projection boundary > serves published company/institution directories through actual unauthenticated API routes
+AssertionError: expected 404 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 404
+
+ ❯ apps/api/test/public-projections-native.local.spec.ts:48:35
+     46|     for(const [kind,id] of [['business',f.company],['institution',f.in…
+     47|       const response=await app.inject({method:'GET',url:'/profiles/'+k…
+     48|       expect(response.statusCode).toBe(200);expect(response.headers['c…
+       |                                   ^
+     49|       const rows=response.json() as {id:string}[];expect(rows.some(row…
+     50|       expect(response.body).not.toContain('private-owner');expect(resp…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+ FAIL  apps/api/test/public-projections-native.local.spec.ts > AUTH-05 F0-f native public API projection boundary > uses explicit non-PII public detail projections without owner/contact/internal fields
+AssertionError: the given combination of arguments (undefined and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ ❯ apps/api/test/public-projections-native.local.spec.ts:58:49
+     56|     for(const path of ['/profiles/business/'+f.company,'/profiles/inst…
+     57|       const response=await app.inject({method:'GET',url:path});expect(…
+     58|       expect(response.headers['cache-control']).toContain('no-store');
+       |                                                 ^
+     59|       const data=response.json() as Record<string,unknown>;
+     60|       for(const key of ['phone','email','contactPhone','contactEmail',…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+
+ FAIL  apps/api/test/public-projections-native.local.spec.ts > AUTH-05 F0-f native public API projection boundary > hides invited owners on public details and CMS
+ FAIL  apps/api/test/public-projections-native.local.spec.ts > AUTH-05 F0-f native public API projection boundary > hides disabled owners on public details and CMS
+ FAIL  apps/api/test/public-projections-native.local.spec.ts > AUTH-05 F0-f native public API projection boundary > hides erased owners on public details and CMS
+ FAIL  apps/api/test/public-projections-native.local.spec.ts > AUTH-05 F0-f native public API projection boundary > hides unpublished owners on public details and CMS
+AssertionError: expected 200 to be 404 // Object.is equality
+
+- Expected
++ Received
+
+- 404
++ 200
+
+ ❯ apps/api/test/public-projections-native.local.spec.ts:67:70
+     65|     const f=await fixture(state);
+     66|     for(const path of ['/profiles/business/'+f.company,'/profiles/inst…
+     67|       expect((await app.inject({method:'GET',url:path})).statusCode).t…
+       |                                                                      ^
+     68|     }
+     69|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
+
+ FAIL  apps/api/test/public-projections-native.local.spec.ts > AUTH-05 F0-f native public API projection boundary > keeps job search on public projections rather than a private table/RPC fallback
+AssertionError: expected { …(21) } to not have property "source"
+
+- Expected: 
+undefined
+
++ Received: 
+"never-public-source"
+
+ ❯ apps/api/test/public-projections-native.local.spec.ts:74:51
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯
+
+ FAIL  apps/api/test/public-projections-native.local.spec.ts > AUTH-05 F0-f native public API projection boundary > publishes only on explicit authenticated owner intent and preserves it on ordinary edits
+AssertionError: expected [ { is_published: false } ] to deeply equal [ { is_published: true } ]
+
+- Expected
++ Received
+
+  Array [
+    Object {
+-     "is_published": true,
++     "is_published": false,
+    },
+  ]
+
+ ❯ apps/api/test/public-projections-native.local.spec.ts:83:112
+     81|     const body={companyName:marker+' published',ownershipType:'Private…
+     82|     const updated=await app.inject({method:'PUT',url:'/profiles/busine…
+     83|     expect((await db.query('select is_published from public.business_p…
+       |                                                                                                                ^
+     84|     expect((await app.inject({method:'GET',url:'/profiles/business/'+f…
+     85|     const {isPublished:_flag,...edit}=body;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
+
+ FAIL  apps/api/test/public-projections-native.local.spec.ts > AUTH-05 F0-f native public API projection boundary > does not expose private roster routes or admit a phone-derived slug
+AssertionError: expected 500 to be 404 // Object.is equality
+
+- Expected
++ Received
+
+- 404
++ 500
+
+ ❯ apps/api/test/public-projections-native.local.spec.ts:91:99
+     89|   it('does not expose private roster routes or admit a phone-derived s…
+     90|     expect((await app.inject({method:'GET',url:'/profiles/institution/…
+     91|     expect((await app.inject({method:'GET',url:'/profiles/business/usr…
+       |                                                                                                   ^
+     92|   });
+     93| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
+

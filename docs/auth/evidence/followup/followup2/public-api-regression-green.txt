@@ -1,0 +1,85 @@
+Project: jc-auth-test-811de38e
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ✓ apps/web/test/ticket-t11-missing-routes.test.ts (6 tests) 1499ms
+   ✓ Ticket T-11: Missing Routes (/how-it-works, /institutions) > exports HowItWorksPage server component with SEO metadata 1339ms
+ ❯ apps/api/test/auth-rls.e2e-spec.ts (5 tests | 1 failed) 1848ms
+   ✓ T-02: Row-Level Security (RLS) & API Auth Guards (E2E) > prevents User A from modifying or deleting User B job (Enforced at API & Tenancy layers) 682ms
+   × T-02: Row-Level Security (RLS) & API Auth Guards (E2E) > prevents User A from viewing User B private job applications 45ms
+     → expected 404 to be 201 // Object.is equality
+ ✓ apps/api/test/ticket-t10-workspace-apply.e2e-spec.ts (5 tests) 1940ms
+ ✓ apps/api/test/jobs.e2e-spec.ts (4 tests) 1942ms
+   ✓ JobsController (e2e) - Issues #13, #14, #15 > POST /jobs & GET /jobs - creates job posting and searches by keyword/category (JOB-01, JOB-02) 459ms
+ ✓ apps/api/test/wallet.e2e-spec.ts (6 tests) 2022ms
+   ✓ Ticket T-15: Credit Wallet Ledger & Dynamic Balance Engine (WAL-01, WAL-02, WAL-04 & Hard Invariant #7) > AC #2 & WAL-02: Job seekers receive 10 free applications; 11th application prompts for credit recharge 1018ms
+ ✓ apps/api/test/acceptance-walkthrough.e2e-spec.ts (4 tests) 2113ms
+   ✓ PRD 14.1 Full Acceptance Walkthrough (Epic 6 Launch Readiness) > runs complete end-to-end user workflow vs PRD 14.1 (Issue #29) 1146ms
+ ✓ apps/api/test/persistence.e2e-spec.ts (4 tests) 2309ms
+   ✓ T-01: Database Persistence Across API Restarts (E2E) > persists jobs, seeker profiles, and applications across service reboots 2293ms
+ ✓ apps/api/test/public-job-discovery.e2e-spec.ts (10 tests) 2593ms
+ ✓ apps/api/test/institution-cms.e2e-spec.ts (6 tests) 2173ms
+ ✓ apps/api/test/jobs-featured-alerts.spec.ts (16 tests) 2547ms
+ ✓ apps/api/test/public-projections-native.local.spec.ts (9 tests) 3033ms
+   ✓ AUTH-05 F0-f native public API projection boundary > serves published company/institution directories through actual unauthenticated API routes 1024ms
+   ✓ AUTH-05 F0-f native public API projection boundary > uses explicit non-PII public detail projections without owner/contact/internal fields 376ms
+
+ Test Files  1 failed | 10 passed (11)
+      Tests  1 failed | 74 passed (75)
+   Start at  14:44:49
+   Duration  52.12s (transform 3.58s, setup 164.34s, collect 100.01s, tests 24.02s, environment 6ms, prepare 7.37s)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+Sourcemap for "D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/@bull-board+api@5.21.0_@bull-board+ui@5.21.0/node_modules/@bull-board/api/dist/src/index.js" points to missing source files
+Sourcemap for "D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/@bull-board+fastify@5.21.0/node_modules/@bull-board/fastify/dist/index.js" points to missing source files
+stderr | apps/api/test/acceptance-walkthrough.e2e-spec.ts
+================================================================
+[SYNTHETIC FACADE: Not evidence of live load testing or speed]
+================================================================
+
+stderr | apps/api/test/acceptance-walkthrough.e2e-spec.ts
+================================================================
+[SYNTHETIC FACADE: Not evidence of authentic backup or restore]
+================================================================
+
+stderr | apps/api/test/acceptance-walkthrough.e2e-spec.ts
+================================================================
+[SYNTHETIC FACADE: Not evidence of security compliance or audit]
+================================================================
+
+[Nest] 37944  - 11/18/2026, 2:45:28 PM   ERROR [JobRepository] Error fetching job test-db-drop-id from Supabase: Connection terminated unexpectedly: PG_CONNECTION_DROP
+[Nest] 37944  - 11/18/2026, 2:45:28 PM   ERROR [JobRepository] Error executing findMany query: Database timeout
+ETIMEDOUT
+[Nest] 33936  - 11/18/2026, 2:45:28 PM   ERROR [HttpExceptionFilter] HTTP 500 on POST /jobs/0026a283-ba65-4781-bfe6-1ed557da7cea/promote: Simulated database write failure during job update
+Error: Simulated database write failure during job update
+    at JobRepository.jobRepository.update (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\apps\api\test\jobs-featured-alerts.spec.ts:220:17)
+    at D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\apps\api\src\database\repositories\job.repository.ts:349:39
+    at processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at PersistentDatabaseStore.withLock (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\apps\api\src\database\supabase.provider.ts:104:14)
+    at JobsService.promoteJob (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\apps\api\src\jobs\jobs.service.ts:354:20)
+    at D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2\node_modules\@nestjs\core\router\router-execution-context.js:46:28
+    at Object.<anonymous> (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\node_modules\.pnpm\@nestjs+core@10.4.22_@nestjs+common@10.4.22_reflect-metadata@0.2.2_rxjs@7.8.2__reflect-metadata@0.2.2_rxjs@7.8.2\node_modules\@nestjs\core\router\router-proxy.js:9:17)
+[Nest] 1832  - 11/18/2026, 2:45:28 PM   ERROR [JobRepository] Error fetching job job_test_fail_closed from Supabase: Connection refused: connection to server at "postgres.production" failed
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/api/test/auth-rls.e2e-spec.ts > T-02: Row-Level Security (RLS) & API Auth Guards (E2E) > prevents User A from viewing User B private job applications
+AssertionError: expected 404 to be 201 // Object.is equality
+
+- Expected
++ Received
+
+- 201
++ 404
+
+ ❯ apps/api/test/auth-rls.e2e-spec.ts:159:33
+    157|       headers: { 'x-user-id': candidate },
+    158|     });
+    159|     expect(applyRes.statusCode).toBe(201);
+       |                                 ^
+    160| 
+    161|     // 3. User A attempts to view applications for User B's job
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

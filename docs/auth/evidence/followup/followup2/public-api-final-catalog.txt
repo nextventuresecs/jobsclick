@@ -1,0 +1,353 @@
+Project: jc-auth-test-da61361b
+Exit: 0
+Running Catalog Security Assertion against: postgresql://postgres:****@127.0.0.1:59584/postgres
+
+======================================================
+📊 CATALOG CHECK RESULTS:
+======================================================
+✅ All prosecdef functions have pinned search_path
+   Details: "All 10 security definer functions in public schema have search_path=public, pg_temp"
+✅ Zero prosecdef functions callable by anon or authenticated
+   Details: "Zero execute privileges for PUBLIC/anon/authenticated on SECURITY DEFINER functions"
+✅ All base tables have RLS enabled (relrowsecurity = true)
+   Details: {
+  "total_tables": 23,
+  "tables_with_rls": 23,
+  "unprotected": []
+}
+✅ Zero base table grants to anon or authenticated
+   Details: "All base tables revoked from anon & authenticated"
+✅ Option A: invoker projections, service read, zero effective client SELECT
+   Details: [
+  {
+    "relname": "public_business_profiles",
+    "reloptions": [
+      "security_invoker=true"
+    ],
+    "anon_read": false,
+    "authenticated_read": false,
+    "service_read": true,
+    "invoker": true
+  },
+  {
+    "relname": "public_institution_profiles",
+    "reloptions": [
+      "security_invoker=true"
+    ],
+    "anon_read": false,
+    "authenticated_read": false,
+    "service_read": true,
+    "invoker": true
+  },
+  {
+    "relname": "public_jobs",
+    "reloptions": [
+      "security_invoker=true"
+    ],
+    "anon_read": false,
+    "authenticated_read": false,
+    "service_read": true,
+    "invoker": true
+  }
+]
+✅ Private storage bucket exists and public = false
+   Details: {
+  "id": "private",
+  "name": "private",
+  "public": false,
+  "file_size_limit": "10485760",
+  "allowed_mime_types": [
+    "text/csv",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  ]
+}
+✅ Immutability triggers configured on audit_logs and credit_ledgers
+   Details: [
+  {
+    "table_name": "audit_logs",
+    "tgname": "audit_log_immutable_delete_trigger"
+  },
+  {
+    "table_name": "audit_logs",
+    "tgname": "audit_log_immutable_update_trigger"
+  },
+  {
+    "table_name": "credit_ledgers",
+    "tgname": "credit_ledger_immutable_delete_trigger"
+  },
+  {
+    "table_name": "credit_ledgers",
+    "tgname": "credit_ledger_immutable_update_trigger"
+  }
+]
+✅ prohibit_truncate_trigger is SECURITY INVOKER with empty search_path across 7 tables
+   Details: {
+  "triggers_count": 7,
+  "triggers": [
+    {
+      "table_name": "alert_deliveries",
+      "tgname": "alert_deliveries_prohibit_truncate_trigger"
+    },
+    {
+      "table_name": "audit_logs",
+      "tgname": "audit_log_prohibit_truncate_trigger"
+    },
+    {
+      "table_name": "broadcast_campaigns",
+      "tgname": "broadcast_campaigns_prohibit_truncate_trigger"
+    },
+    {
+      "table_name": "broadcast_deliveries",
+      "tgname": "broadcast_deliveries_prohibit_truncate_trigger"
+    },
+    {
+      "table_name": "credit_ledgers",
+      "tgname": "credit_ledger_prohibit_truncate_trigger"
+    },
+    {
+      "table_name": "institution_sponsorships",
+      "tgname": "sponsorships_prohibit_truncate_trigger"
+    },
+    {
+      "table_name": "payments",
+      "tgname": "payments_prohibit_truncate_trigger"
+    }
+  ],
+  "function": {
+    "proname": "prohibit_truncate_trigger",
+    "prosecdef": false,
+    "proconfig": [
+      "search_path=\"\""
+    ]
+  }
+}
+✅ Default privileges in public schema across object-creating roles revoke all from anon, authenticated, and PUBLIC
+   Details: {
+  "total_default_acls_in_catalog": 27,
+  "full_catalog_dump": [
+    {
+      "defaclobjtype": "S",
+      "defaclacl": "{postgres=rwU/supabase_auth_admin,dashboard_user=rwU/supabase_auth_admin}",
+      "rolname": "supabase_auth_admin",
+      "nspname": "auth",
+      "can_create_in_public": false,
+      "creates_objects_in_public": false
+    },
+    {
+      "defaclobjtype": "f",
+      "defaclacl": "{postgres=X/supabase_auth_admin,dashboard_user=X/supabase_auth_admin}",
+      "rolname": "supabase_auth_admin",
+      "nspname": "auth",
+      "can_create_in_public": false,
+      "creates_objects_in_public": false
+    },
+    {
+      "defaclobjtype": "r",
+      "defaclacl": "{postgres=arwdDxtm/supabase_auth_admin,dashboard_user=arwdDxtm/supabase_auth_admin}",
+      "rolname": "supabase_auth_admin",
+      "nspname": "auth",
+      "can_create_in_public": false,
+      "creates_objects_in_public": false
+    },
+    {
+      "defaclobjtype": "S",
+      "defaclacl": "{postgres=r*w*U*/supabase_admin}",
+      "rolname": "supabase_admin",
+      "nspname": "extensions",
+      "can_create_in_public": true,
+      "creates_objects_in_public": false
+    },
+    {
+      "defaclobjtype": "f",
+      "defaclacl": "{postgres=X*/supabase_admin}",
+      "rolname": "supabase_admin",
+      "nspname": "extensions",
+      "can_create_in_public": true,
+      "creates_objects_in_public": false
+    },
+    {
+      "defaclobjtype": "r",
+      "defaclacl": "{postgres=a*r*w*d*D*x*t*m*/supabase_admin}",
+      "rolname": "supabase_admin",
+      "nspname": "extensions",
+      "can_create_in_public": true,
+      "creates_objects_in_public": false
+    },
+    {
+      "defaclobjtype": "S",
+      "defaclacl": "{postgres=rwU/supabase_admin,anon=rwU/supabase_admin,authenticated=rwU/supabase_admin,service_role=rwU/supabase_admin}",
+      "rolname": "supabase_admin",
+      "nspname": "graphql",
+      "can_create_in_public": true,
+      "creates_objects_in_public": false
+    },
+    {
+      "defaclobjtype": "f",
+      "defaclacl": "{postgres=X/supabase_admin,anon=X/supabase_admin,authenticated=X/supabase_admin,service_role=X/supabase_admin}",
+      "rolname": "supabase_admin",
+      "nspname": "graphql",
+      "can_create_in_public": true,
+      "creates_objects_in_public": false
+    },
+    {
+      "defaclobjtype": "r",
+      "defaclacl": "{postgres=arwdDxtm/supabase_admin,anon=arwdDxtm/supabase_admin,authenticated=arwdDxtm/supabase_admin,service_role=arwdDxtm/supabase_admin}",
+      "rolname": "supabase_admin",
+      "nspname": "graphql",
+      "can_create_in_public": true,
+      "creates_objects_in_public": false
+    },
+    {
+      "defaclobjtype": "S",
+      "defaclacl": "{postgres=rwU/supabase_admin,anon=rwU/supabase_admin,authenticated=rwU/supabase_admin,service_role=rwU/supabase_admin}",
+      "rolname": "supabase_admin",
+      "nspname": "graphql_public",
+      "can_create_in_public": true,
+      "creates_objects_in_public": false
+    },
+    {
+      "defaclobjtype": "f",
+      "defaclacl": "{postgres=X/supabase_admin,anon=X/supabase_admin,authenticated=X/supabase_admin,service_role=X/supabase_admin}",
+      "rolname": "supabase_admin",
+      "nspname": "graphql_public",
+      "can_create_in_public": true,
+      "creates_objects_in_public": false
+    },
+    {
+      "defaclobjtype": "r",
+      "defaclacl": "{postgres=arwdDxtm/supabase_admin,anon=arwdDxtm/supabase_admin,authenticated=arwdDxtm/supabase_admin,service_role=arwdDxtm/supabase_admin}",
+      "rolname": "supabase_admin",
+      "nspname": "graphql_public",
+      "can_create_in_public": true,
+      "creates_objects_in_public": false
+    },
+    {
+      "defaclobjtype": "S",
+      "defaclacl": "{postgres=rwU/postgres,service_role=rwU/postgres}",
+      "rolname": "postgres",
+      "nspname": "public",
+      "can_create_in_public": true,
+      "creates_objects_in_public": true
+    },
+    {
+      "defaclobjtype": "f",
+      "defaclacl": "{postgres=X/postgres,service_role=X/postgres}",
+      "rolname": "postgres",
+      "nspname": "public",
+      "can_create_in_public": true,
+      "creates_objects_in_public": true
+    },
+    {
+      "defaclobjtype": "r",
+      "defaclacl": "{postgres=arwdDxtm/postgres,service_role=arwdxtm/postgres}",
+      "rolname": "postgres",
+      "nspname": "public",
+      "can_create_in_public": true,
+      "creates_objects_in_public": true
+    },
+    {
+      "defaclobjtype": "S",
+      "defaclacl": "{postgres=rwU/supabase_admin,anon=rwU/supabase_admin,authenticated=rwU/supabase_admin,service_role=rwU/supabase_admin}",
+      "rolname": "supabase_admin",
+      "nspname": "public",
+      "can_create_in_public": true,
+      "creates_objects_in_public": false
+    },
+    {
+      "defaclobjtype": "f",
+      "defaclacl": "{postgres=X/supabase_admin,anon=X/supabase_admin,authenticated=X/supabase_admin,service_role=X/supabase_admin}",
+      "rolname": "supabase_admin",
+      "nspname": "public",
+      "can_create_in_public": true,
+      "creates_objects_in_public": false
+    },
+    {
+      "defaclobjtype": "r",
+      "defaclacl": "{postgres=arwdDxtm/supabase_admin,anon=arwdDxtm/supabase_admin,authenticated=arwdDxtm/supabase_admin,service_role=arwdDxtm/supabase_admin}",
+      "rolname": "supabase_admin",
+      "nspname": "public",
+      "can_create_in_public": true,
+      "creates_objects_in_public": false
+    },
+    {
+      "defaclobjtype": "S",
+      "defaclacl": "{postgres=rwU/supabase_admin,dashboard_user=rwU/supabase_admin}",
+      "rolname": "supabase_admin",
+      "nspname": "realtime",
+      "can_create_in_public": true,
+      "creates_objects_in_public": false
+    },
+    {
+      "defaclobjtype": "f",
+      "defaclacl": "{postgres=X/supabase_admin,dashboard_user=X/supabase_admin}",
+      "rolname": "supabase_admin",
+      "nspname": "realtime",
+      "can_create_in_public": true,
+      "creates_objects_in_public": false
+    },
+    {
+      "defaclobjtype": "r",
+      "defaclacl": "{postgres=arwdDxtm/supabase_admin,dashboard_user=arwdDxtm/supabase_admin}",
+      "rolname": "supabase_admin",
+      "nspname": "realtime",
+      "can_create_in_public": true,
+      "creates_objects_in_public": false
+    },
+    {
+      "defaclobjtype": "S",
+      "defaclacl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+      "rolname": "postgres",
+      "nspname": "storage",
+      "can_create_in_public": true,
+      "creates_objects_in_public": true
+    },
+    {
+      "defaclobjtype": "f",
+      "defaclacl": "{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+      "rolname": "postgres",
+      "nspname": "storage",
+      "can_create_in_public": true,
+      "creates_objects_in_public": true
+    },
+    {
+      "defaclobjtype": "r",
+      "defaclacl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+      "rolname": "postgres",
+      "nspname": "storage",
+      "can_create_in_public": true,
+      "creates_objects_in_public": true
+    },
+    {
+      "defaclobjtype": "S",
+      "defaclacl": "{postgres=rwU/supabase_admin,anon=rwU/supabase_admin,authenticated=rwU/supabase_admin,service_role=rwU/supabase_admin}",
+      "rolname": "supabase_admin",
+      "nspname": "supabase_functions",
+      "can_create_in_public": true,
+      "creates_objects_in_public": false
+    },
+    {
+      "defaclobjtype": "f",
+      "defaclacl": "{postgres=X/supabase_admin,anon=X/supabase_admin,authenticated=X/supabase_admin,service_role=X/supabase_admin}",
+      "rolname": "supabase_admin",
+      "nspname": "supabase_functions",
+      "can_create_in_public": true,
+      "creates_objects_in_public": false
+    },
+    {
+      "defaclobjtype": "r",
+      "defaclacl": "{postgres=arwdDxtm/supabase_admin,anon=arwdDxtm/supabase_admin,authenticated=arwdDxtm/supabase_admin,service_role=arwdDxtm/supabase_admin}",
+      "rolname": "supabase_admin",
+      "nspname": "supabase_functions",
+      "can_create_in_public": true,
+      "creates_objects_in_public": false
+    }
+  ],
+  "public_scope_violations": []
+}
+======================================================
+🎉 ALL CATALOG CHECKS PASSED!
+(node:38512) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal-remediation/.scratch/auth-review/scripts/db-catalog-check.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
