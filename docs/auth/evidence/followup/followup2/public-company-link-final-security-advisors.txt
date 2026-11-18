@@ -1,0 +1,7 @@
+Project: jc-auth-test-6b71c992
+Exit: 0
+{"results":[],"message":"db advisors","target":{"kind":"local","host":"127.0.0.1","port":51159}}
+Target: local stack (127.0.0.1:51159)
+No issues found
+A new version of Supabase CLI is available: v3.2.0 (currently installed v3.1.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

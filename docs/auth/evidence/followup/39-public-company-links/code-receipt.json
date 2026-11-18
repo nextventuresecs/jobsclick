@@ -1,0 +1,17 @@
+{
+  "item": "39-public-company-links",
+  "kind": "code",
+  "branch": "codex/auth-39-public-company-links",
+  "commit": "275e98602e7d12839a997f804b0db61825385898",
+  "files": [
+    "apps/api/src/database/repositories/public-discovery.repository.ts",
+    "apps/api/test/public-projections-native.local.spec.ts",
+    "docs/auth/FOLLOWUP_2_REVIEW.md",
+    "packages/database/src/generated.types.ts",
+    "packages/database/src/index.ts",
+    "packages/database/supabase/migrations/20261118102745_public_job_company_slugs.sql",
+    "supabase/migrations/20261118102745_public_job_company_slugs.sql",
+    "supabase/rollbacks/20261118102745_public_job_company_slugs.sql"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}
