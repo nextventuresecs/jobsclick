@@ -1,3 +1,5 @@
+import { publishEmployerFixture } from './fixtures/published-employer.js';
+import { randomUUID } from 'node:crypto';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -14,8 +16,8 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
   let walletService: WalletService;
   let jobRepository: JobRepository;
 
-  const employerId = `emp_t21_${Date.now()}`;
-  const otherEmployerId = `emp_other_${Date.now()}`;
+  const employerId = randomUUID();
+  const otherEmployerId = randomUUID();
   const candidateId = `cand_t21_${Date.now()}`;
 
   let organicJobId: string;
@@ -41,6 +43,8 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
 
+    await publishEmployerFixture(app,employerId);
+    await publishEmployerFixture(app,otherEmployerId);
     walletService = app.get(WalletService);
     jobRepository = app.get(JobRepository);
   });

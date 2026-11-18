@@ -87,19 +87,21 @@ export async function runCatalogCheck(connectionString: string): Promise<Catalog
     details: baseTableGrants.rows.length === 0 ? 'All base tables revoked from anon & authenticated' : baseTableGrants.rows,
   });
 
-  // Check 5: Only public_* views granted SELECT to anon / authenticated
+  // Check 5: Option A keeps projections private and explicitly invoker-secured.
   const viewGrants = await client.query(`
-    SELECT grantee, table_name, privilege_type
-    FROM information_schema.role_table_grants
-    WHERE table_schema = 'public'
-      AND grantee IN ('anon', 'authenticated')
-      AND table_name IN ('public_business_profiles', 'public_institution_profiles', 'public_jobs')
-    ORDER BY table_name, grantee;
+    SELECT c.relname, c.reloptions,
+      has_table_privilege('anon',c.oid,'SELECT') AS anon_read,
+      has_table_privilege('authenticated',c.oid,'SELECT') AS authenticated_read,
+      has_table_privilege('service_role',c.oid,'SELECT') AS service_read,
+      coalesce(c.reloptions,'{}') @> array['security_invoker=true'] AS invoker
+    FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND c.relkind='v'
+      AND c.relname IN ('public_business_profiles','public_institution_profiles','public_jobs')
+    ORDER BY c.relname;
   `);
-  const expectedViewCount = 6; // 3 views * 2 roles (anon, authenticated)
   checks.push({
-    name: 'Public non-PII views granted SELECT to anon and authenticated',
-    passed: viewGrants.rows.length === expectedViewCount && viewGrants.rows.every((r) => r.privilege_type === 'SELECT'),
+    name: 'Option A: invoker projections, service read, zero effective client SELECT',
+    passed: viewGrants.rows.length === 3 && viewGrants.rows.every(row => row.invoker && row.service_read && !row.anon_read && !row.authenticated_read),
     details: viewGrants.rows,
   });
 

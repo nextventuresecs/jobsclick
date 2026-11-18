@@ -9,6 +9,8 @@ import { CompanyBasicDetailsFields } from './CompanyBasicDetailsFields';
 import { CompanyGovAndSocialFields } from './CompanyGovAndSocialFields';
 
 export interface CompanyEditFormData {
+  formIsPublished: boolean;
+  setFormIsPublished: (value: boolean) => void;
   formOrgName: string;
   setFormOrgName: (val: string) => void;
   formOwnership: CompanyItem['ownershipType'];
@@ -91,6 +93,11 @@ export function CompanyProfileForm({ formData: d, onSubmit, onCancel }: CompanyP
           </Button>
         </div>
       </div>
+
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={d.formIsPublished} onChange={event => d.setFormIsPublished(event.target.checked)} />
+        {t('publishProfile')}
+      </label>
 
       {/* Sections 1, 2, 3, 4 */}
       <CompanyBasicDetailsFields formData={d} />

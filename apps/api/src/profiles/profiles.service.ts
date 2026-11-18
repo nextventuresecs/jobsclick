@@ -1,3 +1,4 @@
+import { PublicDiscoveryRepository } from '../database/repositories/public-discovery.repository.js';
 import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import {
@@ -36,6 +37,7 @@ export interface InstitutionProfileRecord extends InstitutionProfileInput {
 @Injectable()
 export class ProfilesService {
   constructor(
+    @Inject(PublicDiscoveryRepository) private readonly publicDiscovery: PublicDiscoveryRepository,
     @Inject(ProfileRepository) private readonly profileRepository: ProfileRepository,
     @Inject(UserRepository) private readonly userRepository: UserRepository,
   ) {}
@@ -193,6 +195,7 @@ export class ProfilesService {
       id: profile.id,
       userId: profile.user_id,
       companyName: profile.company_name,
+      isPublished: profile.is_published ?? false,
       ownershipType: profile.ownership_type as BusinessProfileInput['ownershipType'],
       companySize: (profile.company_size || 'Small') as BusinessProfileInput['companySize'],
       sector: profile.sector || '',
@@ -216,6 +219,7 @@ export class ProfilesService {
       id,
       user_id: userId,
       company_name: input.companyName,
+      is_published: input.isPublished ?? existing?.is_published ?? false,
       ownership_type: input.ownershipType,
       company_size: input.companySize,
       sector: input.sector ?? null,
@@ -240,34 +244,16 @@ export class ProfilesService {
       id,
       userId,
       ...input,
+      isPublished: row.is_published ?? false,
     };
   }
 
-  async getBusinessProfilePublic(businessId: string): Promise<BusinessProfileRecord> {
-    const profile = await this.profileRepository.findBusinessProfileById(businessId);
-    if (!profile) {
-      throw new NotFoundException('Business profile not found');
-    }
-    return {
-      id: profile.id,
-      userId: profile.user_id,
-      companyName: profile.company_name,
-      ownershipType: profile.ownership_type as BusinessProfileInput['ownershipType'],
-      companySize: (profile.company_size || 'Small') as BusinessProfileInput['companySize'],
-      sector: profile.sector || '',
-      address: profile.address || '',
-      city: profile.city || 'Indore',
-      district: profile.district || 'Indore',
-      state: profile.state || undefined,
-      logoUrl: profile.logo_url || '',
-      phone: profile.phone || undefined,
-      email: profile.email || undefined,
-      website: profile.website || undefined,
-    };
-  }
+  getBusinessProfilePublic(id: string) { return this.publicDiscovery.company(id); }
+  getPublicDirectory(kind: 'business' | 'institution', input: import('@indian-job-portal/validation').PublicDirectoryQuery) { return this.publicDiscovery.directory(kind,input); }
 
   // EMP-03: Generate QR code for business profile
   async generateBusinessQr(businessId: string): Promise<{ businessId: string; qrDataUrl: string }> {
+    await this.publicDiscovery.company(businessId);
     const webUrl = process.env['WEB_URL'] || 'http://localhost:3000';
     const profileUrl = `${webUrl}/company/${businessId}`;
     try {
@@ -305,6 +291,7 @@ export class ProfilesService {
       id: profile.id,
       userId: profile.user_id,
       institutionName: profile.institution_name,
+      isPublished: profile.is_published ?? false,
       institutionType: (profile.institution_type || 'iti') as InstitutionType,
       affiliation: profile.affiliation || '',
       address: profile.address || '',
@@ -332,6 +319,8 @@ export class ProfilesService {
       id,
       user_id: userId,
       institution_name: input.institutionName,
+      is_published: input.isPublished ?? existing?.is_published ?? false,
+      cms_data: existing?.cms_data,
       institution_type: input.institutionType || 'iti',
       affiliation: input.affiliation ?? null,
       affiliation_code: null,
@@ -364,37 +353,9 @@ export class ProfilesService {
       id,
       userId,
       ...input,
+      isPublished: row.is_published ?? false,
     };
   }
 
-  async getInstitutionProfilePublic(id: string) {
-    const profile = await this.profileRepository.findInstitutionProfileById(id);
-    if (!profile) {
-      return null;
-    }
-    return {
-      id: profile.id,
-      institutionName: profile.institution_name,
-      institutionType: profile.institution_type || 'iti',
-      affiliation: profile.affiliation,
-      affiliationCode: profile.affiliation_code,
-      establishmentYear: profile.establishment_year,
-      principalName: profile.principal_name,
-      contactPerson: profile.contact_person,
-      contactDesignation: profile.contact_designation,
-      contactEmail: profile.contact_email,
-      contactPhone: profile.contact_phone,
-      website: profile.website,
-      address: profile.address,
-      city: profile.city,
-      district: profile.district,
-      state: profile.state,
-      pincode: profile.pincode,
-      tradesOffered: profile.trades_offered || [],
-      annualCapacity: profile.annual_capacity,
-      about: profile.about,
-      cmsData: profile.cms_data || null,
-      isSponsorshipActive: profile.is_sponsorship_active || false,
-    };
-  }
+  getInstitutionProfilePublic(id: string) { return this.publicDiscovery.institution(id); }
 }

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { InstitutionProfileData } from '../../../data/sampleWorkspaces';
 
 export function useInstitutionProfileState(initialInstitution: InstitutionProfileData) {
+  const [formIsPublished, setFormIsPublished] = useState(initialInstitution.isPublished ?? false);
   const [formInstName, setFormInstName] = useState(initialInstitution.institutionName);
   const [formInstType, setFormInstType] = useState<InstitutionProfileData['institutionType']>(initialInstitution.institutionType);
   const [formAffiliation, setFormAffiliation] = useState(initialInstitution.affiliation);
@@ -26,6 +27,7 @@ export function useInstitutionProfileState(initialInstitution: InstitutionProfil
   const [formAbout, setFormAbout] = useState(initialInstitution.about);
 
   return {
+    formIsPublished, setFormIsPublished,
     formInstName, setFormInstName,
     formInstType, setFormInstType,
     formAffiliation, setFormAffiliation,

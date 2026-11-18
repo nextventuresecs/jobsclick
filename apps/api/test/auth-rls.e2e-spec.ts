@@ -1,3 +1,4 @@
+import { publishEmployerFixture } from './fixtures/published-employer.js';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -80,14 +81,15 @@ describe('T-02: Row-Level Security (RLS) & API Auth Guards (E2E)', () => {
   });
 
   it('prevents User A from modifying or deleting User B job (Enforced at API & Tenancy layers)', async () => {
-    const userB = 'usr_employer_b_owner';
+    const userB = 'c42fb1b2-d080-4ba2-8ca3-6fb1a8c9919f';
+    await publishEmployerFixture(app,userB);
     const userA = 'usr_employer_a_intruder';
 
     // 1. User B creates a job posting
     const createRes = await app.inject({
       method: 'POST',
       url: '/jobs',
-      headers: { 'x-user-id': userB },
+      headers: { 'x-user-id': userB, 'x-user-role':'employer' },
       payload: {
         title: 'User B Exclusive Job',
         description: 'Only User B can edit this job',
@@ -125,7 +127,8 @@ describe('T-02: Row-Level Security (RLS) & API Auth Guards (E2E)', () => {
   });
 
   it('prevents User A from viewing User B private job applications', async () => {
-    const userB = 'usr_employer_b_owner';
+    const userB = '471fb118-5533-488f-8863-6db8cbd1e6e6';
+    await publishEmployerFixture(app,userB);
     const userA = 'usr_employer_a_intruder';
     const candidate = 'usr_candidate_c';
 
@@ -133,7 +136,7 @@ describe('T-02: Row-Level Security (RLS) & API Auth Guards (E2E)', () => {
     const createJobRes = await app.inject({
       method: 'POST',
       url: '/jobs',
-      headers: { 'x-user-id': userB },
+      headers: { 'x-user-id': userB, 'x-user-role':'employer' },
       payload: {
         title: 'Confidential Executive Role',
         description: 'Applications are private to User B',

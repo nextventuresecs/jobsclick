@@ -44,6 +44,8 @@ The current user may select a slice. Otherwise start with S0 and the first incom
 4. Verify related integration and denial paths, inspect the diff, and record limitations. A stubbed OTP/business service is not provider E2E evidence.
 5. When a slice passes, continue to its next authorized dependency-ready slice. If a real decision/approval blocks one slice, finish independent work. Ask a concise question identifying the concrete conflict and source; elapsed time is never approval.
 
+F0-a through F0-e are required regression gates before cutover; see F0-REVIEW-GATES.md and its original-number crosswalk. Use only the disposable Supabase runner; never write fixtures into the persistent dev database. S4 hook authentication comes before S6.
+
 Use the S0–S14 table in the plan. Do not replace it with the supplied prompt's older ordering. In particular, implement a provider/session trust boundary before claim API cutover, preserve erasure compatibility during contact changes, and include bulk delivery plus the scoped RLS second lock before claiming full migration completion.
 
 ## Database rules
@@ -61,7 +63,7 @@ Use the S0–S14 table in the plan. Do not replace it with the supplied prompt's
 ## Provider, session, and API rules
 
 - Use Supabase-managed OTP/refresh. Resend handles approved email delivery; MSG91 handles the authenticated SMS hook. No custom Redis email OTP or custom refresh JWT system.
-- Use request-scoped server Auth clients. Browser code calls the BFF and receives safe user/session metadata. Preserve HttpOnly/Secure cookie handling and no-store private responses; choose and test one reviewed refresh-storage protocol.
+- Use request-scoped server Auth clients. Browser code calls the BFF and receives safe user/session metadata. Preserve HttpOnly/Secure cookie handling and no-store private responses; use the team-selected opaque HttpOnly cookie with provider credentials in protected server-side Redis. Enforce the approved local draft limits: 15-minute access tokens, 7-day ordinary and 12-hour admin/MSME-admin absolute sessions, with reauthentication at expiry. Hosted enablement remains separate.
 - Verify real issuer/audience/algorithms/keys/expiry and canonical subject mapping; remove custom-token assumptions deliberately. Check current business role/status from authoritative state. Do not use `user_metadata`, a forged role cookie, or the PostgREST top-level role as application authorization.
 - Define endpoint classes: public, provider/webhook-authenticated, authenticated-unlinked, incomplete onboarding, and active workspace. “Every endpoint needs a link” must not break public jobs, login, callbacks, webhooks, registration, consent/verification, or logout.
 - Refresh rotation, multi-instance refresh races, absolute session deadline, local/global logout, role/status changes, and stale-response resurrection need tests. A token-version bump alone does not revoke provider refresh sessions.
@@ -86,7 +88,7 @@ Test fixture cleanup and restore/rollback boundaries. Use fake delivery and real
 
 ## Completion and review
 
-Create `docs/auth/REVIEW_PACKET.md` with a slice matrix, files/branch/PR text, evidence links, migration/grant changes, rollback conditions, unverified assumptions, and exact human approval actions. Distinguish completed local implementation from hosted configuration and release readiness. Keep pending general email login, orphan deletion, legal content/withdrawal, reviewer assignment, and unchosen session policy visibly pending.
+Create `docs/auth/REVIEW_PACKET.md` with a slice matrix, files/branch/PR text, evidence links, migration/grant changes, rollback conditions, unverified assumptions, and exact human approval actions. Distinguish completed local implementation from hosted configuration and release readiness. Keep pending general email login, orphan deletion, legal content/withdrawal, reviewer assignment, and hosted session-policy approval visibly pending.
 
 Human review of auth/RLS/data changes is mandatory under `AGENTS.md`. Do not impose the attachment's 24-hour delay as an automatic rule or treat an unnamed reviewer as blocking unrelated local drafting. Before requesting approval, make the actual code/SQL/configuration changes concrete and reviewable and complete all available local verification.
 

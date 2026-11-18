@@ -42,10 +42,10 @@ export default async function PublicInstitutionPage({ params }: InstitutionPageP
 
   const [profileRes, cmsRes] = await Promise.all([
     fetch(`${apiUrl}/profiles/institution/${institutionId}`, {
-      next: { revalidate: 60 },
+      cache: 'no-store',
     }),
     fetch(`${apiUrl}/profiles/institution/${institutionId}/cms`, {
-      next: { revalidate: 60 },
+      cache: 'no-store',
     }),
   ]);
 

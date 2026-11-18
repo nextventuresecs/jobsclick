@@ -1,3 +1,4 @@
+import { publishEmployerFixture } from './fixtures/published-employer.js';
 import { UserRepository } from '../src/database/repositories/user.repository.js';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -29,6 +30,7 @@ describe('Ticket T-10 E2E: Wire Workspace Forms & 1-Click Apply to API', () => {
     const empUser = await userRepo.create({ phone: empPhone, role: 'employer', status: 'active' });
     const seekerUser = await userRepo.create({ phone: seekerPhone, role: 'job_seeker', status: 'active' });
     employerUserId = empUser.id;
+    await publishEmployerFixture(app,employerUserId);
     seekerUserId = seekerUser.id;
   });
 

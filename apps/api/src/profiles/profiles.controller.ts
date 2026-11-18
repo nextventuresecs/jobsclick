@@ -1,5 +1,7 @@
 import {
   Controller,
+  Query,
+  Header,
   Get,
   Put,
   Post,
@@ -16,6 +18,7 @@ import { ProfilesService } from './profiles.service.js';
 import { InstitutionCmsService } from './institution-cms.service.js';
 import {
   jobSeekerProfileSchema,
+  publicDirectoryQuerySchema,
   businessProfileSchema,
   institutionProfileSchema,
   institutionCmsSchema,
@@ -81,7 +84,13 @@ export class ProfilesController {
   }
 
   @Public()
+  @Get('business')
+  @Header('Cache-Control', 'no-store')
+  getBusinesses(@Query() query: Record<string, unknown>) { return this.profilesService.getPublicDirectory('business',publicDirectoryQuerySchema.parse(query)); }
+
+  @Public()
   @Get('business/:id')
+  @Header('Cache-Control', 'no-store')
   async getBusinessProfilePublic(@Param('id') id: string) {
     return this.profilesService.getBusinessProfilePublic(id);
   }
@@ -115,7 +124,16 @@ export class ProfilesController {
   }
 
   @Public()
+  @Get('institution')
+  @Header('Cache-Control', 'no-store')
+  getInstitutions(@Query() query: Record<string, unknown>) { return this.profilesService.getPublicDirectory('institution',publicDirectoryQuerySchema.parse(query)); }
+
+  @Get('institution/cms')
+  getOwnedInstitutionCms(@CurrentUser() user: AuthUser) { return this.institutionCmsService.getOwnedCmsData(user.id); }
+
+  @Public()
   @Get('institution/:id')
+  @Header('Cache-Control', 'no-store')
   async getInstitutionProfilePublic(@Param('id') id: string) {
     const profile = await this.profilesService.getInstitutionProfilePublic(id);
     if (!profile) {
@@ -127,6 +145,7 @@ export class ProfilesController {
   // Institution CMS Endpoints (INT-02, INT-03, T-18)
   @Public()
   @Get('institution/:id/cms')
+  @Header('Cache-Control', 'no-store')
   async getInstitutionCms(@Param('id') id: string) {
     return this.institutionCmsService.getCmsData(id);
   }

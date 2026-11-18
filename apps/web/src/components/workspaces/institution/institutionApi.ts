@@ -67,10 +67,10 @@ export async function pollBatchStatus(apiUrl: string, batchId: string) {
 
 export async function fetchInstitutionCms(
   apiUrl: string,
-  institutionId: string,
+  _institutionId: string,
 ): Promise<InstitutionCmsInput | null> {
   try {
-    const res = await fetch(`${apiUrl}/profiles/institution/${institutionId}/cms`);
+    const res = await fetch(`${apiUrl}/profiles/institution/cms`);
     if (!res.ok) return null;
     return (await res.json()) as InstitutionCmsInput;
   } catch {

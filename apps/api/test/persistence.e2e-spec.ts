@@ -1,3 +1,4 @@
+import { publishEmployerFixture } from './fixtures/published-employer.js';
 import { describe, it, expect } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -35,6 +36,7 @@ describe('T-01: Database Persistence Across API Restarts (E2E)', () => {
     const empUser = await userRepo1.create({ phone: empPhone, role: 'employer', status: 'active' });
     const seekerUser = await userRepo1.create({ phone: seekerPhone, role: 'job_seeker', status: 'active' });
     const employerUserId = empUser.id;
+    await publishEmployerFixture(app1,employerUserId);
     const seekerUserId = seekerUser.id;
 
     // 1. Create a job posting on instance 1

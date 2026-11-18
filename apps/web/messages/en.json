@@ -377,6 +377,7 @@
     "toastValidationError": "Validation Error"
   },
   "EmployerWorkspace": {
+    "publishProfile": "Publish profile in the public directory",
     "title": "MSME Employer Portal",
     "verifiedMsmeBadge": "Verified MSME",
     "dpiitBadge": "DPIIT Recognized Startup",
@@ -510,6 +511,7 @@
     "insufficientCredits": "Insufficient wallet credits. Please recharge your wallet."
   },
   "InstitutionWorkspace": {
+    "publishProfile": "Publish profile in the public directory",
     "title": "Placement Cell Directorate",
     "verifiedCampusBadge": "Verified Technical Campus",
     "viewPublicProfile": "View Public Profile",

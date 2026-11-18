@@ -103,13 +103,15 @@ describe('Authentication Modal, Role Switcher & Workspaces - Feature 6', async (
 
     const maskedPhone1 = maskCandidatePhone('9826014829');
     const maskedPhone2 = maskCandidatePhone('+91 98260 14829');
-    expect(maskedPhone1).toBe('+91 ••••• ••829');
-    expect(maskedPhone2).toBe('+91 ••••• ••829');
+    expect(maskedPhone1).toBe('+91 ••••• •••••');
+    expect(maskedPhone2).toBe('+91 ••••• •••••');
     expect(maskedPhone1).not.toContain('98260');
+    expect(maskedPhone1).not.toContain('829');
 
     const maskedEmail = maskCandidateEmail('rahul.sharma@example.com');
-    expect(maskedEmail).toBe('ra••••@example.com');
+    expect(maskedEmail).toBe('••••••@••••••');
     expect(maskedEmail).not.toContain('rahul.sharma');
+    expect(maskedEmail).not.toContain('example.com');
   });
 
   it('enforces Hard Invariant #2: Bulk imported students are initialized in invited state', async () => {

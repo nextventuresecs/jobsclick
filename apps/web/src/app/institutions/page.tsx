@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { Navbar } from '../../components/layout/Navbar';
 import { Footer } from '../../components/layout/Footer';
 import {
-  SAMPLE_INSTITUTIONS,
   InstitutionProfileData,
 } from '../../data/sampleWorkspaces';
 import { safeJsonLd } from '../../lib/safe-json-ld';
@@ -49,22 +48,9 @@ export default async function InstitutionsDirectoryPage({
   const typeFilter = searchParams?.type?.trim() || '';
   const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
 
-  let institutions: InstitutionProfileData[] = [...SAMPLE_INSTITUTIONS];
-
-  try {
-    const res = await fetch(`${apiUrl}/profiles/institution`, {
-      next: { revalidate: 60 },
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        // Merge API data with sample fallbacks if needed
-        institutions = data as InstitutionProfileData[];
-      }
-    }
-  } catch {
-    // Graceful fallback to SAMPLE_INSTITUTIONS
-  }
+  const response = await fetch(`${apiUrl}/profiles/institution`, { cache:'no-store' });
+  if (!response.ok) throw new Error('PUBLIC_DIRECTORY_UNAVAILABLE');
+  const institutions = await response.json() as InstitutionProfileData[];
 
   const filteredInstitutions = institutions.filter((inst) => {
     if (typeFilter && inst.institutionType !== typeFilter) {

@@ -81,6 +81,7 @@ describe('ProfilesController (e2e) - Issues #9, #10, #11', () => {
       headers: { 'x-user-id': businessUser.id, 'x-user-role': 'employer' },
       payload: {
         companyName: 'Ujjain Garments MSME',
+        isPublished: true,
         ownershipType: 'Proprietorship',
         companySize: 'Micro',
         sector: 'Textiles',

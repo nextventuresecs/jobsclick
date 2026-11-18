@@ -53,3 +53,8 @@ This document records confirmed client decisions and deployment targets that ove
 - Orphan-user deletion thresholds and deletion remain pending. Only dry-run reporting is in scope until a subsequent explicit approval; do not delete existing unlinked Auth users using the attached 48-hour/7-day proposal.
 - Use [AUTH Migration Plan v2.1](../auth/AUTH_MIGRATION_PLAN_V2.md) and [the revised master prompt](../auth/CODEX_AUTH_MASTER_PROMPT.md) for future local draft work. They reconcile the supplied documents with direct team answers; labels inside attachments do not constitute deployment or policy approval.
 - Existing role-specific registration, verified-phone workspace access, coordinator email verification, phone-or-email bulk rows, ownership, and approved email-first/SMS-fallback requirements remain in force. This documentation update changes no application behavior or hosted configuration.
+
+## 7. Provider session draft (AUTH-05/06; team answers 2026-11-17)
+- Browser receives a random opaque HttpOnly session cookie; Supabase access/refresh credentials remain in a protected server-side Redis store, encrypted in the local draft. No provider token enters browser JavaScript or client props.
+- Use 15-minute provider access tokens and absolute session limits of 7 days for ordinary accounts and 12 hours for admin/MSME-admin accounts, with reauthentication at expiry. Refresh must not reset the original deadline. These are approved local draft settings; staging/provider configuration is unchanged.
+- See [the implementation review packet](../auth/REVIEW_PACKET.md) for verified foundations, red/green evidence, incomplete runtime integration and the remaining human review gate. This decision does not mark the migration complete or authorize deployment.
