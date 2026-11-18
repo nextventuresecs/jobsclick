@@ -1,0 +1,14 @@
+Project: jc-auth-test-ff281ff3
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 0
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-packaged
+
+ ✓ apps/api/test/supabase-sms-hook.local.spec.ts (13 tests) 206ms
+
+ Test Files  1 passed (1)
+      Tests  13 passed (13)
+   Start at  21:00:28
+   Duration  16.84s (transform 638ms, setup 11.04s, collect 267ms, tests 206ms, environment 1ms, prepare 845ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.

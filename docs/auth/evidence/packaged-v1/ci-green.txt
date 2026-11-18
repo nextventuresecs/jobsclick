@@ -1,0 +1,39 @@
+Node v24.22.3
+Exit: 0
+
+> indian-job-portal@0.1.0 test:target-guard D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-packaged
+> node --test scripts/testing/disposable-target.test.cjs scripts/testing/disposable-files.test.cjs scripts/testing/standalone-scripts.test.cjs scripts/testing/ci-disposable.test.cjs scripts/testing/disposable-environment.test.cjs scripts/testing/node-runtime.test.cjs
+
+✔ AUTH CI runs a dedicated disposable migration contract job (0.9434ms)
+✔ AUTH CI contains no shared database targets, credentials or secret expressions (0.188ms)
+✔ deploy-staging cannot report success from a placeholder (0.2227ms)
+✔ deploy-production cannot report success from a placeholder (0.9385ms)
+✔ full-suite CI produces the production artifact before startup integration assertions (0.1683ms)
+✔ native database security verification fails on advisor ERROR findings (0.5846ms)
+✔ stacked review pull requests run verification without permitting deployment (0.1872ms)
+✔ auth-disposable builds runtime shared exports before selected native tests (0.118ms)
+✔ db-security-gate builds runtime shared exports before selected native tests (0.1259ms)
+✔ auth-native-otp builds runtime shared exports before selected native tests (0.1539ms)
+✔ disposable child processes never inherit parent credentials, provider settings or runtime injection (122.5969ms)
+✔ disposable children retain OS tool discovery and force local telemetry opt-out (1.9228ms)
+✔ test-mode JSON persistence refuses an unmarked working directory (1391.369ms)
+✔ JSON fixtures live only under the marked run directory (1476.962ms)
+✔ rejects the persistent dev DB even with an explicit opt-in flag (3.4159ms)
+✔ rejects missing or mismatched run manifests (0.6776ms)
+✔ accepts only the exact provisioned localhost endpoints (0.8188ms)
+✔ network backstop rejects hardcoded dev ports and remote connections (1.9397ms)
+✔ parses CLI v3 status JSON surrounded by local startup notices (1.8686ms)
+✔ standalone database tools refuse an absent run marker before connecting (0.7709ms)
+✔ one exact Node runtime for local, CI and all production containers (9.3863ms)
+✔ db-security-drill.ts refuses an unmarked target before opening a connection (1329.4767ms)
+✔ smoke-postgrest.ts refuses an unmarked target before opening a connection (1112.2836ms)
+✔ generate-types.js refuses an unmarked target before opening a connection (1282.7437ms)
+✔ fresh drill refuses caller-selected databases (1117.3635ms)
+ℹ tests 25
+ℹ suites 0
+ℹ pass 25
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11840.3802

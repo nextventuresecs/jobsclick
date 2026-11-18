@@ -1,0 +1,12 @@
+{
+  "branch": "codex/review-auth-08-native-ci",
+  "commit": "441c11db76a65a51a55ce47dc882d387ad2a6c57",
+  "files": [
+    ".github/workflows/ci.yml",
+    "scripts/testing/ci-disposable.test.cjs",
+    "scripts/testing/node-runtime.test.cjs",
+    "docs/auth/CI_DISPOSABLE.md"
+  ],
+  "gate": "all six packages typecheck and lint zero errors",
+  "offline": "25 PASS"
+}

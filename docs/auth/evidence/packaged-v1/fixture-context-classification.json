@@ -1,0 +1,122 @@
+{
+  "source": "43b69c5b9722a335c8b882e834a95bccf07442fe",
+  "candidatesResolvedAsSyntheticOrPublicDemo": true,
+  "shapes": [
+    {
+      "file": "43b69c5b9722a335c8b882e834a95bccf07442fe:apps/api/test/supabase-provider.spec.ts",
+      "values": [
+        {
+          "length": 40,
+          "explicitNegativeTestSuffix": true
+        }
+      ]
+    },
+    {
+      "file": "43b69c5b9722a335c8b882e834a95bccf07442fe:docs/auth/evidence/S4/red-provider-config.txt",
+      "values": [
+        {
+          "length": 40,
+          "explicitNegativeTestSuffix": true
+        },
+        {
+          "length": 40,
+          "explicitNegativeTestSuffix": true
+        }
+      ]
+    }
+  ],
+  "jwts": [
+    {
+      "file": "43b69c5b9722a335c8b882e834a95bccf07442fe:apps/api/test/postgrest-lockdown.spec.ts",
+      "values": [
+        {
+          "knownPublicDemo": true,
+          "role": "anon"
+        }
+      ]
+    },
+    {
+      "file": "43b69c5b9722a335c8b882e834a95bccf07442fe:apps/api/test/setup.ts",
+      "values": [
+        {
+          "knownPublicDemo": true,
+          "role": "service_role"
+        },
+        {
+          "knownPublicDemo": true,
+          "role": "anon"
+        }
+      ]
+    },
+    {
+      "file": "43b69c5b9722a335c8b882e834a95bccf07442fe:docs/auth/evidence/followup/CI/red-policy.txt",
+      "values": [
+        {
+          "knownPublicDemo": true,
+          "role": "anon"
+        },
+        {
+          "knownPublicDemo": true,
+          "role": "service_role"
+        },
+        {
+          "knownPublicDemo": true,
+          "role": "anon"
+        },
+        {
+          "knownPublicDemo": true,
+          "role": "service_role"
+        },
+        {
+          "knownPublicDemo": true,
+          "role": "anon"
+        },
+        {
+          "knownPublicDemo": true,
+          "role": "service_role"
+        },
+        {
+          "knownPublicDemo": true,
+          "role": "anon"
+        },
+        {
+          "knownPublicDemo": true,
+          "role": "service_role"
+        },
+        {
+          "knownPublicDemo": true,
+          "role": "anon"
+        },
+        {
+          "knownPublicDemo": true,
+          "role": "service_role"
+        },
+        {
+          "knownPublicDemo": true,
+          "role": "anon"
+        },
+        {
+          "knownPublicDemo": true,
+          "role": "service_role"
+        },
+        {
+          "knownPublicDemo": true,
+          "role": "anon"
+        },
+        {
+          "knownPublicDemo": true,
+          "role": "service_role"
+        },
+        {
+          "knownPublicDemo": true,
+          "role": "anon"
+        },
+        {
+          "knownPublicDemo": true,
+          "role": "service_role"
+        }
+      ]
+    }
+  ],
+  "note": "Only explicit must-never-use-admin negative-test literals and public Supabase demo JWT fixtures found by this heuristic. No values emitted. Not a complete secret audit."
+}
