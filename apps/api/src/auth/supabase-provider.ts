@@ -1,3 +1,4 @@
+import type { ProviderLifetimePolicy } from './provider-lifetime-policy.js';
 import { ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { createClient, isAuthError } from '@supabase/supabase-js';
 import { decodeJwt, decodeProtectedHeader } from 'jose';
@@ -36,7 +37,7 @@ function providerOrigin(config: { url: string; publishableKey: string; environme
 }
 
 /** Request-scoped server client. Never reuse its user/session state globally. */
-export function createSupabaseProvider(config: { url: string; publishableKey: string; environment: string }) {
+export function createSupabaseProvider(config: { url: string; publishableKey: string; environment: string; lifetimePolicy?: ProviderLifetimePolicy }) {
   const origin = providerOrigin(config);
   const serverFetch: typeof fetch = async (input, init) => {
       try {
@@ -63,6 +64,10 @@ export function createSupabaseProvider(config: { url: string; publishableKey: st
       if (error) providerFailure(error);
       if (!data) throw new UnauthorizedException('AUTH_PROVIDER_INVALID');
       const claims = identityClaims.safeParse(data.claims);
+      if (claims.success && claims.data.iss === origin + '/auth/v1'
+        && (Array.isArray(claims.data.aud) ? claims.data.aud : [claims.data.aud]).includes('authenticated')) {
+        config.lifetimePolicy?.observeVerifiedLifetime(claims.data.exp - claims.data.iat);
+      }
       if (!claims.success || claims.data.iss !== `${origin}/auth/v1`
         || !(Array.isArray(claims.data.aud) ? claims.data.aud : [claims.data.aud]).includes('authenticated')
         || claims.data.iat > Math.floor(Date.now() / 1000) + PROVIDER_ISSUE_SKEW_SECONDS
@@ -70,6 +75,7 @@ export function createSupabaseProvider(config: { url: string; publishableKey: st
         || claims.data.exp - claims.data.iat > PROVIDER_ACCESS_LIFETIME_SECONDS) {
         throw new UnauthorizedException('AUTH_PROVIDER_INVALID');
       }
+      config.lifetimePolicy?.check();
       const user = await client.auth.getUser(accessToken).catch(providerFailure);
       if (user.error) providerFailure(user.error);
       const current = currentIdentity.safeParse(user.data.user);

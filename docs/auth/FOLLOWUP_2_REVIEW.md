@@ -33,3 +33,9 @@ Fresh native Supabase/Redis under checksum-verified **Node 24.22.3**: **77 PASS 
 - Institution view snapshot removes cms_data: arbitrary JSON cannot serve as a non-PII column allowlist. Public CMS is schema projected through a separate service-only API RPC. Adding a future view column still fails the independent snapshot.
 
 SQL remains a draft; no hosted schema/data/provider setting changed. Direct client RPC calls are denied. Final source review and human approval precede apply/merge.
+
+## B — provider lifetime guard
+
+Local draft PASS: nine corrected startup/readiness reds preceded implementation; **66 provider/session/lifetime/health tests PASS**, including ten lifetime cases and existing zero-grace expiry, 901-second denial and <=2-second issue skew tests. One initial test-authoring failure attempted to format a resolved Nest application; corrected tests return void and preserve the same expectations. Both outputs are retained. Startup and readiness reject invalid deployment declarations. Verified observed lifetimes can latch readiness failed; the S6 provider wiring must supply that shared policy.
+
+This guard does **not** claim to read hosted expiry through a nonexistent public settings field. Operational verification of hosted JWT expiry <=900 and alignment with the declared setting remain release gates, documented in PROVIDER_TIME_POLICY.md. No management credential was added to application runtime; no hosted setting was read or written. AUTH_PROVIDER remains legacy by default. Source commit still requires six-package typecheck/lint. C is next; S6 remains gated by C/E.
