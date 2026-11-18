@@ -18,3 +18,13 @@ for(const job of ['deploy-staging','deploy-production'])test(job+' cannot report
   assert.match(block,/# TODO human-approved deploy/);
   assert.match(block,/\bexit 1\b/);
 });
+
+test('full-suite CI produces the production artifact before startup integration assertions',()=>{
+  const begin=workflow.indexOf('\n  verify:');
+  const end=workflow.indexOf('\n  auth-disposable:',begin);
+  const block=workflow.slice(begin,end);
+  const build=block.indexOf('run: pnpm build');
+  const tests=block.indexOf('run: pnpm test\n');
+  assert.ok(build>=0&&tests>build,'production build must precede the full test command');
+  assert.match(block.slice(build,tests),/NODE_ENV: production/);
+});

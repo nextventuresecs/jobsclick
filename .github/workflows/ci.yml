@@ -30,9 +30,16 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test:target-guard
+      - name: Production verification build before startup assertions
+        run: pnpm build
+        env:
+          NODE_ENV: production
+          NEXT_PUBLIC_API_URL: https://api.example.invalid
+          NEXT_PUBLIC_APP_URL: https://jobsclick.example.invalid
+          API_URL: http://127.0.0.1:1
+          NEXT_TELEMETRY_DISABLED: '1'
       - name: Full suite on a per-run Supabase and Redis project
         run: pnpm test
-      - run: pnpm build
 
   auth-disposable:
     name: AUTH-01 migration contracts on disposable Docker stack
