@@ -1,0 +1,31 @@
+Exit: 1
+D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\scripts\testing\ci-disposable.test.cjs:23
+  const begin=workflow.indexOf('
+                               ^
+
+SyntaxError: Invalid or unexpected token
+    at wrapSafe (node:internal/modules/cjs/loader:1804:18)
+    at Module._compile (node:internal/modules/cjs/loader:1845:20)
+    at Object..js (node:internal/modules/cjs/loader:2002:10)
+    at Module.load (node:internal/modules/cjs/loader:1594:32)
+    at Module._load (node:internal/modules/cjs/loader:1396:12)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47
+
+Node.js v24.18.1
+✖ scripts\testing\ci-disposable.test.cjs (552.6165ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 570.34
+
+✖ failing tests:
+
+test at scripts\testing\ci-disposable.test.cjs:1:1
+✖ scripts\testing\ci-disposable.test.cjs (552.6165ms)
+  'test failed'

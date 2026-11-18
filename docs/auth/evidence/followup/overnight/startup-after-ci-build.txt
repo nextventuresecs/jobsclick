@@ -1,0 +1,19 @@
+Project: jc-auth-test-5634259c
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 0
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ✓ apps/web/test/startup.integration.spec.ts (6 tests) 18180ms
+   ✓ Next.js Production Startup Verification (Finding 4) > fails startup with non-zero exit code when mandatory JWT_SECRET is missing 5157ms
+   ✓ Next.js Production Startup Verification (Finding 4) > fails startup when JWT_SECRET violates 64-hex format requirement 2398ms
+   ✓ Next.js Production Startup Verification (Finding 4) > fails startup when JWT_SECRET contains obvious weak repeating pattern 2974ms
+   ✓ Next.js Production Startup Verification (Finding 4) > fails startup when NEXT_PUBLIC_API_URL does not use HTTPS in production 3503ms
+   ✓ Next.js Production Startup Verification (Finding 4) > successfully starts server when valid production configuration is supplied 4145ms
+
+ Test Files  1 passed (1)
+      Tests  6 passed (6)
+   Start at  07:35:09
+   Duration  33.51s (transform 512ms, setup 7.64s, collect 30ms, tests 18.18s, environment 0ms, prepare 555ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.

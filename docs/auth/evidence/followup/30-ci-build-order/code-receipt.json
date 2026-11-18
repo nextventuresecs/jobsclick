@@ -1,0 +1,12 @@
+{
+  "item": "30-ci-build-order",
+  "kind": "code",
+  "branch": "codex/auth-30-ci-build-order",
+  "commit": "59069f8222a00aead25f43f8211b6a6df85fa43f",
+  "files": [
+    ".github/workflows/ci.yml",
+    "scripts/testing/ci-disposable.test.cjs",
+    "docs/auth/CI_DISPOSABLE.md"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}

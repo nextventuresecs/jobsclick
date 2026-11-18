@@ -1,0 +1,34 @@
+Exit: 1
+✔ AUTH CI runs a dedicated disposable migration contract job (0.6553ms)
+✔ AUTH CI contains no shared database targets, credentials or secret expressions (0.146ms)
+✔ deploy-staging cannot report success from a placeholder (0.1853ms)
+✔ deploy-production cannot report success from a placeholder (0.1047ms)
+✖ full-suite CI produces the production artifact before startup integration assertions (0.4625ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 4
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 588.8504
+
+✖ failing tests:
+
+test at scripts\testing\ci-disposable.test.cjs:22:1
+✖ full-suite CI produces the production artifact before startup integration assertions (0.4625ms)
+  AssertionError [ERR_ASSERTION]: production build must precede the full test command
+      at TestContext.<anonymous> (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\scripts\testing\ci-disposable.test.cjs:28:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

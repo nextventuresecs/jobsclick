@@ -1,0 +1,60 @@
+Controlled synthetic configuration; no .env files or provider credentials inherited.
+Exit: 0
+
+  ▲ Next.js 14.2.35
+  - Experiments (use with caution):
+    · instrumentationHook
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/16) ...
+   Generating static pages (4/16) 
+   Generating static pages (8/16) 
+   Generating static pages (12/16) 
+ ✓ Generating static pages (16/16)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                              Size     First Load JS
+┌ ƒ /                                    8.32 kB         264 kB
+├ ƒ /_not-found                          1.04 kB         225 kB
+├ ƒ /api/auth/session                    0 B                0 B
+├ ƒ /api/backend/[...path]               0 B                0 B
+├ ƒ /api/bulk/batches                    0 B                0 B
+├ ƒ /api/bulk/batches/[id]               0 B                0 B
+├ ƒ /api/bulk/batches/[id]/error-report  0 B                0 B
+├ ƒ /api/bulk/signed-url                 0 B                0 B
+├ ƒ /api/sentry-test                     0 B                0 B
+├ ƒ /auth/callback                       2.48 kB         242 kB
+├ ƒ /company                             325 B           259 kB
+├ ƒ /company/[id]                        4.88 kB         270 kB
+├ ƒ /company/bulk-onboard                9.14 kB         265 kB
+├ ƒ /how-it-works                        327 B           259 kB
+├ ƒ /institution/[id]                    3.84 kB         276 kB
+├ ƒ /institutions                        327 B           259 kB
+├ ƒ /jobs                                4.58 kB         260 kB
+├ ƒ /jobs/[id]                           4.03 kB         260 kB
+├ ƒ /privacy                             321 B           224 kB
+├ ○ /sitemap.xml                         0 B                0 B
+└ ƒ /workspace                           62 kB           334 kB
++ First Load JS shared by all            224 kB
+  ├ chunks/46fa1e00-ed6733fd46712c6b.js  38.1 kB
+  ├ chunks/590-7f60eefdec1b4a81.js       118 kB
+  ├ chunks/a7067448-5469dc136c2093c7.js  53.8 kB
+  └ chunks/main-app-db4590b26d85e140.js  12 kB
+  └ other shared chunks (total)          2.33 kB
+
+
+ƒ Middleware                             128 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+[@sentry/nextjs] Importing `withSentryConfig` from `@sentry/nextjs` is deprecated and will stop working in v11. Import it from `@sentry/nextjs/config` instead:
+  import { withSentryConfig } from '@sentry/nextjs/config';
+[@sentry/nextjs] DEPRECATION WARNING: disableLogger is deprecated and will be removed in a future version. Use webpack.treeshake.removeDebugLogging instead.
+[@sentry/nextjs] DEPRECATION WARNING: It is recommended renaming your `sentry.client.config.ts` file, or moving its content to `instrumentation-client.ts`. When using Turbopack `sentry.client.config.ts` will no longer work. Read more about the `instrumentation-client.ts` file: https://nextjs.org/docs/app/api-reference/file-conventions/instrumentation-client
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (132kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (139kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
