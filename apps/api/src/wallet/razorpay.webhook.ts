@@ -98,6 +98,7 @@ export class RazorpayWebhookController {
         orderId,
         paymentId,
         alreadyProcessed: result.alreadyProcessed,
+        sponsorship: result.sponsorship,
       };
     }
 

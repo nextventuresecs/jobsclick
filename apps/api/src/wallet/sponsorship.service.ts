@@ -1,3 +1,4 @@
+import { sponsorshipActivationResultSchema, type SponsorshipActivationResult } from '@indian-job-portal/validation';
 import {
   Injectable,
   BadRequestException,
@@ -91,7 +92,7 @@ export class SponsorshipService {
       institution?.id || institutionId,
     );
 
-    let count = studentCountOverride !== undefined ? studentCountOverride : enrolledStudents.length;
+    let count = Math.max(studentCountOverride ?? 0, enrolledStudents.length);
 
     // Default to at least 1 student for quoting purposes if none enrolled yet
     if (count <= 0) {
@@ -127,21 +128,14 @@ export class SponsorshipService {
    * 1. Authoritative secondary ownership check (service-level gate)
    * 2. Payment verification & mapping
    * 3. Idempotency key evaluation
-   * 4. Atomic transaction / concurrency serialization via withLock
+   * 4. Native database transaction; disposable JSON adapter only in tests
    * 5. Append-only audit logging
    */
   async activateSponsorship(
     institutionId: string,
     input?: ActivateSponsorshipInput,
     userOrActorId?: AuthUser | { id: string; role?: string; phone?: string; email?: string | null } | string,
-  ): Promise<{
-    success: boolean;
-    quote: SponsorshipQuote;
-    sponsoredStudentsCount: number;
-    expiresAt: string;
-    alreadyActive?: boolean;
-    sponsorshipId?: string;
-  }> {
+  ): Promise<SponsorshipActivationResult> {
     const user =
       typeof userOrActorId === 'object' && userOrActorId !== null
         ? userOrActorId
@@ -150,6 +144,8 @@ export class SponsorshipService {
             role: 'intermediary',
           };
 
+    return this.profileRepository.activateSponsorshipAtomically({ institutionId, actorId: user.id, ...input }, async () => {
+    // Test-adapter implementation; native RPC rechecks every rule under database locks.
     // 1. Authoritative ownership re-check inside service
     let instProfile: InstitutionProfileRow | null =
       await this.profileRepository.findInstitutionProfileById(institutionId);
@@ -181,13 +177,13 @@ export class SponsorshipService {
       }
     }
 
-    // 2. Payment verification hardening (Mandatory for non-admins)
-    const isPrivileged = user.role === 'admin' || (user.role as string) === 'msme_admin';
+    // 2. Payment verification (required for every paid activation)
 
-    if (!isPrivileged && !input?.paymentReference) {
+    if (!input?.paymentReference) {
       throw new BadRequestException('A verified, captured payment reference is required to activate sponsorship');
     }
 
+    let paymentId: string | undefined;
     if (input?.paymentReference) {
       const payment =
         (await this.paymentRepository.findByGatewayPaymentId(input.paymentReference)) ||
@@ -198,45 +194,43 @@ export class SponsorshipService {
         throw new BadRequestException(`Payment reference ${input.paymentReference} not found`);
       }
 
+      paymentId = payment.id;
       if (payment.status !== 'captured') {
         throw new BadRequestException('Payment not verified: payment status is not captured');
+      }
+
+      // Quote at least the UUID-associated enrolled count; an override cannot lower the paid minimum.
+      const requiredQuote = await this.getSponsorshipQuote(instProfile?.id || institutionId, input.studentCountOverride);
+      if (payment.currency !== 'INR' || !Number.isFinite(payment.amount_inr)
+        || payment.amount_inr < requiredQuote.totalAnnualFeeInr) {
+        throw new BadRequestException('SPONSORSHIP_PAYMENT_INSUFFICIENT');
       }
 
       const isPaymentOwner =
         payment.user_id === user.id ||
         (instProfile && payment.user_id === instProfile.user_id);
-      if (!isPaymentOwner && !isPrivileged) {
+      if (!isPaymentOwner) {
         throw new ForbiddenException('Payment is not linked to this institution or caller');
       }
-    }
-
-    // 3. Server-side Idempotency Key check
-    if (input?.idempotencyKey) {
-      const existingByKey = await this.profileRepository.findSponsorshipByIdempotencyKey(
-        input.idempotencyKey,
-      );
-      if (existingByKey && existingByKey.status === 'active') {
-        const quote = await this.getSponsorshipQuote(
-          existingByKey.institution_id,
-          input?.studentCountOverride,
-        );
-        return {
-          success: true,
-          quote: {
-            ...quote,
-            isSponsorshipActive: true,
-            sponsorshipExpiresAt: existingByKey.expires_at,
-            activeSponsoredCount: existingByKey.student_count,
-          },
-          sponsoredStudentsCount: existingByKey.student_count,
-          expiresAt: existingByKey.expires_at,
-          alreadyActive: true,
-          sponsorshipId: existingByKey.id,
-        };
+      if (payment.metadata?.['purpose'] !== 'sponsorship' || payment.metadata?.['institutionId'] !== instProfile?.id
+        || (payment.credits_added ?? 0) !== 0 || payment.pack_id) throw new BadRequestException('SPONSORSHIP_PAYMENT_PURPOSE_INVALID');
+      const receipt = this.profileRepository.findTestPaymentGrant(payment.id);
+      const key = input.idempotencyKey ?? 'payment:' + payment.id;
+      const fingerprint = { studentCountOverride: input.studentCountOverride ?? null, force: input.force ?? false };
+      if (receipt) {
+        if (receipt.target_id !== instProfile?.id || receipt.request_key !== key || JSON.stringify(receipt.fingerprint) !== JSON.stringify(fingerprint)) {
+          throw new BadRequestException('SPONSORSHIP_PAYMENT_ALREADY_USED');
+        }
+        return { ...sponsorshipActivationResultSchema.parse(receipt.result), alreadyActive: true };
       }
+
     }
 
-    // 4. Atomic transaction / serialization lock on institution row (SELECT ... FOR UPDATE equivalent)
+    if (input?.idempotencyKey && await this.profileRepository.findSponsorshipByIdempotencyKey(input.idempotencyKey)) {
+      throw new BadRequestException('SPONSORSHIP_IDEMPOTENCY_CONFLICT');
+    }
+
+    // 4. Process-local lock; this is NOT a database transaction or cross-instance lock
     return this.profileRepository.withLock(institutionId, async () => {
       // Re-read institution state within the transaction lock
       let lockedInst: InstitutionProfileRow | null =
@@ -253,48 +247,10 @@ export class SponsorshipService {
         new Date(lockedInst.sponsorship_expires_at).getTime() > Date.now() &&
         !input?.force
       ) {
-        const existingQuote = await this.getSponsorshipQuote(
-          lockedInst.id,
-          input?.studentCountOverride,
-        );
-        return {
-          success: true,
-          quote: {
-            ...existingQuote,
-            isSponsorshipActive: true,
-            sponsorshipExpiresAt: lockedInst.sponsorship_expires_at,
-            activeSponsoredCount:
-              lockedInst.total_sponsored_students || existingQuote.studentCount,
-          },
-          sponsoredStudentsCount:
-            lockedInst.total_sponsored_students || existingQuote.studentCount,
-          expiresAt: lockedInst.sponsorship_expires_at,
-          alreadyActive: true,
-        };
+        throw new BadRequestException('SPONSORSHIP_ALREADY_ACTIVE');
       }
 
-      if (!lockedInst) {
-        // Auto-provision institution profile if missing
-        lockedInst = {
-          id: institutionId,
-          user_id: user.id || institutionId,
-          institution_name: 'Registered Educational Institution',
-          institution_type: 'college',
-          affiliation: 'NCVT',
-          contact_person: 'Placement Officer',
-          contact_email: 'placement@institution.edu.in',
-          address: 'Campus Road, Knowledge Park',
-          city: 'New Delhi',
-          state: 'Delhi',
-          pincode: '110001',
-          source: 'direct',
-          created_by: user.id || null,
-          updated_by: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        await this.profileRepository.saveInstitutionProfile(lockedInst);
-      }
+      if (!lockedInst) throw new BadRequestException('SPONSORSHIP_INSTITUTION_NOT_FOUND');
 
       const institution = lockedInst;
       const quote = await this.getSponsorshipQuote(institution.id, input?.studentCountOverride);
@@ -304,14 +260,7 @@ export class SponsorshipService {
         institution.id,
         true,
       );
-      let countByName = 0;
-      if (institution.institution_name) {
-        countByName = await this.profileRepository.updateStudentSponsorshipByInstitution(
-          institution.institution_name,
-          true,
-        );
-      }
-      const totalSponsoredStudents = Math.max(quote.studentCount, countById, countByName);
+      const totalSponsoredStudents = countById;
 
       // 1-year annual duration
       const now = new Date();
@@ -327,7 +276,7 @@ export class SponsorshipService {
         annual_fee: quote.totalAnnualFeeInr,
         student_count: totalSponsoredStudents,
         status: 'active',
-        payment_reference: input?.paymentReference || null,
+        payment_reference: paymentId || null,
         idempotency_key: input?.idempotencyKey || null,
         started_at: now.toISOString(),
         expires_at: oneYearLater,
@@ -349,8 +298,7 @@ export class SponsorshipService {
       await this.profileRepository.saveInstitutionProfile(institution);
 
       // Append to immutable audit log (Hard Invariant #6)
-      try {
-        await this.auditLogRepository.append({
+      await this.auditLogRepository.append({
           id: randomUUID(),
           actor_id: user.id || institution.user_id,
           action: 'INSTITUTION_SPONSORSHIP_ACTIVATED',
@@ -368,9 +316,6 @@ export class SponsorshipService {
           },
           created_at: now.toISOString(),
         });
-      } catch {
-        // Non-blocking audit fallback
-      }
 
       const updatedQuote: SponsorshipQuote = {
         ...quote,
@@ -379,14 +324,15 @@ export class SponsorshipService {
         activeSponsoredCount: totalSponsoredStudents,
       };
 
-      return {
-        success: true,
-        quote: updatedQuote,
-        sponsoredStudentsCount: totalSponsoredStudents,
-        expiresAt: oneYearLater,
-        sponsorshipId: sponsorshipRecord.id,
-        alreadyActive: false,
-      };
+      const result = { success: true as const, quote: updatedQuote, sponsoredStudentsCount: totalSponsoredStudents,
+        expiresAt: oneYearLater, sponsorshipId: sponsorshipRecord.id, alreadyActive: false };
+      if (!paymentId) throw new BadRequestException('SPONSORSHIP_PAYMENT_INVALID');
+      this.profileRepository.saveTestPaymentGrant({ payment_id: paymentId, purpose: 'sponsorship', target_id: institution.id,
+        request_key: input?.idempotencyKey ?? 'payment:' + paymentId,
+        fingerprint: { studentCountOverride: input?.studentCountOverride ?? null, force: input?.force ?? false },
+        result, created_at: now.toISOString() });
+      return result;
+    });
     });
   }
 }

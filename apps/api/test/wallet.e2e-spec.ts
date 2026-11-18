@@ -1,3 +1,5 @@
+import { publishEmployerFixture } from './fixtures/published-employer.js';
+import { randomUUID } from 'node:crypto';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -97,13 +99,14 @@ describe('Ticket T-15: Credit Wallet Ledger & Dynamic Balance Engine (WAL-01, WA
 
   it('AC #2 & WAL-02: Job seekers receive 10 free applications; 11th application prompts for credit recharge', async () => {
     const seekerId = `usr_seeker_quota_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const employerId = `usr_emp_wallet_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const employerId = randomUUID();
+    await publishEmployerFixture(app,employerId);
 
     // 1. Post a sample job
     const createJobRes = await app.inject({
       method: 'POST',
       url: '/jobs',
-      headers: { 'x-user-id': employerId },
+      headers: { 'x-user-id': employerId, 'x-user-role':'employer' },
       payload: {
         title: 'CNC Machine Operator',
         description: 'Industrial operator needed in Pithampur MSME cluster.',
@@ -207,7 +210,7 @@ describe('Ticket T-15: Credit Wallet Ledger & Dynamic Balance Engine (WAL-01, WA
     const balanceHttpRes = await app.inject({
       method: 'GET',
       url: '/wallet/balance',
-      headers: { 'x-user-id': employerId },
+      headers: { 'x-user-id': employerId, 'x-user-role':'employer' },
     });
     expect(balanceHttpRes.statusCode).toBe(200);
     const balancePayload = JSON.parse(balanceHttpRes.payload);
@@ -218,7 +221,7 @@ describe('Ticket T-15: Credit Wallet Ledger & Dynamic Balance Engine (WAL-01, WA
     const historyHttpRes = await app.inject({
       method: 'GET',
       url: '/wallet/transactions',
-      headers: { 'x-user-id': employerId },
+      headers: { 'x-user-id': employerId, 'x-user-role':'employer' },
     });
     expect(historyHttpRes.statusCode).toBe(200);
     const historyPayload = JSON.parse(historyHttpRes.payload);

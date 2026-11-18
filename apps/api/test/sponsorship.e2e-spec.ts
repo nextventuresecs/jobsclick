@@ -6,7 +6,6 @@ import { AppModule } from '../src/app.module.js';
 import { OtpGenerator } from '../src/auth/otp-generator.service.js';
 import { SponsorshipService } from '../src/wallet/sponsorship.service.js';
 import { WalletService } from '../src/wallet/wallet.service.js';
-import { PaymentService } from '../src/wallet/payment.service.js';
 import { ProfileRepository } from '../src/database/repositories/profile.repository.js';
 import { PaymentRepository } from '../src/database/repositories/payment.repository.js';
 import { UserRepository } from '../src/database/repositories/user.repository.js';
@@ -19,7 +18,6 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
   let app: NestFastifyApplication;
   let sponsorshipService: SponsorshipService;
   let walletService: WalletService;
-  let paymentService: PaymentService;
   let profileRepo: ProfileRepository;
   let paymentRepo: PaymentRepository;
   let jwtToken: string;
@@ -46,7 +44,6 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
 
     sponsorshipService = app.get(SponsorshipService);
     walletService = app.get(WalletService);
-    paymentService = app.get(PaymentService);
     profileRepo = app.get(ProfileRepository);
     paymentRepo = app.get(PaymentRepository);
     const userRepo = app.get(UserRepository);
@@ -210,7 +207,9 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
         user_id: institutionUser.id,
         gateway_order_id: `order_inst_${Date.now()}`,
         gateway_payment_id: testPaymentId,
+        metadata: { purpose: 'sponsorship', institutionId: institutionId },
         amount_inr: 50000,
+        currency: 'INR',
         status: 'captured',
         created_at: new Date().toISOString(),
       });
@@ -287,6 +286,15 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });
+
+      // Current UUID-associated grant is required; a stale student boolean is insufficient.
+      const now = new Date().toISOString(), expires = new Date(Date.now() + 86400000).toISOString();
+      await profileRepo.saveInstitutionProfile({ id: instId, user_id: institutionUser.id, institution_name: 'National Engineering College',
+        affiliation: null, address: null, source: 'fixture', created_by: null, updated_by: null, created_at: now, updated_at: now,
+        is_sponsorship_active: true, sponsorship_expires_at: expires });
+      await profileRepo.saveSponsorship({ id: crypto.randomUUID(), institution_id: instId, status: 'active', tier: 'Small', rate_per_student: 150,
+        annual_fee: 177, student_count: 1, payment_reference: null, idempotency_key: null, started_at: now, expires_at: expires,
+        created_by: null, created_at: now, updated_at: now });
 
       // Candidate applies 15 times (well past the 10-application cap)
       for (let i = 1; i <= 15; i++) {
@@ -415,7 +423,9 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
         user_id: ownerUserId,
         gateway_order_id: `order_owner_${Date.now()}`,
         gateway_payment_id: validOwnerPaymentId,
+        metadata: { purpose: 'sponsorship', institutionId: targetInstId },
         amount_inr: 50000,
+        currency: 'INR',
         status: 'captured',
         created_at: new Date().toISOString(),
       });
@@ -472,7 +482,9 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
         user_id: ownerUser,
         gateway_order_id: `order_c_${Date.now()}`,
         gateway_payment_id: concurrentPaymentId,
+        metadata: { purpose: 'sponsorship', institutionId: concurrentInstId },
         amount_inr: 50000,
+        currency: 'INR',
         status: 'captured',
         created_at: new Date().toISOString(),
       });
@@ -530,10 +542,12 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
         updated_at: new Date().toISOString(),
       });
 
-      // 1. Create a payment order for the institution
-      const order = await paymentService.createOrder(instUserId, {
-        packId: 'pack_starter',
-      });
+      // A sponsorship intent cannot reuse a wallet-pack payment. Bind it before capture.
+      const idempotencyKey = 'spons_idem_' + crypto.randomUUID();
+      const order = { orderId: 'order_spons_' + crypto.randomUUID() };
+      await paymentRepo.create({ id: crypto.randomUUID(), user_id: instUserId, gateway_order_id: order.orderId,
+        amount_inr: 590, currency: 'INR', status: 'created', credits_added: 0, pack_id: null,
+        metadata: { purpose: 'sponsorship', institutionId: instId, activationKey: idempotencyKey }, created_at: new Date().toISOString() });
 
       const paymentId = `pay_rzp_inst_${Date.now()}`;
       const webhookPayload = JSON.stringify({
@@ -580,17 +594,8 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
       expect(secondWebhookRes.statusCode).toBe(200);
       expect(secondWebhookRes.json().alreadyProcessed).toBe(true);
 
-      // 4. Activate sponsorship using verified payment reference & idempotency key
-      const idempotencyKey = `spons_idem_${Date.now()}`;
-      const activationResult = await sponsorshipService.activateSponsorship(
-        instId,
-        {
-          paymentReference: paymentId,
-          idempotencyKey,
-        },
-        { id: instUserId, role: 'institution' },
-      );
-
+      // Capture and sponsorship grant are now one transaction; keep all result assertions.
+      const activationResult = firstWebhookRes.json().sponsorship;
       expect(activationResult.success).toBe(true);
       expect(activationResult.quote.isSponsorshipActive).toBe(true);
       expect(activationResult.alreadyActive).toBe(false);
