@@ -1,5 +1,5 @@
 # Multi-stage Dockerfile for API
-FROM node:22-alpine AS base
+FROM node:24.22.3-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 ENV PNPM_CONFIG_MINIMUM_RELEASE_AGE=0
