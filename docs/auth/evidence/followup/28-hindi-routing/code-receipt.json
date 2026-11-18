@@ -1,0 +1,12 @@
+{
+  "item": "28-hindi-routing",
+  "kind": "code",
+  "branch": "codex/auth-28-hindi-routing-review",
+  "commit": "c6216556f0c67e03bc4852a3d575178b9ea35eb1",
+  "files": [
+    "apps/web/src/middleware.ts",
+    "apps/web/test/locale-boundary.spec.ts",
+    "docs/decisions/002-supabase-auth-migration-plan.md"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}

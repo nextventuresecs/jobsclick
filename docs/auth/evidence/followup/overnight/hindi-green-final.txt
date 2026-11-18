@@ -1,0 +1,19 @@
+Project: jc-auth-test-1265c2ce
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 0
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ✓ apps/web/test/auth-session.test.ts (10 tests) 75ms
+ ✓ apps/web/test/locale-boundary.spec.ts (12 tests) 25ms
+ ✓ apps/web/test/ticket-t12-multilingual-routing.test.ts (5 tests) 17ms
+ ✓ apps/web/test/auth-otp.test.ts (9 tests) 1141ms
+   ✓ Phone OTP Frontend Integration - Ticket T-04 (AUTH-01, AUTH-02) > AppContext Session & User State Hydration > exports AppProvider and useApp hook 1132ms
+ ✓ apps/web/test/session-boundary.spec.ts (11 tests) 49ms
+
+ Test Files  5 passed (5)
+      Tests  47 passed (47)
+   Start at  07:19:54
+   Duration  13.66s (transform 667ms, setup 27.03s, collect 2.87s, tests 1.31s, environment 1ms, prepare 1.77s)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.

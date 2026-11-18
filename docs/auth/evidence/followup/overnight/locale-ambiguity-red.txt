@@ -1,0 +1,61 @@
+Project: jc-auth-test-ae7a4a70
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ apps/web/test/locale-boundary.spec.ts (12 tests | 3 failed) 19ms
+   × AUTH-07 / AUTH-05 locale routing boundaries > rejects ambiguous leading slashes at /hi//api/auth/otp/send without aliasing or redirecting 11ms
+     → expected 200 to be 400 // Object.is equality
+   × AUTH-07 / AUTH-05 locale routing boundaries > rejects ambiguous leading slashes at /en//other.invalid/jobs without aliasing or redirecting 1ms
+     → expected 308 to be 400 // Object.is equality
+   × AUTH-07 / AUTH-05 locale routing boundaries > rejects ambiguous leading slashes at //other.invalid/jobs without aliasing or redirecting 1ms
+     → expected 200 to be 400 // Object.is equality
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 9 passed (12)
+   Start at  07:18:27
+   Duration  8.25s (transform 293ms, setup 2.56s, collect 70ms, tests 19ms, environment 0ms, prepare 273ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/web/test/locale-boundary.spec.ts > AUTH-07 / AUTH-05 locale routing boundaries > rejects ambiguous leading slashes at /hi//api/auth/otp/send without aliasing or redirecting
+ FAIL  apps/web/test/locale-boundary.spec.ts > AUTH-07 / AUTH-05 locale routing boundaries > rejects ambiguous leading slashes at //other.invalid/jobs without aliasing or redirecting
+AssertionError: expected 200 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 200
+
+ ❯ apps/web/test/locale-boundary.spec.ts:8:29
+      6|   it.each(['/hi//api/auth/otp/send', '/en//other.invalid/jobs', '//oth…
+      7|     const response = middleware(new NextRequest('https://jobsclick.liv…
+      8|     expect(response.status).toBe(400);
+       |                             ^
+      9|     expect(response.headers.get('location')).toBeNull();
+     10|     expect(response.headers.get('x-middleware-rewrite')).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  apps/web/test/locale-boundary.spec.ts > AUTH-07 / AUTH-05 locale routing boundaries > rejects ambiguous leading slashes at /en//other.invalid/jobs without aliasing or redirecting
+AssertionError: expected 308 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 308
+
+ ❯ apps/web/test/locale-boundary.spec.ts:8:29
+      6|   it.each(['/hi//api/auth/otp/send', '/en//other.invalid/jobs', '//oth…
+      7|     const response = middleware(new NextRequest('https://jobsclick.liv…
+      8|     expect(response.status).toBe(400);
+       |                             ^
+      9|     expect(response.headers.get('location')).toBeNull();
+     10|     expect(response.headers.get('x-middleware-rewrite')).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+

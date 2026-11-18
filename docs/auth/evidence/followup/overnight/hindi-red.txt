@@ -1,0 +1,219 @@
+Project: jc-auth-test-41ca1d90
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ apps/web/test/locale-boundary.spec.ts (9 tests | 8 failed) 22ms
+   × AUTH-07 / AUTH-05 locale routing boundaries > rewrites Hindi pages with their query and a server-selected locale, stripping spoofed identity 12ms
+     → expected null to be 'https://jobsclick.live/jobs?city=Pune' // Object.is equality
+   × AUTH-07 / AUTH-05 locale routing boundaries > keeps unauthenticated /en/workspace behind the existing session gate 3ms
+     → expected 200 to be 307 // Object.is equality
+   × AUTH-07 / AUTH-05 locale routing boundaries > keeps unauthenticated /hi/company/bulk-onboard behind the existing session gate 1ms
+     → expected 200 to be 307 // Object.is equality
+   × AUTH-07 / AUTH-05 locale routing boundaries > keeps unauthenticated /en/company/bulk-onboard behind the existing session gate 1ms
+     → expected 200 to be 307 // Object.is equality
+   × AUTH-07 / AUTH-05 locale routing boundaries > never creates a localized API alias at /hi/api/auth/otp/send 1ms
+     → expected 200 to be 404 // Object.is equality
+   × AUTH-07 / AUTH-05 locale routing boundaries > never creates a localized API alias at /en/api/backend/jobs/example/apply 0ms
+     → expected 200 to be 404 // Object.is equality
+   × AUTH-07 / AUTH-05 locale routing boundaries > matches whole locale segments and overrides a spoofed locale on ordinary English pages 1ms
+     → expected 'hi' to be 'en' // Object.is equality
+   × AUTH-07 / AUTH-05 locale routing boundaries > canonicalizes English prefixes without losing a search query 1ms
+     → expected 200 to be 308 // Object.is equality
+ ❯ apps/web/test/ticket-t12-multilingual-routing.test.ts (5 tests | 5 failed) 23ms
+   × Ticket T-12: Multilingual Hindi Routing & SEO (/hi/...) > AC-1: rewrites /hi/jobs to /jobs without redirecting, keeping URL intact 12ms
+     → expected null to be 'https://jobsclick.live/jobs' // Object.is equality
+   × Ticket T-12: Multilingual Hindi Routing & SEO (/hi/...) > AC-1: rewrites root /hi to / with Hindi locale and no redirect 1ms
+     → expected null to be 'https://jobsclick.live/' // Object.is equality
+   × Ticket T-12: Multilingual Hindi Routing & SEO (/hi/...) > AC-2: redirects /en/jobs to canonical non-prefixed /jobs URL 2ms
+     → expected [ 301, 302, 307, 308 ] to include 200
+   × Ticket T-12: Multilingual Hindi Routing & SEO (/hi/...) > preserves verified user session headers during /hi rewrite 4ms
+     → expected null to be 'https://jobsclick.live/jobs' // Object.is equality
+   × Ticket T-12: Multilingual Hindi Routing & SEO (/hi/...) > AC-2: provides valid hreflang alternate links on default English /jobs 2ms
+     → the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+
+ Test Files  2 failed (2)
+      Tests  13 failed | 1 passed (14)
+   Start at  07:15:12
+   Duration  9.51s (transform 313ms, setup 6.42s, collect 226ms, tests 46ms, environment 1ms, prepare 526ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯ Failed Tests 13 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  apps/web/test/locale-boundary.spec.ts > AUTH-07 / AUTH-05 locale routing boundaries > rewrites Hindi pages with their query and a server-selected locale, stripping spoofed identity
+AssertionError: expected null to be 'https://jobsclick.live/jobs?city=Pune' // Object.is equality
+
+- Expected: 
+"https://jobsclick.live/jobs?city=Pune"
+
++ Received: 
+null
+
+ ❯ apps/web/test/locale-boundary.spec.ts:10:58
+      8|       headers: { 'x-user-id': 'synthetic-spoof', 'x-user-role': 'admin…
+      9|     }));
+     10|     expect(response.headers.get('x-middleware-rewrite')).toBe('https:/…
+       |                                                          ^
+     11|     expect(response.headers.get('x-middleware-request-x-next-locale'))…
+     12|     for (const header of ['x-user-id', 'x-user-role', 'x-user-status',…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/13]⎯
+
+ FAIL  apps/web/test/locale-boundary.spec.ts > AUTH-07 / AUTH-05 locale routing boundaries > keeps unauthenticated /en/workspace behind the existing session gate
+ FAIL  apps/web/test/locale-boundary.spec.ts > AUTH-07 / AUTH-05 locale routing boundaries > keeps unauthenticated /hi/company/bulk-onboard behind the existing session gate
+ FAIL  apps/web/test/locale-boundary.spec.ts > AUTH-07 / AUTH-05 locale routing boundaries > keeps unauthenticated /en/company/bulk-onboard behind the existing session gate
+AssertionError: expected 200 to be 307 // Object.is equality
+
+- Expected
++ Received
+
+- 307
++ 200
+
+ ❯ apps/web/test/locale-boundary.spec.ts:20:29
+     18|   it.each(['/hi/workspace', '/en/workspace', '/hi/company/bulk-onboard…
+     19|     const response = middleware(new NextRequest('https://jobsclick.liv…
+     20|     expect(response.status).toBe(307);
+       |                             ^
+     21|     expect(response.headers.get('location')).toBe('https://jobsclick.l…
+     22|     expect(response.headers.get('x-middleware-rewrite')).toBeNull();
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/13]⎯
+
+ FAIL  apps/web/test/locale-boundary.spec.ts > AUTH-07 / AUTH-05 locale routing boundaries > never creates a localized API alias at /hi/api/auth/otp/send
+ FAIL  apps/web/test/locale-boundary.spec.ts > AUTH-07 / AUTH-05 locale routing boundaries > never creates a localized API alias at /en/api/backend/jobs/example/apply
+AssertionError: expected 200 to be 404 // Object.is equality
+
+- Expected
++ Received
+
+- 404
++ 200
+
+ ❯ apps/web/test/locale-boundary.spec.ts:27:29
+     25|   it.each(['/hi/api/auth/otp/send', '/en/api/backend/jobs/example/appl…
+     26|     const response = middleware(new NextRequest('https://jobsclick.liv…
+     27|     expect(response.status).toBe(404);
+       |                             ^
+     28|     expect(response.headers.get('x-middleware-rewrite')).toBeNull();
+     29|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/13]⎯
+
+ FAIL  apps/web/test/locale-boundary.spec.ts > AUTH-07 / AUTH-05 locale routing boundaries > matches whole locale segments and overrides a spoofed locale on ordinary English pages
+AssertionError: expected 'hi' to be 'en' // Object.is equality
+
+Expected: "en"
+Received: "hi"
+
+ ❯ apps/web/test/locale-boundary.spec.ts:34:72
+     32|     const response = middleware(new NextRequest('https://jobsclick.liv…
+     33|     expect(response.headers.get('x-middleware-rewrite')).toBeNull();
+     34|     expect(response.headers.get('x-middleware-request-x-next-locale'))…
+       |                                                                        ^
+     35|     expect(response.headers.get('x-middleware-request-x-locale')).toBe…
+     36|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/13]⎯
+
+ FAIL  apps/web/test/locale-boundary.spec.ts > AUTH-07 / AUTH-05 locale routing boundaries > canonicalizes English prefixes without losing a search query
+AssertionError: expected 200 to be 308 // Object.is equality
+
+- Expected
++ Received
+
+- 308
++ 200
+
+ ❯ apps/web/test/locale-boundary.spec.ts:40:29
+     38|   it('canonicalizes English prefixes without losing a search query', (…
+     39|     const response = middleware(new NextRequest('https://jobsclick.liv…
+     40|     expect(response.status).toBe(308);
+       |                             ^
+     41|     expect(response.headers.get('location')).toBe('https://jobsclick.l…
+     42|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/13]⎯
+
+ FAIL  apps/web/test/ticket-t12-multilingual-routing.test.ts > Ticket T-12: Multilingual Hindi Routing & SEO (/hi/...) > AC-1: rewrites /hi/jobs to /jobs without redirecting, keeping URL intact
+AssertionError: expected null to be 'https://jobsclick.live/jobs' // Object.is equality
+
+- Expected: 
+"https://jobsclick.live/jobs"
+
++ Received: 
+null
+
+ ❯ apps/web/test/ticket-t12-multilingual-routing.test.ts:19:27
+     17|     // Must rewrite to internal /jobs route
+     18|     const rewriteHeader = response.headers.get('x-middleware-rewrite');
+     19|     expect(rewriteHeader).toBe('https://jobsclick.live/jobs');
+       |                           ^
+     20| 
+     21|     // Must set NEXT_LOCALE cookie to 'hi'
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/13]⎯
+
+ FAIL  apps/web/test/ticket-t12-multilingual-routing.test.ts > Ticket T-12: Multilingual Hindi Routing & SEO (/hi/...) > AC-1: rewrites root /hi to / with Hindi locale and no redirect
+AssertionError: expected null to be 'https://jobsclick.live/' // Object.is equality
+
+- Expected: 
+"https://jobsclick.live/"
+
++ Received: 
+null
+
+ ❯ apps/web/test/ticket-t12-multilingual-routing.test.ts:44:27
+     42| 
+     43|     const rewriteHeader = response.headers.get('x-middleware-rewrite');
+     44|     expect(rewriteHeader).toBe('https://jobsclick.live/');
+       |                           ^
+     45| 
+     46|     const linkHeader = response.headers.get('Link');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/13]⎯
+
+ FAIL  apps/web/test/ticket-t12-multilingual-routing.test.ts > Ticket T-12: Multilingual Hindi Routing & SEO (/hi/...) > AC-2: redirects /en/jobs to canonical non-prefixed /jobs URL
+AssertionError: expected [ 301, 302, 307, 308 ] to include 200
+ ❯ apps/web/test/ticket-t12-multilingual-routing.test.ts:56:34
+     54| 
+     55|     // English with prefix redirects to canonical non-prefixed route
+     56|     expect([301, 302, 307, 308]).toContain(response.status);
+       |                                  ^
+     57|     const location = response.headers.get('location');
+     58|     expect(location).toBe('https://jobsclick.live/jobs');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/13]⎯
+
+ FAIL  apps/web/test/ticket-t12-multilingual-routing.test.ts > Ticket T-12: Multilingual Hindi Routing & SEO (/hi/...) > preserves verified user session headers during /hi rewrite
+AssertionError: expected null to be 'https://jobsclick.live/jobs' // Object.is equality
+
+- Expected: 
+"https://jobsclick.live/jobs"
+
++ Received: 
+null
+
+ ❯ apps/web/test/ticket-t12-multilingual-routing.test.ts:79:58
+     77| 
+     78|     // Must still rewrite without redirecting
+     79|     expect(response.headers.get('x-middleware-rewrite')).toBe('https:/…
+       |                                                          ^
+     80|   });
+     81| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/13]⎯
+
+ FAIL  apps/web/test/ticket-t12-multilingual-routing.test.ts > Ticket T-12: Multilingual Hindi Routing & SEO (/hi/...) > AC-2: provides valid hreflang alternate links on default English /jobs
+AssertionError: the given combination of arguments (null and string) is invalid for this assertion. You can use an array, a map, an object, a set, a string, or a weakset instead of a string
+ ❯ apps/web/test/ticket-t12-multilingual-routing.test.ts:89:24
+     87|     const linkHeader = response.headers.get('Link');
+     88|     expect(linkHeader).toBeDefined();
+     89|     expect(linkHeader).toContain('hreflang="hi"');
+       |                        ^
+     90|     expect(linkHeader).toContain('https://jobsclick.live/hi/jobs');
+     91|     expect(linkHeader).toContain('hreflang="en"');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/13]⎯
+
