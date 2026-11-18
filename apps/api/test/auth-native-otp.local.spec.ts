@@ -1,3 +1,6 @@
+import { SmsAdmission } from '../src/auth/sms-admission.js';
+import { SmsHookOutbox } from '../src/auth/sms-hook-outbox.js';
+import { createSmsKnownNumberLookup } from '../src/auth/sms-known-number.js';
 import { randomInt, randomUUID } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -23,6 +26,7 @@ describe.runIf(process.env['RUN_AUTH_NATIVE_OTP'] === '1')('AUTH-01/03 real GoTr
   const phone = () => '8' + randomInt(100000000, 999999999);
   const deliveries: { phone: string; otp: string }[] = [];
   const requests: { raw: Buffer; headers: Record<string, string> }[] = [];
+  let admission: SmsAdmission, outbox: SmsHookOutbox, namespace:string;
   let server: FastifyInstance, hook: SupabaseSmsHook, apiSocketIp = '';
   let policy: SmsHookPolicy;
   const observations: Record<string, unknown> = { runId, approvedProductLoginEnabled: false, google: 'NOT RUN: reviewed Google OAuth fixture unavailable' };
@@ -33,8 +37,10 @@ describe.runIf(process.env['RUN_AUTH_NATIVE_OTP'] === '1')('AUTH-01/03 real GoTr
   function resetHook(overrides: Partial<SmsHookPolicy> = {}) {
     policy = { phoneHmacKey: Buffer.from(process.env['JOBSCLICK_TEST_SMS_HMAC_KEY']!, 'base64'), phoneDailyLimit: 10,
       cooldownSeconds: 1, globalBudgetPaise: 30, sendCostPaise: 1, blockedPrefixes: [], ...overrides };
-    hook = new SupabaseSmsHook({ secret: process.env['JOBSCLICK_TEST_SMS_HOOK_SECRET']!, redis,
-      namespace: 'native-otp:' + randomUUID(), policy, send: async delivery => { deliveries.push({ phone: delivery.phone, otp: delivery.otp }); } });
+    namespace='native-otp:'+randomUUID();
+    outbox=new SmsHookOutbox(redis,policy.phoneHmacKey,namespace);admission=new SmsAdmission(redis,policy.phoneHmacKey,namespace);
+    hook = new SupabaseSmsHook({ secret: process.env['JOBSCLICK_TEST_SMS_HOOK_SECRET']!, redis,namespace,policy,outbox,admission,
+      knownNumber:createSmsKnownNumberLookup(backend),providerCaptchaEnforced:true });
   }
   beforeAll(async () => {
     await db.connect(); await redis.connect();
@@ -47,7 +53,12 @@ describe.runIf(process.env['RUN_AUTH_NATIVE_OTP'] === '1')('AUTH-01/03 real GoTr
       const raw = request.body as Buffer;
       const headers = Object.fromEntries(['webhook-id', 'webhook-timestamp', 'webhook-signature'].map(name => [name, String(request.headers[name] || '')]));
       requests.push({ raw, headers });
-      try { return await hook.handle(raw, request.headers); }
+      try {
+        const response=await hook.handle(raw,request.headers);
+        // Controlled native fixture drains fake delivery only; production hook never awaits a gateway.
+        await outbox.dispatchOne(async delivery=>{deliveries.push({phone:delivery.phone,otp:delivery.otp});});
+        return response;
+      }
       catch (error) {
         const failure = error as { getStatus?: () => number; message?: string };
         const status = failure.getStatus?.() || 503;
@@ -59,7 +70,10 @@ describe.runIf(process.env['RUN_AUTH_NATIVE_OTP'] === '1')('AUTH-01/03 real GoTr
     server.post('/api/otp', async request => {
       apiSocketIp = getClientIp(request);
       const body = JSON.parse((request.body as Buffer).toString('utf8')) as { phone: string; captchaToken: string };
-      const result = await caller().auth.signInWithOtp({ phone: body.phone, options: { captchaToken: body.captchaToken } });
+      const admissionToken=await admission.mint({phone:body.phone,ip:apiSocketIp,deviceId:randomUUID()});
+      // The provisional BFF proof covers device/IP admission. GoTrue validates the one-use CAPTCHA
+      // before invoking the signed hook, where the proof is consumed atomically with number quota.
+      const result = await caller().auth.signInWithOtp({ phone: body.phone, options: { captchaToken: body.captchaToken,data:{admission_token:admissionToken} } });
       return { accepted: !result.error };
     });
     await server.listen({ port: hookPort, host: '0.0.0.0' });
@@ -77,7 +91,7 @@ describe.runIf(process.env['RUN_AUTH_NATIVE_OTP'] === '1')('AUTH-01/03 real GoTr
     const result = await caller().auth.signInWithOtp({ phone: '+91' + phone() });
     expect(result.error?.code).toBe('captcha_failed');
     observations['noCaptcha'] = { rejected: Boolean(result.error), hookCalls: requests.length, sends: deliveries.length }; save();
-    expect(Boolean(result.error)).toBe(true); expect(deliveries).toHaveLength(0); expect(requests).toHaveLength(0);
+    expect(Boolean(result.error)).toBe(true); expect(deliveries).toHaveLength(0); expect(requests).toHaveLength(0);expect(await redis.keys(namespace+':*')).toHaveLength(0);
   });
   it.runIf(process.env['JOBSCLICK_TEST_CAPTCHA_MODE'] === 'reject')('rejects provider-direct phone OTP with an invalid CAPTCHA before any send', async () => {
     const result = await caller().auth.signInWithOtp({ phone: '+91' + phone(), options: { captchaToken: 'invalid-not-a-dummy-token' } });
@@ -110,6 +124,7 @@ describe.runIf(process.env['RUN_AUTH_NATIVE_OTP'] === '1')('AUTH-01/03 real GoTr
   });
   it('requires fresh CAPTCHA on a direct resend and does not double-send', async () => {
     const number = phone();
+    expect((await backend.from('users').insert({id:randomUUID(),phone:number,role:'job_seeker',status:'invited',source:'native-resend-fixture'})).error).toBeNull();
     expect(Boolean((await caller().auth.signInWithOtp({ phone: '+91' + number, options: { captchaToken: validCaptcha } })).error)).toBe(false);
     expect(deliveries).toHaveLength(1);
     await new Promise(resolve => setTimeout(resolve, 1200));
@@ -127,6 +142,7 @@ describe.runIf(process.env['RUN_AUTH_NATIVE_OTP'] === '1')('AUTH-01/03 real GoTr
   });
   it('records actual GoTrue IPs for direct and server-side API calls', async () => {
     const direct = phone();
+    expect((await backend.from('users').insert({id:randomUUID(),phone:direct,role:'job_seeker',status:'invited',source:'native-ip-fixture'})).error).toBeNull();
     expect(Boolean((await caller().auth.signInWithOtp({ phone: '+91' + direct, options: { captchaToken: validCaptcha } })).error)).toBe(false);
     const directSession = await caller().auth.verifyOtp({ phone: '+91' + direct, token: deliveries[0]!.otp, type: 'sms' });
     expect(Boolean(directSession.error)).toBe(false);
@@ -165,4 +181,15 @@ describe.runIf(process.env['RUN_AUTH_NATIVE_OTP'] === '1')('AUTH-01/03 real GoTr
     expect(deliveries).toHaveLength(0);
     observations['emailChain'] = { realGoTrue: true, localMailCatcher: true, adminSeededConfirmedEmail: false, importedPhoneRemainsNull: true, smsSends: 0, generalEmailLoginEnabled: false }; save();
   });
+  it('suppresses native unknown-number sends and verifies BFF admission metadata on real GoTrue',async()=>{
+    const unknown=phone();
+    const suppressed=await caller().auth.signInWithOtp({phone:'+91'+unknown,options:{captchaToken:validCaptcha,data:{role:'admin',phone_verified:true}}});
+    expect(Boolean(suppressed.error)).toBe(false);expect(requests).toHaveLength(1);expect(deliveries).toHaveLength(0);
+    const signup=phone();const response=await fetch('http://127.0.0.1:'+hookPort+'/api/otp',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({phone:'+91'+signup,captchaToken:validCaptcha})});
+    expect((await response.json()).accepted).toBe(true);expect(deliveries).toHaveLength(1);
+    const payload=JSON.parse(requests[1]!.raw.toString('utf8'));
+    expect(payload.user.user_metadata.admission_token).toMatch(/^a1_/);
+    observations['admissionMetadata']={realGoTrue:true,signedProofReachedHook:true,unknownSends:0,signupFakeSends:1};save();
+  });
+
 });

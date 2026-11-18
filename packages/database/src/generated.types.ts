@@ -1514,6 +1514,9 @@ isOneToOne: false
 "rpc_settle_payment":
 { Args: { "p_amount_paise": number,"p_currency": string,"p_gateway": string,"p_invoice": string,"p_order": string,"p_processed_by"?: string,"p_signature"?: string }; Returns: Json
                            },
+"rpc_sms_phone_is_known":
+{ Args: { "p_phone": string }; Returns: boolean
+                           },
 "search_jobs":
 { Args: { "p_category"?: string,"p_city"?: string,"p_keyword"?: string,"p_limit"?: number,"p_min_pay"?: number,"p_offset"?: number }; Returns: {
               "category": Database["public"]['Enums']["job_category"],"city": string,"created_at": string,"created_by": string,"description": string,"district": string,"employer_id": string,"employment_type": string,"experience_level": string,"expiry_date": string,"featured_until": string,"id": string,"is_active": boolean,"is_featured": boolean,"max_pay": number,"min_pay": number,"openings": number,"skills": (string)[],"source": string,"state": string,"title": string,"total_count": number,"updated_at": string,"updated_by": string
