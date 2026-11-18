@@ -1,0 +1,16 @@
+Project: jc-auth-test-ba4fbaac
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 0
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ✓ apps/api/test/otp-fallback.local.spec.ts (6 tests) 50ms
+ ✓ apps/api/test/otp-fallback-native.local.spec.ts (1 test) 1716ms
+   ✓ AUTH-03 real provider cross-channel throttle offers > offers email after a hook phone cooldown, then phone after an email provider throttle; nothing is auto-sent 1671ms
+
+ Test Files  2 passed (2)
+      Tests  7 passed (7)
+   Start at  15:44:22
+   Duration  17.63s (transform 286ms, setup 5.55s, collect 1.24s, tests 1.77s, environment 0ms, prepare 378ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.

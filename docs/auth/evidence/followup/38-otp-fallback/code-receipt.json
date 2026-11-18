@@ -1,0 +1,14 @@
+{
+  "item": "38-otp-fallback",
+  "kind": "code",
+  "branch": "codex/auth-38-otp-fallback",
+  "commit": "0f1bd26c442f55587f1eb1f627e0b08d2c7ed64e",
+  "files": [
+    "apps/api/src/auth/otp-fallback.ts",
+    "apps/api/test/otp-fallback.local.spec.ts",
+    "apps/api/test/otp-fallback-native.local.spec.ts",
+    "scripts/testing/run-disposable.cjs",
+    "docs/auth/FOLLOWUP_2_REVIEW.md"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}

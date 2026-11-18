@@ -1,0 +1,8 @@
+{
+  "phone": {
+    "status": 500,
+    "errorClass": "AuthRetryableFetchError"
+  },
+  "realProvider": true,
+  "fakeSmsOnly": true
+}
