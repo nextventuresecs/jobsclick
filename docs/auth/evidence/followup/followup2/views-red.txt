@@ -1,0 +1,123 @@
+Project: jc-auth-test-40789783
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ packages/database/test/public-views-option-a.local.test.ts (12 tests | 12 failed) 4632ms
+   × AUTH-05 F0-f Option A private public projections > denies direct anon/authenticated SQL and Data API reads on public_jobs 12ms
+     → expected [ { allowed: true } ] to deeply equal [ { allowed: false } ]
+   × AUTH-05 F0-f Option A private public projections > denies direct anon/authenticated SQL and Data API reads on public_business_profiles 3ms
+     → expected [ { allowed: true } ] to deeply equal [ { allowed: false } ]
+   × AUTH-05 F0-f Option A private public projections > denies direct anon/authenticated SQL and Data API reads on public_institution_profiles 2ms
+     → expected [ { allowed: true } ] to deeply equal [ { allowed: false } ]
+   × AUTH-05 F0-f Option A private public projections > uses invoker security and the reviewed exact column allowlist on public_jobs 3ms
+     → expected [ { invoker: false } ] to deeply equal [ { invoker: true } ]
+   × AUTH-05 F0-f Option A private public projections > uses invoker security and the reviewed exact column allowlist on public_business_profiles 3ms
+     → expected [ { invoker: false } ] to deeply equal [ { invoker: true } ]
+   × AUTH-05 F0-f Option A private public projections > uses invoker security and the reviewed exact column allowlist on public_institution_profiles 2ms
+     → expected [ { invoker: false } ] to deeply equal [ { invoker: true } ]
+   × AUTH-05 F0-f Option A private public projections > publishes only eligible owners: active-published 18ms
+     → column "is_published" of relation "business_profiles" does not exist
+   × AUTH-05 F0-f Option A private public projections > publishes only eligible owners: invited 7ms
+     → column "is_published" of relation "business_profiles" does not exist
+   × AUTH-05 F0-f Option A private public projections > publishes only eligible owners: disabled 7ms
+     → column "is_published" of relation "business_profiles" does not exist
+   × AUTH-05 F0-f Option A private public projections > publishes only eligible owners: erased 2ms
+     → value too long for type character varying(15)
+   × AUTH-05 F0-f Option A private public projections > publishes only eligible owners: unpublished 7ms
+     → column "is_published" of relation "business_profiles" does not exist
+   × AUTH-05 F0-f Option A private public projections > native advisor exits nonzero for an injected ERROR and zero after removal 4552ms
+     → expected 1 to be +0 // Object.is equality
+
+ Test Files  1 failed (1)
+      Tests  12 failed (12)
+   Start at  13:36:50
+   Duration  13.38s (transform 235ms, setup 3.73s, collect 26ms, tests 4.63s, environment 0ms, prepare 178ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯ Failed Tests 12 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/database/test/public-views-option-a.local.test.ts > AUTH-05 F0-f Option A private public projections > denies direct anon/authenticated SQL and Data API reads on public_jobs
+ FAIL  packages/database/test/public-views-option-a.local.test.ts > AUTH-05 F0-f Option A private public projections > denies direct anon/authenticated SQL and Data API reads on public_business_profiles
+ FAIL  packages/database/test/public-views-option-a.local.test.ts > AUTH-05 F0-f Option A private public projections > denies direct anon/authenticated SQL and Data API reads on public_institution_profiles
+AssertionError: expected [ { allowed: true } ] to deeply equal [ { allowed: false } ]
+
+- Expected
++ Received
+
+  Array [
+    Object {
+-     "allowed": false,
++     "allowed": true,
+    },
+  ]
+
+ ❯ packages/database/test/public-views-option-a.local.test.ts:18:124
+     16|     const signed = header + '.' + body + '.' + createHmac('sha256', pr…
+     17|     for (const role of ['anon', 'authenticated']) {
+     18|       expect((await db.query('select has_table_privilege($1,$2,$3) as …
+       |                                                                                                                            ^
+     19|       await db.query('set role ' + role);
+     20|       try { await expect(db.query('select * from public.' + view + ' l…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/12]⎯
+
+ FAIL  packages/database/test/public-views-option-a.local.test.ts > AUTH-05 F0-f Option A private public projections > uses invoker security and the reviewed exact column allowlist on public_jobs
+ FAIL  packages/database/test/public-views-option-a.local.test.ts > AUTH-05 F0-f Option A private public projections > uses invoker security and the reviewed exact column allowlist on public_business_profiles
+ FAIL  packages/database/test/public-views-option-a.local.test.ts > AUTH-05 F0-f Option A private public projections > uses invoker security and the reviewed exact column allowlist on public_institution_profiles
+AssertionError: expected [ { invoker: false } ] to deeply equal [ { invoker: true } ]
+
+- Expected
++ Received
+
+  Array [
+    Object {
+-     "invoker": true,
++     "invoker": false,
+    },
+  ]
+
+ ❯ packages/database/test/public-views-option-a.local.test.ts:28:173
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/12]⎯
+
+ FAIL  packages/database/test/public-views-option-a.local.test.ts > AUTH-05 F0-f Option A private public projections > publishes only eligible owners: active-published
+ FAIL  packages/database/test/public-views-option-a.local.test.ts > AUTH-05 F0-f Option A private public projections > publishes only eligible owners: invited
+ FAIL  packages/database/test/public-views-option-a.local.test.ts > AUTH-05 F0-f Option A private public projections > publishes only eligible owners: disabled
+ FAIL  packages/database/test/public-views-option-a.local.test.ts > AUTH-05 F0-f Option A private public projections > publishes only eligible owners: unpublished
+error: column "is_published" of relation "business_profiles" does not exist
+ ❯ node_modules/.pnpm/pg@8.23.1/node_modules/pg/lib/client.js:694:17
+ ❯ packages/database/test/public-views-option-a.local.test.ts:37:5
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/12]⎯
+
+ FAIL  packages/database/test/public-views-option-a.local.test.ts > AUTH-05 F0-f Option A private public projections > publishes only eligible owners: erased
+error: value too long for type character varying(15)
+ ❯ node_modules/.pnpm/pg@8.23.1/node_modules/pg/lib/client.js:694:17
+ ❯ packages/database/test/public-views-option-a.local.test.ts:36:87
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/12]⎯
+
+ FAIL  packages/database/test/public-views-option-a.local.test.ts > AUTH-05 F0-f Option A private public projections > native advisor exits nonzero for an injected ERROR and zero after removal
+AssertionError: expected 1 to be +0 // Object.is equality
+
+- Expected
++ Received
+
+- 0
++ 1
+
+ ❯ packages/database/test/public-views-option-a.local.test.ts:62:48
+     60|       expect(report.results.some(item => item.level === 'ERROR' && ite…
+     61|     } finally { await db.query('drop view public.' + probe); }
+     62|     const clean = scan(); expect(clean.status).toBe(0);
+       |                                                ^
+     63|   });
+     64| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/12]⎯
+

@@ -1,0 +1,15 @@
+Project: jc-auth-test-4ede86d6
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 0
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ✓ packages/database/test/public-views-option-a.local.test.ts (12 tests) 5135ms
+   ✓ AUTH-05 F0-f Option A private public projections > native advisor exits nonzero for an injected ERROR and zero after removal 4839ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  13:49:34
+   Duration  14.70s (transform 235ms, setup 3.79s, collect 26ms, tests 5.13s, environment 0ms, prepare 209ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.

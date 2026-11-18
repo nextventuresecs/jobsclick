@@ -1,0 +1,22 @@
+Project: jc-auth-test-f706ecd3
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ packages/database/test/public-views-option-a.local.test.ts (0 test)
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  13:34:17
+   Duration  10.25s (transform 275ms, setup 4.94s, collect 0ms, tests 0ms, environment 0ms, prepare 241ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/database/test/public-views-option-a.local.test.ts [ packages/database/test/public-views-option-a.local.test.ts ]
+Error: Failed to load url jose (resolved id: jose). Does the file exist?
+ ❯ loadAndTransform ../../../../../../../../Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal-remediation/.scratch/auth-review/node_modules/.pnpm/vite@5.4.21_@types+node@20.19.43_terser@5.51.2/node_modules/vite/dist/node/chunks/dep-BK3b2jBa.js:51969:17
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

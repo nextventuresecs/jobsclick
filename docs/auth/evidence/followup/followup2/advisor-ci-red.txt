@@ -1,0 +1,170 @@
+Exit: 1
+✔ AUTH CI runs a dedicated disposable migration contract job (1.1784ms)
+✔ AUTH CI contains no shared database targets, credentials or secret expressions (0.2735ms)
+✔ deploy-staging cannot report success from a placeholder (0.3609ms)
+✔ deploy-production cannot report success from a placeholder (0.2307ms)
+✔ full-suite CI produces the production artifact before startup integration assertions (0.3027ms)
+✖ native database security verification fails on advisor ERROR findings (3.8315ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 5
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 650.1489
+
+✖ failing tests:
+
+test at scripts\testing\ci-disposable.test.cjs:32:1
+✖ native database security verification fails on advisor ERROR findings (3.8315ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /'security-advisors'/. Input:
+  
+  "const fs = require('node:fs');\n" +
+    "const path = require('node:path');\n" +
+    "const cp = require('node:child_process');\n" +
+    "const net = require('node:net');\n" +
+    "const crypto = require('node:crypto');\n" +
+    "const { Client } = require('pg');\n" +
+    "const { assertDisposableTargets, parseCliStatus } = require('./disposable-target.cjs');\n" +
+    '\n' +
+    "const root = path.resolve(__dirname, '../..');\n" +
+    'const runId = `jc-auth-test-${crypto.randomUUID().slice(0, 8)}`;\n' +
+    "const directory = path.join(root, '.scratch', 'auth-disposable', runId);\n" +
+    "const cli = [path.join(root, 'node_modules/supabase/dist/supabase.js')];\n" +
+    '// Inherit OS tool discovery only. Unknown credentials and runtime injection must stay out.\n' +
+    "const hostVariables = new Set(['PATH', 'PATHEXT', 'SYSTEMROOT', 'SYSTEMDRIVE', 'WINDIR', 'COMSPEC',\n" +
+    "  'HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'PROGRAMDATA', 'PROGRAMFILES', 'PROGRAMFILES(X86)',\n" +
+    "  'TEMP', 'TMP', 'TMPDIR', 'LANG', 'LC_ALL', 'LC_CTYPE', 'XDG_RUNTIME_DIR', 'CI', 'NO_COLOR']);\n" +
+    'const environment = Object.fromEntries(Object.entries(process.env).filter(([key]) => hostVariables.has(key.toUpperCase())));\n' +
+    "environment.DO_NOT_TRACK = '1';\n" +
+    "const args = process.argv.slice(2).filter(arg => arg !== '--');\n" +
+    "const contracts = args.includes('--auth-contracts');\n" +
+    "const dbTools = args.includes('--db-tools');\n" +
+    "const writeTypes = args.includes('--write-generated-types');\n" +
+    "const nativeOtp = args.includes('--native-otp');\n" +
+    "const captchaReject = args.includes('--captcha-reject');\n" +
+    "if (captchaReject && !nativeOtp) throw Error('NATIVE_OTP_REQUIRED');\n" +
+    'const localSecrets = [];\n' +
+    'if (nativeOtp) {\n' +
+    "  environment.JOBSCLICK_TEST_SMS_HOOK_SECRET = 'v1,whsec_' + crypto.randomBytes(32).toString('base64');\n" +
+    "  environment.JOBSCLICK_TEST_SMS_HMAC_KEY = crypto.randomBytes(32).toString('base64');\n" +
+    "  environment.JOBSCLICK_TEST_CAPTCHA_MODE = captchaReject ? 'reject' : 'pass';\n" +
+    "  environment.JOBSCLICK_TEST_TURNSTILE_SECRET = captchaReject ? '2x0000000000000000000000000000000AA' : '1x0000000000000000000000000000000AA'; // Public Cloudflare test key.\n" +
+    '  localSecrets.push(environment.JOBSCLICK_TEST_SMS_HOOK_SECRET, environment.JOBSCLICK_TEST_SMS_HMAC_KEY);\n' +
+    '}\n' +
+    "const testArgs = args.filter(arg => !['--auth-contracts','--db-tools','--write-generated-types','--native-otp','--captcha-reject'].includes(arg));\n" +
+    'const evidence = process.env.JOBSCLICK_TEST_EVIDENCE;\n' +
+    'let started = false;\n' +
+    'let redisStarted = false;\n' +
+    'function redact(text) {\n' +
+    "  for (const secret of localSecrets) text = text.replaceAll(secret, '[local secret redacted]');\n" +
+    "  return text.replace(/eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+/g, '[local JWT redacted]')\n" +
+    "    .replace(/sb_(?:publishable|secret)_[A-Za-z0-9_-]+/g, '[local key redacted]')\n" +
+    `    .replace(/("(?:JWT_SECRET|S3_PROTOCOL_ACCESS_KEY_ID|S3_PROTOCOL_ACCESS_KEY_SECRET)"\\s*:\\s*")[^"]*/g, '$1[local value redacted]');\n` +
+    '}\n' +
+    'function command(binary, commandArgs, env = environment) {\n' +
+    "  return cp.spawnSync(binary, commandArgs, { cwd: root, env, encoding: 'utf8', windowsHide: true, maxBuffer: 16 * 1024 * 1024 });\n" +
+    '}\n' +
+    'function localCli(commandArgs) {\n' +
+    "  return command(process.execPath, [...cli, ...commandArgs, '--workdir', directory]);\n" +
+    '}\n' +
+    'function requireSuccess(result, name) {\n' +
+    "  if (result.status !== 0) throw new Error(`${name} failed (${result.status}): ${redact((result.stdout || '') + (result.stderr || '')).slice(-4000)}`);\n" +
+    '}\n' +
+    'async function freePorts(count) {\n' +
+    '  const servers = [];\n' +
+    '  try {\n' +
+    '    for (let index = 0; index < count; index++) {\n' +
+    '      const server = net.createServer();\n' +
+    "      await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });\n" +
+    '      servers.push(server);\n' +
+    '    }\n' +
+    '    return servers.map(server => server.address().port);\n' +
+    '  } finally { await Promise.all(servers.map(server => new Promise(resolve => server.close(resolve)))); }\n' +
+    '}\n' +
+    'async function main() {\n' +
+    '  fs.mkdirSync(path.dirname(directory), { recursive: true });\n' +
+    '  fs.mkdirSync(directory); // Refuse reuse of an existing run directory.\n' +
+    "  requireSuccess(localCli(['init']), 'supabase init');\n" +
+    '  const [apiPort, databasePort, shadowPort, smtpPort, redisPort, hookPort] = await freePorts(6);\n' +
+    '  const manifest = { version: 1, runId, apiPort, databasePort, redisPort, hookPort, mailPort: smtpPort };\n' +
+    '  const targets = { databaseUrl: `postgresql://postgres:postgres@127.0.0.1:${databasePort}/postgres`, apiUrl: `http://127.0.0.1:${apiPort}`, redisUrl: `redis://127.0.0.1:${redisPort}` };\n' +
+    '  assertDisposableTargets(targets, manifest);\n' +
+    "  const configPath = path.join(directory, 'supabase/config.toml');\n" +
+    '  let config = fs.readFileSync(configPath, \'utf8\').replace(/^project_id = .*$/m, () => `project_id = "${runId}"`);\n' +
+    '  for (const [from, to] of [[54321, apiPort], [54322, databasePort], [54320, shadowPort], [54324, smtpPort]]) config = config.replaceAll(String(from), String(to));\n' +
+    "  for (const section of ['db.seed', 'studio', 'analytics', 'realtime', 'edge_runtime', 'storage.vector']) {\n" +
+    "    config = config.replace(new RegExp(`(\\\\[${section.replaceAll('.', '\\\\.')}\\\\][\\\\s\\\\S]*?enabled = )true`), (_, prefix) => prefix + 'false');\n" +
+    '  }\n' +
+    '  if (nativeOtp) {\n' +
+    "    config = config.replace(/(\\[auth\\.sms\\][\\s\\S]*?enabled = )false/, (_, start) => start + 'true');\n" +
+    "    config = config.replace(/(\\[auth\\.sms\\][\\s\\S]*?enable_confirmations = )false/, (_, start) => start + 'true');\n" +
+    `    config = config.replace(/(\\[auth\\.sms\\][\\s\\S]*?max_frequency = )"5s"/, (_, start) => start + '"1s"');\n` +
+    "    config = config.replace(/(\\[auth\\.email\\][\\s\\S]*?enable_confirmations = )false/, (_, start) => start + 'true');\n" +
+    '    // CLI currently derives phone-enabled from an enabled SMS adapter even with a custom hook.\n' +
+    '    // Placeholder adapter credentials are deliberately invalid; the signed hook is the only sender.\n' +
+    "    config = config.replace(/(\\[auth\\.sms\\.twilio\\][\\s\\S]*?enabled = )false/, (_, start) => start + 'true');\n" +
+    `    config = config.replace('account_sid = ""', 'account_sid = "fixture-not-a-real-account"').replace('message_service_sid = ""', 'message_service_sid = "fixture-not-a-real-service"');\n` +
+    "    environment.SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN = 'fixture-not-a-real-token';\n" +
+    "    const templates = path.join(directory, 'supabase/templates'); fs.mkdirSync(templates, { recursive: true });\n" +
+    "    fs.writeFileSync(path.join(templates, 'otp-fixture.html'), '<code>{{ .Token }}</code>');\n" +
+    `    config += '\\n[auth.hook.send_sms]\\nenabled = true\\nuri = "http://host.docker.internal:' + hookPort + '/supabase-sms-hook"\\nsecrets = "env(JOBSCLICK_TEST_SMS_HOOK_SECRET)"\\n';\n` +
+    `    config += '\\n[auth.email.template.magic_link]\\ncontent_path = "./supabase/templates/otp-fixture.html"\\n';\n` +
+    `    config += '\\n[auth.email.template.confirmation]\\ncontent_path = "./supabase/templates/otp-fixture.html"\\n';\n` +
+    `    config += '\\n[auth.captcha]\\nenabled = true\\nprovider = "turnstile"\\nsecret = "env(JOBSCLICK_TEST_TURNSTILE_SECRET)"\\n';\n` +
+    '  }\n' +
+    "  fs.writeFileSync(configPath, config.replace('jwt_expiry = 3600', 'jwt_expiry = 900'));\n" +
+    "  const migrationDirectory = path.join(directory, 'supabase/migrations');\n" +
+    '  fs.mkdirSync(migrationDirectory, { recursive: true });\n' +
+    "  for (const file of fs.readdirSync(path.join(root, 'supabase/migrations')).filter(file => file.endsWith('.sql'))) {\n" +
+    "    fs.copyFileSync(path.join(root, 'supabase/migrations', file), path.join(migrationDirectory, file));\n" +
+    '  }\n' +
+    '  started = true;\n' +
+    '  console.log(`Starting isolated Supabase ${runId}; developer database is excluded.`);\n' +
+    "  const startup = localCli(['start', '--output', 'json']);\n" +
+    "  requireSuccess(startup, 'supabase start');\n" +
+    "  // start's display varies with agent detection; status has a stable JSON contract.\n" +
+    "  const inspection = localCli(['status', '--output', 'json']);\n" +
+    "  requireSuccess(inspection, 'supabase status');\n" +
+    '  const status = parseCliStatus(inspection.stdout);\n' +
+    '  const reportedDatabase = new URL(status.DB_URL);\n' +
+    "  if (reportedDatabase.hostname !== '127.0.0.1' || Number(reportedDatabase.port) !== databasePort\n" +
+    "    || reportedDatabase.pathname !== '/postgres' || new URL(status.API_URL).origin !== targets.apiUrl) throw new Error('DISPOSABLE_STACK_IDENTITY_MISMATCH');\n" +
+    '  if (nativeOtp) {\n' +
+    "    const inspected = command('docker', ['inspect', 'supabase_auth_' + runId, 'supabase_inbucket_' + runId]);\n" +
+    "    requireSuccess(inspected, 'inspect disposable services');\n" +
+    '    const info = JSON.parse(inspected.stdout).map(container => ({ image: container.Config.Image,\n' +
+    '      environment: container.Config.Env.filter(value => /^(GOTRUE_EXTERNAL_PHONE_ENABLED|GOTRUE_SMS_AUTOCONFIRM|GOTRUE_HOOK_SEND_SMS_ENABLED|GOTRUE_HOOK_SEND_SMS_URI|GOTRUE_SECURITY_CAPTCHA_ENABLED|GOTRUE_SMTP_HOST|GOTRUE_SMTP_PORT)=/.test(value)) }));\n' +
+    "    if (evidence) fs.writeFileSync(evidence.replace(/\\.txt$/, '-services.json'), JSON.stringify(info, null, 2));\n" +
+    '  }\n' +
+    "  const redis = command('docker', ['run', '--detach', '--rm', '--name', runId + '-redis', '--label', 'jobsclick.disposable=' + runId, '-p', `127.0.0.1:${redisPort}:6379`, 'redis:7-alpine', 'redis-server', '--save', '', '--appendonly', 'no']);\n" +
+    "  requireSuccess(redis, 'isolated Redis');\n" +
+    '  redisStarted = true;\n' +
+    '  const db = new Client({ connectionString: targets.databaseUrl });\n' +
+    '  await db.connect();\n' +
+    '  try {\n' +
+    "    const counts = (await db.query('select (select count(*)::int from public.users) as users,(select count(*)::int from auth.users) as auth')).rows[0];\n" +
+    "    if (counts.users || counts.auth) throw new Error('DISPOSABLE_STACK_NOT_EMPTY');\n" +
+    "    await db.query('create schema test_support; revoke all on schema test_support from public,anon,authenticated,service_role; create table test_support.run_identity(run_id text primary key); alter table test_support.run_identity enable row level security');\n" +
+    "    await db.query('insert into test_support.run_identity values($1)', [runId]);\n" +
+    '  } finally { await db.end(); }\n' +
+    "  const manifestPath = path.join(directory, 'manifest.json');\n" +
+    '  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));\n' +
+    "  const env = { ...environment, NODE_ENV: 'test', DATABASE_URL: targets.databaseUrl, SUPABASE_URL: targets.apiUrl, REDIS_URL: targets.redisUrl,\n" +
+    '    SUPABASE_SERVICE_ROLE_KEY: status.SERVICE_ROLE_KEY, SUP'... 4316 more characters
+  
+      at TestContext.<anonymous> (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\scripts\testing\ci-disposable.test.cjs:34:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1325:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:911:18)
+      at Test.postRun (node:internal/test_runner/test:1465:19)
+      at Test.run (node:internal/test_runner/test:1390:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:911:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'const fs = require(\'node:fs\');\nconst path = require(\'node:path\');\nconst cp = require(\'node:child_process\');\nconst net = require(\'node:net\');\nconst crypto = require(\'node:crypto\');\nconst { Client } = require(\'pg\');\nconst { assertDisposableTargets, parseCliStatus } = require(\'./disposable-target.cjs\');\n\nconst root = path.resolve(__dirname, \'../..\');\nconst runId = `jc-auth-test-${crypto.randomUUID().slice(0, 8)}`;\nconst directory = path.join(root, \'.scratch\', \'auth-disposable\', runId);\nconst cli = [path.join(root, \'node_modules/supabase/dist/supabase.js\')];\n// Inherit OS tool discovery only. Unknown credentials and runtime injection must stay out.\nconst hostVariables = new Set([\'PATH\', \'PATHEXT\', \'SYSTEMROOT\', \'SYSTEMDRIVE\', \'WINDIR\', \'COMSPEC\',\n  \'HOME\', \'USERPROFILE\', \'APPDATA\', \'LOCALAPPDATA\', \'PROGRAMDATA\', \'PROGRAMFILES\', \'PROGRAMFILES(X86)\',\n  \'TEMP\', \'TMP\', \'TMPDIR\', \'LANG\', \'LC_ALL\', \'LC_CTYPE\', \'XDG_RUNTIME_DIR\', \'CI\', \'NO_COLOR\']);\nconst environment = Object.fromEntries(Object.entries(process.env).filter(([key]) => hostVariables.has(key.toUpperCase())));\nenvironment.DO_NOT_TRACK = \'1\';\nconst args = process.argv.slice(2).filter(arg => arg !== \'--\');\nconst contracts = args.includes(\'--auth-contracts\');\nconst dbTools = args.includes(\'--db-tools\');\nconst writeTypes = args.includes(\'--write-generated-types\');\nconst nativeOtp = args.includes(\'--native-otp\');\nconst captchaReject = args.includes(\'--captcha-reject\');\nif (captchaReject && !nativeOtp) throw Error(\'NATIVE_OTP_REQUIRED\');\nconst localSecrets = [];\nif (nativeOtp) {\n  environment.JOBSCLICK_TEST_SMS_HOOK_SECRET = \'v1,whsec_\' + crypto.randomBytes(32).toString(\'base64\');\n  environment.JOBSCLICK_TEST_SMS_HMAC_KEY = crypto.randomBytes(32).toString(\'base64\');\n  environment.JOBSCLICK_TEST_CAPTCHA_MODE = captchaReject ? \'reject\' : \'pass\';\n  environment.JOBSCLICK_TEST_TURNSTILE_SECRET = captchaReject ? \'2x0000000000000000000000000000000AA\' : \'1x0000000000000000000000000000000AA\'; // Public Cloudflare test key.\n  localSecrets.push(environment.JOBSCLICK_TEST_SMS_HOOK_SECRET, environment.JOBSCLICK_TEST_SMS_HMAC_KEY);\n}\nconst testArgs = args.filter(arg => ![\'--auth-contracts\',\'--db-tools\',\'--write-generated-types\',\'--native-otp\',\'--captcha-reject\'].includes(arg));\nconst evidence = process.env.JOBSCLICK_TEST_EVIDENCE;\nlet started = false;\nlet redisStarted = false;\nfunction redact(text) {\n  for (const secret of localSecrets) text = text.replaceAll(secret, \'[local secret redacted]\');\n  return text.replace(/eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+/g, \'[local JWT redacted]\')\n    .replace(/sb_(?:publishable|secret)_[A-Za-z0-9_-]+/g, \'[local key redacted]\')\n    .replace(/("(?:JWT_SECRET|S3_PROTOCOL_ACCESS_KEY_ID|S3_PROTOCOL_ACCESS_KEY_SECRET)"\\s*:\\s*")[^"]*/g, \'$1[local value redacted]\');\n}\nfunction command(binary, commandArgs, env = environment) {\n  return cp.spawnSync(binary, commandArgs, { cwd: root, env, encoding: \'utf8\', windowsHide: true, maxBuffer: 16 * 1024 * 1024 });\n}\nfunction localCli(commandArgs) {\n  return command(process.execPath, [...cli, ...commandArgs, \'--workdir\', directory]);\n}\nfunction requireSuccess(result, name) {\n  if (result.status !== 0) throw new Error(`${name} failed (${result.status}): ${redact((result.stdout || \'\') + (result.stderr || \'\')).slice(-4000)}`);\n}\nasync function freePorts(count) {\n  const servers = [];\n  try {\n    for (let index = 0; index < count; index++) {\n      const server = net.createServer();\n      await new Promise((resolve, reject) => { server.once(\'error\', reject); server.listen(0, \'127.0.0.1\', resolve); });\n      servers.push(server);\n    }\n    return servers.map(server => server.address().port);\n  } finally { await Promise.all(servers.map(server => new Promise(resolve => server.close(resolve)))); }\n}\nasync function main() {\n  fs.mkdirSync(path.dirname(directory), { recursive: true });\n  fs.mkdirSync(directory); // Refuse reuse of an existing run directory.\n  requireSuccess(localCli([\'init\']), \'supabase init\');\n  const [apiPort, databasePort, shadowPort, smtpPort, redisPort, hookPort] = await freePorts(6);\n  const manifest = { version: 1, runId, apiPort, databasePort, redisPort, hookPort, mailPort: smtpPort };\n  const targets = { databaseUrl: `postgresql://postgres:postgres@127.0.0.1:${databasePort}/postgres`, apiUrl: `http://127.0.0.1:${apiPort}`, redisUrl: `redis://127.0.0.1:${redisPort}` };\n  assertDisposableTargets(targets, manifest);\n  const configPath = path.join(directory, \'supabase/config.toml\');\n  let config = fs.readFileSync(configPath, \'utf8\').replace(/^project_id = .*$/m, () => `project_id = "${runId}"`);\n  for (const [from, to] of [[54321, apiPort], [54322, databasePort], [54320, shadowPort], [54324, smtpPort]]) config = config.replaceAll(String(from), String(to));\n  for (const section of [\'db.seed\', \'studio\', \'analytics\', \'realtime\', \'edge_runtime\', \'storage.vector\']) {\n    config = config.replace(new RegExp(`(\\\\[${section.replaceAll(\'.\', \'\\\\.\')}\\\\][\\\\s\\\\S]*?enabled = )true`), (_, prefix) => prefix + \'false\');\n  }\n  if (nativeOtp) {\n    config = config.replace(/(\\[auth\\.sms\\][\\s\\S]*?enabled = )false/, (_, start) => start + \'true\');\n    config = config.replace(/(\\[auth\\.sms\\][\\s\\S]*?enable_confirmations = )false/, (_, start) => start + \'true\');\n    config = config.replace(/(\\[auth\\.sms\\][\\s\\S]*?max_frequency = )"5s"/, (_, start) => start + \'"1s"\');\n    config = config.replace(/(\\[auth\\.email\\][\\s\\S]*?enable_confirmations = )false/, (_, start) => start + \'true\');\n    // CLI currently derives phone-enabled from an enabled SMS adapter even with a custom hook.\n    // Placeholder adapter credentials are deliberately invalid; the signed hook is the only sender.\n    config = config.replace(/(\\[auth\\.sms\\.twilio\\][\\s\\S]*?enabled = )false/, (_, start) => start + \'true\');\n    config = config.replace(\'account_sid = ""\', \'account_sid = "fixture-not-a-real-account"\').replace(\'message_service_sid = ""\', \'message_service_sid = "fixture-not-a-real-service"\');\n    environment.SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN = \'fixture-not-a-real-token\';\n    const templates = path.join(directory, \'supabase/templates\'); fs.mkdirSync(templates, { recursive: true });\n    fs.writeFileSync(path.join(templates, \'otp-fixture.html\'), \'<code>{{ .Token }}</code>\');\n    config += \'\\n[auth.hook.send_sms]\\nenabled = true\\nuri = "http://host.docker.internal:\' + hookPort + \'/supabase-sms-hook"\\nsecrets = "env(JOBSCLICK_TEST_SMS_HOOK_SECRET)"\\n\';\n    config += \'\\n[auth.email.template.magic_link]\\ncontent_path = "./supabase/templates/otp-fixture.html"\\n\';\n    config += \'\\n[auth.email.template.confirmation]\\ncontent_path = "./supabase/templates/otp-fixture.html"\\n\';\n    config += \'\\n[auth.captcha]\\nenabled = true\\nprovider = "turnstile"\\nsecret = "env(JOBSCLICK_TEST_TURNSTILE_SECRET)"\\n\';\n  }\n  fs.writeFileSync(configPath, config.replace(\'jwt_expiry = 3600\', \'jwt_expiry = 900\'));\n  const migrationDirectory = path.join(directory, \'supabase/migrations\');\n  fs.mkdirSync(migrationDirectory, { recursive: true });\n  for (const file of fs.readdirSync(path.join(root, \'supabase/migrations\')).filter(file => file.endsWith(\'.sql\'))) {\n    fs.copyFileSync(path.join(root, \'supabase/migrations\', file), path.join(migrationDirectory, file));\n  }\n  started = true;\n  console.log(`Starting isolated Supabase ${runId}; developer database is excluded.`);\n  const startup = localCli([\'start\', \'--output\', \'json\']);\n  requireSuccess(startup, \'supabase start\');\n  // start\'s display varies with agent detection; status has a stable JSON contract.\n  const inspection = localCli([\'status\', \'--output\', \'json\']);\n  requireSuccess(inspection, \'supabase status\');\n  const status = parseCliStatus(inspection.stdout);\n  const reportedDatabase = new URL(status.DB_URL);\n  if (reportedDatabase.hostname !== \'127.0.0.1\' || Number(reportedDatabase.port) !== databasePort\n    || reportedDatabase.pathname !== \'/postgres\' || new URL(status.API_URL).origin !== targets.apiUrl) throw new Error(\'DISPOSABLE_STACK_IDENTITY_MISMATCH\');\n  if (nativeOtp) {\n    const inspected = command(\'docker\', [\'inspect\', \'supabase_auth_\' + runId, \'supabase_inbucket_\' + runId]);\n    requireSuccess(inspected, \'inspect disposable services\');\n    const info = JSON.parse(inspected.stdout).map(container => ({ image: container.Config.Image,\n      environment: container.Config.Env.filter(value => /^(GOTRUE_EXTERNAL_PHONE_ENABLED|GOTRUE_SMS_AUTOCONFIRM|GOTRUE_HOOK_SEND_SMS_ENABLED|GOTRUE_HOOK_SEND_SMS_URI|GOTRUE_SECURITY_CAPTCHA_ENABLED|GOTRUE_SMTP_HOST|GOTRUE_SMTP_PORT)=/.test(value)) }));\n    if (evidence) fs.writeFileSync(evidence.replace(/\\.txt$/, \'-services.json\'), JSON.stringify(info, null, 2));\n  }\n  const redis = command(\'docker\', [\'run\', \'--detach\', \'--rm\', \'--name\', runId + \'-redis\', \'--label\', \'jobsclick.disposable=\' + runId, \'-p\', `127.0.0.1:${redisPort}:6379`, \'redis:7-alpine\', \'redis-server\', \'--save\', \'\', \'--appendonly\', \'no\']);\n  requireSuccess(redis, \'isolated Redis\');\n  redisStarted = true;\n  const db = new Client({ connectionString: targets.databaseUrl });\n  await db.connect();\n  try {\n    const counts = (await db.query(\'select (select count(*)::int from public.users) as users,(select count(*)::int from auth.users) as auth\')).rows[0];\n    if (counts.users || counts.auth) throw new Error(\'DISPOSABLE_STACK_NOT_EMPTY\');\n    await db.query(\'create schema test_support; revoke all on schema test_support from public,anon,authenticated,service_role; create table test_support.run_identity(run_id text primary key); alter table test_support.run_identity enable row level security\');\n    await db.query(\'insert into test_support.run_identity values($1)\', [runId]);\n  } finally { await db.end(); }\n  const manifestPath = path.join(directory, \'manifest.json\');\n  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));\n  const env = { ...environment, NODE_ENV: \'test\', DATABASE_URL: targets.databaseUrl, SUPABASE_URL: targets.apiUrl, REDIS_URL: targets.redisUrl,\n    SUPABASE_SERVICE_ROLE_KEY: status.SERVICE_ROLE_KEY, SUP'... 4316 more characters,
+    expected: /'security-advisors'/,
+    operator: 'match',
+    diff: 'simple'
+  }

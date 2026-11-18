@@ -1,0 +1,3 @@
+Project: jc-auth-test-6f11cc24
+Exit: 0
+{"mode":"--check","schemas":["_realtime","auth","extensions","graphql","graphql_public","pgbouncer","private_auth","private_payments","public","realtime","storage","supabase_functions","supabase_migrations","vault"],"bytes":125110,"target":"packages/database/src/generated.types.ts","project":"jc-auth-test-6f11cc24"}

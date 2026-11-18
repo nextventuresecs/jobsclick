@@ -1,0 +1,27 @@
+Project: jc-auth-test-891c20ab
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 1
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ❯ packages/database/test/public-views-option-a.local.test.ts (12 tests | 1 failed) 5118ms
+   × AUTH-05 F0-f Option A private public projections > publishes only eligible owners: erased 5ms
+     → new row for relation "users" violates check constraint "check_phone_regex"
+   ✓ AUTH-05 F0-f Option A private public projections > native advisor exits nonzero for an injected ERROR and zero after removal 4873ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 11 passed (12)
+   Start at  13:46:52
+   Duration  13.77s (transform 238ms, setup 3.54s, collect 36ms, tests 5.12s, environment 0ms, prepare 236ms)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/database/test/public-views-option-a.local.test.ts > AUTH-05 F0-f Option A private public projections > publishes only eligible owners: erased
+error: new row for relation "users" violates check constraint "check_phone_regex"
+ ❯ node_modules/.pnpm/pg@8.23.1/node_modules/pg/lib/client.js:694:17
+ ❯ packages/database/test/public-views-option-a.local.test.ts:36:87
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+

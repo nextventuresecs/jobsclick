@@ -1,0 +1,25 @@
+{
+  "item": "33-public-views",
+  "kind": "code",
+  "branch": "codex/auth-33-public-views",
+  "commit": "cb6ed151ccd7f1db07cd00f5cd4af8fc34524099",
+  "files": [
+    "docs/auth/CODEX_AUTH_FOLLOWUP_2_PROMPT.md",
+    "supabase/migrations/20261118081337_public_discovery_option_a.sql",
+    "packages/database/supabase/migrations/20261118081337_public_discovery_option_a.sql",
+    "supabase/rollbacks/20261118081337_public_discovery_option_a.sql",
+    "packages/database/src/index.ts",
+    "packages/database/src/generated.types.ts",
+    "packages/database/test/fixtures/public-view-columns.json",
+    "packages/database/test/public-views-option-a.local.test.ts",
+    "scripts/db-catalog-check.ts",
+    "scripts/smoke-postgrest.ts",
+    "scripts/db-security-drill.ts",
+    "scripts/testing/run-disposable.cjs",
+    "scripts/testing/ci-disposable.test.cjs",
+    "docs/auth/FOLLOWUP_2_REVIEW.md",
+    "docs/decisions/002-supabase-auth-migration-plan.md",
+    "docs/auth/CRITICAL_HUMAN_REVIEW.md"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}
