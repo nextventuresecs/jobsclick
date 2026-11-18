@@ -1,7 +1,9 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@indian-job-portal/database';
 import fs from 'node:fs';
 import path from 'node:path';
+import { threadId } from 'node:worker_threads';
 
 export const SUPABASE_CLIENT = Symbol('SUPABASE_CLIENT');
 export const USER_SCOPED_SUPABASE_FACTORY = Symbol('USER_SCOPED_SUPABASE_FACTORY');
@@ -16,6 +18,7 @@ export interface DatabasePersistenceState {
   audit_logs: Record<string, unknown>;
   credit_ledgers: Record<string, unknown>;
   payments: Record<string, unknown>;
+  payment_grants: Record<string, unknown>;
   institution_inquiries: Record<string, unknown>;
   institution_sponsorships: Record<string, unknown>;
   broadcast_campaigns: Record<string, unknown>;
@@ -29,6 +32,7 @@ export interface DatabasePersistenceState {
 export class PersistentDatabaseStore {
   private static instance: PersistentDatabaseStore;
   private filePath: string = '';
+  private readonly financialContext = new AsyncLocalStorage<boolean>();
   private locks: Map<string, Promise<unknown>> = new Map();
   private state: DatabasePersistenceState = {
     users: {},
@@ -40,6 +44,7 @@ export class PersistentDatabaseStore {
     audit_logs: {},
     credit_ledgers: {},
     payments: {},
+    payment_grants: {},
     institution_inquiries: {},
     institution_sponsorships: {},
     broadcast_campaigns: {},
@@ -55,7 +60,19 @@ export class PersistentDatabaseStore {
       this.filePath = '';
       return;
     }
-    const dir = path.resolve(process.cwd(), '.scratch');
+    let dir = path.resolve(process.cwd(), '.scratch');
+    if (process.env['NODE_ENV'] === 'test') {
+      try {
+        const manifestPath = process.env['JOBSCLICK_TEST_MANIFEST'];
+        if (!manifestPath) throw new Error('Missing test manifest');
+        const resolved = path.resolve(manifestPath);
+        const manifest = JSON.parse(fs.readFileSync(resolved, 'utf8'));
+        if (path.basename(resolved) !== 'manifest.json' || manifest.version !== 1
+          || !/^jc-auth-test-[a-f0-9]{8}$/.test(manifest.runId)
+          || path.basename(path.dirname(resolved)) !== manifest.runId) throw new Error('Invalid test manifest');
+        dir = path.join(path.dirname(resolved), 'fixture-json', String(process.pid) + '-' + String(threadId));
+      } catch { throw new Error('DISPOSABLE_TEST_DATA_REQUIRED'); }
+    }
     if (!fs.existsSync(dir)) {
       try {
         fs.mkdirSync(dir, { recursive: true });
@@ -93,6 +110,19 @@ export class PersistentDatabaseStore {
     }
   }
 
+  // Test adapter only. Production financial writes always use a single database RPC.
+  public async withFinancialTransaction<T>(fn: () => Promise<T>): Promise<T> {
+    if (process.env['NODE_ENV'] !== 'test' || !this.filePath.includes(path.sep + 'fixture-json' + path.sep)) {
+      throw new Error('DISPOSABLE_FINANCIAL_TRANSACTION_REQUIRED');
+    }
+    if (this.financialContext.getStore()) return fn();
+    return this.withLock('financial-transaction', () => this.financialContext.run(true, async () => {
+      const snapshot = structuredClone(this.state);
+      try { return await fn(); }
+      catch (error) { this.state = snapshot; this.save(); throw error; }
+    }));
+  }
+
   private load(): void {
     if (process.env['NODE_ENV'] === 'production') {
       throw new Error(
@@ -113,6 +143,7 @@ export class PersistentDatabaseStore {
           audit_logs: parsed.audit_logs || {},
           credit_ledgers: parsed.credit_ledgers || {},
           payments: parsed.payments || {},
+          payment_grants: parsed.payment_grants || {},
           institution_inquiries: parsed.institution_inquiries || {},
           institution_sponsorships: parsed.institution_sponsorships || {},
           broadcast_campaigns: parsed.broadcast_campaigns || {},

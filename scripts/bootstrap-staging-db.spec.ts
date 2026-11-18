@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import pg from 'pg';
+import { randomUUID } from 'node:crypto';
 const { Client } = pg;
 import {
   parseDatabaseUrl,
@@ -162,13 +163,14 @@ describe('Staging Database Bootstrap Runner URL Validation & Safety Gates', () =
 
   describe('--dry-run Zero-Writes Proof on Fresh Database', () => {
     it('performs zero writes and leaves database with no supabase_migrations schema', async () => {
-      const masterConn = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
-      const testDbName = 'dryrun_test_empty';
-      const testDbUrl = `postgresql://postgres:postgres@127.0.0.1:54322/${testDbName}`;
+      const masterConn = process.env['DATABASE_URL']!;
+      const testDbName = 'dryrun_' + randomUUID().replaceAll('-', '');
+      const childTarget = new URL(masterConn);
+      childTarget.pathname = '/' + testDbName;
+      const testDbUrl = childTarget.toString();
 
       const master = new Client({ connectionString: masterConn });
       await master.connect();
-      await master.query(`DROP DATABASE IF EXISTS ${testDbName} WITH (FORCE);`);
       await master.query(`CREATE DATABASE ${testDbName};`);
       await master.end();
 
