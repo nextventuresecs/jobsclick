@@ -12,6 +12,9 @@ export default defineConfig({
   },
   test: {
     globals: true,
+    // Bound competing integration files; within-file 1,000-request races stay intact.
+    maxWorkers: 2,
+    minWorkers: 1,
     environment: 'node',
     testTimeout: 60000,
     setupFiles: [path.resolve(__dirname, 'apps/api/test/setup.ts')],

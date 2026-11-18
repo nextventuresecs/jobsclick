@@ -17,13 +17,13 @@
 | 11 | Parallel invite claims produce one link | serializes same-provider claims and records one success plus one retry | vitest: `packages/database/test/auth-claims-v21.local.test.ts` | PASS |
 | 12 | Second independent Auth identity conflicts | rejects a second independent provider instead of merging it into an already claimed account | vitest: `packages/database/test/auth-claims-v21.local.test.ts` | PASS |
 | 13 | Linked disabled account rejected | does not accept a retry after the linked account is disabled | vitest: `packages/database/test/auth-claims-v21.local.test.ts` | PASS |
-| 14 | Audit success/rollback/rejection allowlist/no PII; separate attempt wrapper conflict | audits both the first claim and idempotent retry without recording contacts or credentials; rolls back the new mapping if its success audit cannot be committed; commits a fresh rejected attempt after an outer rollback and rejects unapproved audit reasons | vitest: `packages/database/test/auth-claims-v21.local.test.ts` | NOT RUN |
+| 14 | Transaction-local success/retry/rejection audit; rollback/allowlist/no PII | audits both the first claim and idempotent retry without recording contacts or credentials; rolls back the new mapping if its success audit cannot be committed; commits a fresh rejected attempt after an outer rollback and rejects unapproved audit reasons | vitest: `packages/database/test/auth-claims-v21.local.test.ts` | PASS |
 | 15 | Provider email whitespace/case canonicalisation | normalises provider email capitals and surrounding spaces before matching | vitest: `packages/database/test/auth-claims-v21.local.test.ts` | PASS |
 | 16 | Erased contact never matches | never matches an erased application contact | vitest: `packages/database/test/auth-claims-v21.local.test.ts` | PASS |
 
 Cases 9 and 10 deliberately share a legal two-candidate fixture; existing uniqueness constraints prohibit manufacturing duplicate same-contact users.
 
-**Case 14:** implemented transactional success/retry/rejection/no-PII and invalid-reason tests PASS. The quoted requirement for a separate public attempt-audit wrapper remains NOT RUN / SCHEMA_MISMATCH: it does not exist in the reviewed contract. The new test proves an outer rollback removes that transaction's audit, then a fresh committed claim RPC records exactly one rejection. It does not claim an autonomous transaction or database-outage durability. See [contract conflicts](../../SCHEMA_MISMATCH.md).
+**Case 14 — Follow-up 2 supersedes the old mismatch:** PASS under the approved transaction-local rule. Success/retry/expected rejection are audited in the claim transaction. Mapping and audit roll back together; invalid audit reasons are denied. The existing outer-rollback/fresh-committed-attempt test remains unchanged and does not claim autonomous transactions or database-outage durability. No separate attempt-audit function is required or added. New unexpected-error HTTP regression covers one safe log, safe alert and generic client error; the SQL assertions are not weakened.
 
 ## Real provider metadata proof
 

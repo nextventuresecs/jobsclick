@@ -71,3 +71,22 @@ Native-only frequency configuration is explicit (SMS 1s, email 60s); it changes 
 The native regression reproduced a missing companyId: the web mapper fell back to the employer account UUID, so company links did not address the company profile. Public job detail/search now add the published company profile UUID and organisation name through service-only invoker RPCs reading the approved views. The existing three view column snapshots remain unchanged. No private profile/contact fields are returned; employerId keeps its original meaning.
 
 Verification: **42 affected API/search tests PASS**, then **24 native API/mapper/view-security tests PASS**. New checks exercise the real web mapper, dereference the public company slug, lock all 22 public job DTO keys, and deny anon RPC execution. Type freshness, catalog, security drill, 25 HTTP smoke checks and native advisors (zero findings) PASS on fresh disposable stacks. An earlier target named a nonexistent web test; it is not counted as a web test run. The final native test imports and executes the actual mapper. Existing privacy assertions remain; new companyId/companyName are explicit non-PII derivatives of the published company projection. This is a forward local migration draft; hosted apply remains human.
+
+## E - transaction-local audit and safe unexpected failures
+
+Local draft PASS. Plan section 6 and M2 case 14 now match Follow-up 2 section 15: expected rejection, retry and success audits commit in the claim transaction; audit failure rolls mapping back. No separate attempt wrapper or database-outage audit durability is claimed. Existing SQL attacker assertions are unchanged.
+
+Unexpected API failures return an allowlisted internal code or a generic dependency/internal code. The central filter produces one server-generated request-id/error-class log and a scoped safe Sentry event. No original error, SQL, URL, query token, upstream response or contact enters this new incident path. Four actual HTTP fault-fixture tests verify redacted clients/logs/alerts, contaminated-scope isolation and no duplicate alert for expected rejection. This is central-filter evidence; S6 still must exercise the actual claim endpoint and avoid leaf diagnostic logging.
+
+Verification: 71 focused tests, 12 native pgTAP and two native Auth tests PASS. A production build under Node 24.22.3 with OS-only/non-routable fixture configuration PASS. An earlier build failed on a missing generated Next.js manifest; that diagnostic remains in conversation output, while the reused untracked build proof path contains only the successful run. No assertion that the failed raw build output was separately retained. Fresh packaged build/remote CI remain required.
+
+Full regression first had 1,155 PASS / four FAIL / 14 conditional skips. Corrected full run: **1,160 PASS / 14 conditional skips**, zero failures, fresh Supabase/Redis and zero pre-fixture users/Auth. All failures remain in the first full output. A deterministic count-isolation red is separate. Redis failures were command timeouts under unbounded competing test workers; integration files are now bounded at two workers. The 1,000-request OTP test, its assertions and production Redis timeout are unchanged. No claim of live load capacity.
+
+### Additional assertion/fixture changes requiring sign-off
+
+- auth-server-state-lockdown.spec.ts: the Redis outage still requires HTTP 503; its old prose expectation becomes exact DEPENDENCY_UNAVAILABLE plus a server request ID and no raw Redis diagnostic. This implements the approved code-only safe-error contract, not outage tolerance.
+- profiles.e2e-spec.ts: the existing positive QR case explicitly publishes its active employer-owned profile. Its HTTP 200 and PNG assertions remain; hidden-owner native denials remain.
+- auth-role-lockdown.e2e-spec.ts: every original role/count assertion stays exact. Only this suite's real inserts are tagged, and its count queries that source. A separate real repository insert deterministically proves unrelated fixtures cannot change the suite's count. Runtime UserRepository.count is unchanged. Test-only method overrides are restored.
+- vitest.config.ts bounds competing files, not within-file adversarial parallel requests. No test is skipped or reduced. Historical identity and financial attacker test bodies remain unchanged.
+
+Staging, persistent data and provider settings unchanged. Google/nullable-phone CSV stay disabled. Next authorised slices: G review packaging, then H/S6 after fresh-stack verification.

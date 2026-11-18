@@ -1,5 +1,11 @@
 # AUTH v2.1 follow-up review packet
 
+## Current Follow-up 2 checkpoint
+
+A/B/C/E local gates now pass; latest full run is 1,160 PASS / 14 conditional skips, plus separately retained pgTAP/native Auth evidence. See [current corrections and changed assertions](FOLLOWUP_2_REVIEW.md). The historical status below predates these corrections. G review packaging, remote CI and H/S6 are still pending; this is not merge or hosted enablement approval. Staging/persistent data remain unchanged.
+
+## Historical packet (preserved context)
+
 2026-11-18. **NOT MERGEABLE: remaining auth and public-view gates.** The F0-d payment reuse and crash-atomicity failures are resolved in the local draft; the formerly failing assertions pass unchanged. S4 still lacks the reviewed MSG91 transport contract and production single-use/device/IP proof. S6 was **not started**, following the supplied dependency gate. Three pre-existing public owner-privilege views remain advisor ERROR findings. These are local review drafts; staging and the persistent dev DB were not modified.
 
 ## Latest continuation result
