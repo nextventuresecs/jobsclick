@@ -78,8 +78,10 @@ async function main() {
   if (nativeOtp) {
     config = config.replace(/(\[auth\.sms\][\s\S]*?enabled = )false/, (_, start) => start + 'true');
     config = config.replace(/(\[auth\.sms\][\s\S]*?enable_confirmations = )false/, (_, start) => start + 'true');
-    config = config.replace(/(\[auth\.sms\][\s\S]*?max_frequency = )"5s"/, (_, start) => start + '"1s"');
+    config = config.replace(/(\[auth\.sms\][\s\S]*?max_frequency = )"[^"]+"/, (_, start) => start + '"1s"');
     config = config.replace(/(\[auth\.email\][\s\S]*?enable_confirmations = )false/, (_, start) => start + 'true');
+    // Realistic provider cooldown makes the explicit fallback throttle contract deterministic.
+    config = config.replace(/(\[auth\.email\][\s\S]*?max_frequency = )"[^"]+"/, (_, start) => start + '"60s"');
     // CLI currently derives phone-enabled from an enabled SMS adapter even with a custom hook.
     // Placeholder adapter credentials are deliberately invalid; the signed hook is the only sender.
     config = config.replace(/(\[auth\.sms\.twilio\][\s\S]*?enabled = )false/, (_, start) => start + 'true');
