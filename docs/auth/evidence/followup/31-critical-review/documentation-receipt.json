@@ -1,0 +1,10 @@
+{
+  "item": "31-critical-review",
+  "kind": "documentation",
+  "branch": "codex/auth-31-critical-review",
+  "commit": "6e420eca216f94c91cd11b63750a4c615f7bf643",
+  "files": [
+    "docs/auth/CRITICAL_HUMAN_REVIEW.md"
+  ],
+  "gate": "no code changes; whitespace and explicit-file selection checked"
+}
