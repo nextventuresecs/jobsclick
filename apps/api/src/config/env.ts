@@ -1,3 +1,4 @@
+import { assertDeclaredProviderLifetime } from '../auth/provider-lifetime-policy.js';
 import { z } from 'zod';
 import { safeBoolean, validateProductionJwtKey, validateSecretKey } from '@indian-job-portal/validation';
 import fs from 'node:fs';
@@ -129,6 +130,7 @@ export function validateEnv(overrides?: Record<string, string | undefined>): Env
   }
 
   const rawSource = overrides ?? process.env;
+  assertDeclaredProviderLifetime(rawSource);
   const rawNodeEnv = (rawSource['NODE_ENV'] ?? '').trim().toLowerCase();
   const isDevOrTest = rawNodeEnv === 'development' || rawNodeEnv === 'test';
 

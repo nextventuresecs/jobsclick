@@ -6,6 +6,8 @@ import { JwtService } from '../src/auth/jwt.service.js';
 import { UserRepository } from '../src/database/repositories/user.repository.js';
 import { OtpRedisService, AUTH_STATE_TTL_SECONDS } from '../src/auth/otp-redis.service.js';
 import { AdminService } from '../src/admin/admin.service.js';
+import { SUPABASE_CLIENT } from '../src/database/supabase.provider.js';
+import { tagLocalUserFixtures } from './fixtures/local-user-fixtures.js';
 
 describe('Immediate Session Invalidation & Fail-Closed State (P0-8 Integration)', () => {
   let appA: NestFastifyApplication;
@@ -14,6 +16,7 @@ describe('Immediate Session Invalidation & Fail-Closed State (P0-8 Integration)'
   let otpRedisA: OtpRedisService;
   let jwtServiceA: JwtService;
   let adminServiceA: AdminService;
+  let cleanup: (() => Promise<void>) | undefined;
 
   beforeAll(async () => {
     // Instance A
@@ -26,6 +29,7 @@ describe('Immediate Session Invalidation & Fail-Closed State (P0-8 Integration)'
     await appA.getHttpAdapter().getInstance().ready();
 
     userRepoA = moduleFixtureA.get<UserRepository>(UserRepository);
+    cleanup = tagLocalUserFixtures(userRepoA, moduleFixtureA.get(SUPABASE_CLIENT), moduleFixtureA.get(OtpRedisService));
     otpRedisA = moduleFixtureA.get<OtpRedisService>(OtpRedisService);
     jwtServiceA = moduleFixtureA.get<JwtService>(JwtService);
     adminServiceA = moduleFixtureA.get<AdminService>(AdminService);
@@ -41,8 +45,7 @@ describe('Immediate Session Invalidation & Fail-Closed State (P0-8 Integration)'
   });
 
   afterAll(async () => {
-    await appA.close();
-    await appB.close();
+    try { await cleanup?.(); } finally { await Promise.all([appA.close(), appB.close()]); }
   });
 
   // Test 1: Administrator demotion

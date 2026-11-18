@@ -1,4 +1,5 @@
-import { Controller, Get } from '@nestjs/common';
+import { ProviderLifetimePolicy } from '../auth/provider-lifetime-policy.js';
+import { Controller, Get, Inject } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { captureException } from '../config/sentry.js';
 import { Public } from '../auth/decorators/public.decorator.js';
@@ -7,6 +8,10 @@ import { Public } from '../auth/decorators/public.decorator.js';
 @Public()
 @Controller('health')
 export class HealthController {
+  constructor(@Inject(ProviderLifetimePolicy) private readonly providerLifetime: ProviderLifetimePolicy) {}
+  @Get('ready')
+  ready() { this.providerLifetime.check(); return {status:'ready'}; }
+
   @Get()
   check() {
     return {
