@@ -1,3 +1,4 @@
+import { publishEmployerFixture } from './fixtures/published-employer.js';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -107,6 +108,7 @@ describe('PRD 14.1 Full Acceptance Walkthrough (Epic 6 Launch Readiness)', () =>
     });
     expect([200, 201]).toContain(empVerifyRes.statusCode);
     const empToken = empVerifyRes.json().accessToken;
+    await publishEmployerFixture(app,empVerifyRes.json().user.id);
 
     const jobRes = await app.inject({
       method: 'POST',

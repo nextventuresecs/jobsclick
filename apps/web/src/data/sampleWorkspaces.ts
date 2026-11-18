@@ -79,6 +79,7 @@ export interface StudentRecordData {
 }
 
 export interface InstitutionProfileData {
+  isPublished?: boolean;
   readonly id: string;
   readonly institutionName: string;
   readonly institutionType: 'iti' | 'polytechnic' | 'engineering' | 'vocational_training' | 'degree_college' | 'other';

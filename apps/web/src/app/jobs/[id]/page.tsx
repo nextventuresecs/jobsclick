@@ -26,7 +26,7 @@ import {
   Lock,
 } from 'lucide-react';
 
-export const revalidate = 30;
+export const dynamic = 'force-dynamic';
 
 interface JobDetailPageProps {
   readonly params: {
@@ -44,7 +44,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
   try {
     const res = await fetch(`${apiUrl}/jobs/${jobId}`, {
       headers: { Accept: 'application/json' },
-      next: { revalidate: 30 },
+      cache: 'no-store',
     });
     if (res.status === 404 || !res.ok) {
       isNotFound = true;

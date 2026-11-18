@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Button } from '@indian-job-portal/ui';
 import QRCode from 'qrcode';
+import { publicProfilePathSchema } from '@indian-job-portal/validation';
 import {
   QrCode,
   Share2,
@@ -46,12 +47,13 @@ export function ProfileQrShareCard({
   compact = false,
 }: ProfileQrShareCardProps) {
   const { addToast } = useApp();
+  const validPath = publicProfilePathSchema.safeParse(path).success;
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [copied, setCopied] = useState(false);
   const [fullUrl, setFullUrl] = useState<string>(`https://jobsclick.live${path}`);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (validPath && typeof window !== 'undefined') {
       const origin = window.location.origin;
       const url = `${origin}${path}`;
       setFullUrl(url);
@@ -71,7 +73,7 @@ export function ProfileQrShareCard({
           console.error('Failed to generate QR code', err);
         });
     }
-  }, [path]);
+  }, [path, validPath]);
 
   const handleCopyLink = async () => {
     try {
@@ -128,6 +130,8 @@ export function ProfileQrShareCard({
       window.print();
     }
   };
+
+  if (!validPath) return null;
 
   if (compact) {
     return (

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { CompanyItem } from '../../../data/sampleCompanies';
 
 export function useCompanyProfileState(initialCompany: CompanyItem) {
+  const [formIsPublished, setFormIsPublished] = useState(initialCompany.isPublished ?? false);
   const [formOrgName, setFormOrgName] = useState(initialCompany.name);
   const [formOwnership, setFormOwnership] = useState<CompanyItem['ownershipType']>(initialCompany.ownershipType);
   const [formPhone, setFormPhone] = useState(initialCompany.phone || '');
@@ -34,6 +35,7 @@ export function useCompanyProfileState(initialCompany: CompanyItem) {
 
   const syncFromBusinessProfile = (busProfile: {
     companyName?: string;
+    isPublished?: boolean;
     sector?: string;
     address?: string;
     city?: string;
@@ -42,6 +44,7 @@ export function useCompanyProfileState(initialCompany: CompanyItem) {
     ownershipType?: string;
     companySize?: string;
   }) => {
+    setFormIsPublished(busProfile.isPublished ?? false);
     if (busProfile.companyName) setFormOrgName(busProfile.companyName);
     if (busProfile.sector) setFormSector(busProfile.sector);
     if (busProfile.address) setFormAddress(busProfile.address);
@@ -55,6 +58,7 @@ export function useCompanyProfileState(initialCompany: CompanyItem) {
   const getUpdatedCompany = (prev: CompanyItem): CompanyItem => ({
     ...prev,
     name: formOrgName.trim(),
+    isPublished: formIsPublished,
     ownershipType: formOwnership,
     phone: formPhone.trim(),
     email: formEmail.trim(),
@@ -89,6 +93,7 @@ export function useCompanyProfileState(initialCompany: CompanyItem) {
 
   return {
     formData: {
+      formIsPublished, setFormIsPublished,
       formOrgName, setFormOrgName,
       formOwnership, setFormOwnership,
       formPhone, setFormPhone,

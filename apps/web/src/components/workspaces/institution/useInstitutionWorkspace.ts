@@ -93,6 +93,7 @@ export function useInstitutionWorkspace({ user, isAuthenticated, addToast }: Use
         setInstitution((prev) => ({
           ...prev,
           id: data.id || prev.id,
+          isPublished: data.isPublished === true,
           institutionName: data.institutionName || prev.institutionName,
           institutionType: data.institutionType || prev.institutionType,
           affiliation: data.affiliation || prev.affiliation,
@@ -106,6 +107,7 @@ export function useInstitutionWorkspace({ user, isAuthenticated, addToast }: Use
           contactEmail: data.contactEmail || prev.contactEmail,
           isOnboardingComplete: true,
         }));
+        profileForm.setFormIsPublished(data.isPublished === true);
         setIsOnboardingComplete(true);
       })
       .catch(() => {});
@@ -262,6 +264,7 @@ export function useInstitutionWorkspace({ user, isAuthenticated, addToast }: Use
       .filter(Boolean);
     const validationResult = institutionProfileSchema.safeParse({
       institutionName: profileForm.formInstName,
+      isPublished: profileForm.formIsPublished,
       institutionType: profileForm.formInstType,
       affiliation: profileForm.formAffiliation,
       affiliationCode: profileForm.formAffiliationCode,
@@ -319,6 +322,7 @@ export function useInstitutionWorkspace({ user, isAuthenticated, addToast }: Use
       const updated = await res.json();
       setInstitution((prev) => ({
         ...prev,
+        isPublished: updated.isPublished === true,
         institutionName: updated.institutionName || profileForm.formInstName,
         institutionType: updated.institutionType || profileForm.formInstType,
         affiliation: updated.affiliation || profileForm.formAffiliation,

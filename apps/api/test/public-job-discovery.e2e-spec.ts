@@ -1,3 +1,4 @@
+import { publishEmployerFixture } from './fixtures/published-employer.js';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -38,6 +39,11 @@ describe('Ticket 2: Public Job Discovery & Live Database Search (E2E Integration
     await app.getHttpAdapter().getInstance().ready();
 
     jobRepository = app.get(JobRepository);
+    await publishEmployerFixture(app,'5e313a4e-3419-49b0-a629-b6a132c96429');
+    await publishEmployerFixture(app,'0ddc0d51-3d43-4bd0-8a8a-c5f256eea403');
+    await publishEmployerFixture(app,'8a7967cf-c8d2-489d-bb75-70822fd13b21');
+    await publishEmployerFixture(app,'68f67bc3-cc60-45e6-a41d-57af8ade57a5');
+    await publishEmployerFixture(app,'d3e2ce33-4e72-40dc-8bbe-18e70b24aede');
   });
 
   afterAll(async () => {
@@ -76,7 +82,7 @@ describe('Ticket 2: Public Job Discovery & Live Database Search (E2E Integration
       expect(res1.statusCode).toBe(404);
       const data1 = JSON.parse(res1.payload);
       expect(data1.statusCode).toBe(404);
-      expect(data1.message).toBe('Job not found');
+      expect(data1.message).toBe('PUBLIC_RESOURCE_NOT_FOUND');
 
       // Test standard UUID that does not exist
       const res2 = await app.inject({
@@ -87,7 +93,7 @@ describe('Ticket 2: Public Job Discovery & Live Database Search (E2E Integration
       expect(res2.statusCode).toBe(404);
       const data2 = JSON.parse(res2.payload);
       expect(data2.statusCode).toBe(404);
-      expect(data2.message).toBe('Job not found');
+      expect(data2.message).toBe('PUBLIC_RESOURCE_NOT_FOUND');
     });
 
     it('eliminates silent catch fallback to disk persistence when database connection drops', async () => {
@@ -146,7 +152,7 @@ describe('Ticket 2: Public Job Discovery & Live Database Search (E2E Integration
       const jobsToSeed: JobRow[] = [
         {
           id: '11111111-1111-1111-1111-111111111111',
-          employer_id: 'usr_emp_01',
+          employer_id: '5e313a4e-3419-49b0-a629-b6a132c96429',
           title: 'Senior CNC Machine Operator',
           description: 'Looking for expert CNC machine operator for automotive component machining.',
           category: 'blue',
@@ -165,7 +171,7 @@ describe('Ticket 2: Public Job Discovery & Live Database Search (E2E Integration
         },
         {
           id: '22222222-2222-2222-2222-222222222222',
-          employer_id: 'usr_emp_02',
+          employer_id: '0ddc0d51-3d43-4bd0-8a8a-c5f256eea403',
           title: 'Precision VMC Programmer & Operator',
           description: 'Aerospace manufacturing unit requires skilled VMC machine setup technician.',
           category: 'blue',
@@ -185,7 +191,7 @@ describe('Ticket 2: Public Job Discovery & Live Database Search (E2E Integration
         },
         {
           id: '33333333-3333-3333-3333-333333333333',
-          employer_id: 'usr_emp_03',
+          employer_id: '8a7967cf-c8d2-489d-bb75-70822fd13b21',
           title: 'Tally Prime GST Accountant',
           description: 'MSME logistics enterprise requires junior accountant proficient in Tally ERP 9 and GST.',
           category: 'white',
@@ -204,7 +210,7 @@ describe('Ticket 2: Public Job Discovery & Live Database Search (E2E Integration
         },
         {
           id: '44444444-4444-4444-4444-444444444444',
-          employer_id: 'usr_emp_04',
+          employer_id: '68f67bc3-cc60-45e6-a41d-57af8ade57a5',
           title: 'Industrial Maintenance Mechanical Fitter',
           description: 'Heavy machinery plant requires experienced industrial fitter for hydraulics and pneumatics.',
           category: 'blue',
@@ -306,7 +312,7 @@ describe('Ticket 2: Public Job Discovery & Live Database Search (E2E Integration
   });
 
   describe('3. Protocol & Edge Cache Hardening', () => {
-    it('sets public edge cache headers on GET /jobs', async () => {
+    it('prevents stale owner visibility with no-store on GET /jobs', async () => {
       const res = await app.inject({
         method: 'GET',
         url: '/jobs',
@@ -314,14 +320,14 @@ describe('Ticket 2: Public Job Discovery & Live Database Search (E2E Integration
 
       expect(res.statusCode).toBe(200);
       const cacheControl = res.headers['cache-control'];
-      expect(cacheControl).toBe('public, s-maxage=30, stale-while-revalidate=59');
+      expect(cacheControl).toBe('no-store');
     });
 
-    it('sets public edge cache headers on GET /jobs/:id for existing records', async () => {
+    it('prevents stale owner visibility with no-store on GET /jobs/:id for existing records', async () => {
       // Seed a job
       const testJob: JobRow = {
         id: '99999999-9999-9999-9999-999999999999',
-        employer_id: 'usr_emp_cache_test',
+        employer_id: 'd3e2ce33-4e72-40dc-8bbe-18e70b24aede',
         title: 'Cache Header Verification Job',
         description: 'Verifying s-maxage and stale-while-revalidate headers.',
         category: 'white',
@@ -340,7 +346,7 @@ describe('Ticket 2: Public Job Discovery & Live Database Search (E2E Integration
 
       expect(res.statusCode).toBe(200);
       const cacheControl = res.headers['cache-control'];
-      expect(cacheControl).toBe('public, s-maxage=30, stale-while-revalidate=59');
+      expect(cacheControl).toBe('no-store');
       const data = JSON.parse(res.payload);
       expect(data.id).toBe(testJob.id);
       expect(data.title).toBe(testJob.title);

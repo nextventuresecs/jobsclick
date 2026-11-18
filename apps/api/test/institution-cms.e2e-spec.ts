@@ -87,6 +87,7 @@ describe('Ticket T-18: Institution Public Page CMS & Inquiry Routing (INT-02, IN
     await profileRepo.saveInstitutionProfile({
       id: institutionId,
       user_id: instUserId,
+      is_published:true,
       institution_name: 'Government ITI Bhopal',
       institution_type: 'iti',
       affiliation: 'NCVT / DGT India',

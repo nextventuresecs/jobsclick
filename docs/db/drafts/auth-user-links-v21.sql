@@ -1,0 +1,2 @@
+-- SUPERSEDED: canonical local-review migration is supabase/migrations/20261117144925_auth_user_links_v21.sql
+-- No executable SQL remains here. Human review required before hosted apply.

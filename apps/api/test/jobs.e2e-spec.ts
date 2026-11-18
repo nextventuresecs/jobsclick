@@ -1,3 +1,4 @@
+import { publishEmployerFixture } from './fixtures/published-employer.js';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -31,6 +32,7 @@ describe('JobsController (e2e) - Issues #13, #14, #15', () => {
 
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
+    await publishEmployerFixture(app,'41fba403-daf0-4d5a-b766-f392fb860c82');
   });
 
   afterAll(async () => {
@@ -41,7 +43,7 @@ describe('JobsController (e2e) - Issues #13, #14, #15', () => {
     const createRes = await app.inject({
       method: 'POST',
       url: '/jobs',
-      headers: { 'x-user-id': 'usr_employer_55' },
+      headers: { 'x-user-id': '41fba403-daf0-4d5a-b766-f392fb860c82', 'x-user-role':'employer' },
       payload: {
         title: 'Tally GST Accountant',
         description: 'Need full-time GST accountant for MSME enterprise in Indore.',
@@ -88,7 +90,7 @@ describe('JobsController (e2e) - Issues #13, #14, #15', () => {
     const appsRes = await app.inject({
       method: 'GET',
       url: `/jobs/${createdJobId}/applications`,
-      headers: { 'x-user-id': 'usr_employer_55' },
+      headers: { 'x-user-id': '41fba403-daf0-4d5a-b766-f392fb860c82', 'x-user-role':'employer' },
     });
 
     expect(appsRes.statusCode).toBe(200);
@@ -106,7 +108,7 @@ describe('JobsController (e2e) - Issues #13, #14, #15', () => {
     const statusRes = await app.inject({
       method: 'PUT',
       url: `/jobs/applications/${applicationId}/status`,
-      headers: { 'x-user-id': 'usr_employer_55' },
+      headers: { 'x-user-id': '41fba403-daf0-4d5a-b766-f392fb860c82', 'x-user-role':'employer' },
       payload: { status: 'shortlisted' },
     });
 
@@ -146,7 +148,7 @@ describe('JobsController (e2e) - Issues #13, #14, #15', () => {
     const employerApplyRes = await app.inject({
       method: 'POST',
       url: `/jobs/${createdJobId}/apply`,
-      headers: { 'x-user-id': 'usr_employer_55' },
+      headers: { 'x-user-id': '41fba403-daf0-4d5a-b766-f392fb860c82', 'x-user-role':'employer' },
     });
     expect(employerApplyRes.statusCode).toBe(403);
   });

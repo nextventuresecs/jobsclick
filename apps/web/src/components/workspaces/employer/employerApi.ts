@@ -134,6 +134,7 @@ export async function updateBusinessProfileApi(
       headers: { 'Content-Type': 'application/json', },
       body: JSON.stringify({
         companyName: company.name,
+        isPublished: company.isPublished,
         ownershipType: company.ownershipType,
         companySize: company.enterpriseSize,
         sector: company.sector,

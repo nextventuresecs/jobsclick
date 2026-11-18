@@ -2,7 +2,7 @@ import type { ClientConfig } from 'pg';
 import pg from 'pg';
 const { Client } = pg;
 import crypto from 'node:crypto';
-import { assertLocalhostOnly } from './common/host-guard.ts';
+import { assertDisposableDatabase } from './testing/disposable-target.cjs';
 
 export interface DrillResult {
   name: string;
@@ -12,7 +12,7 @@ export interface DrillResult {
 }
 
 export async function runSecurityDrill(connectionString: string): Promise<{ success: boolean; results: DrillResult[] }> {
-  assertLocalhostOnly(connectionString, 'Security Attack Drill');
+  await assertDisposableDatabase(connectionString);
   const results: DrillResult[] = [];
 
   const adminClient = new Client({ connectionString });
@@ -260,10 +260,21 @@ export async function runSecurityDrill(connectionString: string): Promise<{ succ
     ($3, $4, 'Expired Contract Role', 'Expired past role', 'technology', 'Pune', 1, true, NOW() - INTERVAL '2 days', 'view_test');
   `, [activeJobId, inactiveJobId, expiredJobId, empId]);
 
-  // Read public_jobs as anon
+  // Approved Option A: clients lose direct projection access; keep positive service checks.
   const anonViewer = new Client({ connectionString });
   await anonViewer.connect();
-  await anonViewer.query('SET ROLE anon;');
+  for (const role of ['anon','authenticated']) {
+    for (const view of ['public_jobs','public_business_profiles','public_institution_profiles']) {
+      await anonViewer.query('SET ROLE ' + role);
+      let denied = false;
+      try { await anonViewer.query('SELECT * FROM public.' + view + ' LIMIT 1'); }
+      catch (error: unknown) { denied = typeof error === 'object' && error !== null && 'code' in error && error.code === '42501'; }
+      finally { await anonViewer.query('RESET ROLE'); }
+      results.push({ name: role + ' denied direct SELECT on ' + view, passed: denied, expected: '42501', actual: String(denied) });
+    }
+  }
+  await adminClient.query('UPDATE public.business_profiles SET is_published=true WHERE user_id=$1', [empId]);
+  await anonViewer.query('SET ROLE service_role');
 
   const jobsRes = await anonViewer.query(`
     SELECT * FROM public.public_jobs WHERE employer_id = $1;
@@ -299,7 +310,7 @@ export async function runSecurityDrill(connectionString: string): Promise<{ succ
     actual: `colsCount=${actualJobCols.length}, exactMatch=${exactJobCols}, noLeak=${noFtsLeak}`,
   });
 
-  // Read public_business_profiles as anon
+  // Read public_business_profiles through the privileged API role
   const bizRes = await anonViewer.query(`
     SELECT * FROM public.public_business_profiles WHERE company_name = $1;
   `, [bizName]);
@@ -517,9 +528,19 @@ export async function runSecurityDrill(connectionString: string): Promise<{ succ
     });
   }
 
-  // 4. Table owner direct TRUNCATE on payments (trigger path -> 55000)
+  // The receipt FK is an additional denial path; retain the exact trigger check below.
   try {
     await adminClient.query('TRUNCATE public.payments;');
+    results.push({ name: 'Payment receipt FK prevents parent-only TRUNCATE', passed: false, expected: 'Foreign key restriction (0A000)', actual: 'TRUNCATE succeeded' });
+  } catch (error: unknown) {
+    results.push({ name: 'Payment receipt FK prevents parent-only TRUNCATE',
+      passed: typeof error === 'object' && error !== null && 'code' in error && error.code === '0A000',
+      expected: 'Foreign key restriction (0A000)', actual: error instanceof Error ? error.message : 'unknown error' });
+  }
+
+  // 4. Table owner direct TRUNCATE on payments (trigger path -> 55000)
+  try {
+    await adminClient.query('TRUNCATE public.payments, private_payments.payment_grants;');
     results.push({
       name: 'Table owner TRUNCATE on payments blocked by BEFORE TRUNCATE trigger',
       passed: false,
@@ -937,6 +958,7 @@ export async function runSecurityDrill(connectionString: string): Promise<{ succ
     INSERT INTO public.users (id, phone, role, status, source)
     VALUES ($1, $2, 'employer', 'active', 'job_expiry_test');
   `, [testEmployerId, employerPhone]);
+  await adminClient.query(`INSERT INTO public.business_profiles(user_id,company_name,ownership_type,company_size,sector,city,district,is_published,source) VALUES ($1,'Published expiry fixture','Private Limited','Small','technology','Pune','Pune',true,'test')`, [testEmployerId]);
 
   // Seed 4 test jobs
   const jobActiveValid = crypto.randomUUID();

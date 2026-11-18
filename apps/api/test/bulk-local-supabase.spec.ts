@@ -25,12 +25,12 @@ describe.runIf(process.env['RUN_LOCAL_SUPABASE'] === '1')('BULK-01–03 local Su
   let storagePath: string;
   const paths: string[] = [];
   const batchIds: string[] = [];
-  const client = () => createClient<Database>('http://127.0.0.1:54321', process.env['SUPABASE_SERVICE_ROLE_KEY']!, {
+  const client = () => createClient<Database>(process.env['SUPABASE_URL']!, process.env['SUPABASE_SERVICE_ROLE_KEY']!, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
   beforeAll(async () => {
-    if (process.env['NODE_ENV'] !== 'test' || process.env['SUPABASE_URL'] !== 'http://127.0.0.1:54321') {
+    if (process.env['NODE_ENV'] !== 'test' || !process.env['JOBSCLICK_TEST_MANIFEST']) {
       throw new Error('Local Supabase test requires explicit localhost test configuration');
     }
     const db = client();
@@ -95,13 +95,13 @@ describe.runIf(process.env['RUN_LOCAL_SUPABASE'] === '1')('BULK-01–03 local Su
     const report = await app!.inject({ method: 'GET', url: `/bulk/batches/${batchId}/error-report`, headers: headers(ownerId) });
     expect(report.statusCode).toBe(200);
     expect(report.payload).toContain('Invalid Indian 10-digit');
-    const anonymous = createClient('http://127.0.0.1:54321', process.env['SUPABASE_ANON_KEY']!);
+    const anonymous = createClient(process.env['SUPABASE_URL']!, process.env['SUPABASE_ANON_KEY']!);
     expect((await anonymous.from('bulk_import_batches').select('*').eq('id', batchId)).error?.code).toBe('42501');
     expect((await anonymous.from('invite_waves').select('*')).error?.code).toBe('42501');
   });
 
   it.each(['anon', 'authenticated'] as const)('blocks direct bulk-table access for database role %s with RLS enabled', async (role) => {
-    const connection = new pg.Client({ connectionString: 'postgresql://postgres:postgres@127.0.0.1:54322/postgres' });
+    const connection = new pg.Client({ connectionString: process.env['DATABASE_URL'] });
     await connection.connect();
     try {
       const catalog = await connection.query<{ relrowsecurity: boolean }>("SELECT relrowsecurity FROM pg_class WHERE oid IN ('public.bulk_import_batches'::regclass, 'public.invite_waves'::regclass)");

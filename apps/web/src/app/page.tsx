@@ -62,7 +62,7 @@ export default async function HomePage() {
   try {
     const res = await fetch(`${apiUrl}/jobs?limit=4`, {
       headers: { Accept: 'application/json' },
-      next: { revalidate: 30 },
+      cache: 'no-store',
     });
     if (res.ok) {
       const data = (await res.json()) as { readonly jobs?: readonly ApiJobPayload[] } | null;

@@ -46,7 +46,7 @@ interface RawBusinessRecord {
 }
 
   const res = await fetch(`${apiUrl}/profiles/business`, {
-    next: { revalidate: 60 },
+    cache: 'no-store',
   });
   if (!res.ok) {
     if (res.status >= 500) {
