@@ -1,0 +1,6 @@
+{
+  "remainingDisposableContainers": [],
+  "developerSupabasePresent": true,
+  "developerRedisPresent": true,
+  "automaticCleanupOnly": true
+}

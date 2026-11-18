@@ -1,0 +1,16 @@
+{
+  "item": "24-payment-review",
+  "kind": "documentation",
+  "branch": "codex/auth-24-payment-review",
+  "commit": "635f4434a69aa26a8283b6777285ab28c457611b",
+  "files": [
+    "docs/auth/REVIEW_PACKET.md",
+    "docs/auth/BLOCKED.md",
+    "docs/auth/SCHEMA_MISMATCH.md",
+    "docs/auth/F0-REVIEW-GATES.md",
+    "docs/auth/F0_SPONSORSHIP.md",
+    "docs/auth/PAYMENT_TRANSACTION_PLAN.md",
+    "docs/decisions/002-supabase-auth-migration-plan.md"
+  ],
+  "gate": "no code changes; whitespace and explicit-file selection checked"
+}

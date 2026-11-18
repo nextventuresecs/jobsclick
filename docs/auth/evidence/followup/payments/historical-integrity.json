@@ -1,0 +1,9 @@
+{
+  "file": "packages/database/test/auth-identity.local.test.ts",
+  "unchangedSince": "b19f7ee",
+  "gitDiffEmpty": true,
+  "currentFileSha256": "cab9112e9ef6f35d8ce443d35f6b9cd2cef8c748c7464b59e6355a2bbcf66de0",
+  "historicalAssertionDeclarationSha256": "fcffe8fd7918f121db42a6140eb6afe83cb7fda5799048aa07be7a26c8f48975",
+  "declarationsReextracted": false,
+  "priorExtraction": "docs/auth/evidence/review/historical-assertions.json"
+}

@@ -1,0 +1,44 @@
+{
+  "file": "apps/api/test/sponsorship-boundaries.spec.ts",
+  "baseline": "1d6388c",
+  "originalTestDeclarations": 7,
+  "allDeclarationsByteIdentical": true,
+  "fixtureChange": "only adds trusted purpose/target metadata outside the test declarations",
+  "tests": [
+    {
+      "name": "rejects a captured payment below the server quote before granting any sponsorship",
+      "byteIdentical": true,
+      "sha256": "58aef85021c42c733811f49350f526f99466ac0b89107e7705e3cac81f250a7d"
+    },
+    {
+      "name": "rejects a small payment when requesting a larger quoted tier",
+      "byteIdentical": true,
+      "sha256": "c4dac2e75a47269dd7589843be2760ed17f5fe1fddc5025cee569cf12f83ac83"
+    },
+    {
+      "name": "does not grant sponsorship through a free-text institution name, including another institution UUID",
+      "byteIdentical": true,
+      "sha256": "ac23643b44c2569c20cc347f943dff8526c5e30b41f9d841128120688bb22c83"
+    },
+    {
+      "name": "reads sponsorship expiry rather than trusting a stale sponsored boolean",
+      "byteIdentical": true,
+      "sha256": "3e5f136af3a24bff2da518b1fc8ba0dc3bfa9e87837695519122fe4eb882559f"
+    },
+    {
+      "name": "allows a paid UUID-associated student only while its institutional sponsorship is current",
+      "byteIdentical": true,
+      "sha256": "dc7f381901c2cef1c98109386fac9ed5bd6d41107dd5fac11e4796b224715b02"
+    },
+    {
+      "name": "rejects reuse of the same canonical payment under its alternate reference and a new idempotency key",
+      "byteIdentical": true,
+      "sha256": "9ded12a14ab97c5cb3e3a53fb27c8fb13c6f86ea910a43103192ae73ff8d149d"
+    },
+    {
+      "name": "leaves no partial student grant if the sponsorship record write crashes",
+      "byteIdentical": true,
+      "sha256": "08947c668eac1e5fec17973596ae2f7baa660d490e7465e2752776a057cb04fe"
+    }
+  ]
+}

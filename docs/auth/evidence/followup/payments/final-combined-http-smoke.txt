@@ -1,0 +1,57 @@
+Project: jc-auth-test-fb357ee1
+Exit: 0
+Starting PostgREST HTTP Smoke Verification against: http://127.0.0.1:55230/rest/v1
+
+======================================================
+🌐 POSTGREST HTTP SMOKE RESULTS (EXACT STATUS CODE ASSERTS):
+======================================================
+✅ 1. Anon Key -> Base Table (public.jobs) [Expect EXACT 401]
+   HTTP Status: 401 (Expected: 401)
+✅ 2. Anon Key -> Base Table (public.users) [Expect EXACT 401]
+   HTTP Status: 401 (Expected: 401)
+✅ 3. Authenticated JWT -> Base Table (public.jobs) [Expect EXACT 403]
+   HTTP Status: 403 (Expected: 403)
+✅ 4. Authenticated JWT -> Base Table (public.users) [Expect EXACT 403]
+   HTTP Status: 403 (Expected: 403)
+✅ 5. Anon Key -> Public View (public_jobs) [Expect EXACT 200]
+   HTTP Status: 200 (Expected: 200)
+✅ 6. Authenticated JWT -> Public View (public_jobs) [Expect EXACT 200]
+   HTTP Status: 200 (Expected: 200)
+✅ 7. Anon Key -> Public View (public_business_profiles) [Expect EXACT 200]
+   HTTP Status: 200 (Expected: 200)
+✅ 8. Wrong-Secret JWT -> Base Table (public.jobs) [Expect EXACT 401]
+   HTTP Status: 401 (Expected: 401)
+✅ 9. Service-Role Key -> Base Table (public.jobs) [Expect EXACT 200]
+   HTTP Status: 200 (Expected: 200)
+✅ 10. Service-Role Key -> Base Table (public.users) [Expect EXACT 200]
+   HTTP Status: 200 (Expected: 200)
+✅ 11. Anon Key -> POST /rpc/grant_starter_credits [Expect EXACT 401, NOT 404]
+   HTTP Status: 401 (Expected: 401)
+✅ 12. Anon Key -> POST /rpc/increment_token_version [Expect EXACT 401, NOT 404]
+   HTTP Status: 401 (Expected: 401)
+✅ 13. Anon Key -> POST /rpc/anonymise_user [Expect EXACT 401, NOT 404]
+   HTTP Status: 401 (Expected: 401)
+✅ 14. Anon Key -> POST /rpc/promote_job_with_ledger [Expect EXACT 401, NOT 404]
+   HTTP Status: 401 (Expected: 401)
+✅ 15. Anon Key -> POST /rpc/unlock_contact_with_ledger [Expect EXACT 401, NOT 404]
+   HTTP Status: 401 (Expected: 401)
+✅ 16. Authenticated JWT -> POST /rpc/grant_starter_credits [Expect EXACT 403, NOT 404]
+   HTTP Status: 403 (Expected: 403)
+✅ 17. Authenticated JWT -> POST /rpc/increment_token_version [Expect EXACT 403, NOT 404]
+   HTTP Status: 403 (Expected: 403)
+✅ 18. Authenticated JWT -> POST /rpc/anonymise_user [Expect EXACT 403, NOT 404]
+   HTTP Status: 403 (Expected: 403)
+✅ 19. Authenticated JWT -> POST /rpc/promote_job_with_ledger [Expect EXACT 403, NOT 404]
+   HTTP Status: 403 (Expected: 403)
+✅ 20. Authenticated JWT -> POST /rpc/unlock_contact_with_ledger [Expect EXACT 403, NOT 404]
+   HTTP Status: 403 (Expected: 403)
+✅ 21. Service-Role Key -> POST /rpc/get_user_credit_balance [Expect EXACT 200 Positive Execution]
+   HTTP Status: 200 (Expected: 200)
+✅ 22. PostgREST OpenAPI Schema Cache -> public_jobs [Exact 18 Columns, 0 Leakage]
+   HTTP Status: 200 (Expected: 200)
+======================================================
+🎉 ALL POSTGREST HTTP SMOKE CHECKS PASSED (22/22)!
+(node:33556) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///D:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal-remediation/.scratch/auth-review/scripts/smoke-postgrest.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to \\?\D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-review\package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
