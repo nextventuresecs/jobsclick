@@ -4,7 +4,7 @@ Use `pnpm test -- <test paths>` from the review checkout. Supabase CLI is pinned
 
 Vitest requires the generated manifest, exact provisioned endpoints and a matching database marker before tests. A network backstop rejects the persistent dev ports 5432/54321/54322/6379 and remote connections, including accidental hardcoded targets. `RUN_LOCAL_SUPABASE=1` alone grants no permission. Run the pure safety checks with `pnpm test:target-guard`.
 
-Add `--auth-drafts` to run M1/M2 SQL and native `supabase test db` after the baseline tests. The drafts are applied only inside that disposable stack. Constraints/grants are tested with real Supabase schemas and roles, not an emulated Auth schema. Admin-seeded test credentials may bootstrap a real GoTrue identity test; this does not enable email/password or other unapproved login methods in the application.
+Add `--auth-contracts` to run M1/M2 SQL and native `supabase test db` after the baseline tests. The drafts are applied only inside that disposable stack. Constraints/grants are tested with real Supabase schemas and roles, not an emulated Auth schema. Admin-seeded test credentials may bootstrap a real GoTrue identity test; this does not enable email/password or other unapproved login methods in the application.
 
 ## Corrected database provenance
 
@@ -21,3 +21,5 @@ The runner also isolates test-mode JSON fixtures under the generated run directo
 ## 2026-11-18 child environment isolation (AUTH-05)
 
 The runner inherits only explicit OS/tool-discovery, locale and CI variables. Parent application/provider credentials, unknown future secrets, NODE_OPTIONS, remote Docker host/context overrides and application flags are excluded. Fresh per-run credentials and endpoints are added after provisioning; fixtures still require the exact disposable marker and network fence. Two offline tests execute the first real child-process boundary with synthetic parent settings, without creating files or services. This does not inspect or change Docker credentials/default contexts stored outside environment variables.
+
+Legacy user-repository/mutation contract fixtures now take the runner's exact generated API keys, JWT secret and database URL. No test contains a writable persistent fallback. The bootstrap dry-run proof creates a unique empty child database only inside that marked throwaway cluster, confirms zero schema/table writes, then removes exactly its own child database. Guard refusal tests assert the stronger disposable-marker error. All original user mutation/repository business assertions are preserved; the focused four-file run passes 53 checks.

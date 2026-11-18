@@ -67,13 +67,13 @@ describe('Host Guard Security Restrictions', () => {
     it('drillFreshDatabase immediately rejects non-localhost targets before connecting or dropping', async () => {
       await expect(
         drillFreshDatabase('postgresql://postgres.afxgvtfaofpnlhdsexnp:secret@aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres')
-      ).rejects.toThrow(/\[SECURITY REFUSAL\] Fresh Bootstrap Drill \(DROP\/CREATE DATABASE\)/);
+      ).rejects.toThrow(/DISPOSABLE_TEST_TARGET_REQUIRED/);
     });
 
     it('runSecurityDrill immediately rejects remote targets before connecting or mutating', async () => {
       await expect(
         runSecurityDrill('postgresql://postgres:secret@db.afxgvtfaofpnlhdsexnp.supabase.co:5432/postgres')
-      ).rejects.toThrow(/\[SECURITY REFUSAL\] Security Attack Drill/);
+      ).rejects.toThrow(/DISPOSABLE_TEST_TARGET_REQUIRED/);
     });
   });
 });
