@@ -10,8 +10,12 @@ const root = path.resolve(__dirname, '../..');
 const runId = `jc-auth-test-${crypto.randomUUID().slice(0, 8)}`;
 const directory = path.join(root, '.scratch', 'auth-disposable', runId);
 const cli = [path.join(root, 'node_modules/supabase/dist/supabase.js')];
-const environment = { ...process.env, DO_NOT_TRACK: '1' };
-for (const key of ['SUPABASE_ACCESS_TOKEN', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_ANON_KEY', 'JWT_SECRET', 'OTP_PEPPER', 'MSG91_AUTH_KEY', 'TURNSTILE_SECRET_KEY', 'RESEND_API_KEY']) delete environment[key];
+// Inherit OS tool discovery only. Unknown credentials and runtime injection must stay out.
+const hostVariables = new Set(['PATH', 'PATHEXT', 'SYSTEMROOT', 'SYSTEMDRIVE', 'WINDIR', 'COMSPEC',
+  'HOME', 'USERPROFILE', 'APPDATA', 'LOCALAPPDATA', 'PROGRAMDATA', 'PROGRAMFILES', 'PROGRAMFILES(X86)',
+  'TEMP', 'TMP', 'TMPDIR', 'LANG', 'LC_ALL', 'LC_CTYPE', 'XDG_RUNTIME_DIR', 'CI', 'NO_COLOR']);
+const environment = Object.fromEntries(Object.entries(process.env).filter(([key]) => hostVariables.has(key.toUpperCase())));
+environment.DO_NOT_TRACK = '1';
 const args = process.argv.slice(2).filter(arg => arg !== '--');
 const contracts = args.includes('--auth-contracts');
 const dbTools = args.includes('--db-tools');
