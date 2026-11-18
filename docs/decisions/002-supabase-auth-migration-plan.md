@@ -126,3 +126,29 @@ The prior review ran 70 existing tests successfully across focused runs after re
 The repository requires: "Human-review-only (agent drafts, human approves)" for "RLS policies, auth/OTP flow, migrations touching existing data, anything with payments, DPDP consent text." Team MCQ answers confirm product scope; they do not substitute for review of concrete SQL, auth code, provider configuration, or a rollout.
 
 Provider references checked on 2026-11-16: [changelog](https://supabase.com/changelog.md), [identity linking](https://supabase.com/docs/guides/auth/auth-identity-linking), [sessions](https://supabase.com/docs/guides/auth/sessions), [sign-out](https://supabase.com/docs/guides/auth/signout), [Send Email hook](https://supabase.com/docs/guides/auth/auth-hooks/send-email-hook), and [server-side guidance](https://supabase.com/docs/guides/auth/server-side/advanced-guide). Recheck pinned SDK/CLI behavior before implementation; no provider configuration is inferred from documentation alone.
+
+## 2026-11-17 local follow-up review draft (AUTH-01/03/05/06, BULK-01/03, WAL-05)
+
+Implementation is authorised only as local drafts, with staging unchanged. See [review packet](../auth/REVIEW_PACKET.md). Disposable CLI-generated migrations and CI target guards replace persistent-target test execution. Human selected reviewed dev backup/reset planning; actual reset is pending backup/ownership confirmation.
+
+Native evidence justified a narrow draft correction: permit at most two seconds of provider issue-clock skew while enforcing signed exp-iat <=900 seconds and no expired-token grace. The 7-day ordinary/12-hour admin absolute deadlines and opaque server-held Redis credential direction stay unchanged. No Google/general-email/nullable-CSV admission is enabled by provider-proof fixtures.
+
+WAL-05 drafts reject insufficient INR captured amount, use institution UUID association exclusively and read current sponsorship expiry/grants in API and native SQL. Payment consumption and capture/grant atomicity require a reviewed schema/reconciliation contract; two attacker tests remain failing. The existing payment flag stays OFF. Public profile QR paths accept only existing route UUIDs, never contact-derived IDs. No new product pricing or legal copy was introduced.
+
+S6 remains not started because S4/F0 gates are incomplete. Three native advisor ERROR findings on existing public projection views also require reviewed access/RLS design. This update does not approve auth/RLS/payment drafts for merge or hosted application.
+
+## 2026-11-18 local financial corrective draft (WAL-03/05, INT-04)
+
+The user explicitly authorised fixing the remaining payment reuse and crash-atomicity failures before S6. This supersedes the 2026-11-17 stopped payment schema item for local implementation only. Canonical immutable payment receipts, trusted wallet/sponsorship purpose and target binding, and service-only transaction RPCs now make database captured status, ledger or sponsorship grant, receipt and mandatory audit atomic. Exact retries return the original result; conflicting reuse fails closed. Non-finite monetary values are denied. External gateway capture remains outside the PostgreSQL transaction.
+
+The original seven attacker test bodies remain byte-identical. The selected disposable regression passes 382 tests across 41 files, plus 12 pgTAP and 2 native Auth checks; it includes bulk isolation and existing authenticated workspace/application flows. Native fault injection and backend termination verify rollback/retry. Six-package typecheck and lint passed before source commits. [Review packet](../auth/REVIEW_PACKET.md), [recovery limits](../auth/PAYMENT_TRANSACTION_PLAN.md).
+
+Captured legacy rows without receipts require separately reviewed reconciliation; no automatic backfill or reconciler was added. Payment enablement, public sponsorship checkout, real gateway operations and hosted changes remain excluded. The flag stays OFF, staging stays unchanged, and no persistent dev data was modified. Independent human payment/migration/RLS review and other S4/auth gates remain; S6 is not started. This does not expand the product's P2/P3 payment scope or approve deployment.
+
+## 2026-11-18 AUTH-07 locale regression correction (local review)
+
+The broad regression found Hindi routes no longer rewrote to existing page routes and English-prefixed URLs no longer canonicalized. The middleware restores whole-segment locale routing, server-selected locale headers/cookies and EN/HI alternate links. Query strings survive navigation; SEO alternatives omit them. The existing configured-origin mutation checks and identity-header stripping remain; normalized page paths retain the session gate, including the localized bulk workspace. Localized API aliases are rejected rather than rewritten. This touches shared middleware and needs human auth review before merge; it does not integrate the new provider session or start S6.
+
+## 2026-11-18 Follow-up 2: public projection contract (AUTH-05 / PRN-03)
+
+Direct user approval selects Option A: private service-role projection reads, invoker views, explicit non-PII column snapshots, active/published owner filtering, public API/SSR delivery and advisor ERROR as a CI failure. Business/institution publication defaults false; existing rows are not auto-published. Existing random UUID route identifiers stay opaque; no ID rewrite. Smoke/catalog/drill grant expectations change deliberately to client denial and are listed in FOLLOWUP_2_REVIEW.md. SQL is a locally tested draft; apply remains human. In-transaction claim audit, hook/CAPTCHA/cooldown/fallback rules, one Node pin and ordered B/C/E/G/H work are recorded in CODEX_AUTH_FOLLOWUP_2_PROMPT.md. No hosted setting changed.

@@ -218,7 +218,7 @@ export class AdminService {
           id: u.id,
           role: u.role,
           status: u.status,
-          phoneMasked: u.phone.replace(/(\d{2})\d{6}(\d{2})/, '$1******$2'),
+          phoneMasked: u.phone?.replace(/(\d{2})\d{6}(\d{2})/, '$1******$2') ?? null,
           source: u.source,
           created_at: u.created_at,
         }));

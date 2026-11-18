@@ -12,6 +12,7 @@ describe.runIf(process.env['RUN_LOCAL_SUPABASE'] === '1')('AUTH-01 provider iden
   const phone = `9${randomInt(100000000, 999999999)}`;
   const source = `auth-claim-${randomUUID()}`;
   const pool = new pg.Pool({ connectionString: process.env['DATABASE_URL'], max: 4 });
+  const fixtureLock = new pg.Client({ connectionString: process.env['DATABASE_URL'] });
   const draft = 'docs/db/drafts/auth-user-links.sql';
   let localTargetVerified = false;
   const providerIds = [providerId];
@@ -30,10 +31,13 @@ describe.runIf(process.env['RUN_LOCAL_SUPABASE'] === '1')('AUTH-01 provider iden
 
   beforeAll(async () => {
     const target = new URL(process.env['DATABASE_URL'] || '');
-    if (process.env['NODE_ENV'] !== 'test' || target.hostname !== '127.0.0.1' || target.port !== '54322') {
+    if (process.env['NODE_ENV'] !== 'test' || target.hostname !== '127.0.0.1' || target.port !== process.env['JOBSCLICK_TEST_DB_PORT']) {
       throw new Error('AUTH_LOCAL_TEST_REQUIRES_LOCALHOST');
     }
     localTargetVerified = true;
+    // Shared FK-fixture mutex; each concurrency test still uses independent connections.
+    await fixtureLock.connect();
+    await fixtureLock.query("select pg_advisory_lock(hashtextextended('auth-tests:auth-fk-ddl',0))");
     // Red phase: absent draft leaves the procedure absent, rather than failing
     // a module import before the missing behavior can be exercised.
     if (existsSync(draft)) await pool.query(readFileSync(draft, 'utf8').replaceAll('private_auth', schema));
@@ -50,7 +54,7 @@ describe.runIf(process.env['RUN_LOCAL_SUPABASE'] === '1')('AUTH-01 provider iden
       await pool.query(`drop schema if exists ${schema} cascade`);
       await pool.query('delete from auth.users where id=any($1::uuid[])', [providerIds]);
       await pool.query('delete from public.users where id=any($1::uuid[])', [applicationIds]);
-    } finally { await pool.end(); }
+    } finally { await Promise.all([pool.end(), fixtureLock.end()]); }
   });
 
   it('claims the invited UUID without activating it or changing role/source', async () => {

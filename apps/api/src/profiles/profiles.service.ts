@@ -18,7 +18,7 @@ import type {
 export interface SeekerProfileRecord extends JobSeekerProfileInput {
   id: string;
   userId: string;
-  phone: string;
+  phone: import('@indian-job-portal/database').UserRow['phone'];
   email: string | null;
   completenessScore: number;
 }

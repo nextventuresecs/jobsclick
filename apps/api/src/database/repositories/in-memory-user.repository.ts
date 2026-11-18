@@ -5,7 +5,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import type { UserRow, CreditLedgerRow } from '@indian-job-portal/database';
-import { normalizeIndianPhone } from '@indian-job-portal/validation';
+import { normalizeIndianPhone, normalizeEmail } from '@indian-job-portal/validation';
 import { PersistentDatabaseStore } from '../supabase.provider.js';
 import type { IUserRepository } from './user.repository.js';
 import crypto from 'node:crypto';
@@ -26,13 +26,15 @@ export class InMemoryUserRepository implements IUserRepository {
   }
 
   async findByEmail(email: string): Promise<UserRow | null> {
-    const normalized = email.trim().toLowerCase();
+    const normalized = normalizeEmail(email);
+    if (!normalized) throw new BadRequestException('AUTH_EMAIL_INVALID');
     const users = this.persistentStore.getTable<UserRow>('users');
     return Object.values(users).find((u) => u.email?.toLowerCase() === normalized) || null;
   }
 
   async findByPendingEmail(pendingEmail: string): Promise<UserRow | null> {
-    const normalized = pendingEmail.trim().toLowerCase();
+    const normalized = normalizeEmail(pendingEmail);
+    if (!normalized) throw new BadRequestException('AUTH_EMAIL_INVALID');
     const users = this.persistentStore.getTable<UserRow>('users');
     return (
       Object.values(users).find((u) => (u as Record<string, unknown>)['pending_email']?.toString().toLowerCase() === normalized) ||
@@ -85,7 +87,8 @@ export class InMemoryUserRepository implements IUserRepository {
   }
 
   async setPendingEmail(id: string, pendingEmail: string): Promise<UserRow | null> {
-    const normalized = pendingEmail.trim().toLowerCase();
+    const normalized = normalizeEmail(pendingEmail);
+    if (!normalized) throw new BadRequestException('AUTH_EMAIL_INVALID');
     const users = this.persistentStore.getTable<UserRow>('users');
 
     // Check collision across users
@@ -115,7 +118,8 @@ export class InMemoryUserRepository implements IUserRepository {
   }
 
   async confirmEmail(id: string, email: string): Promise<UserRow | null> {
-    const normalized = email.trim().toLowerCase();
+    const normalized = normalizeEmail(email);
+    if (!normalized) throw new BadRequestException('AUTH_EMAIL_INVALID');
     const existing = await this.findById(id);
     if (!existing) return null;
 
