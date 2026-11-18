@@ -1,0 +1,17 @@
+Project: jc-auth-test-d2146b04
+Fresh Supabase + Redis; no dev data. Before fixtures: users=0, auth=0 (asserted).
+Exit: 0
+
+ RUN  v2.1.9 D:/Trun Dada/Projects/Products/Indian Job Portal/application/indian-job-portal-remediation/.scratch/auth-review
+
+ ✓ apps/api/test/provider-sessions.local.spec.ts (20 tests) 661ms
+ ✓ apps/api/test/supabase-provider.spec.ts (33 tests) 798ms
+ ✓ apps/api/test/provider-revocation.local.spec.ts (2 tests) 867ms
+   ✓ AUTH-06 native provider revocation boundary > denies copied credentials after local/global provider logout while preserving the unrelated local session 572ms
+
+ Test Files  3 passed (3)
+      Tests  55 passed (55)
+   Start at  07:24:30
+   Duration  15.23s (transform 536ms, setup 24.01s, collect 352ms, tests 2.33s, environment 1ms, prepare 1.02s)
+
+The CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.

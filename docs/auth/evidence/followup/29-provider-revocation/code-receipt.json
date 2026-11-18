@@ -1,0 +1,11 @@
+{
+  "item": "29-provider-revocation",
+  "kind": "code",
+  "branch": "codex/auth-29-provider-revocation-review",
+  "commit": "118c09cb311d0983da47393115228de6a8c02e01",
+  "files": [
+    "apps/api/test/provider-revocation.local.spec.ts",
+    "docs/adr/0002-server-held-provider-sessions.md"
+  ],
+  "gate": "six-package typecheck and lint passed"
+}
