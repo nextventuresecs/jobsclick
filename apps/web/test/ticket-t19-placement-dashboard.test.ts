@@ -185,14 +185,14 @@ describe('Ticket T-19: Placement Cell HR Dashboard & Institutional Placement Pip
 
     it('masks email addresses preserving complete confidentiality', () => {
       const masked = maskEmailAddress('amitesh.c@iti.gov.in');
-      expect(masked).toBe('•••••@••••.•••');
+      expect(masked).toBe('••••••@••••••');
       expect(masked).not.toContain('amitesh.c');
       expect(masked).not.toContain('iti.gov.in');
     });
 
     it('handles empty or missing contact values gracefully', () => {
       expect(maskContactNumber('')).toBe('••••••••••');
-      expect(maskEmailAddress('')).toBe('•••••@••••.•••');
+      expect(maskEmailAddress('')).toBe('••••••@••••••');
     });
   });
 
