@@ -204,6 +204,7 @@
     "valid": "वैध",
     "invalid": "अवैध",
     "companyNameCol": "कंपनी का नाम",
+    "emailCol": "ईमेल",
     "phoneCol": "फ़ोन",
     "sectorCol": "क्षेत्र",
     "cityCol": "शहर",

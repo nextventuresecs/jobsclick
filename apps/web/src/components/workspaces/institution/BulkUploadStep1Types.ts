@@ -3,6 +3,7 @@ export interface ParsedRow {
   readonly studentName: string;
   readonly rollNumber: string;
   readonly phone: string;
+  readonly email?: string;
   readonly stream: string;
   readonly passingYear: string;
   readonly isValid: boolean;

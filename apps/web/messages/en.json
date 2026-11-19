@@ -204,6 +204,7 @@
     "valid": "Valid",
     "invalid": "Invalid",
     "companyNameCol": "Company Name",
+    "emailCol": "Email",
     "phoneCol": "Phone",
     "sectorCol": "Sector",
     "cityCol": "City",
