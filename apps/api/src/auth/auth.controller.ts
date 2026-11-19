@@ -20,6 +20,11 @@ import {
   SendOtpSchema,
   VerifyOtpSchema,
   AddEmailSchema,
+  SendEmailOtpSchema,
+  VerifyEmailOtpSchema,
+  OAuthExchangeSchema,
+  LinkPhoneSchema,
+  VerifyLinkPhoneSchema,
 } from '@indian-job-portal/validation';
 
 @Controller('auth')
@@ -54,6 +59,72 @@ export class AuthController {
       throw new BadRequestException(parsed.error.flatten());
     }
     return this.authService.verifyOtp(parsed.data, clientIp);
+  }
+
+  @Public()
+  @Post('email/send-otp')
+  @HttpCode(HttpStatus.OK)
+  async sendEmailOtp(@Body() rawBody: unknown, @Req() req: FastifyRequest) {
+    const clientIp = getClientIp(req);
+    const parsed = SendEmailOtpSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.authService.sendEmailOtp(parsed.data, clientIp);
+  }
+
+  @Public()
+  @Post('email/verify-otp')
+  @HttpCode(HttpStatus.OK)
+  async verifyEmailOtp(@Body() rawBody: unknown, @Req() req: FastifyRequest) {
+    const clientIp = getClientIp(req);
+    const parsed = VerifyEmailOtpSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.authService.verifyEmailOtp(parsed.data, clientIp);
+  }
+
+  @Public()
+  @Post('oauth/exchange')
+  @HttpCode(HttpStatus.OK)
+  async oauthExchange(@Body() rawBody: unknown, @Req() req: FastifyRequest) {
+    const clientIp = getClientIp(req);
+    const parsed = OAuthExchangeSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.authService.oauthExchange(parsed.data, clientIp);
+  }
+
+  @Post('link-phone/send')
+  @HttpCode(HttpStatus.OK)
+  async linkPhoneSend(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() rawBody: unknown,
+    @Req() req: FastifyRequest,
+  ) {
+    const clientIp = getClientIp(req);
+    const parsed = LinkPhoneSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.authService.linkPhoneSendOtp(user.id, parsed.data, clientIp);
+  }
+
+  @Post('link-phone/verify')
+  @HttpCode(HttpStatus.OK)
+  async linkPhoneVerify(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() rawBody: unknown,
+    @Req() req: FastifyRequest,
+  ) {
+    const clientIp = getClientIp(req);
+    const parsed = VerifyLinkPhoneSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      throw new BadRequestException(parsed.error.flatten());
+    }
+    return this.authService.linkPhoneVerifyOtp(user.id, parsed.data, clientIp);
   }
 
   @Post('email/add')

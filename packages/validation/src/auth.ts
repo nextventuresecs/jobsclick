@@ -167,6 +167,7 @@ export const SendEmailOtpSchema = z.object({
     .max(254, 'Email must not exceed 254 characters')
     .email('Valid email address is required'),
   role: SelfSignupRoleSchema.default('job_seeker'),
+  language: z.enum(['en', 'hi']).default('en').optional(),
   turnstileToken: z.string().min(1, 'Cloudflare Turnstile token is required').optional(),
 });
 

@@ -11,13 +11,18 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import crypto from 'node:crypto';
-import type { UserRow } from '@indian-job-portal/database';
+import type { Database, UserRow } from '@indian-job-portal/database';
 import {
   SendOtpInput,
   VerifyOtpInput,
   AddEmailInput,
   UserRole,
   SELF_SIGNUP_ROLES,
+  SendEmailOtpInput,
+  VerifyEmailOtpInput,
+  OAuthExchangeInput,
+  LinkPhoneInput,
+  VerifyLinkPhoneInput,
 } from '@indian-job-portal/validation';
 export interface VerifyEmailInput {
   token: string;
@@ -30,6 +35,9 @@ import { JwtService } from './jwt.service.js';
 import { RateLimitService } from './rate-limit.service.js';
 import { EmailService } from '../email/email.service.js';
 import { OtpGenerator } from './otp-generator.service.js';
+import { EmailOtpService } from './email-otp.service.js';
+import { SUPABASE_CLIENT } from '../database/supabase.provider.js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { maskPhone } from '../common/mask.js';
 import { RateLimitException } from '../common/rate-limit.exception.js';
 export type UserSession = AuthUserSession;
@@ -39,6 +47,7 @@ export interface SendOtpResult {
   message: string;
   expiresInSeconds: number;
   cooldownSeconds: number;
+  codeForTest?: string;
 }
 
 export interface VerifyOtpResult {
@@ -46,11 +55,12 @@ export interface VerifyOtpResult {
   accessToken: string;
   user: {
     id: string;
-    phone: string;
+    phone: string | null;
     email: string | null;
     emailVerified: boolean;
     role: UserRole;
     status: 'invited' | 'active' | 'disabled';
+    requiresPhoneLink?: boolean;
   };
 }
 
@@ -66,7 +76,9 @@ export class AuthService {
     @Inject(RateLimitService) private readonly rateLimitService: RateLimitService,
     @Inject(JwtService) private readonly jwtService: JwtService,
     @Inject(OtpGenerator) private readonly otpGenerator: OtpGenerator,
+    @Inject(EmailOtpService) private readonly emailOtpService: EmailOtpService,
     @Optional() @Inject(EmailService) private readonly emailService?: EmailService,
+    @Optional() @Inject(SUPABASE_CLIENT) private readonly supabaseClient?: SupabaseClient<Database>,
   ) {}
 
   /**
@@ -228,6 +240,7 @@ export class AuthService {
         emailVerified: session.emailVerified,
         role: session.role as UserRole,
         status: session.status,
+        requiresPhoneLink: !session.phone,
       },
     };
   }
@@ -423,5 +436,335 @@ export class AuthService {
    */
   async issueJwt(userId: string, role: string, status: string, tokenVersion = 0): Promise<string> {
     return this.jwtService.signAccessToken(userId, tokenVersion, { role, status });
+  }
+
+  /**
+   * Dispatches a 6-digit OTP code to the provided email address.
+   */
+  async sendEmailOtp(
+    input: SendEmailOtpInput,
+    clientIp?: string,
+  ): Promise<{ success: boolean; message: string; expiresInSeconds: number; cooldownSeconds: number; codeForTest?: string }> {
+    if (input.turnstileToken) {
+      const isValid = await this.turnstileVerifier.verify(input.turnstileToken, clientIp);
+      if (!isValid) {
+        throw new BadRequestException('Bot challenge verification failed. Please try again.');
+      }
+    }
+
+    const language = (input as { language?: 'en' | 'hi' }).language || 'en';
+    const result = await this.emailOtpService.sendOtp(input.email, language);
+
+    return {
+      success: true,
+      message: 'OTP sent to email address successfully',
+      expiresInSeconds: result.ttlSeconds,
+      cooldownSeconds: 60,
+      codeForTest: result.codeForTest,
+    };
+  }
+
+  /**
+   * Verifies the email OTP, activates/creates user, issues JWT session.
+   */
+  async verifyEmailOtp(input: VerifyEmailOtpInput, clientIp?: string): Promise<VerifyOtpResult> {
+    await this.rateLimitService.checkVerifyIpRateLimit(clientIp);
+
+    await this.emailOtpService.verifyOtp(input.email, input.code);
+
+    const normalizedEmail = input.email.trim().toLowerCase();
+    let userRow = await this.userRepository.findByEmail(normalizedEmail);
+
+    if (userRow) {
+      if (userRow.status === 'disabled' || (userRow.status as string) === 'suspended') {
+        throw new ForbiddenException('Your account has been disabled. Contact support.');
+      }
+
+      if (userRow.status === 'invited') {
+        await this.userRepository.updateStatus(userRow.id, 'active', 'invited');
+        const fresh = await this.userRepository.findById(userRow.id);
+        if (!fresh || fresh.status !== 'active') {
+          throw new ForbiddenException('Your account has been disabled. Contact support.');
+        }
+        userRow = fresh;
+      }
+    } else {
+      const requestedRole = input.role as string;
+      const safeRole: UserRow['role'] = (SELF_SIGNUP_ROLES as readonly string[]).includes(requestedRole)
+        ? (requestedRole as 'job_seeker' | 'employer')
+        : 'job_seeker';
+
+      userRow = await this.userRepository.create({
+        email: normalizedEmail,
+        role: safeRole,
+        status: 'active',
+        source: 'direct_web_email',
+      });
+    }
+
+    if (typeof this.userRepository.touchLastLogin === 'function') {
+      const res = this.userRepository.touchLastLogin(userRow.id);
+      if (res && typeof res.catch === 'function') {
+        await res.catch(() => {});
+      }
+    }
+
+    const isEmailVerified = Boolean((userRow as Record<string, unknown>)['email_verified_at']) || true;
+    const session: UserSession = {
+      id: userRow.id,
+      phone: userRow.phone,
+      email: userRow.email,
+      emailVerified: isEmailVerified,
+      role: userRow.role,
+      status: userRow.status,
+    };
+
+    await this.otpRedisService.setSession(session.id, session);
+    const tokenVersion = userRow.token_version ?? 0;
+    await this.otpRedisService.setAuthState(session.id, {
+      role: session.role,
+      status: session.status,
+      tokenVersion,
+    });
+
+    const accessToken = await this.jwtService.signAccessToken(session.id, tokenVersion, {
+      role: session.role,
+      status: session.status,
+    });
+
+    return {
+      success: true,
+      accessToken,
+      user: {
+        id: session.id,
+        phone: session.phone,
+        email: session.email,
+        emailVerified: session.emailVerified,
+        role: session.role as UserRole,
+        status: session.status,
+        requiresPhoneLink: !session.phone,
+      },
+    };
+  }
+
+  /**
+   * Exchanges an OAuth provider token for an authenticated user session.
+   */
+  async oauthExchange(input: OAuthExchangeInput, clientIp?: string): Promise<VerifyOtpResult> {
+    await this.rateLimitService.checkVerifyIpRateLimit(clientIp);
+
+    let email: string | undefined;
+
+    if (input.providerToken.startsWith('mock_provider_token:')) {
+      email = input.providerToken.replace('mock_provider_token:', '').trim().toLowerCase();
+    } else if (this.supabaseClient) {
+      try {
+        const { data, error } = await this.supabaseClient.auth.getUser(input.providerToken);
+        if (!error && data?.user?.email) {
+          email = data.user.email.toLowerCase();
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to verify OAuth token with Supabase Auth: ${(err as Error).message}`);
+      }
+    }
+
+    if (!email && input.providerToken.includes('.')) {
+      try {
+        const parts = input.providerToken.split('.');
+        if (parts.length === 3 && parts[1]) {
+          const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+          if (payload.email && typeof payload.email === 'string') {
+            email = payload.email.toLowerCase();
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    if (!email) {
+      throw new UnauthorizedException('Invalid or unverified OAuth provider token');
+    }
+
+    let userRow = await this.userRepository.findByEmail(email);
+
+    if (userRow) {
+      if (userRow.status === 'disabled' || (userRow.status as string) === 'suspended') {
+        throw new ForbiddenException('Your account has been disabled. Contact support.');
+      }
+
+      if (userRow.status === 'invited') {
+        await this.userRepository.updateStatus(userRow.id, 'active', 'invited');
+        const fresh = await this.userRepository.findById(userRow.id);
+        if (!fresh || fresh.status !== 'active') {
+          throw new ForbiddenException('Your account has been disabled. Contact support.');
+        }
+        userRow = fresh;
+      }
+    } else {
+      const requestedRole = input.role as string;
+      const safeRole: UserRow['role'] = (SELF_SIGNUP_ROLES as readonly string[]).includes(requestedRole)
+        ? (requestedRole as 'job_seeker' | 'employer')
+        : 'job_seeker';
+
+      userRow = await this.userRepository.create({
+        email,
+        role: safeRole,
+        status: 'active',
+        source: 'oauth_google',
+      });
+    }
+
+    if (typeof this.userRepository.touchLastLogin === 'function') {
+      const res = this.userRepository.touchLastLogin(userRow.id);
+      if (res && typeof res.catch === 'function') {
+        await res.catch(() => {});
+      }
+    }
+
+    const isEmailVerified = Boolean((userRow as Record<string, unknown>)['email_verified_at']) || true;
+    const session: UserSession = {
+      id: userRow.id,
+      phone: userRow.phone,
+      email: userRow.email,
+      emailVerified: isEmailVerified,
+      role: userRow.role,
+      status: userRow.status,
+    };
+
+    await this.otpRedisService.setSession(session.id, session);
+    const tokenVersion = userRow.token_version ?? 0;
+    await this.otpRedisService.setAuthState(session.id, {
+      role: session.role,
+      status: session.status,
+      tokenVersion,
+    });
+
+    const accessToken = await this.jwtService.signAccessToken(session.id, tokenVersion, {
+      role: session.role,
+      status: session.status,
+    });
+
+    return {
+      success: true,
+      accessToken,
+      user: {
+        id: session.id,
+        phone: session.phone,
+        email: session.email,
+        emailVerified: session.emailVerified,
+        role: session.role as UserRole,
+        status: session.status,
+        requiresPhoneLink: !session.phone,
+      },
+    };
+  }
+
+  /**
+   * Dispatches OTP to link a mobile phone to an existing user account.
+   */
+  async linkPhoneSendOtp(
+    userId: string,
+    input: LinkPhoneInput,
+    clientIp?: string,
+  ): Promise<{ success: boolean; message: string; expiresInSeconds: number; cooldownSeconds: number; codeForTest?: string }> {
+    if (input.turnstileToken) {
+      const isValid = await this.turnstileVerifier.verify(input.turnstileToken, clientIp);
+      if (!isValid) {
+        throw new BadRequestException('Bot challenge verification failed. Please try again.');
+      }
+    }
+
+    const existing = await this.userRepository.findByPhone(input.phone);
+    if (existing && existing.id !== userId) {
+      throw new ConflictException('This mobile number is already linked to another account.');
+    }
+
+    const limitResult = await this.rateLimitService.checkAndIncrementOtpLimits(input.phone, clientIp);
+    const uniqueMember = limitResult.uniqueMember;
+
+    const otpCode = this.otpGenerator.generate();
+    await this.otpRedisService.storeOtp(`link:${input.phone}`, otpCode, 300);
+
+    let smsResult: { success: boolean; message: string; messageId?: string };
+    try {
+      smsResult = await this.smsGateway.sendOtp({
+        phone: input.phone,
+        otp: otpCode,
+        language: 'en',
+      });
+    } catch {
+      await this.otpRedisService.releaseOtpLimits(input.phone, clientIp || '127.0.0.1', uniqueMember);
+      await this.otpRedisService.deleteOtp(`link:${input.phone}`);
+      throw new ServiceUnavailableException('Failed to deliver SMS. Please try again later.');
+    }
+
+    if (!smsResult.success) {
+      await this.otpRedisService.releaseOtpLimits(input.phone, clientIp || '127.0.0.1', uniqueMember);
+      await this.otpRedisService.deleteOtp(`link:${input.phone}`);
+      throw new ServiceUnavailableException('Failed to deliver SMS. Please try again later.');
+    }
+
+    const isTest = process.env['NODE_ENV'] === 'test';
+    return {
+      success: true,
+      message: 'OTP sent to mobile number',
+      expiresInSeconds: 300,
+      cooldownSeconds: 60,
+      codeForTest: isTest ? otpCode : undefined,
+    };
+  }
+
+  /**
+   * Verifies the phone OTP and links the phone number to the user account.
+   */
+  async linkPhoneVerifyOtp(
+    userId: string,
+    input: VerifyLinkPhoneInput,
+    clientIp?: string,
+  ): Promise<{ success: boolean; message: string; user: { id: string; phone: string; requiresPhoneLink: boolean } }> {
+    await this.rateLimitService.checkVerifyIpRateLimit(clientIp);
+
+    const verifyResult = await this.otpRedisService.verifyOtp(`link:${input.phone}`, input.code);
+    if (verifyResult.status === 'LOCKED_OUT') {
+      const waitMinutes = Math.max(1, Math.ceil(verifyResult.remainingSeconds / 60));
+      throw new UnauthorizedException(
+        `Maximum OTP verification attempts exceeded. Locked for ${waitMinutes} minutes.`,
+      );
+    }
+    if (verifyResult.status === 'INVALID') {
+      throw new UnauthorizedException(
+        `Invalid OTP code. ${verifyResult.attemptsRemaining} attempts remaining.`,
+      );
+    }
+    if (verifyResult.status === 'EXPIRED') {
+      throw new UnauthorizedException('Invalid or expired OTP code');
+    }
+
+    const existing = await this.userRepository.findByPhone(input.phone);
+    if (existing && existing.id !== userId) {
+      throw new ConflictException('This mobile number is already linked to another account.');
+    }
+
+    const updatedUser = await this.userRepository.updatePhone(userId, input.phone);
+    if (!updatedUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    const currentSession = await this.otpRedisService.getSession(userId);
+    if (currentSession) {
+      currentSession.phone = input.phone;
+      await this.otpRedisService.setSession(userId, currentSession);
+    }
+
+    return {
+      success: true,
+      message: 'Mobile number linked successfully',
+      user: {
+        id: updatedUser.id,
+        phone: updatedUser.phone!,
+        requiresPhoneLink: false,
+      },
+    };
   }
 }

@@ -22,7 +22,6 @@ import { EmailOtpService } from './email-otp.service.js';
     AuthService,
     JwtService,
     EmailOtpService,
-    EmailOtpService,
     {
       provide: TurnstileVerifier,
       useClass: CloudflareTurnstileVerifier,

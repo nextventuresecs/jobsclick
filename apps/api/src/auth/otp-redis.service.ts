@@ -148,7 +148,7 @@ export interface UserAuthState {
 
 export interface AuthUserSession {
   id: string;
-  phone: string;
+  phone: string | null;
   email: string | null;
   emailVerified: boolean;
   role: 'employer' | 'intermediary' | 'job_seeker' | 'admin' | 'msme_admin';

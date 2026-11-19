@@ -21,17 +21,25 @@ export interface VerifyEmailOtpResult {
   verified: boolean;
 }
 
+export interface EmailOtpRedisClient {
+  get(key: string): Promise<string | null>;
+  set(key: string, val: string, mode?: string, ttl?: number): Promise<unknown>;
+  incr(key: string): Promise<number>;
+  expire(key: string, ttl: number): Promise<number>;
+  del(key: string): Promise<number>;
+}
+
 @Injectable()
 export class EmailOtpService {
   private readonly logger = new Logger(EmailOtpService.name);
-  private readonly redisClient: any;
+  private readonly redisClient?: EmailOtpRedisClient;
 
   constructor(
     @Inject(EmailService) private readonly emailService: EmailService,
     @Optional() @Inject(OtpRedisService) private readonly otpRedisService?: OtpRedisService,
-    customRedisClient?: any,
+    customRedisClient?: EmailOtpRedisClient,
   ) {
-    this.redisClient = customRedisClient || this.otpRedisService?.client;
+    this.redisClient = customRedisClient || (this.otpRedisService?.client as unknown as EmailOtpRedisClient);
   }
 
   async sendOtp(email: string, language: 'en' | 'hi' = 'en'): Promise<SendEmailOtpResult> {

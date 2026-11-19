@@ -17,11 +17,13 @@ export interface IUserRepository {
   findByEmail(email: string): Promise<UserRow | null>;
   findByPendingEmail(pendingEmail: string): Promise<UserRow | null>;
   create(user: {
-    phone: string;
+    phone?: string | null;
+    email?: string | null;
     role: UserRow['role'];
     status?: UserRow['status'];
     source?: string;
   }): Promise<UserRow>;
+  updatePhone(id: string, phone: string): Promise<UserRow | null>;
   setPendingEmail(id: string, pendingEmail: string): Promise<UserRow | null>;
   confirmEmail(id: string, email: string): Promise<UserRow | null>;
   updateStatus(
@@ -101,45 +103,78 @@ export class UserRepository implements IUserRepository {
   }
 
   async create(user: {
-    phone: string;
+    phone?: string | null;
+    email?: string | null;
     role: UserRow['role'];
     status?: UserRow['status'];
     source?: string;
   }): Promise<UserRow> {
-    if (!/^[6-9]\d{9}$/.test(user.phone)) {
+    if (user.phone && !/^[6-9]\d{9}$/.test(user.phone)) {
       throw new BadRequestException('Invalid Indian phone number format');
     }
+    if (!user.phone && !user.email) {
+      throw new BadRequestException('Either phone or email must be provided');
+    }
 
-    const payload = {
-      phone: user.phone,
+    const payload: Record<string, unknown> = {
       role: user.role,
       status: user.status || 'active',
       source: user.source || 'direct_web',
       token_version: 0,
     };
+    if (user.phone) payload['phone'] = user.phone;
+    if (user.email) {
+      payload['email'] = user.email.toLowerCase();
+      payload['email_verified_at'] = new Date().toISOString();
+    }
 
     const { data, error } = await this.supabase
       .from('users')
-      .insert(payload)
+      .insert(payload as unknown as Database['public']['Tables']['users']['Insert'])
       .select('*')
       .single();
 
     if (error) {
-      // Handle Postgres unique violation only for users_phone_key (code 23505)
-      const isPhoneConflict =
-        error.code === '23505' &&
-        (error.message?.includes('users_phone_key') || error.message?.includes('phone'));
-
-      if (isPhoneConflict) {
-        const existing = await this.findByPhone(user.phone);
-        if (existing) {
-          return existing;
+      // Handle Postgres unique violation (code 23505)
+      const isConflict = error.code === '23505';
+      if (isConflict) {
+        if (user.phone) {
+          const existingByPhone = await this.findByPhone(user.phone);
+          if (existingByPhone) {
+            return existingByPhone;
+          }
+        }
+        if (user.email) {
+          const existingByEmail = await this.findByEmail(user.email);
+          if (existingByEmail) {
+            return existingByEmail;
+          }
         }
       }
       throw new InternalServerErrorException('Database error: failed to create user');
     }
 
     return data as UserRow;
+  }
+
+  async updatePhone(id: string, phone: string): Promise<UserRow | null> {
+    if (!/^[6-9]\d{9}$/.test(phone)) {
+      throw new BadRequestException('Invalid Indian phone number format');
+    }
+    const { data, error } = await this.supabase
+      .from('users')
+      .update({ phone, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) {
+      if (error.code === '23505') {
+        throw new ConflictException('This phone number is already registered to another account');
+      }
+      throw new InternalServerErrorException('Database error: failed to update phone');
+    }
+    return (data as UserRow) || null;
   }
 
   async setPendingEmail(id: string, pendingEmail: string): Promise<UserRow | null> {

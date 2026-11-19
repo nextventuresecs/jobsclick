@@ -39,26 +39,38 @@ export class InMemoryUserRepository implements IUserRepository {
   }
 
   async create(user: {
-    phone: string;
+    phone?: string | null;
+    email?: string | null;
     role: UserRow['role'];
     status?: UserRow['status'];
     source?: string;
   }): Promise<UserRow> {
-    if (!/^[6-9]\d{9}$/.test(user.phone)) {
+    if (user.phone && !/^[6-9]\d{9}$/.test(user.phone)) {
       throw new BadRequestException('Invalid Indian phone number format');
     }
+    if (!user.phone && !user.email) {
+      throw new BadRequestException('Either phone or email must be provided');
+    }
 
-    const existing = await this.findByPhone(user.phone);
-    if (existing) {
-      return existing;
+    if (user.phone) {
+      const existing = await this.findByPhone(user.phone);
+      if (existing) {
+        return existing;
+      }
+    }
+    if (user.email) {
+      const existingEmail = await this.findByEmail(user.email);
+      if (existingEmail) {
+        return existingEmail;
+      }
     }
 
     const now = new Date().toISOString();
     const id = crypto.randomUUID();
     const newUser: UserRow = {
       id,
-      phone: user.phone,
-      email: null,
+      phone: user.phone || null,
+      email: user.email ? user.email.toLowerCase() : null,
       role: user.role,
       status: user.status || 'active',
       source: user.source || 'direct_web',
@@ -69,7 +81,7 @@ export class InMemoryUserRepository implements IUserRepository {
       updated_at: now,
     };
     (newUser as Record<string, unknown>)['pending_email'] = null;
-    (newUser as Record<string, unknown>)['email_verified_at'] = null;
+    (newUser as Record<string, unknown>)['email_verified_at'] = user.email ? now : null;
 
     this.persistentStore.setRow('users', newUser.id, newUser);
 
@@ -79,6 +91,22 @@ export class InMemoryUserRepository implements IUserRepository {
     }
 
     return newUser;
+  }
+
+  async updatePhone(id: string, phone: string): Promise<UserRow | null> {
+    if (!/^[6-9]\d{9}$/.test(phone)) {
+      throw new BadRequestException('Invalid Indian phone number format');
+    }
+    const existing = await this.findByPhone(phone);
+    if (existing && existing.id !== id) {
+      throw new ConflictException('This phone number is already registered to another account');
+    }
+    const user = await this.findById(id);
+    if (!user) return null;
+    user.phone = phone;
+    user.updated_at = new Date().toISOString();
+    this.persistentStore.setRow('users', user.id, user);
+    return user;
   }
 
   async setPendingEmail(id: string, pendingEmail: string): Promise<UserRow | null> {

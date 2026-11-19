@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BadRequestException } from '@nestjs/common';
-import { EmailOtpService } from '../src/auth/email-otp.service.js';
+import { EmailOtpService, EmailOtpRedisClient } from '../src/auth/email-otp.service.js';
+import { EmailService } from '../src/email/email.service.js';
 
 describe('EmailOtpService', () => {
   let service: EmailOtpService;
@@ -32,7 +33,11 @@ describe('EmailOtpService', () => {
       expire: vi.fn(async () => 1),
     };
 
-    service = new EmailOtpService(mockEmailService as any, undefined, fakeRedisClient as any);
+    service = new EmailOtpService(
+      mockEmailService as unknown as EmailService,
+      undefined,
+      fakeRedisClient as unknown as EmailOtpRedisClient,
+    );
   });
 
   it('generates 6-digit cryptographic OTP, sends email, and stores in Redis with 300s TTL', async () => {

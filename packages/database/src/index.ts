@@ -19,7 +19,7 @@ export interface Database {
     Tables: {
       users: TableDefinition<{
         id: string;
-        phone: string;
+        phone: string | null;
         email: string | null;
         pending_email?: string | null;
         email_verified_at?: string | null;
