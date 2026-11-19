@@ -105,6 +105,14 @@ jobs:
         run: pnpm test -- --native-otp --auth-contracts apps/api/test/supabase-sms-hook.local.spec.ts
       - run: if [ -f docs/auth/evidence/S4-native/observations.json ]; then mv docs/auth/evidence/S4-native/observations.json "$RUNNER_TEMP/phone-native-observations.json"; fi
         if: always()
+      - name: Cold-start native OTP trial 2 (every trial required)
+        run: pnpm test -- --native-otp --auth-contracts apps/api/test/supabase-sms-hook.local.spec.ts
+      - run: if [ -f docs/auth/evidence/S4-native/observations.json ]; then mv docs/auth/evidence/S4-native/observations.json "$RUNNER_TEMP/phone-trial-2-observations.json"; fi
+        if: always()
+      - name: Cold-start native OTP trial 3 (every trial required)
+        run: pnpm test -- --native-otp --auth-contracts apps/api/test/supabase-sms-hook.local.spec.ts
+      - run: if [ -f docs/auth/evidence/S4-native/observations.json ]; then mv docs/auth/evidence/S4-native/observations.json "$RUNNER_TEMP/phone-trial-3-observations.json"; fi
+        if: always()
       - name: Explicit cross-channel fallback on its own fresh stack
         run: pnpm test -- --native-otp apps/api/test/otp-fallback-native.local.spec.ts
       - run: if [ -f docs/auth/evidence/followup/followup2/fallback-native-shape.json ]; then mv docs/auth/evidence/followup/followup2/fallback-native-shape.json "$RUNNER_TEMP/fallback-native-observations.json"; fi
@@ -119,6 +127,7 @@ jobs:
           name: auth-native-safe-observations
           path: |
             ${{ runner.temp }}/phone-native-observations.json
+            ${{ runner.temp }}/phone-trial-*-observations.json
             ${{ runner.temp }}/fallback-native-observations.json
             ${{ runner.temp }}/captcha-native-observations.json
 

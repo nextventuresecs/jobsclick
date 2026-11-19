@@ -1,7 +1,7 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
-const workflow=fs.readFileSync(path.resolve(__dirname,'../../.github/workflows/ci.yml'),'utf8');
+const workflow=fs.readFileSync(path.resolve(__dirname,'../../.github/workflows/ci.yml'),'utf8').replaceAll('\r\n','\n');
 test('AUTH CI runs a dedicated disposable migration contract job',()=>{
   assert.match(workflow,/\n  auth-disposable:/);
   assert.match(workflow,/pnpm test:auth-migration/);
@@ -71,4 +71,15 @@ test('native evidence moves each fresh observation even after failure, preventin
     assert.ok(line>=0,'move current observation before the next phase: '+name);
     assert.equal(workflow.split('\n')[line+1]?.trim(),'if: always()');
   }
+});
+
+test('native cold-start diagnosis requires every independent trial, preserving each observation',()=>{
+  for(const trial of [2,3]) {
+    const marker='phone-trial-'+trial+'-observations.json';
+    assert.ok(workflow.includes('Cold-start native OTP trial '+trial),'required cold-start trial is absent');
+    const line=workflow.split('\n').findIndex(value=>value.includes('$RUNNER_TEMP/'+marker)&&value.includes('mv '));
+    assert.ok(line>=0,'each trial retains its own observation');
+    assert.equal(workflow.split('\n')[line+1].trim(),'if: always()');
+  }
+  assert.doesNotMatch(workflow,/continue-on-error|\|\| true/);
 });
