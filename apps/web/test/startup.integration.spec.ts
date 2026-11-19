@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import { createServer } from 'node:net';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -17,7 +18,7 @@ function runNextStart(
   options: { waitForReady?: boolean; timeoutMs?: number } = {},
 ): Promise<SpawnResult> {
   const { waitForReady = false, timeoutMs = 15000 } = options;
-  const port = Math.floor(Math.random() * 5000) + 40000;
+  const port = 0; // Let the OS bind an unused port atomically.
 
   return new Promise((resolve, reject) => {
     let stdout = '';
@@ -94,6 +95,26 @@ describe('Next.js Production Startup Verification (Finding 4)', () => {
   it('precondition: .next production build exists', () => {
     expect(fs.existsSync(path.join(webDir, '.next/BUILD_ID'))).toBe(true);
   });
+
+  it('runs configuration validation even when an arbitrary probe port is already occupied', async () => {
+    const occupied = createServer();
+    await new Promise<void>((resolve, reject) => {
+      occupied.once('error', reject);
+      occupied.listen(0, '::', () => resolve());
+    });
+    const address = occupied.address();
+    if (!address || typeof address === 'string') throw new Error('PROBE_PORT_REQUIRED');
+    const random = vi.spyOn(Math, 'random').mockReturnValue((address.port - 40000 + 0.25) / 5000);
+    try {
+      const result = await runNextStart({ JWT_SECRET: '', NEXT_PUBLIC_API_URL: 'https://api.example.com' });
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain('[FATAL] Next.js production runtime environment validation failed');
+      expect(result.stderr).not.toContain('EADDRINUSE');
+    } finally {
+      random.mockRestore();
+      await new Promise<void>((resolve, reject) => occupied.close(error => error ? reject(error) : resolve()));
+    }
+  }, 20000);
 
   it('fails startup with non-zero exit code when mandatory JWT_SECRET is missing', async () => {
     const result = await runNextStart({

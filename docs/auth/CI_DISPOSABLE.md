@@ -13,3 +13,7 @@ The verify job builds production packages/web before the full test command: prod
 ## Follow-up 2 stacked review verification
 
 Pull requests to any base branch receive the same verification jobs, including stacked review units. A failing test first proved that the main-only filter skipped stacked bases. Push/deployment conditions are unchanged: review PR events cannot enter either deployment job. No hosted secret expressions or shared database targets are added. Native advisor ERROR remains a blocking gate. Remote results must be recorded; local offline checks do not substitute for a GitHub Actions run.
+
+## Cold native jobs and isolated OTP phases
+
+Database and validation export dist files, so every selected native CI job builds those shared packages after install. The dedicated OTP job uses three independent disposable runs: phone OTP with fake delivery; cross-channel fallback alone; invalid CAPTCHA. This preserves the native empty-target assertion and never manually deletes append-only fixture rows. Safe observations are captured per phase. All four Node setup steps use .nvmrc; review events still cannot deploy. Local red/green configuration tests precede remote verification.

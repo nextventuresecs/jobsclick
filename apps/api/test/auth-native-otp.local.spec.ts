@@ -12,6 +12,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { SupabaseSmsHook, type SmsHookPolicy } from '../src/auth/supabase-sms-hook.js';
 import { createSupabaseProvider } from '../src/auth/supabase-provider.js';
 import { getClientIp } from '../src/common/ip-normalizer.js';
+import { waitForNativeEmailOtp } from './fixtures/native-email-wait.js';
 
 describe.runIf(process.env['RUN_AUTH_NATIVE_OTP'] === '1')('AUTH-01/03 real GoTrue OTP, hook and CAPTCHA', () => {
   const url = process.env['SUPABASE_URL']!, key = process.env['SUPABASE_ANON_KEY']!;
@@ -43,6 +44,13 @@ describe.runIf(process.env['RUN_AUTH_NATIVE_OTP'] === '1')('AUTH-01/03 real GoTr
       knownNumber:createSmsKnownNumberLookup(backend),providerCaptchaEnforced:true });
   }
   beforeAll(async () => {
+    const inspected = spawnSync('docker', ['inspect', 'supabase_auth_' + runId], { encoding: 'utf8', windowsHide: true });
+    expect(inspected.status).toBe(0);
+    const env = JSON.parse(inspected.stdout)[0].Config.Env as string[];
+    observations['mailerConfig'] = Object.fromEntries(['GOTRUE_MAILER_AUTOCONFIRM', 'GOTRUE_MAILER_OTP_LENGTH', 'GOTRUE_MAILER_TEMPLATES_CONFIRMATION', 'GOTRUE_MAILER_TEMPLATES_MAGIC_LINK'].map(name => {
+      const value = env.find(entry => entry.startsWith(name + '='))?.slice(name.length + 1);
+      return [name, name.includes('TEMPLATES') ? Boolean(value) : value];
+    })); save();
     await db.connect(); await redis.connect();
     expect((await db.query('select (select count(*)::int from public.users) as users,(select count(*)::int from auth.users) as auth')).rows)
       .toEqual([{ users: 0, auth: 0 }]);
@@ -160,18 +168,23 @@ describe.runIf(process.env['RUN_AUTH_NATIVE_OTP'] === '1')('AUTH-01/03 real GoTr
     expect((await backend.from('users').insert({ id: userId, email, phone: null, role: 'job_seeker', status: 'invited', source: 'native-email-fixture' })).error).toBeNull();
     const sent = await caller().auth.signInWithOtp({ email, options: { captchaToken: validCaptcha } });
     expect(Boolean(sent.error)).toBe(false);
+    observations['emailRequest'] = { errorCode: sent.error?.code, status: sent.error?.status };
+    observations['emailState'] = (await db.query('select count(*)::int as identities, bool_or(confirmation_sent_at is not null) as confirmation_requested, bool_or(email_confirmed_at is not null) as confirmed from auth.users where email=$1', [email])).rows[0]; save();
     const mailApi = process.env['JOBSCLICK_TEST_MAIL_URL']! + '/api/v1';
-    let otp = '';
-    for (let attempt = 0; attempt < 40 && !otp; attempt++) {
-      const response = await fetch(mailApi + '/search?query=' + encodeURIComponent('to:' + email));
+    const otp = await waitForNativeEmailOtp(async signal => {
+      const response = await fetch(mailApi + '/search?query=' + encodeURIComponent('to:' + email), { signal });
       observations['mailTransport'] = { status: response.status, contentType: response.headers.get('content-type'), server: 'mailpit' }; save();
       const list = await response.json() as { messages: { ID: string }[] };
+      observations['mailMatches'] = list.messages.length; save();
       if (list.messages.length) {
-        const message = await (await fetch(mailApi + '/message/' + list.messages[0]!.ID)).json() as { Text?: string; HTML?: string };
-        otp = ((message.Text || '') + (message.HTML || '')).match(/\b[0-9]{6}\b/)?.[0] || '';
+        const message = await (await fetch(mailApi + '/message/' + list.messages[0]!.ID, { signal })).json() as { Text?: string; HTML?: string };
+        observations['mailBodyShape'] = { textLength: message.Text?.length || 0, htmlLength: message.HTML?.length || 0, digitRunLengths: (((message.Text || '') + (message.HTML || '')).match(/[0-9]+/g) || []).map(value => value.length) }; save();
+        return ((message.Text || '') + (message.HTML || '')).match(/\b[0-9]{6}\b/)?.[0] || '';
       }
-      if (!otp) await new Promise(resolve => setTimeout(resolve, 100));
-    }
+      return '';
+    });
+    const mailbox = await (await fetch(mailApi + '/messages', { signal: AbortSignal.timeout(5000) })).json() as { total: number };
+    observations['mailboxTotal'] = mailbox.total; save();
     expect(Boolean(otp)).toBe(true);
     const verified = await caller().auth.verifyOtp({ email, token: otp, type: 'email' });
     expect(Boolean(verified.error)).toBe(false); const identity = await proveSession(verified.data.session!.access_token, 'email');

@@ -1,0 +1,75 @@
+Exit: 1
+✔ AUTH CI runs a dedicated disposable migration contract job (1.4036ms)
+✔ AUTH CI contains no shared database targets, credentials or secret expressions (0.3177ms)
+✔ deploy-staging cannot report success from a placeholder (0.2579ms)
+✔ deploy-production cannot report success from a placeholder (1.0038ms)
+✔ full-suite CI produces the production artifact before startup integration assertions (0.1526ms)
+✔ native database security verification fails on advisor ERROR findings (1.3807ms)
+✔ stacked review pull requests run verification without permitting deployment (0.1801ms)
+✖ auth-disposable builds runtime shared exports before selected native tests (0.5506ms)
+✖ db-security-gate builds runtime shared exports before selected native tests (0.1381ms)
+✖ auth-native-otp builds runtime shared exports before selected native tests (0.1902ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 7
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 817.4381
+
+✖ failing tests:
+
+test at scripts\testing\ci-disposable.test.cjs:53:75
+✖ auth-disposable builds runtime shared exports before selected native tests (0.5506ms)
+  AssertionError [ERR_ASSERTION]: cold runtime exports must be built before selected tests
+      at TestContext.<anonymous> (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-packaged\scripts\testing\ci-disposable.test.cjs:59:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at scripts\testing\ci-disposable.test.cjs:53:75
+✖ db-security-gate builds runtime shared exports before selected native tests (0.1381ms)
+  AssertionError [ERR_ASSERTION]: cold runtime exports must be built before selected tests
+      at TestContext.<anonymous> (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-packaged\scripts\testing\ci-disposable.test.cjs:59:10)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at scripts\testing\ci-disposable.test.cjs:53:75
+✖ auth-native-otp builds runtime shared exports before selected native tests (0.1902ms)
+  AssertionError [ERR_ASSERTION]: native job is required: auth-native-otp
+      at TestContext.<anonymous> (D:\Trun Dada\Projects\Products\Indian Job Portal\application\indian-job-portal-remediation\.scratch\auth-packaged\scripts\testing\ci-disposable.test.cjs:54:55)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

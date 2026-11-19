@@ -59,6 +59,7 @@ jobs:
       - name: Check runner Docker service
         run: docker info
       - run: pnpm ci:check-migrations
+      - run: pnpm --filter @indian-job-portal/database --filter @indian-job-portal/validation run build
       - run: pnpm test:auth-migration
 
   db-security-gate:
@@ -78,12 +79,61 @@ jobs:
           version: 9.15.0
       - run: pnpm install --frozen-lockfile
       - run: pnpm ci:check-migrations
+      - run: pnpm --filter @indian-job-portal/database --filter @indian-job-portal/validation run build
       - name: Preserve type, catalog, attacker and HTTP smoke gates inside one disposable run
         run: pnpm test -- --db-tools --auth-contracts packages/database/test
 
+  auth-native-otp:
+    name: Native OTP, admission and CAPTCHA on independent disposable stacks
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NODE_ENV: test
+      DO_NOT_TRACK: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9.15.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm ci:check-migrations
+      - run: pnpm --filter @indian-job-portal/database --filter @indian-job-portal/validation run build
+      - name: Real GoTrue phone OTP with fake delivery
+        run: pnpm test -- --native-otp --auth-contracts apps/api/test/supabase-sms-hook.local.spec.ts
+      - run: if [ -f docs/auth/evidence/S4-native/observations.json ]; then mv docs/auth/evidence/S4-native/observations.json "$RUNNER_TEMP/phone-native-observations.json"; fi
+        if: always()
+      - name: Cold-start native OTP trial 2 (every trial required)
+        run: pnpm test -- --native-otp --auth-contracts apps/api/test/supabase-sms-hook.local.spec.ts
+      - run: if [ -f docs/auth/evidence/S4-native/observations.json ]; then mv docs/auth/evidence/S4-native/observations.json "$RUNNER_TEMP/phone-trial-2-observations.json"; fi
+        if: always()
+      - name: Cold-start native OTP trial 3 (every trial required)
+        run: pnpm test -- --native-otp --auth-contracts apps/api/test/supabase-sms-hook.local.spec.ts
+      - run: if [ -f docs/auth/evidence/S4-native/observations.json ]; then mv docs/auth/evidence/S4-native/observations.json "$RUNNER_TEMP/phone-trial-3-observations.json"; fi
+        if: always()
+      - name: Explicit cross-channel fallback on its own fresh stack
+        run: pnpm test -- --native-otp apps/api/test/otp-fallback-native.local.spec.ts
+      - run: if [ -f docs/auth/evidence/followup/followup2/fallback-native-shape.json ]; then mv docs/auth/evidence/followup/followup2/fallback-native-shape.json "$RUNNER_TEMP/fallback-native-observations.json"; fi
+        if: always()
+      - name: CAPTCHA rejection on another fresh stack
+        run: pnpm test -- --native-otp --captcha-reject --auth-contracts apps/api/test/supabase-sms-hook.local.spec.ts
+      - run: if [ -f docs/auth/evidence/S4-native/observations.json ]; then mv docs/auth/evidence/S4-native/observations.json "$RUNNER_TEMP/captcha-native-observations.json"; fi
+        if: always()
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: auth-native-safe-observations
+          path: |
+            ${{ runner.temp }}/phone-native-observations.json
+            ${{ runner.temp }}/phone-trial-*-observations.json
+            ${{ runner.temp }}/fallback-native-observations.json
+            ${{ runner.temp }}/captcha-native-observations.json
+
   container-build:
     name: Build Container Images
-    needs: [verify, auth-disposable, db-security-gate]
+    needs: [verify, auth-disposable, db-security-gate, auth-native-otp]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -103,7 +153,7 @@ jobs:
 
   deploy-staging:
     name: Deploy to Staging
-    needs: [verify, auth-disposable, db-security-gate, container-build]
+    needs: [verify, auth-disposable, db-security-gate, auth-native-otp, container-build]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
