@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { Job } from 'bullmq';
 import { bulkImportProcessor, BulkImportJobData } from '../src/processors/import.processor.js';
-import { inviteWaveProcessor, InviteWaveJobData } from '../src/processors/invite.processor.js';
+import { inviteWaveProcessor, InviteProcessor, InviteWaveJobData } from '../src/processors/invite.processor.js';
 import { pdfGeneratorProcessor, PdfJobData } from '../src/processors/pdf.processor.js';
 
 describe('Worker Processors (Ticket T-07)', () => {
@@ -182,7 +182,20 @@ describe('Worker Processors (Ticket T-07)', () => {
         } as InviteWaveJobData,
       } as unknown as Job<InviteWaveJobData>;
 
-      const result = await inviteWaveProcessor(mockJob);
+      const processor = new InviteProcessor();
+      const query: any = {
+        select: () => query,
+        eq: () => query,
+        not: () => query,
+        update: () => query,
+        single: async () => ({ data: { batch_id: 'batch_test_001', status: 'dispatched' }, error: null }),
+        limit: async () => ({ data: Array.from({ length: 5000 }, (_, i) => ({ id: String(i), phone: '9876543210' })), error: null }),
+      };
+      Object.assign(processor, {
+        supabase: { from: () => query },
+        smsService: { sendInviteSms: async () => ({ success: true, message: 'dispatched' }) },
+      });
+      const result = await processor.process(mockJob);
       expect(result.waveId).toBe('wave_test_001');
       expect(result.batchId).toBe('batch_test_001');
       expect(result.waveSize).toBe(5000);

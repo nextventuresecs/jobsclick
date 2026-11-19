@@ -44,100 +44,128 @@ export class InviteProcessor {
 
     const totalCostInr = Math.round(waveSize * costPerSmsInr * 100) / 100;
 
-    // Check status in DB if available to respect pause action
-    if (this.supabase) {
-      const { data: currentWave } = await this.supabase
-        .from('invite_waves')
-        .select('*')
-        .eq('id', waveId)
-        .single();
+    if (!this.supabase) throw new Error('INVITE_DATABASE_UNAVAILABLE');
 
-      if (currentWave && (currentWave.status === 'paused' || currentWave.status === 'queued')) {
-        console.log(`[InviteProcessor] Wave ${waveId} is currently paused/queued. Skipping dispatch.`);
-        return {
-          waveId,
-          batchId,
-          waveSize,
-          sentCount: currentWave.sent_count || 0,
-          failedCount: 0,
-          totalCostInr,
-          status: 'queued',
-        };
-      }
+    // 1. Check wave existence and batch association
+    const { data: currentWave, error: waveError } = await this.supabase
+      .from('invite_waves')
+      .select('*')
+      .eq('id', waveId)
+      .single();
 
-      await this.supabase
-        .from('invite_waves')
-        .update({
-          status: 'processing',
-          total_cost_inr: totalCostInr,
-        })
-        .eq('id', waveId);
+    if (waveError || !currentWave || currentWave.batch_id !== batchId) {
+      throw new Error('INVITE_WAVE_BATCH_MISMATCH');
     }
 
-    // Process SMS dispatch in sub-batches of 1000
-    // Query invited candidates from Supabase if available
-    let invitedCandidates: Array<{ phone: string; language?: 'en' | 'hi' }> = [];
-    if (this.supabase) {
-      try {
-        const { data: users } = await this.supabase
-          .from('users')
-          .select('phone, language')
-          .eq('status', 'invited')
-          .limit(waveSize);
-        if (users && users.length > 0) {
-          invitedCandidates = users.map((u) => ({
-            phone: u.phone,
-            language: (u.language as 'en' | 'hi') || 'en',
-          }));
-        }
-      } catch {
-        // Fallback
-      }
-    }
-
-    // Process SMS dispatch in sub-batches of 250 with MSG91 live/sandbox/mock handling
-    const chunkSize = 250;
-    let failedCount = 0;
-    let sentCount = 0;
-    const iterations = Math.ceil(waveSize / chunkSize);
-
-    for (let i = 0; i < iterations; i++) {
-      const currentBatchCount = Math.min(chunkSize, waveSize - sentCount);
-      const sampleCandidate = invitedCandidates[sentCount] || {
-        phone: '9876543210',
-        language: 'en' as const,
+    if (currentWave.status === 'completed' || currentWave.status === 'failed') {
+      return {
+        waveId,
+        batchId,
+        waveSize,
+        sentCount: currentWave.sent_count || 0,
+        failedCount: currentWave.failed_count || 0,
+        totalCostInr,
+        status: currentWave.status,
       };
+    }
 
+    if (currentWave.status === 'paused' || currentWave.status === 'queued') {
+      console.log(`[InviteProcessor] Wave ${waveId} is currently paused/queued. Skipping dispatch.`);
+      return {
+        waveId,
+        batchId,
+        waveSize,
+        sentCount: currentWave.sent_count || 0,
+        failedCount: 0,
+        totalCostInr,
+        status: 'queued',
+      };
+    }
+
+    await this.supabase
+      .from('invite_waves')
+      .update({
+        status: 'processing',
+        total_cost_inr: totalCostInr,
+      })
+      .eq('id', waveId);
+
+    // 2. Select strictly pending invitations scoped to this batchId
+    // Never fall back to global users or synthetic phone numbers (P0-6 fix)
+    const { data: invitations, error: invitationError } = await this.supabase
+      .from('invitations')
+      .select('id, phone')
+      .eq('batch_id', batchId)
+      .eq('status', 'pending')
+      .not('phone', 'is', null)
+      .limit(waveSize);
+
+    if (invitationError || !invitations) throw new Error('INVITE_RECIPIENT_LOOKUP_FAILED');
+
+    const recipients = invitations
+      .filter((inv) => Boolean(inv.phone))
+      .map((inv) => ({
+        id: inv.id as string,
+        phone: inv.phone as string,
+        language: 'en' as const,
+      }));
+
+    let sentCount = 0;
+    let failedCount = 0;
+
+    // 3. Send SMS 1:1 per recipient with per-recipient status tracking
+    for (let i = 0; i < recipients.length && i < waveSize; i++) {
+      const recipient = recipients[i]!;
       const smsResult = await this.smsService.sendInviteSms({
-        phone: sampleCandidate.phone,
-        language: sampleCandidate.language,
+        phone: recipient.phone,
+        language: recipient.language,
       });
 
       if (smsResult.success) {
-        sentCount += currentBatchCount;
+        sentCount++;
+        if (this.supabase && recipient.id) {
+          try {
+            await this.supabase
+              .from('invitations')
+              .update({ status: 'sent' })
+              .eq('id', recipient.id);
+          } catch {
+            // best-effort
+          }
+        }
       } else {
-        failedCount += currentBatchCount;
+        failedCount++;
+        if (this.supabase && recipient.id) {
+          try {
+            await this.supabase
+              .from('invitations')
+              .update({ status: 'failed' })
+              .eq('id', recipient.id);
+          } catch {
+            // best-effort
+          }
+        }
       }
 
-      if (typeof job.updateProgress === 'function') {
+      if (typeof job.updateProgress === 'function' && (i % 25 === 0 || i === recipients.length - 1)) {
         await job.updateProgress({
           dispatched: sentCount,
           total: waveSize,
-          percent: Math.round((sentCount / waveSize) * 100),
+          percent: Math.round(((sentCount + failedCount) / waveSize) * 100),
         });
       }
     }
 
-    if (this.supabase) {
-      await this.supabase
-        .from('invite_waves')
-        .update({
-          status: 'completed',
-          sent_count: sentCount,
-          completed_at: new Date().toISOString(),
-        })
-        .eq('id', waveId);
-    }
+    // 4. Update invite_waves row with final counts and status
+    await this.supabase
+      .from('invite_waves')
+      .update({
+        status: 'completed',
+        sent_count: sentCount,
+        failed_count: failedCount,
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', waveId);
 
     if (typeof job.updateProgress === 'function') {
       await job.updateProgress(100);
