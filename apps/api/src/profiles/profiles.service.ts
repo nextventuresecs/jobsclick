@@ -20,7 +20,7 @@ export interface SeekerProfileRecord extends JobSeekerProfileInput {
   id: string;
   slug?: string;
   userId: string;
-  phone: string;
+  phone: string | null;
   email: string | null;
   completenessScore: number;
 }
