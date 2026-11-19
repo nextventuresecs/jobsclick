@@ -9,6 +9,7 @@ export interface AuthenticatedUser {
   readonly id: string; // Strictly server-issued UUID
   readonly role: UserRole;
   readonly status: 'active' | 'invited' | 'disabled' | 'suspended';
+  readonly requiresPhoneLink?: boolean;
 }
 
 export interface ToastMessage {

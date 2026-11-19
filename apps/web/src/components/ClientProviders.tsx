@@ -3,6 +3,7 @@
 import React from 'react';
 import { AppProvider } from '../context/AppContext';
 import { AuthModal } from './auth/AuthModal';
+import { LinkPhoneModal } from './auth/LinkPhoneModal';
 import { ToastContainer } from './ui/ToastContainer';
 import type { VerifiedSession } from '../lib/auth-session';
 
@@ -17,6 +18,7 @@ export function ClientProviders({
     <AppProvider initialSession={initialSession}>
       {children}
       <AuthModal />
+      <LinkPhoneModal />
       <ToastContainer />
     </AppProvider>
   );

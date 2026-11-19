@@ -228,6 +228,7 @@ export class AuthService {
     const accessToken = await this.jwtService.signAccessToken(session.id, tokenVersion, {
       role: session.role,
       status: session.status,
+      requiresPhoneLink: !session.phone,
     });
 
     return {
@@ -530,6 +531,7 @@ export class AuthService {
     const accessToken = await this.jwtService.signAccessToken(session.id, tokenVersion, {
       role: session.role,
       status: session.status,
+      requiresPhoneLink: !session.phone,
     });
 
     return {
@@ -643,6 +645,7 @@ export class AuthService {
     const accessToken = await this.jwtService.signAccessToken(session.id, tokenVersion, {
       role: session.role,
       status: session.status,
+      requiresPhoneLink: !session.phone,
     });
 
     return {

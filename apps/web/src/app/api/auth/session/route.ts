@@ -34,6 +34,7 @@ export async function GET() {
         id: session.sub,
         role: session.role,
         status: session.status,
+        requiresPhoneLink: session.requiresPhoneLink ?? false,
       },
     },
     {
@@ -68,6 +69,7 @@ export async function POST(req: NextRequest) {
         id: verified.sub,
         role: verified.role,
         status: verified.status,
+        requiresPhoneLink: verified.requiresPhoneLink ?? false,
       },
     });
 
