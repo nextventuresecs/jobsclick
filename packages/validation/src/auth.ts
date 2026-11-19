@@ -159,11 +159,62 @@ export const verifyEmailSchema = z.object({
   token: z.string().min(1, 'Token is required'),
 });
 
+export const SendEmailOtpSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(254, 'Email must not exceed 254 characters')
+    .email('Valid email address is required'),
+  role: SelfSignupRoleSchema.default('job_seeker'),
+  turnstileToken: z.string().min(1, 'Cloudflare Turnstile token is required').optional(),
+});
+
+export const VerifyEmailOtpSchema = z
+  .object({
+    email: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .max(254, 'Email must not exceed 254 characters')
+      .email('Valid email address is required'),
+    code: z.string().regex(/^\d{6}$/, 'OTP must be exactly 6 digits'),
+    role: SelfSignupRoleSchema.default('job_seeker'),
+    consentVersion: z.string().max(32).optional(),
+  })
+  .strict();
+
+export const OAuthExchangeSchema = z
+  .object({
+    providerToken: z.string().min(1, 'Provider token or authorization code is required'),
+    role: SelfSignupRoleSchema.default('job_seeker'),
+  })
+  .strict();
+
+export const LinkPhoneSchema = z
+  .object({
+    phone: IndianPhoneSchema,
+    turnstileToken: z.string().optional(),
+  })
+  .strict();
+
+export const VerifyLinkPhoneSchema = z
+  .object({
+    phone: IndianPhoneSchema,
+    code: z.string().regex(/^\d{6}$/, 'OTP must be exactly 6 digits'),
+  })
+  .strict();
+
 export type SendOtpInput = z.infer<typeof SendOtpSchema>;
 export type VerifyOtpInput = z.infer<typeof VerifyOtpSchema>;
 export type AddEmailInput = z.infer<typeof AddEmailSchema>;
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
 export type MsmeAuthInput = z.infer<typeof msmeAuthSchema>;
+export type SendEmailOtpInput = z.infer<typeof SendEmailOtpSchema>;
+export type VerifyEmailOtpInput = z.infer<typeof VerifyEmailOtpSchema>;
+export type OAuthExchangeInput = z.infer<typeof OAuthExchangeSchema>;
+export type LinkPhoneInput = z.infer<typeof LinkPhoneSchema>;
+export type VerifyLinkPhoneInput = z.infer<typeof VerifyLinkPhoneSchema>;
 
 // Backward-compatibility aliases for web consumers prior to Phase 7b
 export const indianMobileNumberSchema = IndianPhoneSchema;

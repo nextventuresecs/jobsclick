@@ -12,6 +12,7 @@ import { EmailModule } from '../email/email.module.js';
 import { JwtAuthGuard } from './guards/jwt-auth.guard.js';
 import { RolesGuard } from './guards/roles.guard.js';
 import { JwtService } from './jwt.service.js';
+import { EmailOtpService } from './email-otp.service.js';
 
 @Global()
 @Module({
@@ -20,6 +21,8 @@ import { JwtService } from './jwt.service.js';
   providers: [
     AuthService,
     JwtService,
+    EmailOtpService,
+    EmailOtpService,
     {
       provide: TurnstileVerifier,
       useClass: CloudflareTurnstileVerifier,
@@ -45,6 +48,7 @@ import { JwtService } from './jwt.service.js';
   exports: [
     AuthService,
     JwtService,
+    EmailOtpService,
     TurnstileVerifier,
     SmsGateway,
     SmsService,
