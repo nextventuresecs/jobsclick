@@ -146,4 +146,50 @@ export class WorkerEmailService {
       },
     });
   }
+
+  async sendBulkOnboardingWelcomeEmail(options: {
+    email: string;
+    role: 'job_seeker' | 'employer';
+    source: string;
+    name?: string;
+  }): Promise<SendEmailResult> {
+    const webUrl = process.env['WEB_URL'] || 'https://jobsclick.live';
+    const isEmployer = options.role === 'employer';
+    const subject = isEmployer
+      ? `Welcome to JobsClick - Complete Your Employer Registration (${options.source})`
+      : `Welcome to JobsClick - Your Account is Ready (${options.source})`;
+
+    const loginUrl = `${webUrl}/auth?email=${encodeURIComponent(options.email)}`;
+    const stepsHtml = isEmployer
+      ? `<ol style="padding-left: 20px; line-height: 1.8;">
+          <li>Click <a href="${loginUrl}" style="color: #2563eb; font-weight: bold;">Log In</a> to access your employer account.</li>
+          <li>Complete your Enterprise & MSME profile.</li>
+          <li>Post your job openings to connect with verified student candidates.</li>
+        </ol>`
+      : `<ol style="padding-left: 20px; line-height: 1.8;">
+          <li>Click <a href="${loginUrl}" style="color: #2563eb; font-weight: bold;">Log In</a> to verify your student account.</li>
+          <li>Complete your education profile and skills.</li>
+          <li>Discover and apply for verified entry-level and MSME jobs.</li>
+        </ol>`;
+
+    const html = `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #1f2937;">
+        <h2 style="color: #2563eb;">Welcome to JobsClick!</h2>
+        <p>You have been registered on the JobsClick platform by <strong>${options.source}</strong>.</p>
+        <div style="background-color: #f3f4f6; border-radius: 8px; padding: 16px; margin: 20px 0;">
+          <h3 style="margin-top: 0; color: #111827;">Next Steps to Complete Your Onboarding:</h3>
+          ${stepsHtml}
+        </div>
+        <p style="margin-top: 24px;">
+          <a href="${loginUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Log In to JobsClick</a>
+        </p>
+      </div>
+    `;
+
+    return this.sendEmail({
+      to: options.email,
+      subject,
+      html,
+    });
+  }
 }

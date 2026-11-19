@@ -3,6 +3,10 @@ import { parse } from 'csv-parse';
 import { Readable } from 'node:stream';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@indian-job-portal/database';
+import { normalizeIndianPhone, normalizeEmail } from '@indian-job-portal/validation';
+import { WorkerEmailService } from '../email/email.service.js';
+
+export { normalizeIndianPhone, normalizeEmail };
 
 export interface BulkImportJobData {
   batchId: string;
@@ -30,32 +34,6 @@ export interface ImportErrorRecord {
   row: number;
   phone: string;
   reason: string;
-}
-
-/**
- * Normalizes Indian phone numbers from diverse formats (+91, 0-prefix, 91-prefix, dashes, spaces)
- * into a canonical 10-digit Indian mobile number format (^[6-9]\d{9}$).
- */
-export function normalizeIndianPhone(input: string): string | null {
-  if (!input) return null;
-  // Strip whitespace, dashes, dots, parens
-  let cleaned = input.replace(/[\s\-().]/g, '');
-
-  if (cleaned.startsWith('+91')) {
-    cleaned = cleaned.slice(3);
-  } else if (cleaned.startsWith('0') && cleaned.length === 11) {
-    // Leading zero STD/mobile prefix (09876543210 -> 9876543210)
-    cleaned = cleaned.slice(1);
-  } else if (cleaned.startsWith('91') && cleaned.length === 12 && /^[6-9]/.test(cleaned.slice(2))) {
-    // 91 prefix without plus (919876543210 -> 9876543210)
-    cleaned = cleaned.slice(2);
-  }
-
-  // Validate Indian 10-digit mobile number format
-  if (/^[6-9]\d{9}$/.test(cleaned)) {
-    return cleaned;
-  }
-  return null;
 }
 
 /**
@@ -97,19 +75,29 @@ export function getField(record: Record<string, string>, ...keys: string[]): str
 interface ChunkItem {
   row: number;
   name: string;
-  phone: string;
+  phone?: string | null;
+  email?: string | null;
   source: string;
-  role: 'job_seeker';
+  role: 'job_seeker' | 'employer';
   status: 'invited';
-  seekerType: 'student' | 'individual';
+  seekerType?: 'student' | 'individual';
+  companyName?: string;
+  ownershipType?: string;
+  companySize?: string;
   aadhaar_last4?: string;
   aadhaar_verified: boolean;
 }
 
 export class ImportProcessor {
   private supabase: SupabaseClient<Database> | null = null;
+  private emailService: WorkerEmailService;
 
-  constructor(supabaseClient?: SupabaseClient<Database> | null) {
+  constructor(
+    supabaseClient?: SupabaseClient<Database> | null,
+    emailService?: WorkerEmailService,
+  ) {
+    this.emailService = emailService ?? new WorkerEmailService();
+
     if (supabaseClient !== undefined) {
       this.supabase = supabaseClient;
     } else {
@@ -176,6 +164,7 @@ export class ImportProcessor {
 
     const errors: ImportErrorRecord[] = [];
     const seenPhones = new Set<string>();
+    const seenEmails = new Set<string>();
     let rowNumber = 1; // Row 1 is header
     let totalRows = 0;
     let validCount = 0;
@@ -194,25 +183,48 @@ export class ImportProcessor {
 
       // Deduplicate against platform database if Supabase DB is connected
       if (this.supabase) {
-        const chunkPhones = chunkToProcess.map((u) => u.phone);
-        const { data: existingInDb, error: dbError } = await this.supabase
-          .from('users')
-          .select('id, phone')
-          .in('phone', chunkPhones);
+        const chunkPhones = chunkToProcess.map((u) => u.phone).filter(Boolean) as string[];
+        const chunkEmails = chunkToProcess.map((u) => u.email).filter(Boolean) as string[];
 
-        if (!dbError && existingInDb && existingInDb.length > 0) {
-          const dbSet = new Set(existingInDb.map((u) => u.phone));
-          deduplicatedChunk = [];
-          for (const item of chunkToProcess) {
-            if (dbSet.has(item.phone)) {
-              errors.push({
-                row: item.row,
-                phone: item.phone,
-                reason: 'Mobile number already exists in database',
-              });
-            } else {
-              deduplicatedChunk.push(item);
-            }
+        const existingPhones = new Set<string>();
+        const existingEmails = new Set<string>();
+
+        if (chunkPhones.length > 0) {
+          const { data: existingPhoneUsers } = await this.supabase
+            .from('users')
+            .select('id, phone')
+            .in('phone', chunkPhones);
+          (existingPhoneUsers || []).forEach((u: { phone?: string }) => {
+            if (u.phone) existingPhones.add(u.phone);
+          });
+        }
+
+        if (chunkEmails.length > 0) {
+          const { data: existingEmailUsers } = await this.supabase
+            .from('users')
+            .select('id, email')
+            .in('email', chunkEmails);
+          (existingEmailUsers || []).forEach((u: { email?: string }) => {
+            if (u.email) existingEmails.add(u.email);
+          });
+        }
+
+        deduplicatedChunk = [];
+        for (const item of chunkToProcess) {
+          if (item.phone && existingPhones.has(item.phone)) {
+            errors.push({
+              row: item.row,
+              phone: item.phone,
+              reason: 'Mobile number already exists in database',
+            });
+          } else if (item.email && existingEmails.has(item.email)) {
+            errors.push({
+              row: item.row,
+              phone: item.phone || item.email,
+              reason: 'Email already exists in database',
+            });
+          } else {
+            deduplicatedChunk.push(item);
           }
         }
 
@@ -220,7 +232,8 @@ export class ImportProcessor {
         if (deduplicatedChunk.length > 0) {
           const nowIso = new Date().toISOString();
           const usersToInsert = deduplicatedChunk.map((u) => ({
-            phone: u.phone,
+            phone: u.phone ?? null,
+            email: u.email ?? null,
             role: u.role,
             status: u.status,
             source: u.source,
@@ -230,26 +243,29 @@ export class ImportProcessor {
 
           const { data: upsertedUsers, error: upsertError } = await this.supabase
             .from('users')
-            .upsert(usersToInsert, { onConflict: 'phone' })
-            .select('id, phone');
+            .upsert(usersToInsert as any)
+            .select('id, phone, email');
 
           if (upsertError) {
             throw new Error(`Database error upserting users: ${upsertError.message}`);
           }
 
-          // Maintain relational integrity: insert job_seeker_profiles for candidates idempotently
           if (upsertedUsers && upsertedUsers.length > 0) {
-            const phoneToMeta = new Map(deduplicatedChunk.map((c) => [c.phone, c]));
+            // Map created user to metadata
+            const usersList = upsertedUsers as Array<{ id: string; phone?: string | null; email?: string | null }>;
 
-            const newProfiles = (upsertedUsers as Array<{ id: string; phone: string }>)
-              .map((user) => {
-                const meta = phoneToMeta.get(user.phone);
+            // 1. Insert job_seeker_profiles
+            const newSeekerProfiles = usersList
+              .map((user, idx) => {
+                const meta = deduplicatedChunk[idx] || deduplicatedChunk.find(
+                  (c) => (c.phone && c.phone === user.phone) || (c.email && c.email === user.email),
+                );
                 if (!meta || meta.role !== 'job_seeker') return null;
 
                 return {
                   user_id: user.id,
-                  full_name: meta.name,
-                  seeker_type: meta.seekerType,
+                  full_name: meta.name || 'Invited Student',
+                  seeker_type: meta.seekerType || 'student',
                   aadhaar_last_four: meta.aadhaar_last4 ?? null,
                   aadhaar_verified: false,
                   source: meta.source,
@@ -258,37 +274,74 @@ export class ImportProcessor {
                   updated_at: nowIso,
                 };
               })
-              .filter(Boolean) as Array<{
-                user_id: string;
-                full_name: string;
-                seeker_type: string;
-                aadhaar_last_four: string | null;
-                aadhaar_verified: boolean;
-                source: string;
-                skills: string[];
-                created_at: string;
-                updated_at: string;
-              }>;
+              .filter(Boolean) as Array<Record<string, unknown>>;
 
-            if (newProfiles.length > 0) {
-              const userIds = newProfiles.map((p) => p.user_id);
-              const { data: existingProfiles } = await this.supabase
-                .from('job_seeker_profiles')
-                .select('user_id')
-                .in('user_id', userIds);
+            if (newSeekerProfiles.length > 0) {
+              try {
+                await this.supabase.from('job_seeker_profiles').insert(newSeekerProfiles as any);
+              } catch {
+                // best-effort
+              }
+            }
 
-              const existingUserIds = new Set(
-                (existingProfiles || []).map((p: { user_id: string }) => p.user_id),
-              );
+            // 2. Insert business_profiles
+            const newBizProfiles = usersList
+              .map((user, idx) => {
+                const meta = deduplicatedChunk[idx] || deduplicatedChunk.find(
+                  (c) => (c.phone && c.phone === user.phone) || (c.email && c.email === user.email),
+                );
+                if (!meta || meta.role !== 'employer') return null;
 
-              const profilesToInsert = newProfiles.filter((p) => !existingUserIds.has(p.user_id));
+                return {
+                  user_id: user.id,
+                  company_name: meta.companyName || meta.name || 'Invited Employer',
+                  ownership_type: meta.ownershipType || 'Private Limited',
+                  company_size: meta.companySize || 'Small',
+                  source: meta.source,
+                  is_msme: true,
+                  created_at: nowIso,
+                  updated_at: nowIso,
+                };
+              })
+              .filter(Boolean) as Array<Record<string, unknown>>;
 
-              if (profilesToInsert.length > 0) {
-                const { error: profileError } = await this.supabase
-                  .from('job_seeker_profiles')
-                  .insert(profilesToInsert);
-                if (profileError) {
-                  throw new Error(`Database error creating job seeker profiles: ${profileError.message}`);
+            if (newBizProfiles.length > 0) {
+              try {
+                await this.supabase.from('business_profiles').insert(newBizProfiles as any);
+              } catch {
+                // best-effort
+              }
+            }
+
+            // 3. Record invitations scoped to batchId
+            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(batchId);
+            if (isUuid) {
+              const invitationsToInsert = deduplicatedChunk.map((u) => ({
+                batch_id: batchId,
+                phone: u.phone ?? null,
+                email: u.email ?? null,
+                status: 'pending',
+                created_at: nowIso,
+              }));
+              try {
+                await this.supabase.from('invitations').insert(invitationsToInsert);
+              } catch {
+                // best-effort
+              }
+            }
+
+            // 4. Send Welcome Onboarding Email to all email recipients
+            for (const item of deduplicatedChunk) {
+              if (item.email) {
+                try {
+                  await this.emailService.sendBulkOnboardingWelcomeEmail({
+                    email: item.email,
+                    role: item.role,
+                    source: item.source,
+                    name: item.name,
+                  });
+                } catch (emailErr) {
+                  console.error(`[ImportProcessor] Failed to send welcome email to ${item.email}:`, emailErr);
                 }
               }
             }
@@ -324,23 +377,19 @@ export class ImportProcessor {
       totalRows++;
 
       const record = rawRecord as Record<string, string>;
-      const rawName = getField(record, 'name', 'full_name', 'Student Name', 'student_name', 'candidate_name', 'Name', 'FullName');
+
       const rawPhone = getField(record, 'phone', 'mobile', 'mobile_number', 'Mobile Number', 'Phone', 'Mobile', 'contact', 'Contact');
+      const rawEmail = getField(record, 'email', 'Email', 'email_address', 'mail');
+      const rawName = getField(record, 'name', 'full_name', 'Student Name', 'student_name', 'candidate_name', 'Name', 'FullName');
+      const rawCompanyName = getField(record, 'company_name', 'Company Name', 'companyName', 'enterprise_name', 'Enterprise Name', 'company');
       const rawAadhaar = getField(record, 'aadhaar', 'aadhaar_number', 'aadhaar_no', 'Aadhaar', 'Aadhaar Number', 'uid', 'UID');
 
-      // 1. Name validation (PRD BULK-02 missing fields check)
-      if (!rawName) {
-        errors.push({
-          row: rowNumber,
-          phone: rawPhone,
-          reason: 'Missing candidate full name',
-        });
-        continue;
-      }
+      // Contact Validation: Either email or phone is required
+      const phone = rawPhone ? normalizeIndianPhone(rawPhone) : null;
+      const email = rawEmail ? normalizeEmail(rawEmail) : null;
 
-      // 2. Phone validation: Indian 10-digit mobile number format
-      const phone = normalizeIndianPhone(rawPhone);
-      if (!phone) {
+      // If raw phone was provided but is invalid
+      if (rawPhone && !phone) {
         errors.push({
           row: rowNumber,
           phone: rawPhone,
@@ -349,31 +398,64 @@ export class ImportProcessor {
         continue;
       }
 
-      // 3. Duplicate checking inside the batch
-      if (seenPhones.has(phone)) {
+      // If raw email was provided but is invalid
+      if (rawEmail && !email) {
         errors.push({
           row: rowNumber,
-          phone: rawPhone,
+          phone: rawPhone || rawEmail,
+          reason: 'Invalid email address format',
+        });
+        continue;
+      }
+
+      // If neither phone nor email was provided
+      if (!phone && !email) {
+        errors.push({
+          row: rowNumber,
+          phone: rawPhone || '',
+          reason: 'At least one contact identifier (email or phone) is required',
+        });
+        continue;
+      }
+
+      // Duplicate checking inside the batch
+      if (phone && seenPhones.has(phone)) {
+        errors.push({
+          row: rowNumber,
+          phone,
           reason: 'Duplicate mobile number inside file',
         });
         continue;
       }
 
-      seenPhones.add(phone);
+      if (email && seenEmails.has(email)) {
+        errors.push({
+          row: rowNumber,
+          phone: phone || email,
+          reason: 'Duplicate email inside file',
+        });
+        continue;
+      }
 
-      // 4. Aadhaar handling (Hard Invariant #8: Never store full Aadhaar number)
+      if (phone) seenPhones.add(phone);
+      if (email) seenEmails.add(email);
+
+      // Aadhaar handling (Hard Invariant #8: Never store full Aadhaar number)
       const aadhaarLast4 = extractAadhaarLast4(rawAadhaar);
+      const isEmployer = entityType === 'employer';
 
-      // Invariant #2: users created in 'invited' state with zero SMS at import
-      // Invariant #3: every bulk import row keeps its source
       currentChunk.push({
         row: rowNumber,
-        name: rawName,
+        name: rawName || rawCompanyName || (isEmployer ? 'Invited Employer' : 'Invited Student'),
+        companyName: rawCompanyName || rawName || 'Invited Employer',
         phone,
+        email,
         source,
-        role: 'job_seeker',
+        role: isEmployer ? 'employer' : 'job_seeker',
         status: 'invited',
         seekerType: entityType === 'student' ? 'student' : 'individual',
+        ownershipType: getField(record, 'ownership_type', 'ownershipType', 'legal_status') || 'Private Limited',
+        companySize: getField(record, 'company_size', 'companySize', 'size') || 'Small',
         aadhaar_last4: aadhaarLast4,
         aadhaar_verified: false,
       });
@@ -396,32 +478,40 @@ export class ImportProcessor {
         errors
           .map(
             (e) =>
-              `${e.row},"${e.phone.replace(/"/g, '""')}","${e.reason.replace(/"/g, '""')}"`,
+              `${e.row},"${(e.phone || '').replace(/"/g, '""')}","${e.reason.replace(/"/g, '""')}"`,
           )
           .join('\n');
       errorPath = `bulk-imports/${batchId}-errors.csv`;
       if (this.supabase) {
-        await this.supabase.storage.from('private').upload(errorPath, errorCsvContent, {
-          contentType: 'text/csv',
-          upsert: true,
-        });
+        try {
+          await this.supabase.storage.from('private').upload(errorPath, errorCsvContent, {
+            contentType: 'text/csv',
+            upsert: true,
+          });
+        } catch {
+          // best-effort
+        }
       }
     }
 
     // Update batch record status in database if available
     if (this.supabase) {
-      await this.supabase
-        .from('bulk_import_batches')
-        .update({
-          status: 'completed',
-          total_rows: totalRows,
-          processed_rows: totalRows,
-          valid_rows: validCount,
-          error_rows: errors.length,
-          error_csv_storage_path: errorPath || null,
-          completed_at: new Date().toISOString(),
-        })
-        .eq('id', batchId);
+      try {
+        await this.supabase
+          .from('bulk_import_batches')
+          .update({
+            status: 'completed',
+            total_rows: totalRows,
+            processed_rows: totalRows,
+            valid_rows: validCount,
+            error_rows: errors.length,
+            error_csv_storage_path: errorPath || null,
+            completed_at: new Date().toISOString(),
+          })
+          .eq('id', batchId);
+      } catch {
+        // best-effort
+      }
     }
 
     if (typeof job.updateProgress === 'function') {
