@@ -4,14 +4,21 @@ import React from 'react';
 import { useTranslations } from 'next-intl';
 import { Button, JobsClickLogo } from '@indian-job-portal/ui';
 import type { SeekerProfileData } from '../../../data/sampleWorkspaces';
-import { ShieldCheck, GraduationCap, Printer } from 'lucide-react';
+import { ShieldCheck, GraduationCap, Printer, Download } from 'lucide-react';
 
 interface SeekerDigitalCvPreviewProps {
   readonly profile: SeekerProfileData;
   readonly onPrint: () => void;
+  readonly onDownloadPdf?: () => void;
+  readonly isDownloadingPdf?: boolean;
 }
 
-export function SeekerDigitalCvPreview({ profile, onPrint }: SeekerDigitalCvPreviewProps) {
+export function SeekerDigitalCvPreview({
+  profile,
+  onPrint,
+  onDownloadPdf,
+  isDownloadingPdf,
+}: SeekerDigitalCvPreviewProps) {
   const t = useTranslations('SeekerWorkspace');
 
   return (
@@ -23,16 +30,31 @@ export function SeekerDigitalCvPreview({ profile, onPrint }: SeekerDigitalCvPrev
             {t('statPrivacyStatusDesc')}
           </p>
         </div>
-        <Button
-          type="button"
-          variant="primary"
-          size="sm"
-          onClick={onPrint}
-          className="inline-flex items-center gap-1.5"
-        >
-          <Printer className="w-4 h-4" />
-          <span>{t('printResume')}</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          {onDownloadPdf && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isDownloadingPdf}
+              onClick={onDownloadPdf}
+              className="inline-flex items-center gap-1.5"
+            >
+              <Download className="w-4 h-4 text-gray-600" />
+              <span>{isDownloadingPdf ? '...' : t('downloadPdf')}</span>
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            onClick={onPrint}
+            className="inline-flex items-center gap-1.5"
+          >
+            <Printer className="w-4 h-4" />
+            <span>{t('printResume')}</span>
+          </Button>
+        </div>
       </div>
 
       {/* Printable CV sheet */}

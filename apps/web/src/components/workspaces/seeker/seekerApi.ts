@@ -130,3 +130,54 @@ export async function saveSeekerProfile(
     throw err;
   }
 }
+
+export async function downloadSeekerPdfApi(
+  apiUrl: string,
+  authHeader: string,
+  userId: string,
+  candidateName?: string
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${apiUrl}/profiles/seeker/me/pdf`, {
+      headers: {
+        Authorization: authHeader,
+        'x-user-id': userId,
+      },
+    });
+
+    if (!res.ok) {
+      throw new Error(`Failed to download resume PDF (${res.status})`);
+    }
+
+    const contentType = res.headers.get('content-type') || '';
+    let targetUrl: string;
+
+    if (contentType.includes('application/json')) {
+      const data = await res.json();
+      targetUrl = data.downloadUrl;
+    } else {
+      const blob = await res.blob();
+      targetUrl = typeof window !== 'undefined' && window.URL ? window.URL.createObjectURL(blob) : '';
+    }
+
+    if (targetUrl && typeof document !== 'undefined') {
+      const a = document.createElement('a');
+      a.href = targetUrl;
+      const cleanName = (candidateName || 'Candidate').trim().replace(/[^a-zA-Z0-9]/g, '-');
+      a.download = `${cleanName}-Resume.pdf`;
+      if (document.body) {
+        document.body.appendChild(a);
+      }
+      a.click();
+      if (document.body && a.parentNode === document.body) {
+        document.body.removeChild(a);
+      }
+      return true;
+    }
+
+    return Boolean(targetUrl);
+  } catch (err) {
+    Sentry.captureException(err, { extra: { apiUrl, userId } });
+    return false;
+  }
+}

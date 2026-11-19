@@ -10,7 +10,7 @@ import type {
 import type { JobItem } from '../../../data/sampleJobs';
 import { mapApiJobToJobItem, type ApiJobPayload } from '../../../lib/job-mapper';
 import { jobSeekerProfileSchema } from '@indian-job-portal/validation';
-import { fetchSeekerProfile, fetchSeekerApplications, saveSeekerProfile } from './seekerApi';
+import { fetchSeekerProfile, fetchSeekerApplications, saveSeekerProfile, downloadSeekerPdfApi } from './seekerApi';
 import { useSeekerProfileFormState } from './useSeekerProfileFormState';
 
 const defaultEmptySeekerProfile: SeekerProfileData = {
@@ -51,6 +51,7 @@ export function useSeekerWorkspace() {
   const [creditsBalance, setCreditsBalance] = useState<number | null>(null);
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const { formData, updateField, syncFromProfile } = useSeekerProfileFormState(profile);
 
@@ -233,6 +234,51 @@ export function useSeekerWorkspace() {
     window.print();
   };
 
+  const handleDownloadPdf = async () => {
+    if (!accessToken || !user?.id) {
+      addToast({
+        type: 'error',
+        title: 'Authentication Required',
+        message: 'Please sign in to download your official resume PDF.',
+      });
+      return;
+    }
+
+    const apiUrl =
+      process.env['NEXT_PUBLIC_API_URL'] ||
+      process.env['API_URL'] ||
+      'http://localhost:3001';
+    const authHeader = `Bearer ${accessToken}`;
+
+    setIsDownloadingPdf(true);
+    addToast({
+      type: 'info',
+      title: t('downloadPdf'),
+      message: 'Generating official authenticated vector PDF resume...',
+    });
+
+    try {
+      const ok = await downloadSeekerPdfApi(apiUrl, authHeader, user.id, profile.name);
+      if (ok) {
+        addToast({
+          type: 'success',
+          title: 'PDF Downloaded',
+          message: 'Your official vector resume has been downloaded.',
+        });
+      } else {
+        throw new Error('Failed to generate resume PDF');
+      }
+    } catch (err) {
+      addToast({
+        type: 'error',
+        title: 'Download Failed',
+        message: err instanceof Error ? err.message : 'Unable to download resume PDF.',
+      });
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
+
   return {
     activeTab,
     setActiveTab,
@@ -247,5 +293,7 @@ export function useSeekerWorkspace() {
     updateField,
     handleSaveProfile,
     handlePrint,
+    handleDownloadPdf,
+    isDownloadingPdf,
   };
 }
