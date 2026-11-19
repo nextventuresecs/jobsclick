@@ -69,7 +69,7 @@ export function createMockSupabase() {
                 } else {
                   const newUser: UserRow = {
                     id: `usr_${idCounter++}`,
-                    phone: item.phone ?? null as any,
+                    phone: item.phone ?? null,
                     email: item.email ?? null,
                     role: item.role || 'job_seeker',
                     status: item.status || 'invited',

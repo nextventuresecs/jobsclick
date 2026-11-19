@@ -9,7 +9,7 @@ describe('BULK-03 invitation recipient isolation (P0-6 Fix)', () => {
     const sendInviteSms = vi.fn().mockResolvedValue({ success: true });
     const processor = new InviteProcessor();
 
-    const query: any = {
+    const query: Record<string, unknown> = {
       select: () => query,
       eq: vi.fn(() => query),
       not: vi.fn(() => query),
@@ -23,7 +23,7 @@ describe('BULK-03 invitation recipient isolation (P0-6 Fix)', () => {
         error: null,
       }),
     };
-    const from = vi.fn((table: string) => query);
+    const from = vi.fn((_table: string) => query);
     Object.assign(processor, { supabase: { from }, smsService: { sendInviteSms } });
 
     const result = await processor.process({
@@ -44,7 +44,7 @@ describe('BULK-03 invitation recipient isolation (P0-6 Fix)', () => {
     const sendInviteSms = vi.fn().mockResolvedValue({ success: true });
     const processor = new InviteProcessor();
 
-    const query: any = {
+    const query: Record<string, unknown> = {
       select: () => query,
       eq: vi.fn(() => query),
       not: vi.fn(() => query),

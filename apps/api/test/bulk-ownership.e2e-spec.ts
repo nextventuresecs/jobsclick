@@ -1,5 +1,7 @@
 import { BulkService } from '../src/bulk/bulk.service.js';
 import { QueueService } from '../src/queue/queue.service.js';
+import type { AuthenticatedUser } from '../src/auth/decorators/current-user.decorator.js';
+import type { Job } from 'bullmq';
 import { beforeAll, afterAll, describe, expect, it, vi } from 'vitest';
 import { Test } from '@nestjs/testing';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -112,8 +114,8 @@ describe('BULK-01–03 Tenant Isolation & Single BullMQ Queue', () => {
         supabase: { from: () => query, storage: { from: () => ({ download }) } },
       });
       try {
-        await expect(service.getBatchErrorCsv(batchId, { id: 'institution-a', role: 'intermediary' } as any)).rejects.toMatchObject({ status: 404 });
-        await expect(service.getBatchStatus(batchId, { id: 'platform-admin', role: 'admin' } as any)).resolves.toHaveProperty('id', batchId);
+        await expect(service.getBatchErrorCsv(batchId, { id: 'institution-a', role: 'intermediary' } as AuthenticatedUser)).rejects.toMatchObject({ status: 404 });
+        await expect(service.getBatchStatus(batchId, { id: 'platform-admin', role: 'admin' } as AuthenticatedUser)).resolves.toHaveProperty('id', batchId);
         expect(download).not.toHaveBeenCalled();
       } finally {
         Object.assign(service, { supabase: originalClient, isTestMode: true });
@@ -144,11 +146,11 @@ describe('BULK-01–03 Tenant Isolation & Single BullMQ Queue', () => {
     const publish = vi.spyOn(app.get(QueueService), 'publishInviteWaveJob').mockImplementation(async (data) => {
       expect(persisted?.id).toBe(data.waveId);
       expect(persisted?.created_by).toBe('institution-a');
-      return { id: 'test-job' } as any;
+      return { id: 'test-job', name: 'invite-wave', data: {} } as unknown as Job;
     });
     Object.assign(service, { supabase: client, isTestMode: false });
     try {
-      const res = await service.scheduleInviteWave({ batchId, waveSize: 1, costPerSmsInr: 0.2 }, 0, { id: 'institution-a', role: 'intermediary' } as any);
+      const res = await service.scheduleInviteWave({ batchId, waveSize: 1, costPerSmsInr: 0.2 }, 0, { id: 'institution-a', role: 'intermediary' } as AuthenticatedUser);
       expect(res.id).toBe(persisted?.id);
       expect(publish).toHaveBeenCalled();
     } finally {

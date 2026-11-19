@@ -183,7 +183,7 @@ describe('Worker Processors (Ticket T-07)', () => {
       } as unknown as Job<InviteWaveJobData>;
 
       const processor = new InviteProcessor();
-      const query: any = {
+      const query: Record<string, unknown> = {
         select: () => query,
         eq: () => query,
         not: () => query,

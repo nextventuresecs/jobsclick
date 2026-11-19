@@ -194,7 +194,7 @@ export class ImportProcessor {
             .from('users')
             .select('id, phone')
             .in('phone', chunkPhones);
-          (existingPhoneUsers || []).forEach((u: { phone?: string }) => {
+          (existingPhoneUsers || []).forEach((u: { phone?: string | null }) => {
             if (u.phone) existingPhones.add(u.phone);
           });
         }
@@ -204,7 +204,7 @@ export class ImportProcessor {
             .from('users')
             .select('id, email')
             .in('email', chunkEmails);
-          (existingEmailUsers || []).forEach((u: { email?: string }) => {
+          (existingEmailUsers || []).forEach((u: { email?: string | null }) => {
             if (u.email) existingEmails.add(u.email);
           });
         }
@@ -243,7 +243,7 @@ export class ImportProcessor {
 
           const { data: upsertedUsers, error: upsertError } = await this.supabase
             .from('users')
-            .upsert(usersToInsert as any)
+            .upsert(usersToInsert as unknown as Database['public']['Tables']['users']['Insert'][])
             .select('id, phone, email');
 
           if (upsertError) {
@@ -278,7 +278,9 @@ export class ImportProcessor {
 
             if (newSeekerProfiles.length > 0) {
               try {
-                await this.supabase.from('job_seeker_profiles').insert(newSeekerProfiles as any);
+                await this.supabase
+                  .from('job_seeker_profiles')
+                  .insert(newSeekerProfiles as unknown as Database['public']['Tables']['job_seeker_profiles']['Insert'][]);
               } catch {
                 // best-effort
               }
@@ -307,7 +309,9 @@ export class ImportProcessor {
 
             if (newBizProfiles.length > 0) {
               try {
-                await this.supabase.from('business_profiles').insert(newBizProfiles as any);
+                await this.supabase
+                  .from('business_profiles')
+                  .insert(newBizProfiles as unknown as Database['public']['Tables']['business_profiles']['Insert'][]);
               } catch {
                 // best-effort
               }

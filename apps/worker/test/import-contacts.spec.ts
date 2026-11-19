@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Job } from 'bullmq';
 import { ImportProcessor, type BulkImportJobData } from '../src/processors/import.processor.js';
+import { WorkerEmailService } from '../src/email/email.service.js';
 import { createMockSupabase } from './fixtures/import-supabase.js';
 
 describe('BULK-02 contact-only CSV ingestion (email or mobile)', () => {
@@ -9,7 +10,7 @@ describe('BULK-02 contact-only CSV ingestion (email or mobile)', () => {
     const mockEmailService = {
       sendBulkOnboardingWelcomeEmail: vi.fn().mockResolvedValue({ success: true }),
     };
-    const processor = new ImportProcessor(database, mockEmailService as any);
+    const processor = new ImportProcessor(database, mockEmailService as unknown as WorkerEmailService);
 
     const result = await processor.process({
       data: {
