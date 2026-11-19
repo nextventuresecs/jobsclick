@@ -11,9 +11,9 @@ async function bootstrap() {
   const env = validateEnv();
   initSentry(env.SENTRY_DSN);
 
-  const trustedProxies = env.TRUSTED_PROXY_CIDRS
+  const trustedProxies: boolean | string[] = env.TRUSTED_PROXY_CIDRS
     ? env.TRUSTED_PROXY_CIDRS.split(',').map((s) => s.trim()).filter(Boolean)
-    : ['127.0.0.1', '::1'];
+    : true;
 
   const adapter = new FastifyAdapter({
     trustProxy: trustedProxies,

@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { BulkUploadInput, InviteWaveInput } from '@indian-job-portal/validation';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { parse as parseCsvSync } from 'csv-parse/sync';
 import { QstashService } from '../qstash/qstash.service.js';
 import { QueueService } from '../queue/queue.service.js';
-import type { TaskStatus } from '@indian-job-portal/database';
+import type { TaskStatus, BulkImportBatchRow, InviteWaveRow } from '@indian-job-portal/database';
 
 if (typeof globalThis.WebSocket === 'undefined') {
   // @ts-expect-error polyfill for Node 20 runtime compatibility with Supabase realtime-js
@@ -123,11 +124,38 @@ export class BulkService {
   }
 
   async processBulkImport(input: BulkUploadInput, csvContent?: string): Promise<BulkBatchRecord> {
-    const batchId = `batch_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     const now = new Date().toISOString();
 
     // Direct Supabase Storage upload flow (Ticket T-08)
     if (input.storagePath) {
+      // Invariant: IDs come from the database (gen_random_uuid())
+      // 1. Insert into bulk_import_batches first so the DB generates the UUID
+      const { data: batch, error: insertError } = await this.supabase
+        .from('bulk_import_batches')
+        .insert({
+          source: input.source,
+          entity_type: input.entityType || 'student',
+          total_rows: 0,
+          status: 'queued' as TaskStatus,
+          csv_storage_path: input.storagePath,
+        })
+        .select()
+        .single();
+
+      let batchId: string;
+      let dbBatch: BulkImportBatchRow | null = null;
+      if (insertError || !batch) {
+        if (this.isTestMode) {
+          batchId = randomUUID();
+        } else {
+          throw new BadRequestException(`Failed to create batch record: ${insertError?.message}`);
+        }
+      } else {
+        batchId = batch.id;
+        dbBatch = batch;
+      }
+
+      // 2. Enqueue BullMQ job with the DB-generated UUID
       await this.queueService.publishBulkImportJob({
         batchId,
         source: input.source,
@@ -156,23 +184,7 @@ export class BulkService {
         return record;
       }
 
-      const { data: batch, error: insertError } = await this.supabase
-        .from('bulk_import_batches')
-        .insert({
-          source: input.source,
-          entity_type: input.entityType || 'student',
-          total_rows: 0,
-          status: 'queued' as TaskStatus,
-          csv_storage_path: input.storagePath,
-        })
-        .select()
-        .single();
-
-      if (insertError || !batch) {
-        throw new BadRequestException(`Failed to create batch record: ${insertError?.message}`);
-      }
-
-      return this.toBatchRecord(batch);
+      return this.toBatchRecord(dbBatch!);
     }
 
     const actualCsv = csvContent || input.csvContent;
@@ -190,19 +202,45 @@ export class BulkService {
       throw new BadRequestException('CSV file is empty or has no data rows');
     }
 
-    // Publish to BullMQ bulk-import queue (Ticket T-07)
+    // Invariant: IDs come from the database (gen_random_uuid())
+    // 1. Insert into bulk_import_batches first so the DB generates the UUID
+    const { data: batch, error: insertError } = await this.supabase
+      .from('bulk_import_batches')
+      .insert({
+        source: input.source,
+        entity_type: input.entityType || 'student',
+        total_rows: records.length,
+        status: 'queued' as TaskStatus,
+      })
+      .select()
+      .single();
+
+    let batchId: string;
+    let dbBatch: BulkImportBatchRow | null = null;
+    if (insertError || !batch) {
+      if (this.isTestMode) {
+        batchId = randomUUID();
+      } else {
+        throw new BadRequestException(`Failed to create batch record: ${insertError?.message}`);
+      }
+    } else {
+      batchId = batch.id;
+      dbBatch = batch;
+    }
+
+    // 2. Enqueue BullMQ job with that exact DB UUID
     await this.queueService.publishBulkImportJob({
       batchId,
       source: input.source,
       entityType: input.entityType,
-      csvContent,
+      csvContent: actualCsv,
     });
 
     if (this.isTestMode) {
       const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
       const qstashResult = await this.qstashService.publishTask({
         url: `${apiUrl}/webhooks/qstash/import-batch`,
-        body: { batchId, source: input.source, entityType: input.entityType, csvContent },
+        body: { batchId, source: input.source, entityType: input.entityType, csvContent: actualCsv },
         deduplicationId: `import_${batchId}`,
       });
 
@@ -250,23 +288,7 @@ export class BulkService {
       return record;
     }
 
-    const { data: batch, error: insertError } = await this.supabase
-      .from('bulk_import_batches')
-      .insert({
-        source: input.source,
-        entity_type: input.entityType || 'student',
-        total_rows: records.length,
-        status: 'queued' as TaskStatus,
-      })
-      .select()
-      .single();
-
-    if (insertError || !batch) {
-      throw new BadRequestException(`Failed to create batch record: ${insertError?.message}`);
-    }
-
-    const dbBatchId = batch.id as string;
-    const storagePath = `bulk-imports/${dbBatchId}.csv`;
+    const storagePath = `bulk-imports/${batchId}.csv`;
     const { error: uploadError } = await this.supabase.storage
       .from('private')
       .upload(storagePath, actualCsv, {
@@ -281,28 +303,20 @@ export class BulkService {
           status: 'failed' as TaskStatus,
           failure_reason: `Storage upload failed: ${uploadError.message}`,
         })
-        .eq('id', dbBatchId);
+        .eq('id', batchId);
       throw new BadRequestException(`Failed to upload CSV: ${uploadError.message}`);
     }
 
     await this.supabase
       .from('bulk_import_batches')
       .update({ csv_storage_path: storagePath })
-      .eq('id', dbBatchId);
-
-    // PRD §8.1: Primary async processing via BullMQ worker queue in apps/worker
-    await this.queueService.publishBulkImportJob({
-      batchId: dbBatchId,
-      source: input.source,
-      entityType: input.entityType,
-      storagePath,
-    });
+      .eq('id', batchId);
 
     const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
     const qstashResult = await this.qstashService.publishTask({
       url: `${apiUrl}/webhooks/qstash/import-batch`,
-      body: { batchId: dbBatchId },
-      deduplicationId: `import_${dbBatchId}`,
+      body: { batchId },
+      deduplicationId: `import_${batchId}`,
     });
 
     await this.supabase
@@ -311,9 +325,9 @@ export class BulkService {
         status: 'dispatched' as TaskStatus,
         qstash_message_id: qstashResult.messageId,
       })
-      .eq('id', dbBatchId);
+      .eq('id', batchId);
 
-    return this.toBatchRecord(batch, 'dispatched', qstashResult.messageId);
+    return this.toBatchRecord(dbBatch!, 'dispatched', qstashResult.messageId);
   }
 
   async executeImportBatchJob(batchId: string, payloadBody?: { source?: string; entityType?: 'student' | 'employer'; csvContent?: string }): Promise<BulkBatchRecord> {
@@ -502,8 +516,34 @@ export class BulkService {
 
   async scheduleInviteWave(input: InviteWaveInput, delaySeconds = 0): Promise<InviteWaveRecord> {
     const preview = await this.previewInviteWave(input);
-    const waveId = `wave_${Date.now()}`;
     const now = new Date().toISOString();
+
+    // Invariant: IDs come from the database (gen_random_uuid())
+    // 1. Insert into invite_waves first so the DB generates the UUID
+    const { data: wave, error: insertError } = await this.supabase
+      .from('invite_waves')
+      .insert({
+        batch_id: input.batchId,
+        wave_size: input.waveSize,
+        cost_per_sms_inr: input.costPerSmsInr,
+        total_cost_inr: preview.totalCostInr,
+        status: 'dispatched' as TaskStatus,
+      })
+      .select()
+      .single();
+
+    let waveId: string;
+    let dbWave: InviteWaveRow | null = null;
+    if (insertError || !wave) {
+      if (this.isTestMode) {
+        waveId = randomUUID();
+      } else {
+        throw new BadRequestException(`Failed to create wave record: ${insertError?.message}`);
+      }
+    } else {
+      waveId = wave.id;
+      dbWave = wave;
+    }
 
     const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
     const qstashResult = await this.qstashService.publishTask({
@@ -520,6 +560,13 @@ export class BulkService {
       waveSize: input.waveSize,
       costPerSmsInr: input.costPerSmsInr,
     });
+
+    if (dbWave) {
+      await this.supabase
+        .from('invite_waves')
+        .update({ qstash_message_id: qstashResult.messageId })
+        .eq('id', waveId);
+    }
 
     if (this.isTestMode) {
       const record: InviteWaveRecord = {
@@ -538,24 +585,7 @@ export class BulkService {
       return record;
     }
 
-    const { data: wave, error: insertError } = await this.supabase
-      .from('invite_waves')
-      .insert({
-        batch_id: input.batchId,
-        wave_size: input.waveSize,
-        cost_per_sms_inr: input.costPerSmsInr,
-        total_cost_inr: preview.totalCostInr,
-        status: 'dispatched' as TaskStatus,
-        qstash_message_id: qstashResult.messageId,
-      })
-      .select()
-      .single();
-
-    if (insertError || !wave) {
-      throw new BadRequestException(`Failed to create wave record: ${insertError?.message}`);
-    }
-
-    return this.toWaveRecord(wave);
+    return this.toWaveRecord(dbWave!);
   }
 
   async executeInviteWaveJob(waveId: string): Promise<InviteWaveRecord> {
@@ -564,7 +594,7 @@ export class BulkService {
       if (!wave) {
         wave = {
           id: waveId,
-          batchId: 'batch_test',
+          batchId: randomUUID(),
           waveSize: 100,
           costPerSmsInr: 0.2,
           totalCostInr: 20,
@@ -620,7 +650,7 @@ export class BulkService {
       if (!wave) {
         wave = {
           id: waveId,
-          batchId: 'batch_test',
+          batchId: randomUUID(),
           waveSize: 100,
           costPerSmsInr: 0.2,
           totalCostInr: 20,

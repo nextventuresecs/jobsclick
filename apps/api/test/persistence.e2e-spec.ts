@@ -59,6 +59,7 @@ describe('T-01: Database Persistence Across API Restarts (E2E)', () => {
     const createdJob = JSON.parse(createJobRes.payload);
     expect(createdJob.id).toBeDefined();
     const jobId = createdJob.id;
+    const jobSlug = createdJob.slug;
 
     // 2. Create / update seeker profile on instance 1
     const updateProfileRes = await app1.inject({
@@ -80,6 +81,7 @@ describe('T-01: Database Persistence Across API Restarts (E2E)', () => {
     const profile = JSON.parse(updateProfileRes.payload);
     expect(profile.id).toBeDefined();
     const seekerProfileId = profile.id;
+    const seekerSlug = profile.slug;
 
     // 3. Candidate applies to the job on instance 1
     const applyRes = await app1.inject({
@@ -104,14 +106,22 @@ describe('T-01: Database Persistence Across API Restarts (E2E)', () => {
 
     try {
       // 4. Verify Job persisted across reboot
-      const getJobRes = await app2.inject({
+      // Legacy UUID lookup returns 404 (ID-02)
+      const uuidJobRes = await app2.inject({
         method: 'GET',
         url: `/jobs/${jobId}`,
+      });
+      expect(uuidJobRes.statusCode).toBe(404);
+
+      const getJobRes = await app2.inject({
+        method: 'GET',
+        url: `/jobs/${jobSlug}`,
       });
 
       expect(getJobRes.statusCode).toBe(200);
       const fetchedJob = JSON.parse(getJobRes.payload);
-      expect(fetchedJob.id).toBe(jobId);
+      expect(fetchedJob.slug).toBe(jobSlug);
+      expect(fetchedJob.id).toBeUndefined();
       expect(fetchedJob.title).toBe('Senior CNC Machine Operator');
       expect(fetchedJob.openings).toBe(5);
 
@@ -128,14 +138,23 @@ describe('T-01: Database Persistence Across API Restarts (E2E)', () => {
       expect(fetchedProfile.skills).toContain('CNC');
 
       // 6. Verify Seeker Profile public view persisted across reboot with PII stripped
-      const getPublicProfileRes = await app2.inject({
+      // Legacy UUID lookup returns 404 (ID-02)
+      const uuidProfileRes = await app2.inject({
         method: 'GET',
         url: `/profiles/seeker/${seekerProfileId}`,
+      });
+      expect(uuidProfileRes.statusCode).toBe(404);
+
+      const getPublicProfileRes = await app2.inject({
+        method: 'GET',
+        url: `/profiles/seeker/${seekerSlug}`,
       });
 
       expect(getPublicProfileRes.statusCode).toBe(200);
       const publicProfile = JSON.parse(getPublicProfileRes.payload);
-      expect(publicProfile.fullName).toBe('Rajesh Kumar Patel');
+      expect(publicProfile.slug).toBe(seekerSlug);
+      expect(publicProfile.firstName).toBe('Rajesh');
+      expect(publicProfile.id).toBeUndefined();
       expect(publicProfile.phone).toBeUndefined();
       expect(publicProfile.email).toBeUndefined();
 

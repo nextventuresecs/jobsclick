@@ -103,7 +103,7 @@ export class PaymentService {
     }
 
     const amountInPaise = Math.round(pack.totalAmountInr * 100);
-    const receipt = `rcpt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const receipt = `rcpt_${crypto.randomUUID().replace(/-/g, '').slice(0, 20)}`;
     let orderId: string;
 
     if (this.razorpayClient && !this.isTestMode) {
@@ -130,7 +130,7 @@ export class PaymentService {
       }
     } else {
       // Mock order generation for test / dev environment
-      orderId = `order_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      orderId = `order_${crypto.randomUUID()}`;
     }
 
     const paymentRecordId = crypto.randomUUID();

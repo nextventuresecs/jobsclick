@@ -80,6 +80,7 @@ export interface StudentRecordData {
 
 export interface InstitutionProfileData {
   readonly id: string;
+  readonly slug?: string;
   readonly institutionName: string;
   readonly institutionType: 'iti' | 'polytechnic' | 'engineering' | 'vocational_training' | 'degree_college' | 'other';
   readonly affiliation: string;

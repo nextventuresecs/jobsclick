@@ -29,6 +29,7 @@ export interface VerifiedSessionPayload {
     | 'platform_admin'
     | string;
   readonly status: 'active' | 'invited' | 'disabled' | 'suspended';
+  readonly requiresPhoneLink?: boolean;
   readonly jti: string; // Session ID for server-side revocation
   readonly iat: number;
   readonly exp: number;
@@ -43,6 +44,7 @@ export interface VerifiedSession extends VerifiedSessionPayload {
     readonly email?: string | null;
     readonly role: string;
     readonly status: string;
+    readonly requiresPhoneLink?: boolean;
   };
   readonly accessToken: string;
   readonly clientRole: ClientRole;
@@ -182,10 +184,13 @@ export function verifyToken(token: string | undefined | null): VerifiedSession |
     const clientRole = toClientRole(rawRole);
     const sub = payload.sub;
 
+    const requiresPhoneLink = Boolean((payload as Record<string, unknown>)['requiresPhoneLink']);
+
     const verifiedSession: VerifiedSession = {
       sub,
       role: rawRole,
       status: payload.status,
+      requiresPhoneLink,
       jti: payload.jti,
       iat: payload.iat ?? now,
       exp: payload.exp,
@@ -195,6 +200,7 @@ export function verifyToken(token: string | undefined | null): VerifiedSession |
         id: sub,
         role: rawRole,
         status: payload.status,
+        requiresPhoneLink,
       },
       accessToken: token,
       clientRole,

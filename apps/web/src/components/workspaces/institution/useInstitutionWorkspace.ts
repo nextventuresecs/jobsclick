@@ -185,11 +185,11 @@ export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInst
   const handleExecuteImport = () => {
     const validRows = bulkUpload.parsedRows.filter((r) => r.isValid);
     const newStudents: StudentRecordData[] = validRows.map((r, i) => ({
-      id: `st_bulk_${Date.now()}_${i}`,
+      id: crypto.randomUUID(),
       institutionId: institution.id,
       institutionName: institution.institutionName,
       studentName: r.studentName,
-      rollNumber: r.rollNumber || `ROLL-${Date.now().toString().slice(-4)}-${i + 1}`,
+      rollNumber: r.rollNumber || `ROLL-${i + 1}`,
       phone: r.phone,
       stream: r.stream || 'Vocational Trade',
       passingYear: r.passingYear || '2026',

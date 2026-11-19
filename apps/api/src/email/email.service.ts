@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { captureException } from '../config/sentry.js';
 import type { IEmailService, SendEmailOptions, SendEmailResult } from './email.interface.js';
 
@@ -22,7 +23,7 @@ export class EmailService implements IEmailService {
       );
       return {
         success: true,
-        messageId: `mock_email_${Date.now()}`,
+        messageId: randomUUID(),
       };
     }
 
@@ -58,7 +59,7 @@ export class EmailService implements IEmailService {
       this.logger.log(`[Resend Live] Successfully sent email to ${recipients.join(', ')} (ID: ${data.id})`);
       return {
         success: true,
-        messageId: data.id || `resend_${Date.now()}`,
+        messageId: data.id || randomUUID(),
       };
     } catch (err) {
       this.logger.error(`[Resend Network Exception] ${err}`);

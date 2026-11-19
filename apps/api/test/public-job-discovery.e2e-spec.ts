@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import { generatePublicSlug } from '@indian-job-portal/validation';
 import { AppModule } from '../src/app.module.js';
 import { JobRepository } from '../src/database/repositories/job.repository.js';
 import { PersistentDatabaseStore } from '../src/database/supabase.provider.js';
@@ -296,11 +297,11 @@ describe('Ticket 2: Public Job Discovery & Live Database Search (E2E Integration
       expect(page2.total).toBe(4);
       expect(page2.jobs.length).toBe(2);
 
-      const page1Ids = page1.jobs.map((j: JobRow) => j.id);
-      const page2Ids = page2.jobs.map((j: JobRow) => j.id);
+      const page1Slugs = page1.jobs.map((j: { slug: string }) => j.slug);
+      const page2Slugs = page2.jobs.map((j: { slug: string }) => j.slug);
       // Zero overlap between consecutive pages
-      for (const id of page2Ids) {
-        expect(page1Ids).not.toContain(id);
+      for (const slug of page2Slugs) {
+        expect(page1Slugs).not.toContain(slug);
       }
     });
   });
@@ -318,9 +319,11 @@ describe('Ticket 2: Public Job Discovery & Live Database Search (E2E Integration
     });
 
     it('sets public edge cache headers on GET /jobs/:id for existing records', async () => {
+      const testSlug = generatePublicSlug();
       // Seed a job
       const testJob: JobRow = {
         id: '99999999-9999-9999-9999-999999999999',
+        public_slug: testSlug,
         employer_id: 'usr_emp_cache_test',
         title: 'Cache Header Verification Job',
         description: 'Verifying s-maxage and stale-while-revalidate headers.',
@@ -333,16 +336,25 @@ describe('Ticket 2: Public Job Discovery & Live Database Search (E2E Integration
       };
       await jobRepository.create(testJob);
 
-      const res = await app.inject({
+      // Legacy UUID lookup returns 404 (ID-02)
+      const uuidRes = await app.inject({
         method: 'GET',
         url: `/jobs/${testJob.id}`,
+      });
+      expect(uuidRes.statusCode).toBe(404);
+
+      // Public slug lookup returns 200 with cache headers and slug (omits internal ID)
+      const res = await app.inject({
+        method: 'GET',
+        url: `/jobs/${testJob.public_slug}`,
       });
 
       expect(res.statusCode).toBe(200);
       const cacheControl = res.headers['cache-control'];
       expect(cacheControl).toBe('public, s-maxage=30, stale-while-revalidate=59');
       const data = JSON.parse(res.payload);
-      expect(data.id).toBe(testJob.id);
+      expect(data.slug).toBe(testJob.public_slug);
+      expect(data.id).toBeUndefined();
       expect(data.title).toBe(testJob.title);
     });
   });

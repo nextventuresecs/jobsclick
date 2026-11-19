@@ -18,10 +18,15 @@ export default function AuthCallbackPage() {
     const completeAuthCallback = async () => {
       try {
         const params = new URLSearchParams(window.location.search);
-        const code = params.get('code');
+        // Supabase OAuth returns 'code' (for PKCE) or hash fragment / access_token
+        const hashParams = typeof window !== 'undefined' && window.location.hash
+          ? new URLSearchParams(window.location.hash.replace(/^#/, ''))
+          : null;
+        const code = params.get('code') || params.get('access_token') || hashParams?.get('access_token');
+        const role = params.get('role') === 'employer' ? 'employer' : 'job_seeker';
 
         if (!code) {
-          setErrorState('Missing authentication authorization code.');
+          setErrorState('Missing authentication authorization code or token.');
           return;
         }
 
@@ -31,11 +36,14 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        // Exchange code on the backend; role is derived strictly server-side (never from ?role= or user_metadata)
+        // Exchange code/token on backend
         const response = await fetch(`${apiBaseUrl}/auth/oauth/exchange`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code }),
+          body: JSON.stringify({
+            providerToken: code,
+            role,
+          }),
         });
 
         const data = await response.json().catch(() => ({}));
@@ -44,7 +52,7 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        // Persist into HttpOnly __Host- cookie so Google users get a real isolated session (Fixes P0 usr_seeker_77 collision)
+        // Persist into HttpOnly __Host- cookie so Google users get a real isolated session
         const sessionRes = await fetch('/api/auth/session', {
           method: 'POST',
           credentials: 'include',
@@ -57,12 +65,17 @@ export default function AuthCallbackPage() {
           return;
         }
 
-        await refreshSession();
+        const user = await refreshSession();
         addToast({
           type: 'success',
           title: 'Signed in successfully',
         });
-        router.replace('/workspace');
+
+        if (user?.requiresPhoneLink) {
+          router.replace('/workspace?promptPhoneLink=true');
+        } else {
+          router.replace('/workspace');
+        }
       } catch {
         setErrorState('An unexpected network error occurred during sign-in.');
       }

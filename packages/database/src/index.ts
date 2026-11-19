@@ -19,7 +19,7 @@ export interface Database {
     Tables: {
       users: TableDefinition<{
         id: string;
-        phone: string;
+        phone: string | null;
         email: string | null;
         pending_email?: string | null;
         email_verified_at?: string | null;
@@ -35,6 +35,7 @@ export interface Database {
       job_seeker_profiles: TableDefinition<{
         id: string;
         user_id: string;
+        public_slug: string;
         full_name: string;
         photo_url: string | null;
         seeker_type: 'student' | 'individual';
@@ -70,6 +71,7 @@ export interface Database {
       business_profiles: TableDefinition<{
         id: string;
         user_id: string;
+        public_slug: string;
         company_name: string;
         ownership_type: string;
         company_size: string;
@@ -104,6 +106,7 @@ export interface Database {
       institution_profiles: TableDefinition<{
         id: string;
         user_id: string;
+        public_slug: string;
         institution_name: string;
         institution_type?: string;
         affiliation: string | null;
@@ -139,6 +142,7 @@ export interface Database {
       }>;
       jobs: TableDefinition<{
         id: string;
+        public_slug: string;
         employer_id: string;
         title: string;
         description: string;
@@ -378,7 +382,7 @@ export interface Database {
     };
     Views: {
       public_business_profiles: ViewDefinition<{
-        id: string | null;
+        slug: string | null;
         company_name: string | null;
         ownership_type: string | null;
         company_size: string | null;
@@ -398,7 +402,7 @@ export interface Database {
         created_at: string | null;
       }>;
       public_institution_profiles: ViewDefinition<{
-        id: string | null;
+        slug: string | null;
         institution_name: string | null;
         institution_type: string | null;
         affiliation: string | null;
@@ -415,8 +419,8 @@ export interface Database {
         created_at: string | null;
       }>;
       public_jobs: ViewDefinition<{
-        id: string | null;
-        employer_id: string | null;
+        slug: string | null;
+        company_slug: string | null;
         title: string | null;
         description: string | null;
         category: string | null;
@@ -521,7 +525,29 @@ export interface PromoteJobRpcResult {
   featured_until: string;
 }
 
-export interface SearchJobsRpcResult extends JobRow {
+export interface SearchJobsRpcResult {
+  slug: string;
+  company_slug?: string | null;
+  title: string;
+  description: string;
+  category: JobRow['category'];
+  city: string;
+  openings: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  employment_type?: string | null;
+  experience_level?: string | null;
+  min_pay?: number | null;
+  max_pay?: number | null;
+  district?: string | null;
+  state?: string | null;
+  skills?: string[] | null;
+  requirements?: string[] | null;
+  expiry_date?: string | null;
+  is_featured?: boolean | null;
+  featured_until?: string | null;
+  source?: string;
   total_count?: string | number;
   is_currently_promoted?: boolean;
   relevance_score?: number;

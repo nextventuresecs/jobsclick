@@ -9,6 +9,7 @@ export interface AuthenticatedUser {
   readonly id: string; // Strictly server-issued UUID
   readonly role: UserRole;
   readonly status: 'active' | 'invited' | 'disabled' | 'suspended';
+  readonly requiresPhoneLink?: boolean;
 }
 
 export interface ToastMessage {
@@ -77,7 +78,7 @@ export function AppProvider({
 
   const addToast = useCallback(
     (toast: Omit<ToastMessage, 'id'>) => {
-      const id = `toast_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      const id = crypto.randomUUID();
       setToasts((prev) => [...prev, { ...toast, id }]);
       setTimeout(() => removeToast(id), 5000);
     },

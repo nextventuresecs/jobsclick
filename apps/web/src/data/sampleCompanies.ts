@@ -1,5 +1,6 @@
 export interface CompanyItem {
   readonly id: string;
+  readonly slug?: string;
   readonly name: string;
   readonly sector: string;
   readonly enterpriseSize: 'Micro' | 'Small' | 'Medium' | 'Large';

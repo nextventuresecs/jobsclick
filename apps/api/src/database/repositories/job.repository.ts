@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
+import { generatePublicSlug } from '@indian-job-portal/validation';
 import type { Database, JobRow, JobAlertRow, AlertDeliveryRow, CreditLedgerRow, PromoteJobRpcResult, SearchJobsRpcResult } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
 
@@ -43,6 +44,9 @@ export class JobRepository {
   }
 
   async create(job: JobRow): Promise<JobRow> {
+    if (!job.public_slug) {
+      job.public_slug = generatePublicSlug();
+    }
     if (this.isTestMode) {
       this.persistentStore.setRow('jobs', job.id, job);
       return job;
@@ -82,6 +86,50 @@ export class JobRepository {
     return jobs[id] || null;
   }
 
+  async findByPublicSlug(slug: string): Promise<JobRow | null> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await this.supabase.from('jobs').select('*').eq('public_slug', slug).maybeSingle();
+        if (error) {
+          this.logger.error(`Error fetching job by slug ${slug} from Supabase: ${error.message}`);
+          throw new InternalServerErrorException('DATABASE_ERROR');
+        }
+        return (data as JobRow) || null;
+      } catch (err) {
+        if (err instanceof InternalServerErrorException) throw err;
+        this.logger.error(`Supabase lookup failed for job slug ${slug}`, err);
+        throw new InternalServerErrorException('DATABASE_ERROR');
+      }
+    }
+    const jobs = this.persistentStore.getTable<JobRow>('jobs');
+    return Object.values(jobs).find((j) => j.public_slug === slug) || null;
+  }
+
+  async findByEmployerId(employerId: string): Promise<JobRow[]> {
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await this.supabase
+          .from('jobs')
+          .select('*')
+          .eq('employer_id', employerId)
+          .order('created_at', { ascending: false });
+        if (error) {
+          this.logger.error(`Error fetching jobs for employer ${employerId} from Supabase: ${error.message}`);
+          throw new InternalServerErrorException('DATABASE_ERROR');
+        }
+        return (data as JobRow[]) || [];
+      } catch (err) {
+        if (err instanceof InternalServerErrorException) throw err;
+        this.logger.error(`Supabase lookup failed for employer jobs ${employerId}`, err);
+        throw new InternalServerErrorException('DATABASE_ERROR');
+      }
+    }
+    const jobs = this.persistentStore.getTable<JobRow>('jobs');
+    return Object.values(jobs)
+      .filter((j) => j.employer_id === employerId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }
+
   async findMany(filters: JobFilterParams): Promise<{ jobs: JobRow[]; total: number }> {
     const offset = filters.offset ?? 0;
     const limit = filters.limit ?? 20;
@@ -105,8 +153,35 @@ export class JobRepository {
         );
 
         if (!rpcError && Array.isArray(rpcData)) {
-          const rows = rpcData as SearchJobsRpcResult[];
-          const total = rows.length > 0 ? Number(rows[0]!.total_count ?? rows.length) : 0;
+          const rpcRows = rpcData as SearchJobsRpcResult[];
+          const rows: (JobRow & { company_slug?: string })[] = rpcRows.map((r) => ({
+            id: '',
+            public_slug: r.slug,
+            employer_id: '',
+            title: r.title,
+            description: r.description,
+            category: r.category as JobRow['category'],
+            employment_type: r.employment_type ?? undefined,
+            experience_level: r.experience_level ?? undefined,
+            city: r.city,
+            district: r.district ?? undefined,
+            state: r.state ?? undefined,
+            min_pay: r.min_pay ?? undefined,
+            max_pay: r.max_pay ?? undefined,
+            openings: r.openings,
+            skills: r.skills ?? [],
+            requirements: r.requirements ?? [],
+            is_active: r.is_active,
+            is_featured: r.is_featured ?? false,
+            featured_until: r.featured_until ?? null,
+            source: r.source ?? 'web',
+            created_by: '',
+            updated_by: '',
+            created_at: r.created_at,
+            updated_at: r.updated_at,
+            company_slug: r.company_slug ?? undefined,
+          }));
+          const total = rpcRows.length > 0 ? Number(rpcRows[0]!.total_count ?? rpcRows.length) : 0;
           return { jobs: rows, total };
         }
 

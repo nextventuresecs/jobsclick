@@ -14,7 +14,7 @@ export function WalkInQrCard({ company }: WalkInQrCardProps) {
       <ProfileQrShareCard
         title={company.name}
         subtitle={`${company.sector} • ${company.enterpriseSize} Enterprise`}
-        path={`/company/${company.id}`}
+        path={`/company/${company.slug || company.id}`}
         badgeText="Factory Gate & Entrance Walk-in QR Poster"
         description="Display this official QR code at your factory main gate, security cabin, or office reception. Job seekers scan with their smartphone camera to view open positions and apply with verified digital CVs."
         downloadFileName={`${company.name}-walkin-poster`}

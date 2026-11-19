@@ -27,6 +27,7 @@ import {
   InstitutionCmsInput,
   CreateInstitutionInquiryInput,
   UpdateInquiryStatusInput,
+  isUuid,
 } from '@indian-job-portal/validation';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard.js';
@@ -58,11 +59,15 @@ export class ProfilesController {
     return this.profilesService.updateSeekerProfileMe(user.id, validated);
   }
 
-  // Employer / Public viewing candidate profile (Hard Invariant 1: Phone/Email stripped)
+  // Employer / Public viewing candidate profile (Hard Invariant 1 + ID-02: Public slug lookup only)
+  // UUIDs are rejected with 404 (no redirect) to prevent confirming internal IDs.
   @Public()
-  @Get('seeker/:id')
-  async getSeekerProfilePublic(@Param('id') id: string) {
-    return this.profilesService.getSeekerProfilePublic(id);
+  @Get('seeker/:slug')
+  async getSeekerProfilePublic(@Param('slug') slug: string) {
+    if (isUuid(slug)) {
+      throw new NotFoundException('Job seeker profile not found');
+    }
+    return this.profilesService.getSeekerProfilePublic(slug);
   }
 
   // Business Profile Endpoints (EMP-01, EMP-02, EMP-03)
@@ -81,16 +86,22 @@ export class ProfilesController {
   }
 
   @Public()
-  @Get('business/:id')
-  async getBusinessProfilePublic(@Param('id') id: string) {
-    return this.profilesService.getBusinessProfilePublic(id);
+  @Get('business/:slug')
+  async getBusinessProfilePublic(@Param('slug') slug: string) {
+    if (isUuid(slug)) {
+      throw new NotFoundException('Business profile not found');
+    }
+    return this.profilesService.getBusinessProfilePublic(slug);
   }
 
-  // QR Code Generation for Company Profile Page (EMP-03)
+  // QR Code Generation for Company Profile Page (EMP-03 / ID-02)
   @Public()
-  @Get('business/:id/qr')
-  async getBusinessQr(@Param('id') id: string) {
-    return this.profilesService.generateBusinessQr(id);
+  @Get('business/:slug/qr')
+  async getBusinessQr(@Param('slug') slug: string) {
+    if (isUuid(slug)) {
+      throw new NotFoundException('Business profile not found');
+    }
+    return this.profilesService.generateBusinessQr(slug);
   }
 
   // Institution Profile Endpoints (INT-01)
@@ -115,20 +126,26 @@ export class ProfilesController {
   }
 
   @Public()
-  @Get('institution/:id')
-  async getInstitutionProfilePublic(@Param('id') id: string) {
-    const profile = await this.profilesService.getInstitutionProfilePublic(id);
+  @Get('institution/:slug')
+  async getInstitutionProfilePublic(@Param('slug') slug: string) {
+    if (isUuid(slug)) {
+      throw new NotFoundException('Institution profile not found');
+    }
+    const profile = await this.profilesService.getInstitutionProfilePublic(slug);
     if (!profile) {
       throw new NotFoundException('Institution profile not found');
     }
     return profile;
   }
 
-  // Institution CMS Endpoints (INT-02, INT-03, T-18)
+  // Institution CMS Endpoints (INT-02, INT-03, T-18, ID-02)
   @Public()
-  @Get('institution/:id/cms')
-  async getInstitutionCms(@Param('id') id: string) {
-    return this.institutionCmsService.getCmsData(id);
+  @Get('institution/:slug/cms')
+  async getInstitutionCms(@Param('slug') slug: string) {
+    if (isUuid(slug)) {
+      throw new NotFoundException('Institution profile not found');
+    }
+    return this.institutionCmsService.getCmsData(slug);
   }
 
   @Put('institution/cms')

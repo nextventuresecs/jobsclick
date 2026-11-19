@@ -274,9 +274,9 @@ export function PlacementDashboard({
     if (!newCompanyName.trim()) return;
 
     const newTieUp: CorporateTieUpData = {
-      id: `tieup-${Date.now()}`,
+      id: crypto.randomUUID(),
       institutionId: institution.id,
-      employerId: `comp-${Date.now()}`,
+      employerId: crypto.randomUUID(),
       companyName: newCompanyName.trim(),
       sector: newSector.trim() || 'Manufacturing',
       partnershipStatus: 'mou_signed',
@@ -361,7 +361,7 @@ export function PlacementDashboard({
     const nowStr = new Date().toISOString().split('T')[0] ?? '2026-10-21';
 
     const newApps: PlacementApplicationRecord[] = targetStudents.map((st) => ({
-      id: `app-pl-${Date.now()}-${st.id}`,
+      id: crypto.randomUUID(),
       studentId: st.id,
       studentName: st.studentName,
       rollNumber: st.rollNumber,

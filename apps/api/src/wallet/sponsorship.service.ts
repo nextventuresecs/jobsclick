@@ -10,6 +10,7 @@ import {
   type SponsorshipTier,
   type SponsorshipQuote,
   type ActivateSponsorshipInput,
+  generatePublicSlug,
 } from '@indian-job-portal/validation';
 import type {
   InstitutionProfileRow,
@@ -278,6 +279,7 @@ export class SponsorshipService {
         lockedInst = {
           id: institutionId,
           user_id: user.id || institutionId,
+          public_slug: generatePublicSlug(),
           institution_name: 'Registered Educational Institution',
           institution_type: 'college',
           affiliation: 'NCVT',
@@ -296,7 +298,7 @@ export class SponsorshipService {
         await this.profileRepository.saveInstitutionProfile(lockedInst);
       }
 
-      const institution = lockedInst;
+      const institution: InstitutionProfileRow = lockedInst;
       const quote = await this.getSponsorshipQuote(institution.id, input?.studentCountOverride);
 
       // Mark all enrolled students as sponsored

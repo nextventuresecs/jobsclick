@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { Client } from '@upstash/qstash';
 
 export interface PublishTaskOptions {
@@ -26,7 +27,7 @@ export class QstashService {
 
   async publishTask(options: PublishTaskOptions): Promise<{ messageId: string; url: string; scheduled: boolean }> {
     if (this.isTestMode || !this.client) {
-      const mockMessageId = `msg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const mockMessageId = randomUUID();
       console.log(`[QStash Service (Mock)] Dispatched task to ${options.url} (delay: ${options.delaySeconds || 0}s):`, options.body);
       return {
         messageId: mockMessageId,

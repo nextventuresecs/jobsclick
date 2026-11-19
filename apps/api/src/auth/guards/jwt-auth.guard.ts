@@ -16,8 +16,6 @@ import { JwtService } from '../jwt.service.js';
 import { OtpRedisService, UserAuthState, AUTH_STATE_TTL_SECONDS } from '../otp-redis.service.js';
 import { UserRepository } from '../../database/repositories/user.repository.js';
 
-export const TEST_AUTH_GUARD = Symbol('TEST_AUTH_GUARD');
-
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   private readonly logger = new Logger(JwtAuthGuard.name);
@@ -27,13 +25,9 @@ export class JwtAuthGuard implements CanActivate {
     @Optional() @Inject(JwtService) private readonly jwtService: JwtService = new JwtService(),
     @Optional() @Inject(OtpRedisService) private readonly otpRedisService: OtpRedisService = new OtpRedisService(),
     @Optional() @Inject(UserRepository) private readonly userRepository?: UserRepository,
-    @Optional() @Inject(TEST_AUTH_GUARD) private readonly testAuthGuard?: CanActivate,
   ) {}
 
   canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
-    if (this.testAuthGuard) {
-      return this.testAuthGuard.canActivate(context);
-    }
 
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),

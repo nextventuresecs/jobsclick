@@ -99,7 +99,7 @@ export function SponsorshipCard({
         },
         body: JSON.stringify({
           studentCountOverride: studentCount,
-          paymentReference: `DIRECT_WEB_${Date.now()}`,
+          paymentReference: `DIRECT_WEB_${crypto.randomUUID()}`,
         }),
       });
 

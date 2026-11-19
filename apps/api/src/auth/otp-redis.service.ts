@@ -148,7 +148,7 @@ export interface UserAuthState {
 
 export interface AuthUserSession {
   id: string;
-  phone: string;
+  phone: string | null;
   email: string | null;
   emailVerified: boolean;
   role: 'employer' | 'intermediary' | 'job_seeker' | 'admin' | 'msme_admin';
@@ -498,7 +498,7 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
       return { allowed: false, count };
     }
 
-    await this.client.zadd(key, now, `${now}_${Math.random()}`);
+    await this.client.zadd(key, now, crypto.randomUUID());
     await this.client.expire(key, 3600);
     return { allowed: true, count: count + 1 };
   }

@@ -65,7 +65,7 @@ export function InstitutionHeader({
 
         <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           <Link
-            href={`/institution/${institution.id}`}
+            href={`/institution/${institution.slug || institution.id}`}
             target="_blank"
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
           >

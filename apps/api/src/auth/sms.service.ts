@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { DLT_SMS_TEMPLATES } from './sms-templates.js';
 import { captureException } from '../config/sentry.js';
 import { maskPhone, scrubSensitiveData } from '../common/mask.js';
@@ -87,7 +88,7 @@ export class Msg91SmsGateway extends SmsGateway {
         messageId:
           (resData['message'] as string) ||
           (resData['request_id'] as string) ||
-          `msg91_${Date.now()}`,
+          randomUUID(),
       };
     } catch (err) {
       this.logger.error(`[MSG91 Network Exception] dispatching to ${maskPhone(phone)}: ${err instanceof Error ? err.message : String(err)}`);

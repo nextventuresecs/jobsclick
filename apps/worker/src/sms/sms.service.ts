@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { captureException } from '../config/sentry.js';
 
 export interface SendInviteSmsOptions {
@@ -38,7 +39,7 @@ export class WorkerSmsService {
       return {
         success: true,
         message: 'Invite SMS dispatched via MSG91 mock handler (QA whitelist)',
-        messageId: `qa_whitelist_invite_${Date.now()}`,
+        messageId: randomUUID(),
       };
     }
 
@@ -47,7 +48,7 @@ export class WorkerSmsService {
       return {
         success: true,
         message: 'Invite SMS dispatched via MSG91 mock handler',
-        messageId: `mock_invite_${Date.now()}`,
+        messageId: randomUUID(),
       };
     }
 
@@ -56,7 +57,7 @@ export class WorkerSmsService {
       return {
         success: true,
         message: 'Invite SMS processed via MSG91 sandbox',
-        messageId: `sandbox_invite_${Date.now()}`,
+        messageId: randomUUID(),
       };
     }
 
@@ -96,7 +97,7 @@ export class WorkerSmsService {
       return {
         success: true,
         message: 'Invite SMS delivered via MSG91',
-        messageId: (resData['message'] as string) || `msg91_inv_${Date.now()}`,
+        messageId: (resData['message'] as string) || randomUUID(),
       };
     } catch (err) {
       console.error(`[Worker MSG91 Exception] ${err}`);

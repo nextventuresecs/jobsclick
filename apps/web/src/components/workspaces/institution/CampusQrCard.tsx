@@ -17,7 +17,7 @@ export function CampusQrCard({ institution }: CampusQrCardProps) {
       <ProfileQrShareCard
         title={institution.institutionName}
         subtitle={`${institution.affiliation} • Established ${institution.establishmentYear}`}
-        path={`/institution/${institution.id}`}
+        path={`/institution/${institution.slug || institution.id}`}
         badgeText={t('campusQrHeading')}
         description={t('campusQrSubheading')}
         downloadFileName={`${institution.institutionName}-campus-qr`}
