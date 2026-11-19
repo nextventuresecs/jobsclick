@@ -59,6 +59,13 @@ export class ProfilesController {
     return this.profilesService.updateSeekerProfileMe(user.id, validated);
   }
 
+  // JS-03 / Hard Invariant #8a: Authenticated digital CV vector PDF download
+  @Roles('job_seeker', 'admin')
+  @Get('seeker/me/pdf')
+  async getSeekerPdfMe(@CurrentUser() user: AuthUser) {
+    return this.profilesService.getSeekerPdfDownload(user.id);
+  }
+
   // Employer / Public viewing candidate profile (Hard Invariant 1 + ID-02: Public slug lookup only)
   // UUIDs are rejected with 404 (no redirect) to prevent confirming internal IDs.
   @Public()

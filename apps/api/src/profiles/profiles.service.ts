@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, Optional } from '@nestjs/common';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 import {
   JobSeekerProfileInput,
@@ -10,7 +11,10 @@ import {
 } from '@indian-job-portal/validation';
 import { ProfileRepository } from '../database/repositories/profile.repository.js';
 import { UserRepository } from '../database/repositories/user.repository.js';
+import { QueueService } from '../queue/queue.service.js';
+import { SUPABASE_CLIENT } from '../database/supabase.provider.js';
 import type {
+  Database,
   JobSeekerProfileRow,
   BusinessProfileRow,
   InstitutionProfileRow,
@@ -88,7 +92,46 @@ export class ProfilesService {
   constructor(
     @Inject(ProfileRepository) private readonly profileRepository: ProfileRepository,
     @Inject(UserRepository) private readonly userRepository: UserRepository,
+    @Optional() @Inject(QueueService) private readonly queueService?: QueueService,
+    @Optional() @Inject(SUPABASE_CLIENT) private readonly supabase?: SupabaseClient<Database>,
   ) {}
+
+  // JS-03: Authenticated candidate CV PDF retrieval and generation dispatch
+  async getSeekerPdfDownload(userId: string): Promise<{ downloadUrl: string; cached: boolean }> {
+    const profile = await this.profileRepository.findSeekerProfileByUserId(userId);
+    if (!profile) {
+      throw new NotFoundException('Job seeker profile not found');
+    }
+
+    const storagePath = `resumes/${profile.id}.pdf`;
+    let downloadUrl = `https://storage.jobsclick.live/private/${storagePath}`;
+    let cached = false;
+
+    if (this.supabase) {
+      try {
+        const { data } = await this.supabase.storage.from('private').createSignedUrl(storagePath, 300);
+        if (data?.signedUrl) {
+          downloadUrl = data.signedUrl;
+          cached = true;
+        }
+      } catch {
+        // Fallback or not generated yet
+      }
+    }
+
+    if (!cached && this.queueService) {
+      await this.queueService.publishPdfJob({
+        seekerId: profile.id,
+        fullName: profile.full_name,
+        seekerType: profile.seeker_type,
+        city: profile.city || '',
+        skills: profile.skills || [],
+        updatedAt: Date.now(),
+      });
+    }
+
+    return { downloadUrl, cached };
+  }
 
   // Calculate completeness score (JS-02 / Section 3.2 measure)
   private calculateCompleteness(input: JobSeekerProfileInput): number {
