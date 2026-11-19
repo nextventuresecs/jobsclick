@@ -11,7 +11,7 @@ import type { ApplicationStatus } from '@indian-job-portal/validation';
 import { udyamNumberSchema, createJobSchema } from '@indian-job-portal/validation';
 import { useCompanyProfileState } from './useCompanyProfileState';
 import { useJobPostFormState } from './useJobPostFormState';
-import { postNewJobApi, updateAppStatusApi, updateBusinessProfileApi } from './employerApi';
+import { postNewJobApi, updateAppStatusApi, updateBusinessProfileApi, sendInterviewInviteSmsApi } from './employerApi';
 import { loadEmployerWorkspaceData } from './loadEmployerWorkspaceData';
 
 interface UseEmployerWorkspaceProps {
@@ -41,6 +41,7 @@ export function useEmployerWorkspace({ user, accessToken, addToast }: UseEmploye
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(true);
   const [viewingApplicant, setViewingApplicant] = useState<ApplicationData | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isSendingInvite, setIsSendingInvite] = useState(false);
 
   const { formData: editFormData, syncFromBusinessProfile, getUpdatedCompany } = useCompanyProfileState(company);
   const postJobState = useJobPostFormState(company);
@@ -146,6 +147,27 @@ export function useEmployerWorkspace({ user, accessToken, addToast }: UseEmploye
     }
   };
 
+  const handleSendInterviewInvite = async (appId: string) => {
+    setIsSendingInvite(true);
+    try {
+      const res = await sendInterviewInviteSmsApi(apiUrl, authHeader, userId, appId);
+      addToast({
+        type: 'success',
+        title: 'Interview Invite Dispatched',
+        message: res.message || 'Confidential interview invitation sent via SMS to candidate.',
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to send interview invitation.';
+      addToast({
+        type: 'error',
+        title: 'Invite Failed',
+        message: msg,
+      });
+    } finally {
+      setIsSendingInvite(false);
+    }
+  };
+
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editFormData.formIsMsme && editFormData.formUdyamNumber) {
@@ -175,6 +197,7 @@ export function useEmployerWorkspace({ user, accessToken, addToast }: UseEmploye
     isEditingProfile, setIsEditingProfile, companyJobs, applicants,
     filteredApplicants, viewingApplicant, setViewingApplicant,
     handlePostJob, handleUpdateStatus, handleSaveProfile,
+    handleSendInterviewInvite, isSendingInvite,
     applicantSearch, setApplicantSearch, statusFilter, setStatusFilter,
     editFormData, postJobState,
   };

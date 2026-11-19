@@ -16,8 +16,17 @@ export interface SmsResponse {
   messageId?: string;
 }
 
+export interface SendInviteSmsOptions {
+  phone: string;
+  candidateName?: string;
+  companyName?: string;
+  jobTitle?: string;
+  language?: 'en' | 'hi';
+}
+
 export abstract class SmsGateway {
   abstract sendOtp(options: SendOtpOptions): Promise<SmsResponse>;
+  abstract sendInviteSms(options: SendInviteSmsOptions): Promise<SmsResponse>;
 }
 
 @Injectable()
@@ -92,6 +101,81 @@ export class Msg91SmsGateway extends SmsGateway {
       };
     } catch (err) {
       this.logger.error(`[MSG91 Network Exception] dispatching to ${maskPhone(phone)}: ${err instanceof Error ? err.message : String(err)}`);
+      captureException(err instanceof Error ? err : new Error(String(err)));
+      return {
+        success: false,
+        message: 'SMS delivery network failure',
+      };
+    }
+  }
+
+  /**
+   * Dispatches confidential interview invite SMS via approved Jio DLT invite template
+   * DLT_1003_INVITE_CANDIDATE_HI (1277179291746795224)
+   */
+  async sendInviteSms(options: SendInviteSmsOptions): Promise<SmsResponse> {
+    const { phone, language = 'en' } = options;
+    const authKey = process.env['MSG91_AUTH_KEY'];
+    const senderId = process.env['MSG91_SENDER_ID'] || 'JOBSCK';
+
+    const templateKey = language === 'hi' ? 'INVITE_HI' : 'INVITE_EN';
+    const templateConfig = DLT_SMS_TEMPLATES[templateKey];
+    const templateId =
+      process.env['MSG91_INVITE_TEMPLATE_ID'] ||
+      templateConfig?.templateId ||
+      '1277179291746795224';
+
+    if (!authKey) {
+      this.logger.log(`[MSG91 Gateway] Live SMS key not configured; mock-dispatched interview invite to ${maskPhone(phone)}`);
+      return {
+        success: true,
+        message: 'Interview invite sent via SMS (mock mode)',
+        messageId: randomUUID(),
+      };
+    }
+
+    try {
+      const msg91Url = new URL('https://control.msg91.com/api/v5/flow');
+      const response = await fetch(msg91Url.toString(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          authkey: authKey,
+        },
+        body: JSON.stringify({
+          template_id: templateId,
+          sender: senderId,
+          short_url: '0',
+          recipients: [
+            {
+              mobiles: `91${phone}`,
+              name: options.candidateName || 'Candidate',
+              company: options.companyName || 'Employer',
+              job: options.jobTitle || 'Job',
+            },
+          ],
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        const scrubbedError = scrubSensitiveData(errorText);
+        this.logger.error(`[MSG91 Invite Error] HTTP ${response.status} dispatching to ${maskPhone(phone)}: ${scrubbedError}`);
+        captureException(new Error(`MSG91 invite delivery failed: ${response.status} ${scrubbedError}`));
+        return {
+          success: false,
+          message: `SMS gateway error: ${response.statusText}`,
+        };
+      }
+
+      this.logger.log(`[SMS Hook - MSG91 Live] Successfully delivered interview invite to ${maskPhone(phone)}`);
+      return {
+        success: true,
+        message: 'Interview invite sent via MSG91',
+        messageId: randomUUID(),
+      };
+    } catch (err) {
+      this.logger.error(`[MSG91 Network Exception] dispatching invite to ${maskPhone(phone)}: ${err instanceof Error ? err.message : String(err)}`);
       captureException(err instanceof Error ? err : new Error(String(err)));
       return {
         success: false,

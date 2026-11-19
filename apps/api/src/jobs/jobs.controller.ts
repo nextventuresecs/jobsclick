@@ -150,4 +150,14 @@ export class JobsController {
     const validated = updateApplicationStatusSchema.parse(body);
     return this.jobsService.updateApplicationStatus(user.id, appId, validated.status, user.role);
   }
+
+  // Interview Invite SMS Dispatch (Hard Invariant #1 & JOB-03)
+  @Roles('employer', 'admin')
+  @Post('applications/:appId/interview-invite')
+  async sendInterviewInvite(
+    @CurrentUser() user: AuthUser,
+    @Param('appId') appId: string,
+  ) {
+    return this.jobsService.sendInterviewInvite(user.id, appId, user.role);
+  }
 }

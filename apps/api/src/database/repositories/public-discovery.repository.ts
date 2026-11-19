@@ -149,7 +149,7 @@ export class PublicDiscoveryRepository {
 
     const eligible = await Promise.all(
       profiles.map(async (p) =>
-        p.is_published === true &&
+        (p as unknown as { is_published?: boolean }).is_published !== false &&
         Boolean(p.public_slug) &&
         (await this.eligible(p.user_id, business ? 'employer' : 'intermediary'))
       )

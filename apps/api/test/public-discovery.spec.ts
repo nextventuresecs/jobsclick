@@ -21,7 +21,7 @@ describe('PublicDiscoveryRepository - Opaque Slugs & Projections', () => {
       }),
     } as unknown as UserRepository;
 
-    repo = new PublicDiscoveryRepository({} as any, mockUserRepo, true);
+    repo = new PublicDiscoveryRepository({} as unknown as import('@supabase/supabase-js').SupabaseClient<import('@indian-job-portal/database').Database>, mockUserRepo, true);
   });
 
   it('rejects UUID lookups on public routes with NotFoundException (ID-02)', async () => {
@@ -44,12 +44,13 @@ describe('PublicDiscoveryRepository - Opaque Slugs & Projections', () => {
       city: 'Indore',
       district: 'Indore',
       is_published: true,
-    } as any);
+    } as unknown as import('@indian-job-portal/database').BusinessProfileRow);
 
     const result = await repo.company(validSlug);
     expect(result.slug).toBe(validSlug);
     expect(result.companyName).toBe('Apex Manufacturing');
-    expect((result as any).id).toBeUndefined();
-    expect((result as any).userId).toBeUndefined();
+    const resultRecord = result as unknown as Record<string, unknown>;
+    expect(resultRecord['id']).toBeUndefined();
+    expect(resultRecord['userId']).toBeUndefined();
   });
 });

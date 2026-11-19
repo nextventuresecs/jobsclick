@@ -483,6 +483,22 @@ export interface Database {
         Args: { p_employer_id: string; p_seeker_id: string; p_cost?: number };
         Returns: Record<string, unknown>;
       };
+      read_public_institution_cms: {
+        Args: { p_slug: string };
+        Returns: Record<string, unknown>;
+      };
+      search_public_jobs: {
+        Args: {
+          p_keyword?: string | null;
+          p_city?: string | null;
+          p_category?: string | null;
+          p_min_pay?: number | null;
+          p_company?: string | null;
+          p_limit?: number;
+          p_offset?: number;
+        };
+        Returns: { jobs: Record<string, unknown>[]; total: number };
+      };
     };
   };
 }

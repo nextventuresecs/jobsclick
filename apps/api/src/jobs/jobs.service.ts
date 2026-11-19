@@ -17,6 +17,8 @@ import {
 import { JobRepository } from '../database/repositories/job.repository.js';
 import { ApplicationRepository } from '../database/repositories/application.repository.js';
 import { ProfileRepository } from '../database/repositories/profile.repository.js';
+import { UserRepository } from '../database/repositories/user.repository.js';
+import { SmsGateway } from '../auth/sms.service.js';
 import { WalletService } from '../wallet/wallet.service.js';
 import type { JobRow, ApplicationRow } from '@indian-job-portal/database';
 
@@ -147,6 +149,8 @@ export class JobsService {
     @Inject(ApplicationRepository) private readonly applicationRepository: ApplicationRepository,
     @Inject(ProfileRepository) private readonly profileRepository: ProfileRepository,
     @Inject(WalletService) private readonly walletService: WalletService,
+    @Inject(UserRepository) private readonly userRepository: UserRepository,
+    @Inject(SmsGateway) private readonly smsGateway: SmsGateway,
   ) {}
 
   async createJob(employerId: string, input: CreateJobInput): Promise<JobRecord> {
@@ -512,5 +516,64 @@ export class JobsService {
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }));
+  }
+
+  /**
+   * Dispatches confidential interview invite SMS to candidate (Hard Invariant #1 & JOB-03).
+   * Resolves candidate phone number purely server-side via UserRepository.
+   * Strictly returns non-PII confirmation to employer to prevent contact data leakage.
+   */
+  async sendInterviewInvite(
+    userId: string,
+    applicationId: string,
+    role: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const application = await this.applicationRepository.findById(applicationId);
+    if (!application) {
+      throw new NotFoundException('Application not found');
+    }
+
+    const job = await this.jobRepository.findById(application.job_id);
+    if (!job) {
+      throw new NotFoundException('Job not found');
+    }
+
+    if (role !== 'admin' && job.employer_id !== userId) {
+      throw new ForbiddenException('You do not have permission to invite candidates for this job');
+    }
+
+    const candidateUser = await this.userRepository.findById(application.applicant_id);
+    if (!candidateUser?.phone) {
+      throw new BadRequestException('Candidate does not have a registered phone number');
+    }
+
+    const [seekerProfile, employerProfile] = await Promise.all([
+      this.profileRepository.findSeekerProfileByUserId(application.applicant_id),
+      this.profileRepository.findBusinessProfileByUserId(job.employer_id),
+    ]);
+
+    const candidateName = seekerProfile?.full_name || 'Candidate';
+    const companyName = employerProfile?.company_name || 'Employer';
+
+    const smsResult = await this.smsGateway.sendInviteSms({
+      phone: candidateUser.phone,
+      candidateName,
+      companyName,
+      jobTitle: job.title,
+      language: 'hi',
+    });
+
+    if (!smsResult.success) {
+      throw new BadRequestException(smsResult.message || 'Failed to dispatch interview invite SMS');
+    }
+
+    this.logger.log(
+      `[Interview Invite] In-platform interview invite dispatched for job "${job.id}" application "${application.id}"`,
+    );
+
+    return {
+      success: true,
+      message: 'Interview invite sent to candidate via confidential platform SMS',
+    };
   }
 }

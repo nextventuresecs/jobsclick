@@ -11,12 +11,16 @@ interface ApplicantDetailModalProps {
   readonly applicant: ApplicationData | null;
   readonly onClose: () => void;
   readonly onUpdateStatus: (id: string, status: ApplicationStatus) => void;
+  readonly onSendInterviewInvite?: (id: string) => void | Promise<void>;
+  readonly isSendingInvite?: boolean;
 }
 
 export function ApplicantDetailModal({
   applicant,
   onClose,
   onUpdateStatus,
+  onSendInterviewInvite,
+  isSendingInvite,
 }: ApplicantDetailModalProps) {
   const t = useTranslations('EmployerWorkspace');
 
@@ -95,6 +99,18 @@ export function ApplicantDetailModal({
           <Button type="button" variant="outline" size="sm" onClick={onClose}>
             {t('btnClose')}
           </Button>
+          {onSendInterviewInvite && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isSendingInvite}
+              onClick={() => onSendInterviewInvite(applicant.id)}
+              className="text-orange-600 border-orange-200 hover:bg-orange-50 font-medium"
+            >
+              {isSendingInvite ? t('sendingInvite') : t('sendInterviewInvite')}
+            </Button>
+          )}
           {applicant.status === 'applied' && (
             <Button
               type="button"

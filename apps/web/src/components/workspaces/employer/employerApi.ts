@@ -170,3 +170,30 @@ export async function updateBusinessProfileApi(
     throw err;
   }
 }
+
+export async function sendInterviewInviteSmsApi(
+  apiUrl: string,
+  authHeader: string,
+  userId: string,
+  appId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const res = await fetch(`${apiUrl}/jobs/applications/${appId}/interview-invite`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: authHeader,
+        'x-user-id': userId,
+      },
+    });
+    if (!res.ok) {
+      const errBody = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      const errMsg = (errBody['message'] as string) || `Failed to send interview invite (HTTP ${res.status})`;
+      throw new Error(errMsg);
+    }
+    return (await res.json()) as { success: boolean; message: string };
+  } catch (err) {
+    Sentry.captureException(err, { tags: { operation: 'sendInterviewInviteSmsApi', appId, userId } });
+    throw err;
+  }
+}
