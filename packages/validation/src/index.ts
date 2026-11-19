@@ -24,6 +24,7 @@ export * from './auth';
 export * from './jobs';
 export * from './profiles';
 export * from './bulk';
+export * from './csv';
 export * from './admin';
 export * from './resume';
 export * from './wallet';
