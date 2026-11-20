@@ -1789,6 +1789,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_refund: {
+        Args: {
+          p_event_id?: string
+          p_gateway_payment_id: string
+          p_gateway_refund_id: string
+          p_refund_paise: number
+        }
+        Returns: Json
+      }
       audit: {
         Args: {
           p_action: string
@@ -1803,7 +1812,38 @@ export type Database = {
         Args: { p_applicant: string; p_job: string }
         Returns: Json
       }
+      claim_seats: {
+        Args: { p_grant: string; p_inst: string; p_limit: number }
+        Returns: number
+      }
+      claim_sponsorship_seats: {
+        Args: { p_inst: string; p_profile_ids: string[] }
+        Returns: number
+      }
+      create_sponsorship_grant: {
+        Args: {
+          p_pay: Omit<
+            Database["public"]["Tables"]["payments"]["Row"],
+            Database["public"]["Tables"]["payments"]["ComputedFields"]
+          >
+        }
+        Returns: string
+      }
       get_balance: { Args: { p_user_id: string }; Returns: number }
+      issue_invoice: {
+        Args: { p_kind?: string; p_payment_id: string }
+        Returns: Json
+      }
+      record_dispute: {
+        Args: {
+          p_amount_paise: number
+          p_dispute_id: string
+          p_event_id?: string
+          p_gateway_payment_id: string
+          p_reason?: string
+        }
+        Returns: Json
+      }
       settle_payment: {
         Args: {
           p_amount_paise: number
@@ -1816,6 +1856,7 @@ export type Database = {
         }
         Returns: Json
       }
+      validate_gstin: { Args: { p_gstin: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
@@ -2087,6 +2128,7 @@ export type Database = {
           error_rows: number
           failure_reason: string | null
           id: string
+          institution_id: string | null
           processed_rows: number
           qstash_message_id: string | null
           retry_count: number
@@ -2107,6 +2149,7 @@ export type Database = {
           error_rows?: number
           failure_reason?: string | null
           id?: string
+          institution_id?: string | null
           processed_rows?: number
           qstash_message_id?: string | null
           retry_count?: number
@@ -2126,6 +2169,7 @@ export type Database = {
           error_rows?: number
           failure_reason?: string | null
           id?: string
+          institution_id?: string | null
           processed_rows?: number
           qstash_message_id?: string | null
           retry_count?: number
@@ -2140,6 +2184,12 @@ export type Database = {
             foreignKeyName: "bulk_import_batches_created_by_fkey"
             columns: ["created_by"]
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bulk_import_batches_institution_id_fkey"
+            columns: ["institution_id"]
+            referencedRelation: "institution_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -3219,6 +3269,7 @@ export type Database = {
           processed_at: string | null
           processed_by: string | null
           purpose: string
+          refunded_at: string | null
           settled_at: string | null
           status: string
           tax_amount_inr: number
@@ -3247,6 +3298,7 @@ export type Database = {
           processed_at?: string | null
           processed_by?: string | null
           purpose: string
+          refunded_at?: string | null
           settled_at?: string | null
           status: string
           tax_amount_inr?: number
@@ -3274,6 +3326,7 @@ export type Database = {
           processed_at?: string | null
           processed_by?: string | null
           purpose?: string
+          refunded_at?: string | null
           settled_at?: string | null
           status?: string
           tax_amount_inr?: number
@@ -3684,18 +3737,38 @@ export type Database = {
         }
         Returns: Json
       }
+      rpc_apply_refund: {
+        Args: {
+          p_event_id?: string
+          p_gateway_payment_id: string
+          p_gateway_refund_id: string
+          p_refund_paise: number
+        }
+        Returns: Json
+      }
       rpc_charge_application: {
         Args: { p_applicant_id: string; p_job_id: string }
         Returns: Json
       }
       rpc_claim_sponsorship_seats: {
-        Args: {
-          p_inst: string
-          p_profile_ids: string[]
-        }
+        Args: { p_inst: string; p_profile_ids: string[] }
         Returns: number
       }
       rpc_get_balance: { Args: { p_user_id: string }; Returns: number }
+      rpc_issue_invoice: {
+        Args: { p_kind?: string; p_payment_id: string }
+        Returns: Json
+      }
+      rpc_record_dispute: {
+        Args: {
+          p_amount_paise: number
+          p_dispute_id: string
+          p_event_id?: string
+          p_gateway_payment_id: string
+          p_reason?: string
+        }
+        Returns: Json
+      }
       rpc_settle_payment: {
         Args: {
           p_amount_paise: number

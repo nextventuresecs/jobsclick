@@ -117,6 +117,80 @@ export class PaymentRepository {
     return (data as unknown as PaymentRow[]) || [];
   }
 
+  async findInvoicesByPaymentIds(
+    paymentIds: string[],
+  ): Promise<Database['public']['Tables']['invoices']['Row'][]> {
+    if (paymentIds.length === 0) return [];
+    const { data, error } = await this.supabase
+      .from('invoices')
+      .select('*')
+      .in('payment_id', paymentIds)
+      .order('issued_at', { ascending: false });
+
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+    }
+    return data || [];
+  }
+
+  /**
+   * Invokes public.rpc_apply_refund with server-verified refund facts.
+   */
+  async applyRefund(params: {
+    gatewayPaymentId: string;
+    gatewayRefundId: string;
+    refundPaise: number;
+    eventId?: string | null;
+  }): Promise<Record<string, unknown> | null> {
+    const { data, error } = await (this.supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: Record<string, unknown> | null; error: { message: string } | null }>)(
+      'rpc_apply_refund',
+      {
+        p_gateway_payment_id: params.gatewayPaymentId,
+        p_gateway_refund_id: params.gatewayRefundId,
+        p_refund_paise: params.refundPaise,
+        p_event_id: params.eventId ?? null,
+      },
+    );
+
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+    }
+    return data;
+  }
+
+  /**
+   * Invokes public.rpc_record_dispute to log anomaly DISPUTE_OPENED.
+   */
+  async recordDispute(params: {
+    gatewayPaymentId: string;
+    disputeId: string;
+    amountPaise: number;
+    reason?: string | null;
+    eventId?: string | null;
+  }): Promise<Record<string, unknown> | null> {
+    const { data, error } = await (this.supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: Record<string, unknown> | null; error: { message: string } | null }>)(
+      'rpc_record_dispute',
+      {
+        p_gateway_payment_id: params.gatewayPaymentId,
+        p_dispute_id: params.disputeId,
+        p_amount_paise: params.amountPaise,
+        p_reason: params.reason ?? null,
+        p_event_id: params.eventId ?? null,
+      },
+    );
+
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+    }
+    return data;
+  }
+
   /**
    * Invokes public.rpc_settle_payment with server-verified payment facts.
    * Atomic settlement and idempotency enforced at PostgreSQL transaction level.

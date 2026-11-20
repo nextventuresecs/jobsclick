@@ -527,4 +527,141 @@ describe('Payment Webhook E2E (WAL-03, Razorpay HMAC, Deduplication, Anomalies)'
       payRepo.settlePayment = origSettle;
     }
   });
+
+  it('refund.processed webhook applies refund and returns 200', async () => {
+    const userId = await createTestUser();
+    const orderId = `order_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+    const paymentId = `pay_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+    const refundId = `rfnd_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+
+    // Create and settle payment first
+    await createTestOrder(userId, orderId, 59000, 50);
+    fakeGateway.seedPayment({
+      id: paymentId,
+      orderId,
+      status: 'captured',
+      amountPaise: 59000,
+    });
+
+    const settlePayload = JSON.stringify({
+      event: 'payment.captured',
+      payload: { payment: { entity: { id: paymentId, order_id: orderId } } },
+    });
+    await app.inject({
+      method: 'POST',
+      url: '/webhooks/razorpay',
+      headers: {
+        'content-type': 'application/json',
+        'x-razorpay-signature': signPayload(settlePayload),
+        'x-razorpay-event-id': `evt_settle_${Date.now()}`,
+      },
+      payload: settlePayload,
+    });
+
+    // Send refund webhook
+    const refundPayload = JSON.stringify({
+      event: 'refund.processed',
+      payload: {
+        refund: {
+          entity: {
+            id: refundId,
+            payment_id: paymentId,
+            amount: 59000,
+          },
+        },
+      },
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/razorpay',
+      headers: {
+        'content-type': 'application/json',
+        'x-razorpay-signature': signPayload(refundPayload),
+        'x-razorpay-event-id': `evt_refund_${Date.now()}`,
+      },
+      payload: refundPayload,
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().received).toBe(true);
+
+    // Verify payment updated to refunded
+    const payCheck = await pgClient.query('SELECT status, refunded_at FROM public.payments WHERE gateway_payment_id = $1', [paymentId]);
+    expect(payCheck.rows[0].status).toBe('refunded');
+    expect(payCheck.rows[0].refunded_at).not.toBeNull();
+
+    // Verify refund row created
+    const refundCheck = await pgClient.query('SELECT * FROM public.payment_refunds WHERE gateway_refund_id = $1', [refundId]);
+    expect(refundCheck.rows.length).toBe(1);
+    expect(refundCheck.rows[0].amount_paise).toBe('59000');
+  });
+
+  it('payment.dispute.created webhook records anomaly and returns 200', async () => {
+    const userId = await createTestUser();
+    const orderId = `order_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+    const paymentId = `pay_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+    const disputeId = `disp_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+
+    // Create and settle payment first
+    await createTestOrder(userId, orderId, 59000, 50);
+    fakeGateway.seedPayment({
+      id: paymentId,
+      orderId,
+      status: 'captured',
+      amountPaise: 59000,
+    });
+
+    const settlePayload = JSON.stringify({
+      event: 'payment.captured',
+      payload: { payment: { entity: { id: paymentId, order_id: orderId } } },
+    });
+    await app.inject({
+      method: 'POST',
+      url: '/webhooks/razorpay',
+      headers: {
+        'content-type': 'application/json',
+        'x-razorpay-signature': signPayload(settlePayload),
+        'x-razorpay-event-id': `evt_settle_${Date.now()}`,
+      },
+      payload: settlePayload,
+    });
+
+    // Send dispute webhook
+    const disputePayload = JSON.stringify({
+      event: 'payment.dispute.created',
+      payload: {
+        dispute: {
+          entity: {
+            id: disputeId,
+            payment_id: paymentId,
+            amount: 59000,
+            reason_code: 'fraudulent',
+          },
+        },
+      },
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/webhooks/razorpay',
+      headers: {
+        'content-type': 'application/json',
+        'x-razorpay-signature': signPayload(disputePayload),
+        'x-razorpay-event-id': `evt_dispute_${Date.now()}`,
+      },
+      payload: disputePayload,
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json().received).toBe(true);
+
+    // Verify anomaly logged
+    const anomalyCheck = await pgClient.query(
+      "SELECT * FROM private_payments.payment_anomalies WHERE kind = 'DISPUTE_OPENED' AND gateway_payment_id = $1",
+      [paymentId],
+    );
+    expect(anomalyCheck.rows.length).toBe(1);
+    expect(anomalyCheck.rows[0].details.dispute_id).toBe(disputeId);
+  });
 });

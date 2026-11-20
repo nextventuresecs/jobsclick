@@ -184,6 +184,16 @@ export function captureException(error: unknown, additionalContext?: Record<stri
 }
 
 /**
+ * Standard Sentry captureMessage with PII scrubbing
+ */
+export function captureMessage(message: string, level: Sentry.SeverityLevel = 'info'): string {
+  if (process.env['SENTRY_DSN']) {
+    return Sentry.captureMessage(sanitizeWorkerLog(message), level);
+  }
+  return 'sentry_disabled_stub_id';
+}
+
+/**
  * Re-export native Sentry logger for worker jobs
  */
 export const logger = Sentry.logger;

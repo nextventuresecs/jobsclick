@@ -16,6 +16,10 @@ export interface SendEmailOptions {
   from?: string;
   replyTo?: string;
   headers?: Record<string, string>;
+  attachments?: Array<{
+    filename: string;
+    content: string; // base64 string
+  }>;
 }
 
 export interface SendEmailResult {
@@ -61,6 +65,7 @@ export class WorkerEmailService {
           text: options.text,
           reply_to: options.replyTo,
           headers: options.headers,
+          attachments: options.attachments,
         }),
       });
 
@@ -190,6 +195,48 @@ export class WorkerEmailService {
       to: options.email,
       subject,
       html,
+    });
+  }
+
+  async sendInvoiceEmail(options: {
+    to: string;
+    invoiceNumber: string;
+    kind: 'invoice' | 'credit_note';
+    totalInr: number;
+    pdfBuffer?: Buffer;
+  }): Promise<SendEmailResult> {
+    const isCreditNote = options.kind === 'credit_note';
+    const title = isCreditNote ? 'Credit Note' : 'Tax Invoice';
+    const subject = `${title} ${options.invoiceNumber} - JobsClick`;
+
+    // Hard Invariant #1: Zero phone number in email body
+    const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: sans-serif; color: #1f2937; line-height: 1.5; padding: 20px;">
+  <h2 style="color: #1e3a8a;">${title}</h2>
+  <p>Dear Customer,</p>
+  <p>Please find attached your ${title.toLowerCase()} <strong>${options.invoiceNumber}</strong> for the amount of <strong>₹${options.totalInr.toFixed(2)}</strong>.</p>
+  <p>Thank you for using JobsClick platform.</p>
+  <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+  <p style="font-size: 12px; color: #6b7280;">This is an automated message. Please do not reply directly to this email.</p>
+</body>
+</html>`;
+
+    const attachments = options.pdfBuffer
+      ? [
+          {
+            filename: `${options.invoiceNumber.replace(/\//g, '_')}.pdf`,
+            content: options.pdfBuffer.toString('base64'),
+          },
+        ]
+      : undefined;
+
+    return this.sendEmail({
+      to: options.to,
+      subject,
+      html,
+      attachments,
     });
   }
 }

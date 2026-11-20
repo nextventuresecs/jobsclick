@@ -100,11 +100,26 @@ export class RazorpayWebhookController {
       const paymentId = String(paymentEntity['id'] ?? '');
       const orderId = String(paymentEntity['order_id'] ?? orderEntity['id'] ?? '');
 
-      if (!paymentId || !orderId) {
+      if (!paymentId) {
+        await this.auditLogRepo.append({
+          id: crypto.randomUUID(),
+          actor_id: null,
+          action: 'RAZORPAY_WEBHOOK_MISSING_PAYMENT_ID',
+          meta: { event, orderId: orderId || null },
+          created_at: new Date().toISOString(),
+        });
+        throw new BadRequestException({
+          statusCode: 400,
+          code: 'MISSING_PAYMENT_ID',
+          message: 'Razorpay webhook payload missing payment id',
+        });
+      }
+
+      if (!orderId) {
         throw new BadRequestException({
           statusCode: 400,
           code: 'MISSING_PAYMENT_OR_ORDER_ID',
-          message: 'Razorpay webhook payload missing payment or order id',
+          message: 'Razorpay webhook payload missing order id',
         });
       }
 
@@ -117,6 +132,21 @@ export class RazorpayWebhookController {
       const paymentEntity = (payload['payment']?.['entity'] as Record<string, unknown>) || {};
       const paymentId = String(paymentEntity['id'] ?? '');
       const orderId = String(paymentEntity['order_id'] ?? '');
+
+      if (!paymentId) {
+        await this.auditLogRepo.append({
+          id: crypto.randomUUID(),
+          actor_id: null,
+          action: 'RAZORPAY_WEBHOOK_MISSING_PAYMENT_ID',
+          meta: { event, orderId: orderId || null },
+          created_at: new Date().toISOString(),
+        });
+        throw new BadRequestException({
+          statusCode: 400,
+          code: 'MISSING_PAYMENT_ID',
+          message: 'Razorpay webhook payload missing payment id',
+        });
+      }
 
       await this.auditLogRepo.append({
         id: crypto.randomUUID(),
@@ -134,7 +164,56 @@ export class RazorpayWebhookController {
       return { status: 'ok', received: true };
     }
 
-    // Handled other events (refund.processed, payment.refunded, etc.)
+    if (event === 'refund.processed' || event === 'payment.refunded') {
+      const payload = (payloadObj['payload'] as Record<string, Record<string, unknown>>) || {};
+      const refundEntity = (payload['refund']?.['entity'] as Record<string, unknown>) || {};
+      const paymentEntity = (payload['payment']?.['entity'] as Record<string, unknown>) || {};
+
+      const gatewayPaymentId = String(refundEntity['payment_id'] ?? paymentEntity['id'] ?? '');
+      const gatewayRefundId = String(refundEntity['id'] ?? '');
+      const refundPaise = Number(refundEntity['amount'] ?? paymentEntity['amount_refunded'] ?? 0);
+
+      if (!gatewayPaymentId || !gatewayRefundId || !refundPaise) {
+        throw new BadRequestException({
+          statusCode: 400,
+          code: 'MISSING_REFUND_DETAILS',
+          message: 'Razorpay refund webhook payload missing payment_id, refund_id, or amount',
+        });
+      }
+
+      await this.paymentService.applyRefund(gatewayPaymentId, gatewayRefundId, refundPaise, eventId);
+      return { status: 'ok', received: true };
+    }
+
+    if (event === 'payment.dispute.created') {
+      const payload = (payloadObj['payload'] as Record<string, Record<string, unknown>>) || {};
+      const disputeEntity = (payload['dispute']?.['entity'] as Record<string, unknown>) || {};
+      const paymentEntity = (payload['payment']?.['entity'] as Record<string, unknown>) || {};
+
+      const gatewayPaymentId = String(disputeEntity['payment_id'] ?? paymentEntity['id'] ?? '');
+      const disputeId = String(disputeEntity['id'] ?? '');
+      const amountPaise = Number(disputeEntity['amount'] ?? 0);
+      const reason = String(disputeEntity['reason_code'] ?? disputeEntity['reason'] ?? '');
+
+      if (!gatewayPaymentId || !disputeId) {
+        throw new BadRequestException({
+          statusCode: 400,
+          code: 'MISSING_DISPUTE_DETAILS',
+          message: 'Razorpay dispute webhook payload missing payment_id or dispute_id',
+        });
+      }
+
+      await this.paymentService.recordDispute(
+        gatewayPaymentId,
+        disputeId,
+        amountPaise,
+        reason || null,
+        eventId,
+      );
+      return { status: 'ok', received: true };
+    }
+
+    // Handled other events
     return { status: 'ok', received: true };
   }
 }

@@ -8,7 +8,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import crypto from 'node:crypto';
-import type { PaymentRow } from '@indian-job-portal/database';
+import type { Database, PaymentRow } from '@indian-job-portal/database';
 import {
   CREDIT_PACKS,
   type CreatePaymentOrderInput,
@@ -235,9 +235,35 @@ export class PaymentService {
   /**
    * Format invoice for response
    */
-  private formatInvoice(payment: PaymentRow): InvoiceResponse {
+  private formatInvoice(
+    payment: PaymentRow,
+    invoiceRecord?: Database['public']['Tables']['invoices']['Row'],
+  ): InvoiceResponse {
     const meta = (payment.order_snapshot || payment.metadata || {}) as Record<string, unknown>;
     const pack = payment.pack_id ? CREDIT_PACKS[payment.pack_id] : null;
+
+    if (invoiceRecord) {
+      const snap = (invoiceRecord.billing_snapshot || {}) as Record<string, unknown>;
+      return {
+        invoiceNumber: invoiceRecord.number,
+        paymentId: payment.id,
+        orderId: payment.gateway_order_id,
+        date: invoiceRecord.issued_at || payment.created_at,
+        hsnCode: '998311',
+        packId: payment.pack_id ?? undefined,
+        packName: (meta['packName'] as string) || pack?.name || 'Credit Pack',
+        credits: payment.credits_added ?? 0,
+        baseAmountInr: Number(invoiceRecord.taxable_paise) / 100,
+        gstRate: 0.18,
+        cgstInr: Number(invoiceRecord.cgst_paise) / 100,
+        sgstInr: Number(invoiceRecord.sgst_paise) / 100,
+        igstInr: Number(invoiceRecord.igst_paise) / 100,
+        totalAmountInr: Number(invoiceRecord.total_paise) / 100,
+        customerName: (snap['name'] as string) || (meta['billingName'] as string) || 'Customer',
+        customerGstin: (snap['gstin'] as string) || (meta['billingGstin'] as string) || null,
+        status: payment.status,
+      };
+    }
 
     const baseAmount = Number(meta['baseAmountInr'] ?? (pack?.priceInr || payment.amount_inr / 1.18));
     const gstAmount = Number(meta['gstAmountInr'] ?? (pack?.gstAmountInr || payment.amount_inr - baseAmount));
@@ -265,6 +291,27 @@ export class PaymentService {
     };
   }
 
+  async getUserInvoices(userId: string): Promise<InvoiceResponse[]> {
+    const payments = await this.paymentRepository.findByUserId(userId);
+    const settledPayments = payments.filter((p) =>
+      ['captured', 'partially_refunded', 'refunded'].includes(p.status),
+    );
+    if (settledPayments.length === 0) {
+      return [];
+    }
+
+    const paymentIds = settledPayments.map((p) => p.id);
+    const invoiceRows = await this.paymentRepository.findInvoicesByPaymentIds(paymentIds);
+    const invoiceMap = new Map<string, Database['public']['Tables']['invoices']['Row']>();
+    for (const inv of invoiceRows) {
+      if (inv.kind === 'invoice' && !invoiceMap.has(inv.payment_id)) {
+        invoiceMap.set(inv.payment_id, inv);
+      }
+    }
+
+    return settledPayments.map((p) => this.formatInvoice(p, invoiceMap.get(p.id)));
+  }
+
   async getInvoice(paymentId: string, userId: string, isAdmin = false): Promise<InvoiceResponse> {
     const payment = await this.paymentRepository.findById(paymentId);
     if (!payment) {
@@ -273,14 +320,46 @@ export class PaymentService {
     if (!isAdmin && payment.user_id !== userId) {
       throw new ForbiddenException('You are not authorized to access this invoice');
     }
-    if (payment.status !== 'captured') {
+    if (!['captured', 'partially_refunded', 'refunded'].includes(payment.status)) {
       throw new BadRequestException({
         statusCode: 400,
         code: 'PAYMENT_NOT_CAPTURED',
         message: 'Invoice cannot be generated for uncaptured payment',
       });
     }
-    return this.formatInvoice(payment);
+    const invoices = await this.paymentRepository.findInvoicesByPaymentIds([payment.id]);
+    const invoiceRecord = invoices.find((inv) => inv.kind === 'invoice') || invoices[0];
+    return this.formatInvoice(payment, invoiceRecord);
+  }
+
+  async applyRefund(
+    gatewayPaymentId: string,
+    gatewayRefundId: string,
+    refundPaise: number,
+    eventId?: string | null,
+  ) {
+    return this.paymentRepository.applyRefund({
+      gatewayPaymentId,
+      gatewayRefundId,
+      refundPaise,
+      eventId,
+    });
+  }
+
+  async recordDispute(
+    gatewayPaymentId: string,
+    disputeId: string,
+    amountPaise: number,
+    reason?: string | null,
+    eventId?: string | null,
+  ) {
+    return this.paymentRepository.recordDispute({
+      gatewayPaymentId,
+      disputeId,
+      amountPaise,
+      reason,
+      eventId,
+    });
   }
 
   async getInvoiceHtml(paymentId: string, userId: string, isAdmin = false): Promise<string> {

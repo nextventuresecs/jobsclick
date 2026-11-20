@@ -398,6 +398,35 @@ export interface Database {
         status: string;
         created_at: string;
       }>;
+      platform_settings: TableDefinition<{
+        key: string;
+        value: Record<string, unknown>;
+      }>;
+      invoices: TableDefinition<{
+        id: string;
+        payment_id: string;
+        kind: 'invoice' | 'credit_note';
+        number: string;
+        fy: string;
+        taxable_paise: number;
+        cgst_paise: number;
+        sgst_paise: number;
+        igst_paise: number;
+        total_paise: number;
+        billing_snapshot: Record<string, unknown>;
+        pdf_path?: string | null;
+        emailed_at?: string | null;
+        issued_at: string;
+      }>;
+      payment_refunds: TableDefinition<{
+        id: string;
+        payment_id: string;
+        gateway_refund_id: string;
+        amount_paise: number;
+        credits_reversed: number;
+        unrecovered_credits: number;
+        created_at: string;
+      }>;
     };
     Views: {
       public_business_profiles: ViewDefinition<{

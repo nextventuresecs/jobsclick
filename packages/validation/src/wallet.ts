@@ -304,3 +304,86 @@ export type SponsorshipTier = z.infer<typeof sponsorshipTierSchema>;
 export type SponsorshipQuote = z.infer<typeof sponsorshipQuoteSchema>;
 export type SponsorshipQuoteInput = z.infer<typeof sponsorshipQuoteInputSchema>;
 export type CreateSponsorshipOrderInput = z.infer<typeof createSponsorshipOrderSchema>;
+
+// GSTIN format and Modulo-36 Luhn-variant checksum validator
+const GSTIN_CODES = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const GSTIN_REGEX = /^[0-3][0-9][A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]$/;
+
+export function isValidGstin(gstin?: string | null): boolean {
+  if (!gstin || typeof gstin !== 'string') return false;
+  const clean = gstin.trim().toUpperCase();
+  if (clean.length !== 15) return false;
+  if (clean === '23AAAAA0000A1Z5') return false; // reject placeholder
+  if (!GSTIN_REGEX.test(clean)) return false;
+
+  let total = 0;
+  for (let i = 0; i < 14; i++) {
+    const ch = clean.charAt(i);
+    const charIndex = GSTIN_CODES.indexOf(ch);
+    if (charIndex === -1) return false;
+
+    const factor = i % 2 !== 0 ? 2 : 1;
+    const product = charIndex * factor;
+    total += Math.floor(product / 36) + (product % 36);
+  }
+
+  const remainder = total % 36;
+  const checkIndex = (36 - remainder) % 36;
+  const expectedChar = GSTIN_CODES.charAt(checkIndex);
+
+  return clean.charAt(14) === expectedChar;
+}
+
+export function deriveFinancialYear(date: Date = new Date()): string {
+  const kolkataDateStr = date.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
+  const kolkataDate = new Date(kolkataDateStr);
+  const year = kolkataDate.getFullYear();
+  const month = kolkataDate.getMonth() + 1; // 1-12
+
+  if (month >= 4) {
+    const startYr = String(year % 100).padStart(2, '0');
+    const endYr = String((year + 1) % 100).padStart(2, '0');
+    return `${startYr}${endYr}`;
+  } else {
+    const startYr = String((year - 1) % 100).padStart(2, '0');
+    const endYr = String(year % 100).padStart(2, '0');
+    return `${startYr}${endYr}`;
+  }
+}
+
+export interface InvoiceTaxCalculation {
+  taxablePaise: number;
+  cgstPaise: number;
+  sgstPaise: number;
+  igstPaise: number;
+  totalPaise: number;
+}
+
+export function computeInvoiceTax(
+  totalPaise: number,
+  buyerStateCode: string,
+  supplierStateCode = '27',
+): InvoiceTaxCalculation {
+  const taxablePaise = Math.round((totalPaise * 100) / 118);
+  const taxPaise = totalPaise - taxablePaise;
+
+  if (buyerStateCode === supplierStateCode) {
+    const cgstPaise = Math.floor(taxPaise / 2);
+    const sgstPaise = taxPaise - cgstPaise;
+    return {
+      taxablePaise,
+      cgstPaise,
+      sgstPaise,
+      igstPaise: 0,
+      totalPaise,
+    };
+  } else {
+    return {
+      taxablePaise,
+      cgstPaise: 0,
+      sgstPaise: 0,
+      igstPaise: taxPaise,
+      totalPaise,
+    };
+  }
+}

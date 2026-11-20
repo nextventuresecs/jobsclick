@@ -139,6 +139,13 @@ export class WalletController {
     });
   }
 
+  // List user's GST invoices for settled payments (WAL-03)
+  @Get('invoices')
+  @RequireFeatureFlag('ENABLE_P2_PAYMENTS')
+  async getMyInvoices(@CurrentUser() user: AuthUser) {
+    return this.paymentService.getUserInvoices(user.id);
+  }
+
   // Download / view structured GST Tax Invoice for successful payment (WAL-03)
   @Get('invoice/:paymentId')
   @RequireFeatureFlag('ENABLE_P2_PAYMENTS')

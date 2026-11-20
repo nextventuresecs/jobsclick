@@ -20,7 +20,10 @@ describe('Razorpay Webhook: Reject Missing Payment ID & Audit Log (Ticket: No Co
       imports: [AppModule],
     }).compile();
 
-    app = moduleFixture.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
+    app = moduleFixture.createNestApplication<NestFastifyApplication>(
+      new FastifyAdapter(),
+      { rawBody: true },
+    );
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
 
@@ -59,6 +62,7 @@ describe('Razorpay Webhook: Reject Missing Payment ID & Audit Log (Ticket: No Co
       headers: {
         'content-type': 'application/json',
         'x-razorpay-signature': signature,
+        'x-razorpay-event-id': 'evt_test_missing_id_1',
       },
       payload: rawPayload,
     });
@@ -75,7 +79,8 @@ describe('Razorpay Webhook: Reject Missing Payment ID & Audit Log (Ticket: No Co
     expect(matchingLog?.meta?.['event']).toBe('payment.captured');
 
     // Must NEVER create a payment record with pay_
-    const allPayments = await paymentRepo.findByUserId('usr_test');
+    const testUserId = crypto.randomUUID();
+    const allPayments = await paymentRepo.findByUserId(testUserId);
     expect(allPayments.some((p) => p.gateway_payment_id?.startsWith('pay_'))).toBe(false);
   });
 
@@ -104,6 +109,7 @@ describe('Razorpay Webhook: Reject Missing Payment ID & Audit Log (Ticket: No Co
       headers: {
         'content-type': 'application/json',
         'x-razorpay-signature': signature,
+        'x-razorpay-event-id': 'evt_test_missing_id_1',
       },
       payload: rawPayload,
     });
