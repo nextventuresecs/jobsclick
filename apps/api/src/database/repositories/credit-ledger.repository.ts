@@ -44,19 +44,35 @@ export class CreditLedgerRepository {
       fn: string,
       args: Record<string, unknown>,
     ) => Promise<{
-      data: { balance: number; credits_added: number; credits_used: number } | null;
+      data: number | string | null;
       error: { message: string } | null;
-    }>)('get_user_credit_balance', { p_user_id: userId });
+    }>)('rpc_get_balance', { p_user_id: userId });
 
     if (error) {
       throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
     }
 
+    const bal = Number(data ?? 0);
     return {
-      balance: Number(data?.balance ?? 0),
-      creditsAdded: Number(data?.credits_added ?? 0),
-      creditsUsed: Number(data?.credits_used ?? 0),
+      balance: bal,
+      creditsAdded: 0,
+      creditsUsed: 0,
     };
+  }
+
+  // Ensure starter credits are granted idempotently into the unique partial index
+  async ensureStarterCredits(userId: string): Promise<void> {
+    const { error } = await this.supabase.from('credit_ledgers').insert({
+      id: randomUUID(),
+      user_id: userId,
+      amount: 10,
+      reason: 'starter_credit',
+      source: 'system',
+    });
+
+    if (error && !error.message.includes('duplicate key') && error.code !== '23505') {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+    }
   }
 
   // WAL-02 & Hard Invariant #7: Atomic job application credit deduction with TOCTOU lock
@@ -64,19 +80,17 @@ export class CreditLedgerRepository {
     applicantId: string;
     jobId: string;
     jobTitle?: string;
-    cost: number;
+    cost?: number;
     isSponsored?: boolean;
   }): Promise<{ success: boolean; remainingBalance: number; isSponsored: boolean }> {
     const { data, error } = await (this.supabase.rpc as unknown as (
       fn: string,
       args: Record<string, unknown>,
     ) => Promise<{ data: unknown; error: { message: string } | null }>)(
-      'deduct_application_credit_with_ledger',
+      'rpc_charge_application',
       {
         p_applicant_id: params.applicantId,
         p_job_id: params.jobId,
-        p_job_title: params.jobTitle || params.jobId,
-        p_cost: params.cost,
       },
     );
 
@@ -91,11 +105,11 @@ export class CreditLedgerRepository {
       throw new BadRequestException(error.message);
     }
 
-    const res = data as { success: boolean; remaining_balance: number; is_sponsored: boolean };
+    const res = data as { charged: boolean; sponsored: boolean; balance: number | string };
     return {
-      success: res.success,
-      remainingBalance: res.remaining_balance,
-      isSponsored: res.is_sponsored,
+      success: true,
+      remainingBalance: Number(res.balance),
+      isSponsored: res.sponsored,
     };
   }
 
@@ -153,31 +167,15 @@ export class CreditLedgerRepository {
       throw new BadRequestException('Deduction amount must be strictly positive');
     }
 
-    const { data, error } = await (this.supabase.rpc as unknown as (
-      fn: string,
-      args: Record<string, unknown>,
-    ) => Promise<{ data: unknown; error: { message: string } | null }>)(
-      'deduct_application_credit_with_ledger',
-      {
-        p_applicant_id: userId,
-        p_job_id: 'generic_deduction',
-        p_job_title: reason,
-        p_cost: amountToDeduct,
-      },
-    );
-
-    if (error) {
-      if (error.message.includes('INSUFFICIENT_CREDITS')) {
-        throw new BadRequestException({
-          statusCode: 400,
-          code: 'INSUFFICIENT_CREDITS',
-          message: 'Insufficient credits. Please recharge your credit wallet to continue applying.',
-        });
-      }
-      throw new BadRequestException(error.message);
+    const { balance } = await this.calculateBalance(userId);
+    if (balance < amountToDeduct) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: 'INSUFFICIENT_CREDITS',
+        message: 'Insufficient credits. Please recharge your credit wallet to continue applying.',
+      });
     }
 
-    const res = data as { success: boolean; remaining_balance: number };
     const now = new Date().toISOString();
     const row: CreditLedgerRow = {
       id: randomUUID(),
@@ -188,9 +186,12 @@ export class CreditLedgerRepository {
       created_at: now,
     };
 
+    await this.append(row);
+    const remainingBalance = balance - amountToDeduct;
+
     return {
-      success: res.success,
-      remainingBalance: res.remaining_balance,
+      success: true,
+      remainingBalance,
       row,
     };
   }

@@ -1663,6 +1663,167 @@ export type Database = {
       [_ in never]: never
     }
   }
+  private_payments: {
+    Tables: {
+      invoice_counters: {
+        Row: {
+          fy: string
+          kind: string
+          last_seq: number
+        }
+        ComputedFields: never
+        Insert: {
+          fy: string
+          kind: string
+          last_seq: number
+        }
+        Update: {
+          fy?: string
+          kind?: string
+          last_seq?: number
+        }
+        Relationships: []
+      }
+      outbox: {
+        Row: {
+          attempts: number
+          created_at: string
+          done_at: string | null
+          id: string
+          kind: string
+          payment_id: string
+        }
+        ComputedFields: never
+        Insert: {
+          attempts?: number
+          created_at?: string
+          done_at?: string | null
+          id?: string
+          kind: string
+          payment_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          done_at?: string | null
+          id?: string
+          kind?: string
+          payment_id?: string
+        }
+        Relationships: []
+      }
+      payment_anomalies: {
+        Row: {
+          acknowledged_at: string | null
+          created_at: string
+          details: NonNullable<Json>
+          gateway_order_id: string | null
+          gateway_payment_id: string | null
+          id: string
+          kind: string
+        }
+        ComputedFields: never
+        Insert: {
+          acknowledged_at?: string | null
+          created_at?: string
+          details?: NonNullable<Json>
+          gateway_order_id?: string | null
+          gateway_payment_id?: string | null
+          id?: string
+          kind: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          created_at?: string
+          details?: NonNullable<Json>
+          gateway_order_id?: string | null
+          gateway_payment_id?: string | null
+          id?: string
+          kind?: string
+        }
+        Relationships: []
+      }
+      payment_grants: {
+        Row: {
+          created_at: string
+          grant_ref: string
+          grant_type: string
+          payment_id: string
+        }
+        ComputedFields: never
+        Insert: {
+          created_at?: string
+          grant_ref: string
+          grant_type: string
+          payment_id: string
+        }
+        Update: {
+          created_at?: string
+          grant_ref?: string
+          grant_type?: string
+          payment_id?: string
+        }
+        Relationships: []
+      }
+      webhook_events: {
+        Row: {
+          event_id: string
+          event_type: string
+          received_at: string
+        }
+        ComputedFields: never
+        Insert: {
+          event_id: string
+          event_type: string
+          received_at?: string
+        }
+        Update: {
+          event_id?: string
+          event_type?: string
+          received_at?: string
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      audit: {
+        Args: {
+          p_action: string
+          p_actor: string
+          p_entity: string
+          p_entity_id: string
+          p_meta: Json
+        }
+        Returns: undefined
+      }
+      charge_application: {
+        Args: { p_applicant: string; p_job: string }
+        Returns: Json
+      }
+      get_balance: { Args: { p_user_id: string }; Returns: number }
+      settle_payment: {
+        Args: {
+          p_amount_paise: number
+          p_currency: string
+          p_event_id: string
+          p_gateway_order_id: string
+          p_gateway_payment_id: string
+          p_method: string
+          p_source: string
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       alert_deliveries: {
@@ -1699,12 +1860,6 @@ export type Database = {
             foreignKeyName: "alert_deliveries_job_id_fkey"
             columns: ["job_id"]
             referencedRelation: "jobs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "alert_deliveries_job_id_fkey"
-            columns: ["job_id"]
-            referencedRelation: "public_jobs"
             referencedColumns: ["id"]
           },
           {
@@ -1770,12 +1925,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "applications_job_id_fkey"
-            columns: ["job_id"]
-            referencedRelation: "public_jobs"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "applications_updated_by_fkey"
             columns: ["updated_by"]
             referencedRelation: "users"
@@ -1788,23 +1937,32 @@ export type Database = {
           action: string
           actor_id: string | null
           created_at: string
+          entity_id: string | null
+          entity_type: string | null
           id: string
           meta: Json | null
+          metadata: Json | null
         }
         ComputedFields: never
         Insert: {
           action: string
           actor_id?: string | null
           created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
           id?: string
           meta?: Json | null
+          metadata?: Json | null
         }
         Update: {
           action?: string
           actor_id?: string | null
           created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
           id?: string
           meta?: Json | null
+          metadata?: Json | null
         }
         Relationships: [
           {
@@ -1911,12 +2069,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "broadcast_deliveries_business_profile_id_fkey"
-            columns: ["business_profile_id"]
-            referencedRelation: "public_business_profiles"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "broadcast_deliveries_campaign_id_fkey"
             columns: ["campaign_id"]
             referencedRelation: "broadcast_campaigns"
@@ -2015,6 +2167,7 @@ export type Database = {
           ownership_type: string
           phone: string | null
           products_brief: string | null
+          public_slug: string
           sector: string | null
           services_brief: string | null
           social_media: Json | null
@@ -2050,6 +2203,7 @@ export type Database = {
           ownership_type: string
           phone?: string | null
           products_brief?: string | null
+          public_slug?: string
           sector?: string | null
           services_brief?: string | null
           social_media?: Json | null
@@ -2084,6 +2238,7 @@ export type Database = {
           ownership_type?: string
           phone?: string | null
           products_brief?: string | null
+          public_slug?: string
           sector?: string | null
           services_brief?: string | null
           social_media?: Json | null
@@ -2181,32 +2336,40 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "corporate_tie_ups_employer_id_fkey"
-            columns: ["employer_id"]
-            referencedRelation: "public_business_profiles"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "corporate_tie_ups_institution_id_fkey"
             columns: ["institution_id"]
             referencedRelation: "institution_profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "corporate_tie_ups_institution_id_fkey"
-            columns: ["institution_id"]
-            referencedRelation: "public_institution_profiles"
-            referencedColumns: ["id"]
-          },
         ]
+      }
+      credit_action_costs: {
+        Row: {
+          action: string
+          cost: number
+        }
+        ComputedFields: never
+        Insert: {
+          action: string
+          cost: number
+        }
+        Update: {
+          action?: string
+          cost?: number
+        }
+        Relationships: []
       }
       credit_ledgers: {
         Row: {
           actor_id: string | null
           amount: number
           created_at: string
+          expires_at: string | null
           id: string
+          payment_id: string | null
           reason: string
+          ref_id: string | null
+          source: string | null
           user_id: string
         }
         ComputedFields: never
@@ -2214,19 +2377,33 @@ export type Database = {
           actor_id?: string | null
           amount: number
           created_at?: string
+          expires_at?: string | null
           id?: string
+          payment_id?: string | null
           reason: string
+          ref_id?: string | null
+          source?: string | null
           user_id: string
         }
         Update: {
           actor_id?: string | null
           amount?: number
           created_at?: string
+          expires_at?: string | null
           id?: string
+          payment_id?: string | null
           reason?: string
+          ref_id?: string | null
+          source?: string | null
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "credit_ledgers_payment_id_fkey"
+            columns: ["payment_id"]
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "credit_ledgers_user_id_fkey"
             columns: ["user_id"]
@@ -2292,12 +2469,6 @@ export type Database = {
             referencedRelation: "institution_profiles"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "institution_inquiries_institution_id_fkey"
-            columns: ["institution_id"]
-            referencedRelation: "public_institution_profiles"
-            referencedColumns: ["id"]
-          },
         ]
       }
       institution_profiles: {
@@ -2325,6 +2496,7 @@ export type Database = {
           pincode: string | null
           placement_brochure_url: string | null
           principal_name: string | null
+          public_slug: string
           source: string | null
           sponsorship_expires_at: string | null
           sponsorship_rate_per_student: number | null
@@ -2362,6 +2534,7 @@ export type Database = {
           pincode?: string | null
           placement_brochure_url?: string | null
           principal_name?: string | null
+          public_slug?: string
           source?: string | null
           sponsorship_expires_at?: string | null
           sponsorship_rate_per_student?: number | null
@@ -2398,6 +2571,7 @@ export type Database = {
           pincode?: string | null
           placement_brochure_url?: string | null
           principal_name?: string | null
+          public_slug?: string
           source?: string | null
           sponsorship_expires_at?: string | null
           sponsorship_rate_per_student?: number | null
@@ -2440,10 +2614,14 @@ export type Database = {
           id: string
           idempotency_key: string | null
           institution_id: string
+          payment_id: string | null
           payment_reference: string | null
+          rate_paise: number | null
           rate_per_student: number
+          seats_used: number
           started_at: string
           status: string
+          student_cap: number | null
           student_count: number
           tier: string
           updated_at: string
@@ -2457,10 +2635,14 @@ export type Database = {
           id?: string
           idempotency_key?: string | null
           institution_id: string
+          payment_id?: string | null
           payment_reference?: string | null
+          rate_paise?: number | null
           rate_per_student?: number
+          seats_used?: number
           started_at?: string
           status?: string
+          student_cap?: number | null
           student_count?: number
           tier?: string
           updated_at?: string
@@ -2473,10 +2655,14 @@ export type Database = {
           id?: string
           idempotency_key?: string | null
           institution_id?: string
+          payment_id?: string | null
           payment_reference?: string | null
+          rate_paise?: number | null
           rate_per_student?: number
+          seats_used?: number
           started_at?: string
           status?: string
+          student_cap?: number | null
           student_count?: number
           tier?: string
           updated_at?: string
@@ -2495,9 +2681,9 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "institution_sponsorships_institution_id_fkey"
-            columns: ["institution_id"]
-            referencedRelation: "public_institution_profiles"
+            foreignKeyName: "institution_sponsorships_payment_id_fkey"
+            columns: ["payment_id"]
+            referencedRelation: "payments"
             referencedColumns: ["id"]
           },
         ]
@@ -2599,6 +2785,65 @@ export type Database = {
           },
         ]
       }
+      invoices: {
+        Row: {
+          billing_snapshot: NonNullable<Json>
+          cgst_paise: number
+          emailed_at: string | null
+          fy: string
+          id: string
+          igst_paise: number
+          issued_at: string
+          kind: string
+          number: string
+          payment_id: string
+          pdf_path: string | null
+          sgst_paise: number
+          taxable_paise: number
+          total_paise: number
+        }
+        ComputedFields: never
+        Insert: {
+          billing_snapshot: NonNullable<Json>
+          cgst_paise?: number
+          emailed_at?: string | null
+          fy: string
+          id?: string
+          igst_paise?: number
+          issued_at?: string
+          kind: string
+          number: string
+          payment_id: string
+          pdf_path?: string | null
+          sgst_paise?: number
+          taxable_paise: number
+          total_paise: number
+        }
+        Update: {
+          billing_snapshot?: NonNullable<Json>
+          cgst_paise?: number
+          emailed_at?: string | null
+          fy?: string
+          id?: string
+          igst_paise?: number
+          issued_at?: string
+          kind?: string
+          number?: string
+          payment_id?: string
+          pdf_path?: string | null
+          sgst_paise?: number
+          taxable_paise?: number
+          total_paise?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_payment_id_fkey"
+            columns: ["payment_id"]
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_alerts: {
         Row: {
           created_at: string
@@ -2666,10 +2911,12 @@ export type Database = {
           pincode: string | null
           preferred_categories: string[] | null
           preferred_locations: string[] | null
+          public_slug: string
           qualification: string | null
           seeker_type: string
           skills: string[] | null
           source: string | null
+          sponsorship_id: string | null
           state: string | null
           updated_at: string
           updated_by: string | null
@@ -2702,10 +2949,12 @@ export type Database = {
           pincode?: string | null
           preferred_categories?: string[] | null
           preferred_locations?: string[] | null
+          public_slug?: string
           qualification?: string | null
           seeker_type?: string
           skills?: string[] | null
           source?: string | null
+          sponsorship_id?: string | null
           state?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -2737,10 +2986,12 @@ export type Database = {
           pincode?: string | null
           preferred_categories?: string[] | null
           preferred_locations?: string[] | null
+          public_slug?: string
           qualification?: string | null
           seeker_type?: string
           skills?: string[] | null
           source?: string | null
+          sponsorship_id?: string | null
           state?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -2761,9 +3012,9 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "job_seeker_profiles_institution_id_fkey"
-            columns: ["institution_id"]
-            referencedRelation: "public_institution_profiles"
+            foreignKeyName: "job_seeker_profiles_sponsorship_id_fkey"
+            columns: ["sponsorship_id"]
+            referencedRelation: "institution_sponsorships"
             referencedColumns: ["id"]
           },
           {
@@ -2800,6 +3051,7 @@ export type Database = {
           max_pay: number | null
           min_pay: number | null
           openings: number
+          public_slug: string
           skills: string[] | null
           source: string | null
           state: string | null
@@ -2827,6 +3079,7 @@ export type Database = {
           max_pay?: number | null
           min_pay?: number | null
           openings?: number
+          public_slug?: string
           skills?: string[] | null
           source?: string | null
           state?: string | null
@@ -2853,6 +3106,7 @@ export type Database = {
           max_pay?: number | null
           min_pay?: number | null
           openings?: number
+          public_slug?: string
           skills?: string[] | null
           source?: string | null
           state?: string | null
@@ -2906,11 +3160,52 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_refunds: {
+        Row: {
+          amount_paise: number
+          created_at: string
+          credits_reversed: number
+          gateway_refund_id: string
+          id: string
+          payment_id: string
+          unrecovered_credits: number
+        }
+        ComputedFields: never
+        Insert: {
+          amount_paise: number
+          created_at?: string
+          credits_reversed?: number
+          gateway_refund_id: string
+          id?: string
+          payment_id: string
+          unrecovered_credits?: number
+        }
+        Update: {
+          amount_paise?: number
+          created_at?: string
+          credits_reversed?: number
+          gateway_refund_id?: string
+          id?: string
+          payment_id?: string
+          unrecovered_credits?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_refunds_payment_id_fkey"
+            columns: ["payment_id"]
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           amount_inr: number
+          amount_paise: number
+          billing_state_code: string | null
           created_at: string
           credits_added: number
+          credits_to_grant: number
           currency: string
           gateway_order_id: string
           gateway_payment_id: string | null
@@ -2918,19 +3213,27 @@ export type Database = {
           id: string
           invoice_number: string | null
           metadata: Json | null
+          order_snapshot: NonNullable<Json>
           pack_id: string | null
+          payment_method: string | null
           processed_at: string | null
           processed_by: string | null
+          purpose: string
+          settled_at: string | null
           status: string
           tax_amount_inr: number
+          terms_version: string | null
           updated_at: string
           user_id: string
         }
         ComputedFields: never
         Insert: {
           amount_inr: number
+          amount_paise: number
+          billing_state_code?: string | null
           created_at?: string
           credits_added?: number
+          credits_to_grant?: number
           currency?: string
           gateway_order_id: string
           gateway_payment_id?: string | null
@@ -2938,18 +3241,26 @@ export type Database = {
           id?: string
           invoice_number?: string | null
           metadata?: Json | null
+          order_snapshot?: NonNullable<Json>
           pack_id?: string | null
+          payment_method?: string | null
           processed_at?: string | null
           processed_by?: string | null
+          purpose: string
+          settled_at?: string | null
           status: string
           tax_amount_inr?: number
+          terms_version?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           amount_inr?: number
+          amount_paise?: number
+          billing_state_code?: string | null
           created_at?: string
           credits_added?: number
+          credits_to_grant?: number
           currency?: string
           gateway_order_id?: string
           gateway_payment_id?: string | null
@@ -2957,11 +3268,16 @@ export type Database = {
           id?: string
           invoice_number?: string | null
           metadata?: Json | null
+          order_snapshot?: NonNullable<Json>
           pack_id?: string | null
+          payment_method?: string | null
           processed_at?: string | null
           processed_by?: string | null
+          purpose?: string
+          settled_at?: string | null
           status?: string
           tax_amount_inr?: number
+          terms_version?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -3029,21 +3345,9 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "placement_applications_institution_id_fkey"
-            columns: ["institution_id"]
-            referencedRelation: "public_institution_profiles"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "placement_applications_job_id_fkey"
             columns: ["job_id"]
             referencedRelation: "jobs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "placement_applications_job_id_fkey"
-            columns: ["job_id"]
-            referencedRelation: "public_jobs"
             referencedColumns: ["id"]
           },
           {
@@ -3059,6 +3363,22 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      platform_settings: {
+        Row: {
+          key: string
+          value: NonNullable<Json>
+        }
+        ComputedFields: never
+        Insert: {
+          key: string
+          value: NonNullable<Json>
+        }
+        Update: {
+          key?: string
+          value?: NonNullable<Json>
+        }
+        Relationships: []
       }
       search_logs: {
         Row: {
@@ -3132,7 +3452,7 @@ export type Database = {
           email_verified_at: string | null
           id: string
           pending_email: string | null
-          phone: string
+          phone: string | null
           role: Database["public"]["Enums"]["user_role"]
           source: string | null
           status: Database["public"]["Enums"]["user_status"]
@@ -3148,7 +3468,7 @@ export type Database = {
           email_verified_at?: string | null
           id?: string
           pending_email?: string | null
-          phone: string
+          phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           source?: string | null
           status?: Database["public"]["Enums"]["user_status"]
@@ -3163,7 +3483,7 @@ export type Database = {
           email_verified_at?: string | null
           id?: string
           pending_email?: string | null
-          phone?: string
+          phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           source?: string | null
           status?: Database["public"]["Enums"]["user_status"]
@@ -3196,7 +3516,6 @@ export type Database = {
           company_size: string | null
           created_at: string | null
           district: string | null
-          id: string | null
           is_dpiit_startup: boolean | null
           is_msme: boolean | null
           know_my_business: string | null
@@ -3205,6 +3524,7 @@ export type Database = {
           products_brief: string | null
           sector: string | null
           services_brief: string | null
+          slug: string | null
           state: string | null
           website: string | null
           year_of_registration: string | null
@@ -3217,7 +3537,6 @@ export type Database = {
           company_size?: string | null
           created_at?: string | null
           district?: string | null
-          id?: string | null
           is_dpiit_startup?: boolean | null
           is_msme?: boolean | null
           know_my_business?: string | null
@@ -3226,6 +3545,7 @@ export type Database = {
           products_brief?: string | null
           sector?: string | null
           services_brief?: string | null
+          slug?: string | null
           state?: string | null
           website?: string | null
           year_of_registration?: string | null
@@ -3237,7 +3557,6 @@ export type Database = {
           company_size?: string | null
           created_at?: string | null
           district?: string | null
-          id?: string | null
           is_dpiit_startup?: boolean | null
           is_msme?: boolean | null
           know_my_business?: string | null
@@ -3246,6 +3565,7 @@ export type Database = {
           products_brief?: string | null
           sector?: string | null
           services_brief?: string | null
+          slug?: string | null
           state?: string | null
           website?: string | null
           year_of_registration?: string | null
@@ -3262,10 +3582,10 @@ export type Database = {
           created_at: string | null
           district: string | null
           establishment_year: number | null
-          id: string | null
           institution_name: string | null
           institution_type: string | null
           placement_brochure_url: string | null
+          slug: string | null
           state: string | null
           trades_offered: string[] | null
           website: string | null
@@ -3280,10 +3600,10 @@ export type Database = {
           created_at?: string | null
           district?: string | null
           establishment_year?: number | null
-          id?: string | null
           institution_name?: string | null
           institution_type?: string | null
           placement_brochure_url?: string | null
+          slug?: string | null
           state?: string | null
           trades_offered?: string[] | null
           website?: string | null
@@ -3297,10 +3617,10 @@ export type Database = {
           created_at?: string | null
           district?: string | null
           establishment_year?: number | null
-          id?: string | null
           institution_name?: string | null
           institution_type?: string | null
           placement_brochure_url?: string | null
+          slug?: string | null
           state?: string | null
           trades_offered?: string[] | null
           website?: string | null
@@ -3311,84 +3631,32 @@ export type Database = {
         Row: {
           category: Database["public"]["Enums"]["job_category"] | null
           city: string | null
+          company_slug: string | null
           created_at: string | null
           description: string | null
           district: string | null
-          employer_id: string | null
           employment_type: string | null
           experience_level: string | null
           expiry_date: string | null
           featured_until: string | null
-          id: string | null
           is_featured: boolean | null
           max_pay: number | null
           min_pay: number | null
           openings: number | null
           skills: string[] | null
+          slug: string | null
           state: string | null
           title: string | null
         }
         ComputedFields: never
-        Insert: {
-          category?: Database["public"]["Enums"]["job_category"] | null
-          city?: string | null
-          created_at?: string | null
-          description?: string | null
-          district?: string | null
-          employer_id?: string | null
-          employment_type?: string | null
-          experience_level?: string | null
-          expiry_date?: string | null
-          featured_until?: string | null
-          id?: string | null
-          is_featured?: boolean | null
-          max_pay?: number | null
-          min_pay?: number | null
-          openings?: number | null
-          skills?: string[] | null
-          state?: string | null
-          title?: string | null
-        }
-        Update: {
-          category?: Database["public"]["Enums"]["job_category"] | null
-          city?: string | null
-          created_at?: string | null
-          description?: string | null
-          district?: string | null
-          employer_id?: string | null
-          employment_type?: string | null
-          experience_level?: string | null
-          expiry_date?: string | null
-          featured_until?: string | null
-          id?: string | null
-          is_featured?: boolean | null
-          max_pay?: number | null
-          min_pay?: number | null
-          openings?: number | null
-          skills?: string[] | null
-          state?: string | null
-          title?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "jobs_employer_id_fkey"
-            columns: ["employer_id"]
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Functions: {
       anonymise_user: { Args: { p_user_id: string }; Returns: Json }
-      deduct_application_credit_with_ledger: {
-        Args: {
-          p_applicant_id: string
-          p_cost?: number
-          p_job_id: string
-          p_job_title: string
-        }
-        Returns: Json
+      generate_public_slug: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
       get_district_employment_reports: {
         Args: Record<PropertyKey, never>
@@ -3399,7 +3667,6 @@ export type Database = {
           total_hires: number
         }[]
       }
-      get_user_credit_balance: { Args: { p_user_id: string }; Returns: Json }
       grant_starter_credits: { Args: { p_user_id: string }; Returns: boolean }
       increment_token_version: {
         Args: { p_user_id: string }
@@ -3417,6 +3684,23 @@ export type Database = {
         }
         Returns: Json
       }
+      rpc_charge_application: {
+        Args: { p_applicant_id: string; p_job_id: string }
+        Returns: Json
+      }
+      rpc_get_balance: { Args: { p_user_id: string }; Returns: number }
+      rpc_settle_payment: {
+        Args: {
+          p_amount_paise: number
+          p_currency: string
+          p_event_id: string
+          p_gateway_order_id: string
+          p_gateway_payment_id: string
+          p_method: string
+          p_source: string
+        }
+        Returns: Json
+      }
       search_jobs: {
         Args: {
           p_category?: string
@@ -3429,28 +3713,26 @@ export type Database = {
         Returns: {
           category: Database["public"]["Enums"]["job_category"]
           city: string
+          company_slug: string
           created_at: string
-          created_by: string
           description: string
           district: string
-          employer_id: string
           employment_type: string
           experience_level: string
           expiry_date: string
           featured_until: string
-          id: string
           is_active: boolean
           is_featured: boolean
           max_pay: number
           min_pay: number
           openings: number
           skills: string[]
+          slug: string
           source: string
           state: string
           title: string
           total_count: number
           updated_at: string
-          updated_by: string
         }[]
       }
       unlock_contact_with_ledger: {
@@ -3714,6 +3996,49 @@ export type Database = {
         Relationships: []
       }
       messages_2026_11_14: {
+        Row: {
+          binary_payload: string | null
+          event: string | null
+          expires_at: string | null
+          extension: string
+          id: string
+          inserted_at: string
+          payload: Json | null
+          private: boolean | null
+          skip_broadcast: boolean
+          topic: string
+          updated_at: string
+        }
+        ComputedFields: never
+        Insert: {
+          binary_payload?: string | null
+          event?: string | null
+          expires_at?: string | null
+          extension: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          skip_broadcast?: boolean
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          binary_payload?: string | null
+          event?: string | null
+          expires_at?: string | null
+          extension?: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          skip_broadcast?: boolean
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages_2026_11_15: {
         Row: {
           binary_payload: string | null
           event: string | null
@@ -5049,6 +5374,9 @@ export const Constants = {
     Enums: {},
   },
   pgbouncer: {
+    Enums: {},
+  },
+  private_payments: {
     Enums: {},
   },
   public: {

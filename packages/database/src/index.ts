@@ -183,6 +183,9 @@ export interface Database {
         action: string;
         meta: Record<string, unknown>;
         created_at: string;
+        entity_type?: string | null;
+        entity_id?: string | null;
+        metadata?: Record<string, unknown> | null;
       }>;
       bulk_import_batches: TableDefinition<{
         id: string;
@@ -226,6 +229,10 @@ export interface Database {
         reason: string;
         actor_id: string | null;
         created_at: string;
+        payment_id?: string | null;
+        ref_id?: string | null;
+        expires_at?: string | null;
+        source?: string | null;
       }>;
       payments: TableDefinition<{
         id: string;
@@ -444,17 +451,42 @@ export interface Database {
         Args: { p_user_id: string };
         Returns: Record<string, unknown>;
       };
-      deduct_application_credit_with_ledger: {
-        Args: { p_applicant_id: string; p_job_id: string; p_job_title: string; p_cost?: number };
-        Returns: Record<string, unknown>;
-      };
       get_district_employment_reports: {
         Args: Record<PropertyKey, never>;
         Returns: { district: string; onboarded_msmes: number; active_jobs: number; total_hires: number }[];
       };
-      get_user_credit_balance: {
-        Args: { p_user_id: string };
-        Returns: { user_id: string; balance: number };
+      rpc_settle_payment: {
+        Args: {
+          p_gateway_order_id: string;
+          p_gateway_payment_id: string;
+          p_amount_paise: number;
+          p_currency: string;
+          p_method: string;
+          p_event_id?: string | null;
+          p_source: string;
+        };
+        Returns: {
+          status: 'settled' | 'already_settled' | 'duplicate_event' | 'amount_mismatch' | 'unknown_order' | 'duplicate_capture';
+          payment_id?: string;
+          purpose?: string;
+        };
+      };
+      rpc_charge_application: {
+        Args: {
+          p_applicant_id: string;
+          p_job_id: string;
+        };
+        Returns: {
+          charged: boolean;
+          sponsored: boolean;
+          balance: number;
+        };
+      };
+      rpc_get_balance: {
+        Args: {
+          p_user_id: string;
+        };
+        Returns: number;
       };
       grant_starter_credits: {
         Args: { p_user_id: string };
