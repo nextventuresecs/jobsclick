@@ -165,6 +165,7 @@ export const SPONSORSHIP_TIERS = {
     nameHi: 'छोटा परिसर स्तर',
     maxStudents: 2000,
     ratePerStudentInr: 150,
+    ratePaise: 15000,
   },
   Medium: {
     tier: 'Medium' as const,
@@ -173,6 +174,7 @@ export const SPONSORSHIP_TIERS = {
     minStudents: 2001,
     maxStudents: 10000,
     ratePerStudentInr: 100,
+    ratePaise: 10000,
   },
   Large: {
     tier: 'Large' as const,
@@ -180,10 +182,77 @@ export const SPONSORSHIP_TIERS = {
     nameHi: 'बड़ा परिसर स्तर',
     minStudents: 10001,
     ratePerStudentInr: 70,
+    ratePaise: 7000,
   },
 } as const;
 
 export const sponsorshipTierSchema = z.enum(['Small', 'Medium', 'Large']);
+
+export interface SponsorshipOrderSnapshot {
+  institutionId: string;
+  tier: SponsorshipTier;
+  ratePaise: number;
+  studentCap: number;
+  subtotalPaise: number;
+  gstPaise: number;
+  totalPaise: number;
+  termDays: number;
+  pricingVersion: string;
+}
+
+export const sponsorshipOrderSnapshotSchema = z.object({
+  institutionId: z.string().uuid(),
+  tier: sponsorshipTierSchema,
+  ratePaise: z.number().int().positive(),
+  studentCap: z.number().int().positive(),
+  subtotalPaise: z.number().int().positive(),
+  gstPaise: z.number().int().nonnegative(),
+  totalPaise: z.number().int().positive(),
+  termDays: z.number().int().positive().default(365),
+  pricingVersion: z.string().default('2026.1'),
+});
+
+export function computeSponsorshipQuote(
+  institutionId: string,
+  students: number,
+  termDays = 365,
+  pricingVersion = '2026.1',
+): SponsorshipOrderSnapshot {
+  if (!Number.isInteger(students) || students < 1) {
+    throw new Error('Student count must be a positive integer');
+  }
+
+  let tier: SponsorshipTier;
+  let ratePaise: number;
+
+  if (students <= SPONSORSHIP_TIERS.Small.maxStudents) {
+    tier = 'Small';
+    ratePaise = SPONSORSHIP_TIERS.Small.ratePaise;
+  } else if (students <= SPONSORSHIP_TIERS.Medium.maxStudents) {
+    tier = 'Medium';
+    ratePaise = SPONSORSHIP_TIERS.Medium.ratePaise;
+  } else {
+    tier = 'Large';
+    ratePaise = SPONSORSHIP_TIERS.Large.ratePaise;
+  }
+
+  const subtotalPaise = students * ratePaise;
+  // Always integral because subtotal is a multiple of 100
+  const gstPaise = Math.round((subtotalPaise * 18) / 100);
+  const totalPaise = subtotalPaise + gstPaise;
+
+  return {
+    institutionId,
+    tier,
+    ratePaise,
+    studentCap: students,
+    subtotalPaise,
+    gstPaise,
+    totalPaise,
+    termDays,
+    pricingVersion,
+  };
+}
 
 export const sponsorshipQuoteSchema = z.object({
   institutionId: z.string(),

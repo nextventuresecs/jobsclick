@@ -39,7 +39,7 @@ export class WorkerSmsService {
       return {
         success: true,
         message: 'Invite SMS dispatched via MSG91 mock handler (QA whitelist)',
-        messageId: randomUUID(),
+        messageId: `qa_whitelist_invite_${randomUUID()}`,
       };
     }
 
@@ -48,7 +48,7 @@ export class WorkerSmsService {
       return {
         success: true,
         message: 'Invite SMS dispatched via MSG91 mock handler',
-        messageId: randomUUID(),
+        messageId: `mock_invite_${randomUUID()}`,
       };
     }
 

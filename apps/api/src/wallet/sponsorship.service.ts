@@ -306,14 +306,7 @@ export class SponsorshipService {
         institution.id,
         true,
       );
-      let countByName = 0;
-      if (institution.institution_name) {
-        countByName = await this.profileRepository.updateStudentSponsorshipByInstitution(
-          institution.institution_name,
-          true,
-        );
-      }
-      const totalSponsoredStudents = Math.max(quote.studentCount, countById, countByName);
+      const totalSponsoredStudents = Math.max(quote.studentCount, countById);
 
       // 1-year annual duration
       const now = new Date();

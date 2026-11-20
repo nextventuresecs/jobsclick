@@ -466,10 +466,17 @@ export interface Database {
           p_source: string;
         };
         Returns: {
-          status: 'settled' | 'already_settled' | 'duplicate_event' | 'amount_mismatch' | 'unknown_order' | 'duplicate_capture';
+          status: 'settled' | 'already_settled' | 'duplicate_event' | 'amount_mismatch' | 'unknown_order' | 'duplicate_capture' | 'precondition_failed';
           payment_id?: string;
           purpose?: string;
         };
+      };
+      rpc_claim_sponsorship_seats: {
+        Args: {
+          p_inst: string;
+          p_profile_ids: string[];
+        };
+        Returns: number;
       };
       rpc_charge_application: {
         Args: {

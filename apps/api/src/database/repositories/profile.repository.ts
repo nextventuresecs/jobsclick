@@ -107,13 +107,13 @@ export class ProfileRepository {
     return profile;
   }
 
-  async findStudentsByInstitution(institutionIdOrName: string): Promise<JobSeekerProfileRow[]> {
+  async findStudentsByInstitution(institutionId: string): Promise<JobSeekerProfileRow[]> {
     if (!this.isTestMode) {
       try {
         const { data, error } = await this.supabase
           .from('job_seeker_profiles')
           .select('*')
-          .or(`institution_id.eq.${institutionIdOrName},institution.eq.${institutionIdOrName}`);
+          .eq('institution_id', institutionId);
         if (error) {
           throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
         }
@@ -125,22 +125,18 @@ export class ProfileRepository {
       }
     }
     const profiles = this.persistentStore.getTable<JobSeekerProfileRow>('job_seeker_profiles');
-    return Object.values(profiles).filter(
-      (p) =>
-        p.institution_id === institutionIdOrName ||
-        p.institution === institutionIdOrName,
-    );
+    return Object.values(profiles).filter((p) => p.institution_id === institutionId);
   }
 
   async updateStudentSponsorshipByInstitution(
-    institutionIdOrName: string,
+    institutionId: string,
     isSponsored: boolean,
   ): Promise<number> {
     const now = new Date().toISOString();
     const { data, error } = await this.supabase
       .from('job_seeker_profiles')
       .update({ is_sponsored: isSponsored, updated_at: now })
-      .or(`institution_id.eq.${institutionIdOrName},institution.eq.${institutionIdOrName}`)
+      .eq('institution_id', institutionId)
       .select('id');
 
     if (error) {

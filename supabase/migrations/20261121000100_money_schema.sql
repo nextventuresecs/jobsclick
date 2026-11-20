@@ -32,16 +32,16 @@ alter table public.payments
 do $$
 begin
   if not exists (select 1 from pg_constraint where conname = 'payments_purpose_chk') then
-    alter table public.payments add constraint payments_purpose_chk check (purpose in ('wallet','sponsorship'));
+    alter table public.payments add constraint payments_purpose_chk check (purpose in ('wallet','sponsorship')) not valid;
   end if;
   if not exists (select 1 from pg_constraint where conname = 'payments_amount_chk') then
-    alter table public.payments add constraint payments_amount_chk check (amount_paise > 0);
+    alter table public.payments add constraint payments_amount_chk check (amount_paise > 0) not valid;
   end if;
   if not exists (select 1 from pg_constraint where conname = 'payments_currency_chk') then
-    alter table public.payments add constraint payments_currency_chk check (currency = 'INR');
+    alter table public.payments add constraint payments_currency_chk check (currency = 'INR') not valid;
   end if;
   if not exists (select 1 from pg_constraint where conname = 'payments_status_chk') then
-    alter table public.payments add constraint payments_status_chk check (status in ('created','captured','expired','partially_refunded','refunded'));
+    alter table public.payments add constraint payments_status_chk check (status in ('created','captured','expired','partially_refunded','refunded')) not valid;
   end if;
 end $$;
 
@@ -80,11 +80,11 @@ do $$
 begin
   if not exists (select 1 from pg_constraint where conname = 'sponsorship_seats_chk') then
     alter table public.institution_sponsorships
-      add constraint sponsorship_seats_chk check (seats_used >= 0 and (student_cap is null or seats_used <= student_cap));
+      add constraint sponsorship_seats_chk check (seats_used >= 0 and (student_cap is null or seats_used <= student_cap)) not valid;
   end if;
   if not exists (select 1 from pg_constraint where conname = 'sponsorship_status_chk') then
     alter table public.institution_sponsorships
-      add constraint sponsorship_status_chk check (status in ('active','expired','revoked'));
+      add constraint sponsorship_status_chk check (status in ('active','expired','revoked')) not valid;
   end if;
 end $$;
 

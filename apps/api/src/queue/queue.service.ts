@@ -170,6 +170,7 @@ export class QueueService implements OnModuleDestroy {
     csvContent?: string;
     storagePath?: string;
     shouldSimulateFailure?: boolean;
+    institutionId?: string | null;
     _traceContext?: { sentryTrace?: string; baggage?: string; traceId?: string };
   }) {
     const jobData = this.enrichJobData(data);

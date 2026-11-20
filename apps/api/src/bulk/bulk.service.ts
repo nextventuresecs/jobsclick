@@ -21,6 +21,7 @@ if (typeof globalThis.WebSocket === 'undefined') {
 
 export interface BulkBatchRecord {
   createdBy?: string | null;
+  institutionId?: string | null;
   id: string;
   source: string;
   entityType: 'student' | 'employer';
@@ -153,12 +154,31 @@ export class BulkService {
     const batchId = randomUUID();
     const now = new Date().toISOString();
 
+    // Resolve batch owner's institution profile server-side (never from CSV)
+    let institutionId: string | null = null;
+    if (actor && actor.id && !this.isTestMode) {
+      try {
+        const { data: inst } = await this.supabase
+          .from('institution_profiles')
+          .select('id')
+          .or(`user_id.eq.${actor.id},created_by.eq.${actor.id}`)
+          .limit(1)
+          .maybeSingle();
+        if (inst?.id) {
+          institutionId = inst.id;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     // Direct Supabase Storage upload flow (Ticket T-08)
     if (input.storagePath) {
       if (this.isTestMode) {
         const record: BulkBatchRecord = {
           id: batchId,
           createdBy: actor!.id,
+          institutionId,
           source: input.source,
           entityType: input.entityType || 'student',
           totalRows: 0,
@@ -178,6 +198,7 @@ export class BulkService {
           source: input.source,
           entityType: input.entityType,
           storagePath: input.storagePath,
+          institutionId,
         });
         return record;
       }
@@ -192,6 +213,7 @@ export class BulkService {
           total_rows: 0,
           status: 'queued' as TaskStatus,
           csv_storage_path: input.storagePath,
+          institution_id: institutionId,
         })
         .select()
         .single();
@@ -205,6 +227,7 @@ export class BulkService {
         source: input.source,
         entityType: input.entityType,
         storagePath: input.storagePath,
+        institutionId,
       });
       return this.toBatchRecord(batch);
     }
@@ -267,6 +290,7 @@ export class BulkService {
         source: input.source,
         entityType: input.entityType,
         csvContent,
+        institutionId,
       });
 
       return record;
@@ -281,6 +305,7 @@ export class BulkService {
         entity_type: input.entityType || 'student',
         total_rows: records.length,
         status: 'queued' as TaskStatus,
+        institution_id: institutionId,
       })
       .select()
       .single();
@@ -294,6 +319,7 @@ export class BulkService {
       source: input.source,
       entityType: input.entityType,
       csvContent,
+      institutionId,
     });
 
     return this.toBatchRecord(batch);
@@ -673,6 +699,7 @@ export class BulkService {
     return {
       id: row.id,
       createdBy: row.created_by,
+      institutionId: row.institution_id || null,
       source: row.source,
       entityType: row.entity_type,
       totalRows: row.total_rows,

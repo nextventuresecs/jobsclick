@@ -3688,6 +3688,13 @@ export type Database = {
         Args: { p_applicant_id: string; p_job_id: string }
         Returns: Json
       }
+      rpc_claim_sponsorship_seats: {
+        Args: {
+          p_inst: string
+          p_profile_ids: string[]
+        }
+        Returns: number
+      }
       rpc_get_balance: { Args: { p_user_id: string }; Returns: number }
       rpc_settle_payment: {
         Args: {

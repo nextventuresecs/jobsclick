@@ -103,6 +103,50 @@ describe('money surface is service_role-only', () => {
   });
 
   it('client roles cannot write institution_id / sponsorship_id on seeker profiles', async () => {
-    /* added in T3 once column exists */
+    const phone = `9${Math.floor(100000000 + Math.random() * 900000000)}`;
+    const uRes = await db.query(
+      "INSERT INTO public.users (phone, role, status) VALUES ($1, 'job_seeker', 'active') RETURNING id",
+      [phone],
+    );
+    const userId = uRes.rows[0].id;
+    const pRes = await db.query(
+      `INSERT INTO public.job_seeker_profiles (user_id, full_name, city)
+       VALUES ($1, 'Test Seeker', 'Delhi') RETURNING id`,
+      [userId],
+    );
+    const profileId = pRes.rows[0].id;
+    const dummyId = '00000000-0000-0000-0000-000000000001';
+
+    // authenticated role update
+    await db.query('BEGIN');
+    await db.query('SET LOCAL ROLE authenticated');
+    await expect(
+      db.query('UPDATE public.job_seeker_profiles SET sponsorship_id = $1 WHERE id = $2', [
+        dummyId,
+        profileId,
+      ]),
+    ).rejects.toThrow(/FORBIDDEN_COLUMN|permission denied/);
+    await db.query('ROLLBACK');
+
+    await db.query('BEGIN');
+    await db.query('SET LOCAL ROLE authenticated');
+    await expect(
+      db.query('UPDATE public.job_seeker_profiles SET institution_id = $1 WHERE id = $2', [
+        dummyId,
+        profileId,
+      ]),
+    ).rejects.toThrow(/FORBIDDEN_COLUMN|permission denied/);
+    await db.query('ROLLBACK');
+
+    // anon role update
+    await db.query('BEGIN');
+    await db.query('SET LOCAL ROLE anon');
+    await expect(
+      db.query('UPDATE public.job_seeker_profiles SET sponsorship_id = $1 WHERE id = $2', [
+        dummyId,
+        profileId,
+      ]),
+    ).rejects.toThrow(/FORBIDDEN_COLUMN|permission denied/);
+    await db.query('ROLLBACK');
   });
 });

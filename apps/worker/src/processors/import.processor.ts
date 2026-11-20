@@ -15,6 +15,7 @@ export interface BulkImportJobData {
   csvContent?: string;
   storagePath?: string;
   shouldSimulateFailure?: boolean;
+  institutionId?: string | null;
 }
 
 export interface BulkImportJobResult {
@@ -126,7 +127,25 @@ export class ImportProcessor {
       csvContent,
       storagePath,
       shouldSimulateFailure,
+      institutionId: jobInstitutionId,
     } = job.data;
+
+    // Resolve institution_id server-side (from job data or batch record)
+    let resolvedInstitutionId: string | null = jobInstitutionId ?? null;
+    if (!resolvedInstitutionId && this.supabase) {
+      try {
+        const { data: b } = await this.supabase
+          .from('bulk_import_batches')
+          .select('institution_id')
+          .eq('id', batchId)
+          .maybeSingle();
+        if (b && (b as { institution_id?: string | null }).institution_id) {
+          resolvedInstitutionId = (b as { institution_id?: string | null }).institution_id || null;
+        }
+      } catch {
+        // best-effort
+      }
+    }
 
     // Retry test simulation: if job requests simulated failure, fail until attempt 3
     if (shouldSimulateFailure && job.attemptsMade < 2) {
@@ -270,6 +289,7 @@ export class ImportProcessor {
                   aadhaar_verified: false,
                   source: meta.source,
                   skills: [],
+                  institution_id: resolvedInstitutionId,
                   created_at: nowIso,
                   updated_at: nowIso,
                 };
@@ -278,9 +298,29 @@ export class ImportProcessor {
 
             if (newSeekerProfiles.length > 0) {
               try {
-                await this.supabase
+                const { data: insertedProfiles } = await this.supabase
                   .from('job_seeker_profiles')
-                  .insert(newSeekerProfiles as unknown as Database['public']['Tables']['job_seeker_profiles']['Insert'][]);
+                  .insert(newSeekerProfiles as unknown as Database['public']['Tables']['job_seeker_profiles']['Insert'][])
+                  .select('id');
+
+                // If institution is resolved and profiles were inserted, claim available sponsorship seats
+                if (resolvedInstitutionId && insertedProfiles && insertedProfiles.length > 0) {
+                  const chunkProfileIds = (insertedProfiles as Array<{ id: string }>).map((p) => p.id);
+                  try {
+                    await (this.supabase.rpc as unknown as (
+                      fn: string,
+                      args: Record<string, unknown>,
+                    ) => Promise<{ data: unknown; error: unknown }>)(
+                      'rpc_claim_sponsorship_seats',
+                      {
+                        p_inst: resolvedInstitutionId,
+                        p_profile_ids: chunkProfileIds,
+                      },
+                    );
+                  } catch (claimErr) {
+                    console.warn(`[ImportProcessor] Failed to claim sponsorship seats for chunk:`, claimErr);
+                  }
+                }
               } catch {
                 // best-effort
               }
@@ -418,6 +458,21 @@ export class ImportProcessor {
           row: rowNumber,
           phone: rawPhone || '',
           reason: 'At least one contact identifier (email or phone) is required',
+        });
+        continue;
+      }
+
+      // Name Validation: If name column is present in headers, candidate name is required
+      const hasNameHeader = Object.keys(record).some((k) =>
+        ['name', 'full_name', 'student name', 'student_name', 'candidate_name', 'fullname'].includes(
+          k.toLowerCase().trim(),
+        ),
+      );
+      if (hasNameHeader && !rawName) {
+        errors.push({
+          row: rowNumber,
+          phone: phone || rawPhone || '',
+          reason: 'Missing candidate full name',
         });
         continue;
       }
