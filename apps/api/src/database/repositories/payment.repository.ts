@@ -2,39 +2,67 @@ import { Injectable, Inject, InternalServerErrorException } from '@nestjs/common
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, PaymentRow } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT } from '../supabase.provider.js';
-import { captureException } from '../../config/sentry.js';
+
+export type SettlePaymentStatus =
+  | 'settled'
+  | 'already_settled'
+  | 'duplicate_capture'
+  | 'duplicate_event'
+  | 'amount_mismatch'
+  | 'unknown_order'
+  | 'precondition_failed';
+
+export interface SettlePaymentResult {
+  status: SettlePaymentStatus;
+  payment_id?: string;
+  purpose?: string;
+}
 
 @Injectable()
 export class PaymentRepository {
   constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>) {}
 
-  async create(record: PaymentRow): Promise<PaymentRow> {
-    const { error } = await this.supabase.from('payments').insert({
-      id: record.id,
+  async create(record: Partial<PaymentRow> & {
+    user_id: string;
+    gateway_order_id: string;
+    amount_paise: number;
+    purpose: string;
+  }): Promise<PaymentRow> {
+    const insertPayload: Record<string, unknown> = {
+      id: record.id || crypto.randomUUID(),
       user_id: record.user_id,
       gateway_order_id: record.gateway_order_id,
       gateway_payment_id: record.gateway_payment_id ?? null,
       gateway_signature: record.gateway_signature ?? null,
       pack_id: record.pack_id ?? null,
       credits_added: record.credits_added ?? 0,
-      amount_inr: record.amount_inr,
-      tax_amount_inr: record.tax_amount_inr ?? 0,
+      credits_to_grant: record.credits_to_grant ?? 0,
+      amount_paise: record.amount_paise,
+      amount_inr: record.amount_inr ?? Number((record.amount_paise / 100).toFixed(2)),
       currency: record.currency ?? 'INR',
-      invoice_number: record.invoice_number ?? null,
-      status: record.status,
+      purpose: record.purpose,
+      order_snapshot: record.order_snapshot ?? {},
+      billing_state_code: record.billing_state_code ?? null,
+      terms_version: record.terms_version ?? null,
+      status: record.status ?? 'created',
       metadata: record.metadata ?? {},
-      processed_at: record.processed_at ?? null,
-      processed_by: record.processed_by ?? null,
-      created_at: record.created_at,
-      updated_at: record.updated_at ?? record.created_at,
-    });
+      created_at: record.created_at ?? new Date().toISOString(),
+      updated_at: record.updated_at ?? new Date().toISOString(),
+    };
 
-    if (error) {
-      captureException(new Error(error.message));
-      throw new InternalServerErrorException(`Database persistence failure for payment: ${error.message}`);
+    const { data, error } = await this.supabase
+      .from('payments')
+      .insert(insertPayload as unknown as PaymentRow)
+      .select('*')
+      .single();
+
+    if (error || !data) {
+      throw new InternalServerErrorException(
+        `Database persistence failure for payment: ${error?.message || 'unknown error'}`,
+      );
     }
 
-    return record;
+    return data as unknown as PaymentRow;
   }
 
   async findById(id: string): Promise<PaymentRow | null> {
@@ -89,80 +117,43 @@ export class PaymentRepository {
     return (data as unknown as PaymentRow[]) || [];
   }
 
-  async transitionToCaptured(
-    id: string,
-    updates: {
-      gateway_payment_id: string;
-      gateway_signature?: string | null;
-      invoice_number: string;
-      processed_at: string;
-      processed_by: string;
-      metadata?: Record<string, unknown>;
-    },
-  ): Promise<{ updated: PaymentRow | null; alreadyCaptured: boolean; payment: PaymentRow | null }> {
-    const existing = await this.findById(id);
-    if (!existing) {
-      return { updated: null, alreadyCaptured: false, payment: null };
+  /**
+   * Invokes public.rpc_settle_payment with server-verified payment facts.
+   * Atomic settlement and idempotency enforced at PostgreSQL transaction level.
+   */
+  async settlePayment(params: {
+    gatewayOrderId: string;
+    gatewayPaymentId: string;
+    amountPaise: number;
+    currency: string;
+    method: string;
+    eventId?: string | null;
+    source: string;
+  }): Promise<SettlePaymentResult> {
+    const { data, error } = await (this.supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: SettlePaymentResult | null; error: { message: string } | null }>)(
+      'rpc_settle_payment',
+      {
+        p_gateway_order_id: params.gatewayOrderId,
+        p_gateway_payment_id: params.gatewayPaymentId,
+        p_amount_paise: params.amountPaise,
+        p_currency: params.currency,
+        p_method: params.method,
+        p_event_id: params.eventId ?? null,
+        p_source: params.source,
+      },
+    );
+
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
     }
 
-    if (existing.status === 'captured') {
-      return { updated: null, alreadyCaptured: true, payment: existing };
+    if (!data || typeof data !== 'object') {
+      throw new InternalServerErrorException('DATABASE_ERROR: Invalid response from settlement RPC');
     }
 
-    if (existing.status !== 'created' && existing.status !== 'authorized') {
-      return { updated: null, alreadyCaptured: false, payment: existing };
-    }
-
-    const { data, error } = await this.supabase
-      .from('payments')
-      .update({
-        gateway_payment_id: updates.gateway_payment_id,
-        gateway_signature: updates.gateway_signature ?? existing.gateway_signature,
-        invoice_number: updates.invoice_number,
-        status: 'captured',
-        processed_at: updates.processed_at,
-        processed_by: updates.processed_by,
-        metadata: updates.metadata ?? existing.metadata,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .in('status', ['created', 'authorized'])
-      .select()
-      .maybeSingle();
-
-    if (error || !data) {
-      const refetched = await this.findById(id);
-      return {
-        updated: null,
-        alreadyCaptured: refetched?.status === 'captured',
-        payment: refetched,
-      };
-    }
-
-    const updatedRow = data as unknown as PaymentRow;
-    return { updated: updatedRow, alreadyCaptured: false, payment: updatedRow };
-  }
-
-  async update(id: string, updates: Partial<PaymentRow>): Promise<PaymentRow> {
-    const existing = await this.findById(id);
-    if (!existing) {
-      throw new Error(`Payment with ID ${id} not found`);
-    }
-
-    const { data, error } = await this.supabase
-      .from('payments')
-      .update({
-        ...updates,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .select()
-      .maybeSingle();
-
-    if (error || !data) {
-      throw new InternalServerErrorException(`DATABASE_ERROR: ${error?.message || 'Update failed'}`);
-    }
-
-    return data as unknown as PaymentRow;
+    return data;
   }
 }

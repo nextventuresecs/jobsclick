@@ -2,7 +2,6 @@ import {
   Controller,
   Get,
   Post,
-  Put,
   Body,
   Param,
   Header,
@@ -10,29 +9,29 @@ import {
   UseGuards,
   Inject,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { ZodValidationPipe } from 'nestjs-zod';
+import { Throttle } from '@nestjs/throttler';
 import { WalletService } from './wallet.service.js';
 import { PaymentService } from './payment.service.js';
+import { PaymentRepository } from '../database/repositories/payment.repository.js';
 import {
-  grantCreditSchema,
-  unlockContactSchema,
-  featureJobSchema,
-  configureCostSchema,
+  CREDIT_PACKS,
   createPaymentOrderSchema,
   verifyPaymentSchema,
-  CREDIT_PACKS,
-  type GrantCreditInput,
-  type UnlockContactInput,
-  type FeatureJobInput,
-  type ConfigureCostInput,
-  type CreatePaymentOrderInput,
-  type VerifyPaymentInput,
+  grantCreditSchema,
+  unlockContactSchema,
 } from '@indian-job-portal/validation';
+import {
+  CreatePaymentOrderDto,
+  VerifyPaymentDto,
+  GrantCreditDto,
+  UnlockContactDto,
+} from './dto/wallet.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard.js';
 import { CurrentUser, type AuthUser } from '../auth/decorators/current-user.decorator.js';
-import { RequireFeatureFlag } from '../auth/guards/feature-flag.guard.js';
 
 @Controller('wallet')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -41,11 +40,11 @@ export class WalletController {
   constructor(
     @Inject(WalletService) private readonly walletService: WalletService,
     @Inject(PaymentService) private readonly paymentService: PaymentService,
+    @Inject(PaymentRepository) private readonly paymentRepository: PaymentRepository,
   ) {}
 
   // List available pre-configured credit packs (P2 Recharge)
   @Get('packs')
-  @RequireFeatureFlag('ENABLE_P2_WALLET_RECHARGE')
   async getCreditPacks() {
     return Object.values(CREDIT_PACKS);
   }
@@ -63,29 +62,29 @@ export class WalletController {
   }
 
   // Create Razorpay recharge order (WAL-03)
+  // 10/h/user rate limit
+  @Roles('job_seeker', 'employer', 'admin')
+  @Throttle({ default: { limit: 10, ttl: 3600000 } })
   @Post('recharge/create-order')
-  @RequireFeatureFlag('ENABLE_P2_PAYMENTS')
   async createRechargeOrder(
     @CurrentUser() user: AuthUser,
-    @Body() body: CreatePaymentOrderInput,
+    @Body(new ZodValidationPipe(createPaymentOrderSchema)) body: CreatePaymentOrderDto,
   ) {
-    const validated = createPaymentOrderSchema.parse(body);
-    return this.paymentService.createOrder(user.id, validated);
+    return this.paymentService.createOrder(user.id, body);
   }
 
   // Verify and capture direct client checkout payment (WAL-03)
+  // 30/h/user rate limit; order owner only (404 on non-owner or unknown order)
+  @Throttle({ default: { limit: 30, ttl: 3600000 } })
   @Post('recharge/verify')
-  @RequireFeatureFlag('ENABLE_P2_PAYMENTS')
   async verifyPayment(
     @CurrentUser() user: AuthUser,
-    @Body() body: VerifyPaymentInput,
-  ) {
-    const validated = verifyPaymentSchema.parse(body);
-
+    @Body(new ZodValidationPipe(verifyPaymentSchema)) body: VerifyPaymentDto,
+  ): Promise<{ status: 'settled' | 'pending'; balance: number }> {
     const isValid = this.paymentService.verifyClientPaymentSignature(
-      validated.razorpayOrderId,
-      validated.razorpayPaymentId,
-      validated.razorpaySignature,
+      body.razorpayOrderId,
+      body.razorpayPaymentId,
+      body.razorpaySignature,
     );
 
     if (!isValid) {
@@ -96,17 +95,28 @@ export class WalletController {
       });
     }
 
-    return this.paymentService.processPaymentSuccess(
-      validated.razorpayOrderId,
-      validated.razorpayPaymentId,
-      validated.razorpaySignature,
-      { verifiedBy: 'client_checkout', verifiedByUserId: user.id },
+    const orderRecord = await this.paymentRepository.findByGatewayOrderId(body.razorpayOrderId);
+    if (!orderRecord || orderRecord.user_id !== user.id) {
+      // Non-owner or unknown order → 404 (no existence leak)
+      throw new NotFoundException('Order not found');
+    }
+
+    const outcome = await this.paymentService.settleFromGateway(
+      body.razorpayOrderId,
+      body.razorpayPaymentId,
+      'client_verify',
     );
+
+    const balanceRes = await this.walletService.getBalance(user.id);
+
+    return {
+      status: outcome.status === 'pending' ? 'pending' : 'settled',
+      balance: balanceRes.balance,
+    };
   }
 
   // Download / view structured GST Tax Invoice for successful payment (WAL-03)
   @Get('invoice/:paymentId')
-  @RequireFeatureFlag('ENABLE_P2_PAYMENTS')
   async getInvoice(
     @CurrentUser() user: AuthUser,
     @Param('paymentId') paymentId: string,
@@ -116,7 +126,6 @@ export class WalletController {
 
   // Render downloadable HTML GST Tax Invoice
   @Get('invoice/:paymentId/html')
-  @RequireFeatureFlag('ENABLE_P2_PAYMENTS')
   @Header('Content-Type', 'text/html')
   async getInvoiceHtml(
     @CurrentUser() user: AuthUser,
@@ -128,57 +137,29 @@ export class WalletController {
   // Admin or platform grants credits
   @Roles('admin')
   @Post('grant')
-  async grantCredits(@CurrentUser() user: AuthUser, @Body() body: GrantCreditInput) {
-    const validated = grantCreditSchema.parse(body);
-    return this.walletService.grantCredits(
-      validated.userId,
-      validated.amount,
-      validated.reason,
-      user.id,
-    );
+  async grantCredits(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(grantCreditSchema)) body: GrantCreditDto,
+  ) {
+    return this.walletService.recordTransaction({
+      userId: body.userId,
+      amount: body.amount,
+      reason: body.reason,
+      actorId: user.id,
+    });
   }
 
   // Employer unlocks candidate contact details
   @Roles('employer', 'admin')
   @Post('unlock-contact')
-  async unlockContact(@CurrentUser() user: AuthUser, @Body() body: UnlockContactInput) {
-    const validated = unlockContactSchema.parse(body);
+  async unlockContact(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(unlockContactSchema)) body: UnlockContactDto,
+  ) {
     return this.walletService.unlockCandidateContact(
       user.id,
-      validated.seekerId,
-      validated.cost,
+      body.seekerId,
+      body.cost,
     );
-  }
-
-  // Employer features a job
-  @Roles('employer', 'admin')
-  @Post('feature-job')
-  @RequireFeatureFlag('ENABLE_P2_FEATURED_PROMOTIONS')
-  async featureJob(@CurrentUser() user: AuthUser, @Body() body: FeatureJobInput) {
-    const validated = featureJobSchema.parse(body);
-    return this.walletService.featureJob(
-      user.id,
-      validated.jobId,
-      validated.cost,
-    );
-  }
-
-  // View configured action costs (WAL-04)
-  @Get('costs')
-  async getActionCosts() {
-    return this.walletService.getAllActionCosts();
-  }
-
-  // Admin configures action costs (WAL-04)
-  @Roles('admin')
-  @Put('costs')
-  async configureCost(@Body() body: ConfigureCostInput) {
-    const validated = configureCostSchema.parse(body);
-    this.walletService.setActionCost(validated.action, validated.cost);
-    return {
-      success: true,
-      action: validated.action,
-      cost: validated.cost,
-    };
   }
 }

@@ -13,11 +13,7 @@ import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.j
 @Injectable()
 export class ProfileRepository {
   private persistentStore = PersistentDatabaseStore.getInstance();
-  private isTestMode =
-    process.env['NODE_ENV'] !== 'production' &&
-    (process.env['NODE_ENV'] === 'test' ||
-      !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
-      process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key');
+  private isTestMode = false;
 
   constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>) {}
 
@@ -412,13 +408,19 @@ export class ProfileRepository {
   }
 
   async findActiveSponsorshipByInstitutionId(institutionId: string): Promise<InstitutionSponsorshipRow | null> {
-    const list = await this.findSponsorshipsByInstitutionId(institutionId);
-    const now = new Date().getTime();
-    return (
-      list.find(
-        (s) => s.status === 'active' && new Date(s.expires_at).getTime() > now,
-      ) || null
-    );
+    const { data, error } = await this.supabase
+      .from('institution_sponsorships')
+      .select('*')
+      .eq('institution_id', institutionId)
+      .eq('status', 'active')
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .maybeSingle();
+
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+    }
+    return (data as unknown as InstitutionSponsorshipRow) || null;
   }
 
   async findSponsorshipByIdempotencyKey(key: string): Promise<InstitutionSponsorshipRow | null> {

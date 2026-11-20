@@ -2,135 +2,81 @@ import {
   Controller,
   Get,
   Post,
-  Param,
-  Query,
   Body,
+  Query,
   UseGuards,
   UsePipes,
   Inject,
-  ForbiddenException,
 } from '@nestjs/common';
 import { ZodValidationPipe } from 'nestjs-zod';
 import {
-  activateSponsorshipSchema,
   SPONSORSHIP_TIERS,
-  type ActivateSponsorshipInput,
+  sponsorshipQuoteInputSchema,
+  createSponsorshipOrderSchema,
 } from '@indian-job-portal/validation';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard.js';
 import { CurrentUser, type AuthUser } from '../auth/decorators/current-user.decorator.js';
-import { RequireFeatureFlag } from '../auth/guards/feature-flag.guard.js';
 import { SponsorshipService } from './sponsorship.service.js';
-import { ProfileRepository } from '../database/repositories/profile.repository.js';
+import {
+  SponsorshipQuoteDto,
+  CreateSponsorshipOrderDto,
+} from './dto/wallet.dto.js';
 
-@Controller('institutions')
+@Controller(['institution/sponsorship', 'institutions/sponsorship'])
 @UseGuards(JwtAuthGuard, RolesGuard)
 @UsePipes(ZodValidationPipe)
 export class InstitutionSponsorshipController {
   constructor(
     @Inject(SponsorshipService)
     private readonly sponsorshipService: SponsorshipService,
-    @Inject(ProfileRepository)
-    private readonly profileRepository: ProfileRepository,
   ) {}
 
   /**
-   * Get all defined pricing tiers (WAL-05, Section 10.1)
+   * Defined sponsorship pricing tiers (WAL-05, Section 10.1)
    */
-  @Get('sponsorship/tiers')
+  @Get('tiers')
   async getTiers() {
     return Object.values(SPONSORSHIP_TIERS);
   }
 
   /**
-   * Get sponsorship quote for an institution
-   * Endpoint: GET /institutions/:id/sponsorship-quote
+   * Get sponsorship quote for institution
+   * POST /institution/sponsorship/quote
    */
-  @Roles('institution', 'intermediary', 'admin')
-  @Get(':id/sponsorship-quote')
-  async getSponsorshipQuote(
+  @Roles('intermediary', 'institution', 'admin')
+  @Post('quote')
+  async getQuote(
     @CurrentUser() user: AuthUser,
-    @Param('id') id: string,
-    @Query('students') students?: string,
+    @Body(new ZodValidationPipe(sponsorshipQuoteInputSchema)) body: SponsorshipQuoteDto,
   ) {
-    let inst = await this.profileRepository.findInstitutionProfileById(id);
-    if (!inst) {
-      inst = await this.profileRepository.findInstitutionProfileByUserId(id);
-    }
-
-    if (inst) {
-      const isOwner = inst.user_id === user.id;
-      const isIntermediaryAdmin =
-        (user.role === 'intermediary' || (user.role as string) === 'institution') &&
-        (inst.created_by === user.id || inst.user_id === user.id);
-      const isPlatformAdmin = user.role === 'admin' || (user.role as string) === 'msme_admin';
-
-      if (!(isOwner || isIntermediaryAdmin || isPlatformAdmin)) {
-        throw new ForbiddenException(
-          'You are not authorized to view sponsorship quote for this institution',
-        );
-      }
-    } else {
-      const isSelfUser = user.id === id;
-      const isPlatformAdmin = user.role === 'admin' || (user.role as string) === 'msme_admin';
-
-      if (!(isSelfUser || isPlatformAdmin)) {
-        throw new ForbiddenException(
-          'You are not authorized to view sponsorship quote for this institution',
-        );
-      }
-    }
-
-    const studentCountOverride = students ? parseInt(students, 10) : undefined;
-    return this.sponsorshipService.getSponsorshipQuote(id, studentCountOverride);
+    return this.sponsorshipService.getSponsorshipQuote(user.id, body);
   }
 
   /**
-   * Activate annual sponsorship for an institution (WAL-05)
-   * Enrolled students become sponsored and gain unlimited applications.
-   * Fast-reject ownership check (Controller-level gate)
+   * Create Razorpay payment order for sponsorship
+   * POST /institution/sponsorship/create-order
+   * Rejects with 409 if active unexpired grant exists
    */
-  @Roles('institution', 'intermediary', 'admin')
-  @Post(':id/sponsorship/activate')
-  @RequireFeatureFlag('ENABLE_P2_PAYMENTS')
-  async activateSponsorship(
+  @Roles('intermediary', 'institution', 'admin')
+  @Post('create-order')
+  async createOrder(
     @CurrentUser() user: AuthUser,
-    @Param('id') id: string,
-    @Body() body: ActivateSponsorshipInput,
+    @Body(new ZodValidationPipe(createSponsorshipOrderSchema)) body: CreateSponsorshipOrderDto,
   ) {
-    // 1. Fast reject ownership check before forwarding to service
-    let inst = await this.profileRepository.findInstitutionProfileById(id);
-    if (!inst) {
-      inst = await this.profileRepository.findInstitutionProfileByUserId(id);
-    }
+    return this.sponsorshipService.createOrder(user.id, body);
+  }
 
-    if (inst) {
-      const isOwner = inst.user_id === user.id;
-      const isIntermediaryAdmin =
-        (user.role === 'intermediary' || (user.role as string) === 'institution') &&
-        (inst.created_by === user.id || inst.user_id === user.id);
-      const isPlatformAdmin = user.role === 'admin' || (user.role as string) === 'msme_admin';
-
-      if (!(isOwner || isIntermediaryAdmin || isPlatformAdmin)) {
-        throw new ForbiddenException(
-          'You are not authorized to activate sponsorship for this institution',
-        );
-      }
-    } else {
-      const isSelfUser = user.id === id;
-      const isIntermediary =
-        user.role === 'intermediary' || (user.role as string) === 'institution';
-      const isPlatformAdmin = user.role === 'admin' || (user.role as string) === 'msme_admin';
-
-      if (!(isSelfUser || isIntermediary || isPlatformAdmin)) {
-        throw new ForbiddenException(
-          'You are not authorized to activate sponsorship for this institution',
-        );
-      }
-    }
-
-    const validated = activateSponsorshipSchema.parse(body || {});
-    // Pass user to service for authoritative secondary check + transactional execution + audit logging
-    return this.sponsorshipService.activateSponsorship(id, validated, user);
+  /**
+   * Get active sponsorship grant status
+   * GET /institution/sponsorship
+   */
+  @Roles('intermediary', 'institution', 'admin')
+  @Get()
+  async getSponsorshipStatus(
+    @CurrentUser() user: AuthUser,
+    @Query('institutionId') institutionId?: string,
+  ) {
+    return this.sponsorshipService.getSponsorship(user.id, institutionId);
   }
 }

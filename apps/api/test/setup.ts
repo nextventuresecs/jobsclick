@@ -5,6 +5,7 @@ import { TurnstileVerifier } from '../src/auth/turnstile.service.js';
 import { MockTurnstileVerifier } from './mocks/mock-turnstile.verifier.js';
 import { SmsGateway } from '../src/auth/sms.service.js';
 import { MockSmsGateway } from './mocks/mock-sms.gateway.js';
+import { RAZORPAY_GATEWAY, FakeRazorpayGateway } from '../src/wallet/razorpay.gateway.js';
 
 // Vitest global setup: generate cryptographically secure random secrets per test run
 // Ensures tests run against valid entropy without hardcoding literal secrets in src
@@ -19,6 +20,15 @@ if (!process.env['TURNSTILE_SECRET_KEY']) {
 }
 if (!process.env['MSG91_AUTH_KEY']) {
   process.env['MSG91_AUTH_KEY'] = 'test-msg91-auth-key-fixture';
+}
+if (!process.env['RAZORPAY_KEY_ID']) {
+  process.env['RAZORPAY_KEY_ID'] = 'rzp_test_fixture';
+}
+if (!process.env['RAZORPAY_KEY_SECRET']) {
+  process.env['RAZORPAY_KEY_SECRET'] = 'test_razorpay_key_secret_256bits_fixture';
+}
+if (!process.env['RAZORPAY_WEBHOOK_SECRET']) {
+  process.env['RAZORPAY_WEBHOOK_SECRET'] = 'test_razorpay_webhook_secret_256bits_fixture';
 }
 if (!process.env['WEB_URL']) {
   process.env['WEB_URL'] = 'https://jobsclick.live';
@@ -84,6 +94,7 @@ testContainer.createTestingModule = (metadata: ModuleMetadata) => {
   if (!isNoOverride) {
     builder.overrideProvider(TurnstileVerifier).useClass(MockTurnstileVerifier);
     builder.overrideProvider(SmsGateway).useClass(MockSmsGateway);
+    builder.overrideProvider(RAZORPAY_GATEWAY).useClass(FakeRazorpayGateway);
   }
   return builder;
 };

@@ -88,18 +88,22 @@ export const CREDIT_PACKS: Record<string, CreditPackDefinition> = {
   },
 };
 
-export const createPaymentOrderSchema = z.object({
-  packId: z.string().min(1, 'Credit pack ID is required'),
-  billingName: z.string().optional(),
-  billingEmail: z.string().email('Invalid email address').optional(),
-  billingPhone: z.string().optional(),
-  billingAddress: z.string().optional(),
-  billingGstin: z
-    .string()
-    .regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, 'Invalid GSTIN format')
-    .optional()
-    .or(z.literal('')),
-});
+export const createPaymentOrderSchema = z
+  .object({
+    packId: z.string().min(1, 'Credit pack ID is required'),
+    termsVersion: z.string().min(1, 'termsVersion is required'),
+    billingStateCode: z.string().optional(),
+    billingName: z.string().optional(),
+    billingEmail: z.string().email('Invalid email address').optional(),
+    billingPhone: z.string().optional(),
+    billingAddress: z.string().optional(),
+    billingGstin: z
+      .string()
+      .regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, 'Invalid GSTIN format')
+      .optional()
+      .or(z.literal('')),
+  })
+  .strict();
 
 export const paymentStatusSchema = z.enum([
   'created',
@@ -111,11 +115,13 @@ export const paymentStatusSchema = z.enum([
 
 export type PaymentStatus = z.infer<typeof paymentStatusSchema>;
 
-export const verifyPaymentSchema = z.object({
-  razorpayOrderId: z.string().min(1, 'Razorpay order ID is required'),
-  razorpayPaymentId: z.string().min(1, 'Razorpay payment ID is required'),
-  razorpaySignature: z.string().min(1, 'Razorpay signature is required'),
-});
+export const verifyPaymentSchema = z
+  .object({
+    razorpayOrderId: z.string().min(1, 'Razorpay order ID is required'),
+    razorpayPaymentId: z.string().min(1, 'Razorpay payment ID is required'),
+    razorpaySignature: z.string().min(1, 'Razorpay signature is required'),
+  })
+  .strict();
 
 export const razorpayWebhookEventSchema = z.object({
   event: z.string(),
@@ -269,14 +275,32 @@ export const sponsorshipQuoteSchema = z.object({
   activeSponsoredCount: z.number().int().nonnegative(),
 });
 
-export const activateSponsorshipSchema = z.object({
-  paymentReference: z.string().optional(),
-  studentCountOverride: z.number().int().positive().optional(),
-  idempotencyKey: z.string().optional(),
-  force: z.boolean().optional(),
-});
+export const sponsorshipQuoteInputSchema = z
+  .object({
+    institutionId: z.string().optional(),
+    declaredStudentCount: z.number().int().positive('declaredStudentCount must be positive').optional(),
+  })
+  .strict();
+
+export const createSponsorshipOrderSchema = z
+  .object({
+    institutionId: z.string().optional(),
+    termsVersion: z.string().min(1, 'termsVersion is required'),
+    billingStateCode: z.string().min(1, 'billingStateCode is required'),
+    declaredStudentCount: z.number().int().positive('declaredStudentCount must be positive').optional(),
+    billingName: z.string().optional(),
+    billingEmail: z.string().email('Invalid email address').optional(),
+    billingPhone: z.string().optional(),
+    billingAddress: z.string().optional(),
+    billingGstin: z
+      .string()
+      .regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, 'Invalid GSTIN format')
+      .optional()
+      .or(z.literal('')),
+  })
+  .strict();
 
 export type SponsorshipTier = z.infer<typeof sponsorshipTierSchema>;
 export type SponsorshipQuote = z.infer<typeof sponsorshipQuoteSchema>;
-export type ActivateSponsorshipInput = z.infer<typeof activateSponsorshipSchema>;
-
+export type SponsorshipQuoteInput = z.infer<typeof sponsorshipQuoteInputSchema>;
+export type CreateSponsorshipOrderInput = z.infer<typeof createSponsorshipOrderSchema>;

@@ -3,31 +3,27 @@ import {
   Post,
   Headers,
   Req,
-  Body,
   BadRequestException,
+  InternalServerErrorException,
   HttpCode,
   HttpStatus,
   Inject,
   Logger,
 } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
+import { SkipThrottle } from '@nestjs/throttler';
 import type { FastifyRequest } from 'fastify';
 import { PaymentService } from './payment.service.js';
 import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
 import { captureException } from '../config/sentry.js';
-import { RequireFeatureFlag } from '../auth/guards/feature-flag.guard.js';
 import { Public } from '../auth/decorators/public.decorator.js';
 
 interface RequestWithRawBody extends FastifyRequest {
-  rawBody?: string;
+  rawBody?: Buffer | string;
 }
-
-import { SkipThrottle } from '@nestjs/throttler';
 
 @SkipThrottle()
 @Public()
 @Controller()
-@RequireFeatureFlag('ENABLE_P2_PAYMENTS')
 export class RazorpayWebhookController {
   private readonly logger = new Logger(RazorpayWebhookController.name);
 
@@ -36,28 +32,30 @@ export class RazorpayWebhookController {
     @Inject(AuditLogRepository) private readonly auditLogRepo: AuditLogRepository,
   ) {}
 
-  // POST /webhooks/razorpay and POST /wallet/webhooks/razorpay
   @Post(['webhooks/razorpay', 'wallet/webhooks/razorpay'])
   @HttpCode(HttpStatus.OK)
   async handleRazorpayWebhook(
     @Headers('x-razorpay-signature') signature: string | undefined,
+    @Headers('x-razorpay-event-id') eventId: string | undefined,
     @Req() req: RequestWithRawBody,
-    @Body() body: Record<string, unknown>,
-  ) {
+  ): Promise<{ status: string; received: boolean }> {
+    const rawBody = req.rawBody;
+    if (!rawBody) {
+      this.logger.error('Fastify rawBody is missing in webhook handler');
+      throw new InternalServerErrorException('Fastify rawBody is missing or unconfigured');
+    }
+
     if (!signature) {
       this.logger.warn('Razorpay webhook received without x-razorpay-signature header');
       captureException(new Error('Razorpay webhook missing x-razorpay-signature header'));
       throw new BadRequestException({
         statusCode: 400,
-        code: 'MISSING_SIGNATURE',
-        message: 'Missing x-razorpay-signature header',
+        code: 'INVALID_SIGNATURE',
+        message: 'Missing or invalid x-razorpay-signature header',
       });
     }
 
-    // Fastify custom JSON parser attaches exact string on req.rawBody
-    const rawPayload = req.rawBody || (typeof body === 'string' ? body : JSON.stringify(body));
-
-    const isValid = this.paymentService.verifyWebhookSignature(rawPayload, signature);
+    const isValid = this.paymentService.verifyWebhookSignature(rawBody, signature);
     if (!isValid) {
       this.logger.warn('Razorpay webhook HMAC signature verification failed');
       captureException(new Error('Invalid Razorpay webhook signature detected'));
@@ -68,138 +66,77 @@ export class RazorpayWebhookController {
       });
     }
 
-    const event = body['event'] as string;
-    this.logger.log(`Received verified Razorpay webhook event: ${event}`);
+    if (!eventId) {
+      this.logger.warn('Razorpay webhook missing x-razorpay-event-id header');
+      throw new BadRequestException({
+        statusCode: 400,
+        code: 'MISSING_EVENT_ID',
+        message: 'Missing x-razorpay-event-id header',
+      });
+    }
 
-    // Process payment.captured or order.paid events
+    let payloadObj: Record<string, unknown>;
+    try {
+      const rawString = Buffer.isBuffer(rawBody) ? rawBody.toString('utf-8') : String(rawBody);
+      payloadObj = JSON.parse(rawString);
+    } catch {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: 'MALFORMED_JSON',
+        message: 'Malformed JSON webhook payload',
+      });
+    }
+
+    const event = String(payloadObj['event'] ?? '');
+    this.logger.log(`Processing verified Razorpay webhook event: ${event} [${eventId}]`);
+
     if (event === 'payment.captured' || event === 'order.paid') {
-      const payload = (body['payload'] as Record<string, Record<string, string> | undefined>) || {};
-      const paymentEntity = (payload['payment']?.['entity'] as unknown as Record<string, string>) || {};
-      const orderEntity = (payload['order']?.['entity'] as unknown as Record<string, string>) || {};
+      const payload = (payloadObj['payload'] as Record<string, Record<string, unknown>>) || {};
+      const paymentEntity = (payload['payment']?.['entity'] as Record<string, unknown>) || {};
+      const orderEntity = (payload['order']?.['entity'] as Record<string, unknown>) || {};
 
-      const orderId = paymentEntity['order_id'] || orderEntity['id'];
-      const paymentId = paymentEntity['id'];
+      const paymentId = String(paymentEntity['id'] ?? '');
+      const orderId = String(paymentEntity['order_id'] ?? orderEntity['id'] ?? '');
 
-      if (!paymentId) {
-        this.logger.warn('Payment captured webhook missing payment_id in payload');
-        await this.auditLogRepo.append({
-          id: randomUUID(),
-          actor_id: null,
-          action: 'RAZORPAY_WEBHOOK_MISSING_PAYMENT_ID',
-          meta: { event, orderId: orderId || null },
-          created_at: new Date().toISOString(),
-        });
+      if (!paymentId || !orderId) {
         throw new BadRequestException({
           statusCode: 400,
-          code: 'MISSING_PAYMENT_ID',
-          message: 'Razorpay webhook payload missing payment id',
+          code: 'MISSING_PAYMENT_OR_ORDER_ID',
+          message: 'Razorpay webhook payload missing payment or order id',
         });
       }
 
-      if (!orderId) {
-        this.logger.warn('Payment captured webhook missing order_id in payload');
-        return { status: 'ignored', reason: 'MISSING_ORDER_ID' };
-      }
-
-      const result = await this.paymentService.processPaymentSuccess(
-        orderId,
-        paymentId,
-        signature,
-        {
-          webhookEvent: event,
-          paymentMethod: paymentEntity['method'],
-          bank: paymentEntity['bank'],
-          vpa: paymentEntity['vpa'],
-        },
-      );
-
-      return {
-        status: 'ok',
-        received: true,
-        orderId,
-        paymentId,
-        alreadyProcessed: result.alreadyProcessed,
-      };
+      await this.paymentService.settleFromGateway(orderId, paymentId, 'webhook', eventId);
+      return { status: 'ok', received: true };
     }
 
-    // Process payment.failed event
     if (event === 'payment.failed') {
-      const payload = (body['payload'] as Record<string, Record<string, unknown> | undefined>) || {};
-      const paymentEntity = (payload['payment']?.['entity'] as unknown as Record<string, unknown>) || {};
-      const orderId = paymentEntity['order_id'] as string;
-      const paymentId = paymentEntity['id'] as string;
-      const errorDesc = (paymentEntity['error_description'] as string) || (paymentEntity['error_reason'] as string);
+      const payload = (payloadObj['payload'] as Record<string, Record<string, unknown>>) || {};
+      const paymentEntity = (payload['payment']?.['entity'] as Record<string, unknown>) || {};
+      const paymentId = String(paymentEntity['id'] ?? '');
+      const orderId = String(paymentEntity['order_id'] ?? '');
 
-      if (!paymentId) {
-        this.logger.warn('Payment failed webhook missing payment_id in payload');
+      try {
         await this.auditLogRepo.append({
-          id: randomUUID(),
+          id: crypto.randomUUID(),
           actor_id: null,
-          action: 'RAZORPAY_WEBHOOK_MISSING_PAYMENT_ID',
-          meta: { event, orderId: orderId || null },
+          action: 'PAYMENT_FAILED_AT_GATEWAY',
+          meta: {
+            eventId,
+            orderId: orderId || null,
+            paymentId: paymentId || null,
+            error: paymentEntity['error_description'] || paymentEntity['error_reason'] || null,
+          },
           created_at: new Date().toISOString(),
         });
-        throw new BadRequestException({
-          statusCode: 400,
-          code: 'MISSING_PAYMENT_ID',
-          message: 'Razorpay webhook payload missing payment id',
-        });
+      } catch {
+        // Non-blocking audit log
       }
 
-      if (orderId) {
-        await this.paymentService.handlePaymentFailure(orderId, paymentId, errorDesc);
-      }
-
-      return {
-        status: 'ok',
-        received: true,
-        event,
-        action: 'payment_failed_recorded',
-      };
+      return { status: 'ok', received: true };
     }
 
-    // Process payment.refunded event
-    if (event === 'payment.refunded' || event === 'refund.processed') {
-      const payload = (body['payload'] as Record<string, Record<string, unknown> | undefined>) || {};
-      const paymentEntity = (payload['payment']?.['entity'] as unknown as Record<string, unknown>) || {};
-      const refundEntity = (payload['refund']?.['entity'] as unknown as Record<string, unknown>) || {};
-      const orderId = paymentEntity['order_id'] as string;
-      const paymentId = (paymentEntity['id'] as string) || (refundEntity['payment_id'] as string);
-      const refundAmount = Number(refundEntity['amount'] || paymentEntity['amount_refunded']);
-
-      if (!paymentId) {
-        this.logger.warn('Payment refund webhook missing payment_id in payload');
-        await this.auditLogRepo.append({
-          id: randomUUID(),
-          actor_id: null,
-          action: 'RAZORPAY_WEBHOOK_MISSING_PAYMENT_ID',
-          meta: { event, orderId: orderId || null },
-          created_at: new Date().toISOString(),
-        });
-        throw new BadRequestException({
-          statusCode: 400,
-          code: 'MISSING_PAYMENT_ID',
-          message: 'Razorpay webhook payload missing payment id',
-        });
-      }
-
-      if (orderId && paymentId) {
-        await this.paymentService.handlePaymentRefunded(orderId, paymentId, refundAmount);
-      }
-
-      return {
-        status: 'ok',
-        received: true,
-        event,
-        action: 'refund_processed',
-      };
-    }
-
-    return {
-      status: 'ok',
-      received: true,
-      event,
-      action: 'ignored_event_type',
-    };
+    // Handled other events (refund.processed, payment.refunded, etc.)
+    return { status: 'ok', received: true };
   }
 }
