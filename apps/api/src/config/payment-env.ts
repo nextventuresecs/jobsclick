@@ -20,7 +20,7 @@ export const paymentEnv = z
         ctx.addIssue({ code: 'custom', path: [k], message: 'dummy value' });
       }
     }
-    if (prod && !e.RAZORPAY_KEY_ID.startsWith('rzp_live_')) {
+    if (prod && (!e.RAZORPAY_KEY_ID || !e.RAZORPAY_KEY_ID.startsWith('rzp_live_'))) {
       ctx.addIssue({
         code: 'custom',
         path: ['RAZORPAY_KEY_ID'],

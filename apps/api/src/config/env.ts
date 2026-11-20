@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { safeBoolean, validateProductionJwtKey, validateSecretKey } from '@indian-job-portal/validation';
 import fs from 'node:fs';
 import net from 'node:net';
-import { paymentEnv } from './payment-env.js';
+import { paymentEnv, DUMMY } from './payment-env.js';
 
 /** Cloudflare always-pass / always-fail test keys that must never reach production. */
 const TURNSTILE_TEST_KEYS = new Set([
@@ -152,19 +152,18 @@ export function validateEnv(overrides?: Record<string, string | undefined>): Env
     universalErrors.push('MSG91_AUTH_KEY must be set in all environments');
   }
 
-  // Reject dummy/placeholder Razorpay keys in all environments if supplied
-  if (isDevOrTest && (rawSource['RAZORPAY_KEY_ID'] || rawSource['RAZORPAY_KEY_SECRET'] || rawSource['RAZORPAY_WEBHOOK_SECRET'])) {
-    const paymentCheck = paymentEnv.safeParse({
-      RAZORPAY_KEY_ID: rawSource['RAZORPAY_KEY_ID'],
-      RAZORPAY_KEY_SECRET: rawSource['RAZORPAY_KEY_SECRET'],
-      RAZORPAY_WEBHOOK_SECRET: rawSource['RAZORPAY_WEBHOOK_SECRET'],
-      TRUST_PROXY_HOPS: rawSource['TRUST_PROXY_HOPS'] ?? 1,
-      NODE_ENV: rawSource['NODE_ENV'] ?? 'development',
-    });
-    if (!paymentCheck.success) {
-      for (const issue of paymentCheck.error.issues) {
-        if (issue.message.includes('dummy') || issue.code === 'custom') {
-          universalErrors.push(`Payment configuration error: ${issue.path.join('.')}: ${issue.message}`);
+  // Reject dummy/placeholder Razorpay keys in dev/test mode if supplied
+  if (isDevOrTest) {
+    const paymentKeys = [
+      'RAZORPAY_KEY_ID',
+      'RAZORPAY_KEY_SECRET',
+      'RAZORPAY_WEBHOOK_SECRET',
+    ] as const;
+    for (const key of paymentKeys) {
+      const val = rawSource[key];
+      if (val !== undefined && val !== null && String(val).trim() !== '') {
+        if (DUMMY.test(String(val))) {
+          universalErrors.push(`Payment configuration error: ${key}: dummy or placeholder values are rejected`);
         }
       }
     }

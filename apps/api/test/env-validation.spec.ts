@@ -136,7 +136,18 @@ describe('Payment & Reverse Proxy Environment Hardening (Task 0)', () => {
         RAZORPAY_KEY_SECRET: 'dummy_razorpay_key_secret',
         RAZORPAY_WEBHOOK_SECRET: 'dummy_razorpay_webhook_secret',
       };
-      expect(() => validateEnv(devWithDummies)).toThrowError(/dummy value/);
+      expect(() => validateEnv(devWithDummies)).toThrowError(/dummy/i);
+    });
+
+    it('fails boot in dev/test if only a single dummy Razorpay key is set and others are unset', () => {
+      const devWithSingleDummy = {
+        NODE_ENV: 'development',
+        OTP_PEPPER: 'b8eLqRnYs3wGxMoZfUvJiKb8eLqRnYs3',
+        TURNSTILE_SECRET_KEY: 'test-turnstile-secret',
+        MSG91_AUTH_KEY: 'test-msg91-auth-key',
+        RAZORPAY_KEY_ID: 'dummy_test_key_placeholder',
+      };
+      expect(() => validateEnv(devWithSingleDummy)).toThrowError(/dummy or placeholder values are rejected/);
     });
   });
 
