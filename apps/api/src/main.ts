@@ -11,12 +11,9 @@ async function bootstrap() {
   const env = validateEnv();
   initSentry(env.SENTRY_DSN);
 
-  const trustedProxies: boolean | string[] = env.TRUSTED_PROXY_CIDRS
-    ? env.TRUSTED_PROXY_CIDRS.split(',').map((s) => s.trim()).filter(Boolean)
-    : true;
-
   const adapter = new FastifyAdapter({
-    trustProxy: trustedProxies,
+    trustProxy: Number(process.env['TRUST_PROXY_HOPS'] ?? 1),
+    bodyLimit: 1_048_576,
   });
   setupFastifySentry(adapter.getInstance());
 
@@ -61,6 +58,7 @@ async function bootstrap() {
     adapter,
     { rawBody: true },
   );
+  app.enableShutdownHooks();
 
   // Fastify multipart registration (No multer!)
   await app.register((multipart as unknown) as Parameters<NestFastifyApplication['register']>[0]);

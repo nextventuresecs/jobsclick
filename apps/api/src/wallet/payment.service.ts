@@ -3,6 +3,7 @@ import {
   Inject,
   BadRequestException,
   ForbiddenException,
+  InternalServerErrorException,
   Logger,
 } from '@nestjs/common';
 import crypto from 'node:crypto';
@@ -44,7 +45,6 @@ export class PaymentService {
   private readonly keyId: string;
   private readonly keySecret: string;
   private readonly webhookSecret: string;
-  private readonly isTestMode: boolean;
 
   constructor(
     @Inject(PaymentRepository)
@@ -54,32 +54,11 @@ export class PaymentService {
     @Inject(WalletService)
     private readonly walletService: WalletService,
   ) {
-    this.keyId = process.env['RAZORPAY_KEY_ID'] || 'rzp_test_dummy_key_id';
-    this.keySecret = process.env['RAZORPAY_KEY_SECRET'] || 'dummy_razorpay_key_secret';
-    this.webhookSecret = process.env['RAZORPAY_WEBHOOK_SECRET'] || 'dummy_razorpay_webhook_secret';
+    this.keyId = process.env['RAZORPAY_KEY_ID'] || '';
+    this.keySecret = process.env['RAZORPAY_KEY_SECRET'] || '';
+    this.webhookSecret = process.env['RAZORPAY_WEBHOOK_SECRET'] || '';
 
-    const allowTestPayments = process.env['ALLOW_TEST_PAYMENTS'] === 'true';
-    if (process.env['NODE_ENV'] === 'production' && !allowTestPayments) {
-      if (
-        !process.env['RAZORPAY_KEY_ID'] ||
-        !process.env['RAZORPAY_KEY_SECRET'] ||
-        !process.env['RAZORPAY_WEBHOOK_SECRET'] ||
-        process.env['RAZORPAY_KEY_ID'] === 'rzp_test_dummy_key_id' ||
-        process.env['RAZORPAY_KEY_SECRET'] === 'dummy_razorpay_key_secret' ||
-        process.env['RAZORPAY_WEBHOOK_SECRET'] === 'dummy_razorpay_webhook_secret'
-      ) {
-        throw new Error(
-          'Production environment requires valid RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET, and RAZORPAY_WEBHOOK_SECRET. Dummy/test keys are strictly rejected unless ALLOW_TEST_PAYMENTS=true.',
-        );
-      }
-    }
-
-    this.isTestMode =
-      process.env['NODE_ENV'] === 'test' ||
-      this.keyId === 'rzp_test_dummy_key_id' ||
-      !process.env['RAZORPAY_KEY_SECRET'];
-
-    if (!this.isTestMode) {
+    if (this.keyId && this.keySecret) {
       try {
         this.razorpayClient = new Razorpay({
           key_id: this.keyId,
@@ -104,33 +83,32 @@ export class PaymentService {
 
     const amountInPaise = Math.round(pack.totalAmountInr * 100);
     const receipt = `rcpt_${crypto.randomUUID().replace(/-/g, '').slice(0, 20)}`;
-    let orderId: string;
 
-    if (this.razorpayClient && !this.isTestMode) {
-      try {
-        const order = await this.razorpayClient.orders.create({
-          amount: amountInPaise,
-          currency: 'INR',
-          receipt,
-          notes: {
-            userId,
-            packId: pack.id,
-            credits: pack.credits.toString(),
-            customerGstin: input.billingGstin || '',
-          },
-        });
-        orderId = order.id;
-      } catch (err) {
-        this.logger.error(`Razorpay order creation failed: ${(err as Error).message}`);
-        throw new BadRequestException({
-          statusCode: 400,
-          code: 'ORDER_CREATION_FAILED',
-          message: 'Failed to create payment order with payment gateway',
-        });
-      }
-    } else {
-      // Mock order generation for test / dev environment
-      orderId = `order_${crypto.randomUUID()}`;
+    if (!this.razorpayClient) {
+      throw new InternalServerErrorException('Razorpay client is uninitialized. Valid gateway credentials required.');
+    }
+
+    let orderId: string;
+    try {
+      const order = await this.razorpayClient.orders.create({
+        amount: amountInPaise,
+        currency: 'INR',
+        receipt,
+        notes: {
+          userId,
+          packId: pack.id,
+          credits: pack.credits.toString(),
+          customerGstin: input.billingGstin || '',
+        },
+      });
+      orderId = order.id;
+    } catch (err) {
+      this.logger.error(`Razorpay order creation failed: ${(err as Error).message}`);
+      throw new BadRequestException({
+        statusCode: 400,
+        code: 'ORDER_CREATION_FAILED',
+        message: 'Failed to create payment order with payment gateway',
+      });
     }
 
     const paymentRecordId = crypto.randomUUID();
@@ -236,23 +214,12 @@ export class PaymentService {
     expectedOrderId: string,
     expectedAmountInr: number,
   ): Promise<Record<string, unknown>> {
-    // In test or local dummy mode without live Razorpay keys, validate mock/test payments defensively
-    if (this.isTestMode || !this.razorpayClient) {
-      // Basic sanity checks for mock/test runs
-      if (!gatewayPaymentId || !expectedOrderId) {
-        throw new BadRequestException({
-          statusCode: 400,
-          code: 'PAYMENT_VERIFICATION_FAILED',
-          message: 'Invalid gateway payment parameters',
-        });
-      }
-      return {
-        id: gatewayPaymentId,
-        order_id: expectedOrderId,
-        status: 'captured',
-        amount: Math.round(expectedAmountInr * 100),
-        currency: 'INR',
-      };
+    if (!gatewayPaymentId || !expectedOrderId) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: 'PAYMENT_VERIFICATION_FAILED',
+        message: 'Invalid gateway payment parameters',
+      });
     }
 
     try {

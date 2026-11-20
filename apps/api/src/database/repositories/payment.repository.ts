@@ -1,26 +1,14 @@
 import { Injectable, Inject, InternalServerErrorException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, PaymentRow } from '@indian-job-portal/database';
-import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
+import { SUPABASE_CLIENT } from '../supabase.provider.js';
 import { captureException } from '../../config/sentry.js';
 
 @Injectable()
 export class PaymentRepository {
-  private persistentStore = PersistentDatabaseStore.getInstance();
-  private isTestMode =
-    process.env['NODE_ENV'] !== 'production' &&
-    (process.env['NODE_ENV'] === 'test' ||
-      !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
-      process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key');
-
   constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>) {}
 
   async create(record: PaymentRow): Promise<PaymentRow> {
-    if (this.isTestMode) {
-      this.persistentStore.setRow('payments', record.id, record);
-      return record;
-    }
-
     const { error } = await this.supabase.from('payments').insert({
       id: record.id,
       user_id: record.user_id,
@@ -50,103 +38,55 @@ export class PaymentRepository {
   }
 
   async findById(id: string): Promise<PaymentRow | null> {
-    if (!this.isTestMode) {
-      try {
-        const { data, error } = await this.supabase
-          .from('payments')
-          .select('*')
-          .eq('id', id)
-          .maybeSingle();
+    const { data, error } = await this.supabase
+      .from('payments')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
 
-        if (error) {
-          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
-        }
-        return (data as unknown as PaymentRow) || null;
-      } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
-          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
-        }
-      }
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
     }
-
-    const table = this.persistentStore.getTable<PaymentRow>('payments');
-    return table[id] ?? null;
+    return (data as unknown as PaymentRow) || null;
   }
 
   async findByGatewayOrderId(orderId: string): Promise<PaymentRow | null> {
-    if (!this.isTestMode) {
-      try {
-        const { data, error } = await this.supabase
-          .from('payments')
-          .select('*')
-          .eq('gateway_order_id', orderId)
-          .maybeSingle();
+    const { data, error } = await this.supabase
+      .from('payments')
+      .select('*')
+      .eq('gateway_order_id', orderId)
+      .maybeSingle();
 
-        if (error) {
-          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
-        }
-        return (data as unknown as PaymentRow) || null;
-      } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
-          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
-        }
-      }
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
     }
-
-    const table = this.persistentStore.getTable<PaymentRow>('payments');
-    const match = Object.values(table).find((p) => p.gateway_order_id === orderId);
-    return match ?? null;
+    return (data as unknown as PaymentRow) || null;
   }
 
   async findByGatewayPaymentId(paymentId: string): Promise<PaymentRow | null> {
-    if (!this.isTestMode) {
-      try {
-        const { data, error } = await this.supabase
-          .from('payments')
-          .select('*')
-          .eq('gateway_payment_id', paymentId)
-          .maybeSingle();
+    const { data, error } = await this.supabase
+      .from('payments')
+      .select('*')
+      .eq('gateway_payment_id', paymentId)
+      .maybeSingle();
 
-        if (error) {
-          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
-        }
-        return (data as unknown as PaymentRow) || null;
-      } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
-          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
-        }
-      }
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
     }
-
-    const table = this.persistentStore.getTable<PaymentRow>('payments');
-    const match = Object.values(table).find((p) => p.gateway_payment_id === paymentId);
-    return match ?? null;
+    return (data as unknown as PaymentRow) || null;
   }
 
   async findByUserId(userId: string): Promise<PaymentRow[]> {
-    if (!this.isTestMode) {
-      try {
-        const { data, error } = await this.supabase
-          .from('payments')
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false });
+    const { data, error } = await this.supabase
+      .from('payments')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
 
-        if (error) {
-          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
-        }
-        return (data as unknown as PaymentRow[]) || [];
-      } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
-          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
-        }
-      }
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
     }
-
-    const table = this.persistentStore.getTable<PaymentRow>('payments');
-    return Object.values(table)
-      .filter((p) => p.user_id === userId)
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return (data as unknown as PaymentRow[]) || [];
   }
 
   async transitionToCaptured(
@@ -160,22 +100,22 @@ export class PaymentRepository {
       metadata?: Record<string, unknown>;
     },
   ): Promise<{ updated: PaymentRow | null; alreadyCaptured: boolean; payment: PaymentRow | null }> {
-    return this.persistentStore.withLock(`payment_${id}`, async () => {
-      const existing = await this.findById(id);
-      if (!existing) {
-        return { updated: null, alreadyCaptured: false, payment: null };
-      }
+    const existing = await this.findById(id);
+    if (!existing) {
+      return { updated: null, alreadyCaptured: false, payment: null };
+    }
 
-      if (existing.status === 'captured') {
-        return { updated: null, alreadyCaptured: true, payment: existing };
-      }
+    if (existing.status === 'captured') {
+      return { updated: null, alreadyCaptured: true, payment: existing };
+    }
 
-      if (existing.status !== 'created' && existing.status !== 'authorized') {
-        return { updated: null, alreadyCaptured: false, payment: existing };
-      }
+    if (existing.status !== 'created' && existing.status !== 'authorized') {
+      return { updated: null, alreadyCaptured: false, payment: existing };
+    }
 
-      const updatedRow: PaymentRow = {
-        ...existing,
+    const { data, error } = await this.supabase
+      .from('payments')
+      .update({
         gateway_payment_id: updates.gateway_payment_id,
         gateway_signature: updates.gateway_signature ?? existing.gateway_signature,
         invoice_number: updates.invoice_number,
@@ -184,50 +124,23 @@ export class PaymentRepository {
         processed_by: updates.processed_by,
         metadata: updates.metadata ?? existing.metadata,
         updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .in('status', ['created', 'authorized'])
+      .select()
+      .maybeSingle();
+
+    if (error || !data) {
+      const refetched = await this.findById(id);
+      return {
+        updated: null,
+        alreadyCaptured: refetched?.status === 'captured',
+        payment: refetched,
       };
+    }
 
-      // 1. Supabase conditional update WHERE id = id AND (status = 'created' OR status = 'authorized')
-      if (!this.isTestMode) {
-        try {
-          const { data, error } = await this.supabase
-            .from('payments')
-            .update({
-              gateway_payment_id: updates.gateway_payment_id,
-              gateway_signature: updates.gateway_signature ?? existing.gateway_signature,
-              invoice_number: updates.invoice_number,
-              status: 'captured',
-              processed_at: updates.processed_at,
-              processed_by: updates.processed_by,
-              metadata: updates.metadata ?? existing.metadata,
-              updated_at: updatedRow.updated_at,
-            })
-            .eq('id', id)
-            .in('status', ['created', 'authorized'])
-            .select()
-            .maybeSingle();
-
-          if (error || !data) {
-            // Check if it was captured concurrently
-            const refetched = await this.findById(id);
-            return {
-              updated: null,
-              alreadyCaptured: refetched?.status === 'captured',
-              payment: refetched,
-            };
-          }
-        } catch (err) {
-          if (process.env['NODE_ENV'] === 'production') {
-            throw new InternalServerErrorException(`Database error during payment capture: ${(err as Error).message}`);
-          }
-        }
-      }
-
-      // 2. Synchronize to persistent store in test mode
-      if (this.isTestMode) {
-        this.persistentStore.setRow('payments', id, updatedRow);
-      }
-      return { updated: updatedRow, alreadyCaptured: false, payment: updatedRow };
-    });
+    const updatedRow = data as unknown as PaymentRow;
+    return { updated: updatedRow, alreadyCaptured: false, payment: updatedRow };
   }
 
   async update(id: string, updates: Partial<PaymentRow>): Promise<PaymentRow> {
@@ -236,22 +149,20 @@ export class PaymentRepository {
       throw new Error(`Payment with ID ${id} not found`);
     }
 
-    const updated: PaymentRow = {
-      ...existing,
-      ...updates,
-      updated_at: new Date().toISOString(),
-    };
+    const { data, error } = await this.supabase
+      .from('payments')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .maybeSingle();
 
-    if (this.isTestMode) {
-      this.persistentStore.setRow('payments', id, updated);
-      return updated;
+    if (error || !data) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error?.message || 'Update failed'}`);
     }
 
-    const { error } = await this.supabase.from('payments').update(updates).eq('id', id);
-    if (error) {
-      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
-    }
-
-    return updated;
+    return data as unknown as PaymentRow;
   }
 }

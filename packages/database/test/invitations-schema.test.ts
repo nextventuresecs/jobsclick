@@ -6,7 +6,7 @@ describe('Invitations Schema Migration (Email Support & Batch Indexing)', () => 
   it('defines nullable phone, email column, contact check constraint, and batch_id+status index', () => {
     const migrationPath = path.resolve(
       __dirname,
-      '../supabase/migrations/20261119100000_bulk_invitations_email_support.sql',
+      '../../../supabase/migrations/20261119100000_bulk_invitations_email_support.sql',
     );
     expect(existsSync(migrationPath)).toBe(true);
 

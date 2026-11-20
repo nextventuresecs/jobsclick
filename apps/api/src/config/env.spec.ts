@@ -28,7 +28,10 @@ const VALID_PROD: Record<string, string> = {
   QSTASH_CURRENT_SIGNING_KEY: 'sig_real_key',
   API_URL: 'https://api.example.com',
   WEB_URL: 'https://jobsclick.live',
-  ALLOW_TEST_PAYMENTS: 'true',
+  RAZORPAY_KEY_ID: 'rzp_live_1234567890abcdef',
+  RAZORPAY_KEY_SECRET: 'live_secret_key_16_chars_min',
+  RAZORPAY_WEBHOOK_SECRET: 'live_webhook_secret_20_chars_min',
+  TRUST_PROXY_HOPS: '1',
   TRUSTED_PROXY_CIDRS: '127.0.0.1/32,10.0.0.0/8',
 };
 
@@ -715,7 +718,6 @@ describe('safeBoolean feature flag parsing', () => {
       ENABLE_P2_FEATURED_PROMOTIONS: 'false',
       ENABLE_P2_JOB_ALERTS: '0',
       ENABLE_P2_MSME_BROADCAST: '',
-      ALLOW_TEST_PAYMENTS: '0',
     });
     expect(env.ENABLE_P2_PAYMENTS).toBe(true);
     expect(env.ENABLE_P2_WALLET_RECHARGE).toBe(true);
@@ -723,7 +725,6 @@ describe('safeBoolean feature flag parsing', () => {
     expect(env.ENABLE_P2_FEATURED_PROMOTIONS).toBe(false);
     expect(env.ENABLE_P2_JOB_ALERTS).toBe(false);
     expect(env.ENABLE_P2_MSME_BROADCAST).toBe(false);
-    expect(env.ALLOW_TEST_PAYMENTS).toBe(false);
   });
 
   it('rejects malformed boolean values rather than silently coercing them to false', () => {

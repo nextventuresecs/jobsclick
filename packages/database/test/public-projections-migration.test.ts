@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 describe('Public Projection Reads Migration (20261118085644)', () => {
   const migrationPath = resolve(
     __dirname,
-    '../supabase/migrations/20261118085644_public_api_projection_reads.sql'
+    '../../../supabase/migrations/20261118085644_public_api_projection_reads.sql'
   );
 
   it('declares search_public_jobs RPC with FTS ts_rank and slug projections', () => {
@@ -27,7 +27,7 @@ describe('Public Projection Reads Migration (20261118085644)', () => {
 
   it('allows application/pdf in private storage bucket MIME types', () => {
     const bucketMigration = readFileSync(
-      resolve(__dirname, '../supabase/migrations/20261110000000_private_storage_bucket.sql'),
+      resolve(__dirname, '../../../supabase/migrations/20261110000000_private_storage_bucket.sql'),
       'utf-8'
     );
     expect(bucketMigration).toContain("'application/pdf'");

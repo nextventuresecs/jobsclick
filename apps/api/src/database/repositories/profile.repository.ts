@@ -136,19 +136,6 @@ export class ProfileRepository {
     institutionIdOrName: string,
     isSponsored: boolean,
   ): Promise<number> {
-    if (this.isTestMode) {
-      const students = await this.findStudentsByInstitution(institutionIdOrName);
-      let count = 0;
-      const now = new Date().toISOString();
-      for (const student of students) {
-        student.is_sponsored = isSponsored;
-        student.updated_at = now;
-        this.persistentStore.setRow('job_seeker_profiles', student.id, student);
-        count++;
-      }
-      return count;
-    }
-
     const now = new Date().toISOString();
     const { data, error } = await this.supabase
       .from('job_seeker_profiles')
@@ -407,11 +394,6 @@ export class ProfileRepository {
   }
 
   async saveSponsorship(record: InstitutionSponsorshipRow): Promise<InstitutionSponsorshipRow> {
-    if (this.isTestMode) {
-      this.persistentStore.setRow('institution_sponsorships', record.id, record);
-      return record;
-    }
-
     const { error } = await this.supabase.from('institution_sponsorships').upsert(record);
     if (error) {
       throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
@@ -421,29 +403,16 @@ export class ProfileRepository {
   }
 
   async findSponsorshipsByInstitutionId(institutionId: string): Promise<InstitutionSponsorshipRow[]> {
-    if (!this.isTestMode) {
-      try {
-        const { data, error } = await this.supabase
-          .from('institution_sponsorships')
-          .select('*')
-          .eq('institution_id', institutionId)
-          .order('created_at', { ascending: false });
+    const { data, error } = await this.supabase
+      .from('institution_sponsorships')
+      .select('*')
+      .eq('institution_id', institutionId)
+      .order('created_at', { ascending: false });
 
-        if (error) {
-          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
-        }
-        return (data as unknown as InstitutionSponsorshipRow[]) || [];
-      } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
-          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
-        }
-      }
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
     }
-
-    const table = this.persistentStore.getTable<InstitutionSponsorshipRow>('institution_sponsorships');
-    return Object.values(table)
-      .filter((s) => s.institution_id === institutionId)
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return (data as unknown as InstitutionSponsorshipRow[]) || [];
   }
 
   async findActiveSponsorshipByInstitutionId(institutionId: string): Promise<InstitutionSponsorshipRow | null> {
@@ -457,26 +426,15 @@ export class ProfileRepository {
   }
 
   async findSponsorshipByIdempotencyKey(key: string): Promise<InstitutionSponsorshipRow | null> {
-    if (!this.isTestMode) {
-      try {
-        const { data, error } = await this.supabase
-          .from('institution_sponsorships')
-          .select('*')
-          .eq('idempotency_key', key)
-          .maybeSingle();
+    const { data, error } = await this.supabase
+      .from('institution_sponsorships')
+      .select('*')
+      .eq('idempotency_key', key)
+      .maybeSingle();
 
-        if (error) {
-          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
-        }
-        return (data as unknown as InstitutionSponsorshipRow) || null;
-      } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
-          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
-        }
-      }
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
     }
-
-    const table = this.persistentStore.getTable<InstitutionSponsorshipRow>('institution_sponsorships');
-    return Object.values(table).find((s) => s.idempotency_key === key) || null;
+    return (data as unknown as InstitutionSponsorshipRow) || null;
   }
 }

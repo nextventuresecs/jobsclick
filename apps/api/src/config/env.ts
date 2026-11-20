@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { safeBoolean, validateProductionJwtKey, validateSecretKey } from '@indian-job-portal/validation';
 import fs from 'node:fs';
 import net from 'node:net';
+import { paymentEnv } from './payment-env.js';
 
 /** Cloudflare always-pass / always-fail test keys that must never reach production. */
 const TURNSTILE_TEST_KEYS = new Set([
@@ -66,7 +67,7 @@ const baseSchema = z.object({
   RAZORPAY_KEY_ID: z.string().optional(),
   RAZORPAY_KEY_SECRET: z.string().optional(),
   RAZORPAY_WEBHOOK_SECRET: z.string().optional(),
-  ALLOW_TEST_PAYMENTS: safeBoolean,
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),
   // Feature Flags (PRN-06: Scope Isolation for P2/P3 Modules)
   ENABLE_P2_PAYMENTS: safeBoolean,
   ENABLE_P2_WALLET_RECHARGE: safeBoolean,
@@ -113,7 +114,7 @@ export function isStrictEnv(rawNodeEnv?: string): boolean {
 export function validateEnv(overrides?: Record<string, string | undefined>): EnvConfig {
   if (!overrides) {
     const rawNodeEnv = (process.env['NODE_ENV'] ?? '').trim().toLowerCase();
-    if ((rawNodeEnv === 'development' || rawNodeEnv === 'test') && typeof process.loadEnvFile === 'function') {
+    if (rawNodeEnv !== 'production' && (rawNodeEnv === 'development' || rawNodeEnv === 'test') && typeof process.loadEnvFile === 'function') {
       const candidates = ['.env.local', '../../.env.local', '.env', '../../.env'];
       for (const file of candidates) {
         if (fs.existsSync(file)) {
@@ -149,6 +150,24 @@ export function validateEnv(overrides?: Record<string, string | undefined>): Env
   const msg91Key = rawSource['MSG91_AUTH_KEY'];
   if (!msg91Key || !msg91Key.trim()) {
     universalErrors.push('MSG91_AUTH_KEY must be set in all environments');
+  }
+
+  // Reject dummy/placeholder Razorpay keys in all environments if supplied
+  if (isDevOrTest && (rawSource['RAZORPAY_KEY_ID'] || rawSource['RAZORPAY_KEY_SECRET'] || rawSource['RAZORPAY_WEBHOOK_SECRET'])) {
+    const paymentCheck = paymentEnv.safeParse({
+      RAZORPAY_KEY_ID: rawSource['RAZORPAY_KEY_ID'],
+      RAZORPAY_KEY_SECRET: rawSource['RAZORPAY_KEY_SECRET'],
+      RAZORPAY_WEBHOOK_SECRET: rawSource['RAZORPAY_WEBHOOK_SECRET'],
+      TRUST_PROXY_HOPS: rawSource['TRUST_PROXY_HOPS'] ?? 1,
+      NODE_ENV: rawSource['NODE_ENV'] ?? 'development',
+    });
+    if (!paymentCheck.success) {
+      for (const issue of paymentCheck.error.issues) {
+        if (issue.message.includes('dummy') || issue.code === 'custom') {
+          universalErrors.push(`Payment configuration error: ${issue.path.join('.')}: ${issue.message}`);
+        }
+      }
+    }
   }
 
   if (universalErrors.length > 0) {
@@ -342,6 +361,20 @@ export function validateEnv(overrides?: Record<string, string | undefined>): Env
         } else if (!isValidCidrOrIp(entry)) {
           errors.push(`TRUSTED_PROXY_CIDRS contains invalid CIDR or IP: "${entry}" in production/staging`);
         }
+      }
+    }
+
+    // Razorpay Payment Configuration (WAL-03)
+    const paymentCheck = paymentEnv.safeParse({
+      RAZORPAY_KEY_ID: rawSource['RAZORPAY_KEY_ID'],
+      RAZORPAY_KEY_SECRET: rawSource['RAZORPAY_KEY_SECRET'],
+      RAZORPAY_WEBHOOK_SECRET: rawSource['RAZORPAY_WEBHOOK_SECRET'],
+      TRUST_PROXY_HOPS: rawSource['TRUST_PROXY_HOPS'] ?? 1,
+      NODE_ENV: rawSource['NODE_ENV'] ?? 'production',
+    });
+    if (!paymentCheck.success) {
+      for (const issue of paymentCheck.error.issues) {
+        errors.push(`Payment configuration error: ${issue.path.join('.')}: ${issue.message}`);
       }
     }
 
