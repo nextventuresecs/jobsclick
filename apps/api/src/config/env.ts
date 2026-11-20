@@ -75,6 +75,9 @@ const baseSchema = z.object({
   ENABLE_P2_FEATURED_PROMOTIONS: safeBoolean,
   ENABLE_P2_JOB_ALERTS: safeBoolean,
   ENABLE_P2_MSME_BROADCAST: safeBoolean,
+  // Rollout Controls & Kill-Switches (Module 4)
+  WALLET_ENABLED: safeBoolean,
+  SPONSORSHIP_ENABLED: safeBoolean,
   // Dev/test-only flags — must be unset in production / staging
   USE_MOCK_REDIS: z.string().optional(),
   USE_JSON_STORE: z.string().optional(),

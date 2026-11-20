@@ -243,14 +243,42 @@ jobs:
     needs: [verify, db-security-gate, db-integration, container-build]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    environment: staging
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Deploy to Staging Environment
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply Migrations to Staging Database
+        env:
+          STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          STAGING_PROJECT_REF: ${{ secrets.STAGING_PROJECT_REF }}
         run: |
-          echo "Deploying container build to Staging environment..."
+          pnpm db:bootstrap:staging
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy Services to Railway (Staging)
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_STAGING_TOKEN }}
+        run: |
+          railway up --service indian-job-portal-api --detach
+          railway up --service indian-job-portal-worker --detach
+          railway up --service indian-job-portal-web --detach
 
   deploy-production:
     name: Deploy to Production
@@ -263,6 +291,26 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Deploy to Production Environment
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy Services to Railway (Production)
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_PROD_TOKEN }}
         run: |
-          echo "Deploying container build to Production environment..."
+          railway up --service indian-job-portal-api --detach
+          railway up --service indian-job-portal-worker --detach
+          railway up --service indian-job-portal-web --detach

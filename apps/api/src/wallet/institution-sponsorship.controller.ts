@@ -20,6 +20,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard.js';
 import { CurrentUser, type AuthUser } from '../auth/decorators/current-user.decorator.js';
 import { RequireFeatureFlag } from '../auth/guards/feature-flag.guard.js';
+import { assertSponsorshipOrderEnabled, SponsorshipKillSwitchGuard } from '../config/rollout.js';
 import { SponsorshipService } from './sponsorship.service.js';
 import {
   SponsorshipQuoteDto,
@@ -70,10 +71,12 @@ export class InstitutionSponsorshipController {
   @Throttle({ default: { limit: 10, ttl: 3600000 } })
   @Post(['institution/sponsorship/create-order', 'institutions/sponsorship/create-order'])
   @RequireFeatureFlag('ENABLE_P2_PAYMENTS')
+  @UseGuards(SponsorshipKillSwitchGuard)
   async createOrder(
     @CurrentUser() user: AuthUser,
     @Body(new ZodValidationPipe(createSponsorshipOrderSchema)) body: CreateSponsorshipOrderDto,
   ) {
+    assertSponsorshipOrderEnabled();
     return this.sponsorshipService.createOrder(user.id, body);
   }
 

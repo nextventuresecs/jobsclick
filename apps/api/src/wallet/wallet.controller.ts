@@ -38,6 +38,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard.js';
 import { CurrentUser, type AuthUser } from '../auth/decorators/current-user.decorator.js';
 import { RequireFeatureFlag } from '../auth/guards/feature-flag.guard.js';
+import { assertWalletRechargeEnabled, WalletKillSwitchGuard } from '../config/rollout.js';
 
 @Controller('wallet')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -74,10 +75,12 @@ export class WalletController {
   @Throttle({ default: { limit: 10, ttl: 3600000 } })
   @Post('recharge/create-order')
   @RequireFeatureFlag('ENABLE_P2_PAYMENTS')
+  @UseGuards(WalletKillSwitchGuard)
   async createRechargeOrder(
     @CurrentUser() user: AuthUser,
     @Body(new ZodValidationPipe(createPaymentOrderSchema)) body: CreatePaymentOrderDto,
   ) {
+    assertWalletRechargeEnabled();
     return this.paymentService.createOrder(user.id, body);
   }
 

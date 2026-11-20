@@ -34,7 +34,7 @@ export class RazorpayWebhookController {
     @Inject(AuditLogRepository) private readonly auditLogRepo: AuditLogRepository,
   ) {}
 
-  @Post(['webhooks/razorpay', 'wallet/webhooks/razorpay'])
+  @Post(['webhooks/razorpay', 'wallet/webhooks/razorpay', 'wallet/webhook', 'wallet/webhooks'])
   @HttpCode(HttpStatus.OK)
   async handleRazorpayWebhook(
     @Headers('x-razorpay-signature') signature: string | undefined,
