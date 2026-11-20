@@ -111,9 +111,10 @@ export function useSeekerWorkspace() {
       setApplications(mappedApps);
     });
 
-    // 3. Fetch Credit Ledger Balance
-    fetch(`${apiUrl}/wallet/balance`, {
-      headers: { Authorization: authHeader, 'x-user-id': userId },
+    // 3. Fetch Credit Ledger Balance via BFF
+    fetch('/api/wallet/balance', {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((balanceData) => {

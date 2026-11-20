@@ -133,23 +133,15 @@ describe('PR 2: No Fake Success (P1)', () => {
   });
 
   describe('Razorpay Configuration: No Dummy Key Fallbacks', () => {
-    it('RechargeModal configuration fails closed if NEXT_PUBLIC_RAZORPAY_KEY_ID is missing', async () => {
-      const originalKey = process.env['NEXT_PUBLIC_RAZORPAY_KEY_ID'];
-      delete process.env['NEXT_PUBLIC_RAZORPAY_KEY_ID'];
-
-      try {
-        const { getRazorpayKeyId } = await import('../src/components/wallet/RechargeModal.js');
-        expect(() => getRazorpayKeyId()).toThrow(/NEXT_PUBLIC_RAZORPAY_KEY_ID is not configured/);
-      } finally {
-        if (originalKey) {
-          process.env['NEXT_PUBLIC_RAZORPAY_KEY_ID'] = originalKey;
-        }
-      }
+    it('RechargeModal configuration fails closed if gateway keyId is missing', async () => {
+      const { validateRazorpayKeyId } = await import('../src/components/wallet/RechargeModal.js');
+      expect(() => validateRazorpayKeyId()).toThrow(/Valid Razorpay gateway keyId was not returned/);
+      expect(() => validateRazorpayKeyId('')).toThrow(/Valid Razorpay gateway keyId was not returned/);
     });
 
     it('RechargeModal rejects dummy key rzp_test_dummy_key_id', async () => {
-      const { getRazorpayKeyId } = await import('../src/components/wallet/RechargeModal.js');
-      expect(() => getRazorpayKeyId('rzp_test_dummy_key_id')).toThrow(/NEXT_PUBLIC_RAZORPAY_KEY_ID is not configured/);
+      const { validateRazorpayKeyId } = await import('../src/components/wallet/RechargeModal.js');
+      expect(() => validateRazorpayKeyId('rzp_test_dummy_key_id')).toThrow(/Valid Razorpay gateway keyId was not returned/);
     });
   });
 

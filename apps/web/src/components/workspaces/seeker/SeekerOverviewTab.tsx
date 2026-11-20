@@ -1,12 +1,22 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { CategoryBadge, StatusBadge, getCategoryCardBorderClass } from '@indian-job-portal/ui';
 import type { ApplicationData } from '../../../data/sampleWorkspaces';
 import type { JobItem } from '../../../data/sampleJobs';
-import { ShieldCheck, Building2, Calendar, MapPin, ArrowRight } from 'lucide-react';
+import { useWalletBalance } from '../../wallet/useWalletBalance';
+import { RechargeModal } from '../../wallet/RechargeModal';
+import {
+  ShieldCheck,
+  Building2,
+  Calendar,
+  MapPin,
+  ArrowRight,
+  CreditCard,
+  AlertCircle,
+} from 'lucide-react';
 
 interface SeekerOverviewTabProps {
   readonly myApplications: readonly ApplicationData[];
@@ -20,14 +30,44 @@ export function SeekerOverviewTab({
   onNavigateToApplications,
 }: SeekerOverviewTabProps) {
   const t = useTranslations('SeekerWorkspace');
+  const tWallet = useTranslations('wallet');
+  const [isRechargeOpen, setIsRechargeOpen] = useState(false);
+  const { balance, isLoading: isBalanceLoading } = useWalletBalance();
+
   const shortlistedCount = myApplications.filter(
     (a) => a.status === 'shortlisted' || a.status === 'under_review'
   ).length;
 
+  const freeAppsExhausted = myApplications.length >= 10 && (balance ?? 0) <= 0;
+
   return (
     <div className="space-y-6">
+      {/* 10 Free Applications Exhausted Alert */}
+      {freeAppsExhausted && (
+        <div className="p-4 bg-orange-50 border border-orange-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in fade-in">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-brand-orange shrink-0 mt-0.5" />
+            <div>
+              <h2 className="text-sm font-bold text-orange-950">
+                {tWallet('freeApplicationsUsed')}
+              </h2>
+              <p className="text-xs text-orange-800 mt-0.5">
+                {tWallet('zeroBalancePrompt')}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsRechargeOpen(true)}
+            className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl transition shadow-xs shrink-0 cursor-pointer"
+          >
+            {tWallet('rechargeButton')}
+          </button>
+        </div>
+      )}
+
       {/* Quick Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs">
           <span className="text-xs font-semibold text-gray-500">{t('statActiveApplications')}</span>
           <p className="text-2xl font-bold text-gray-900 mt-1">{myApplications.length}</p>
@@ -45,6 +85,24 @@ export function SeekerOverviewTab({
             <span className="text-sm font-bold text-emerald-700">{t('statPrivacyStatusVal')}</span>
           </div>
           <p className="text-[11px] text-gray-500 mt-1">{t('statPrivacyStatusDesc')}</p>
+        </div>
+        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-xs flex flex-col justify-between">
+          <div>
+            <span className="text-xs font-semibold text-gray-500">{tWallet('currentBalance')}</span>
+            <div className="flex items-center gap-2 mt-1">
+              <CreditCard className="w-5 h-5 text-sky-600" />
+              <p className="text-2xl font-bold text-sky-700">
+                {isBalanceLoading ? '...' : `${balance ?? 0}`}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsRechargeOpen(true)}
+            className="mt-2 text-xs font-bold text-sky-600 hover:text-sky-700 text-left cursor-pointer"
+          >
+            + {tWallet('rechargeButton')}
+          </button>
         </div>
       </div>
 
@@ -157,6 +215,12 @@ export function SeekerOverviewTab({
           </div>
         )}
       </div>
+
+      <RechargeModal
+        isOpen={isRechargeOpen}
+        onClose={() => setIsRechargeOpen(false)}
+        currentBalance={balance ?? 0}
+      />
     </div>
   );
 }

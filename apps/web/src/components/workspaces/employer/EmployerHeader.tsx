@@ -1,10 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { Button } from '@indian-job-portal/ui';
 import type { CompanyItem } from '../../../data/sampleCompanies';
+import { useWalletBalance } from '../../wallet/useWalletBalance';
+import { RechargeModal } from '../../wallet/RechargeModal';
 import {
   Building2,
   CheckCircle2,
@@ -14,6 +16,7 @@ import {
   PlusCircle,
   QrCode,
   AlertCircle,
+  CreditCard,
 } from 'lucide-react';
 
 interface EmployerHeaderProps {
@@ -32,6 +35,9 @@ export function EmployerHeader({
   onOpenQrPoster,
 }: EmployerHeaderProps) {
   const t = useTranslations('EmployerWorkspace');
+  const tWallet = useTranslations('wallet');
+  const { balance, isLoading: isBalanceLoading } = useWalletBalance();
+  const [isRechargeOpen, setIsRechargeOpen] = useState(false);
 
   return (
     <div className="space-y-4">
@@ -99,6 +105,21 @@ export function EmployerHeader({
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          {/* Wallet Balance Badge & Recharge */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-800">
+            <CreditCard className="w-4 h-4 text-sky-600 dark:text-sky-400" />
+            <span className="text-xs font-semibold text-sky-900 dark:text-sky-200">
+              {isBalanceLoading ? '...' : `${balance ?? 0} ${tWallet('credits')}`}
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsRechargeOpen(true)}
+              className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-sky-600 hover:bg-sky-700 text-white transition-colors cursor-pointer"
+            >
+              {tWallet('rechargeButton')}
+            </button>
+          </div>
+
           <Link
             href={`/company/${company.slug || company.id}`}
             target="_blank"
@@ -139,6 +160,18 @@ export function EmployerHeader({
           </Button>
         </div>
       </div>
+
+      <RechargeModal
+        isOpen={isRechargeOpen}
+        onClose={() => setIsRechargeOpen(false)}
+        currentBalance={balance ?? 0}
+        user={{
+          id: company.id,
+          companyName: company.name,
+          phone: company.phone,
+          email: company.email,
+        }}
+      />
     </div>
   );
 }

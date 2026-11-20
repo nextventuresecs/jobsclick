@@ -15,7 +15,7 @@ export default defineConfig({
     environment: 'node',
     testTimeout: 60000,
     setupFiles: [path.resolve(__dirname, 'apps/api/test/setup.ts')],
-    include: ['**/*.{test,spec,e2e-spec}.ts'],
+    include: ['**/*.{test,spec,e2e-spec}.{ts,tsx}'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/.next/**'],
     server: {
       deps: {
