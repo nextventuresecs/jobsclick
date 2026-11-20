@@ -113,19 +113,19 @@ export interface WorkerInstanceRegistry {
   pdfWorker: Worker<PdfJobData, PdfJobResult>;
   broadcastWorker: Worker<BroadcastBatchJobData, BroadcastBatchJobResult>;
   alertsWorker: Worker<AlertsJobData, AlertsJobResult>;
-  reconcileWorker?: Worker<ReconcileJobData, ReconcileJobResult>;
-  expireWorker?: Worker<ExpireOrdersJobData, ExpireOrdersJobResult>;
-  refundWorker?: Worker<RefundJobData, RefundJobResult>;
-  invoiceOutboxWorker?: Worker<InvoiceOutboxJobData, InvoiceOutboxJobResult>;
+  reconcileWorker: Worker<ReconcileJobData, ReconcileJobResult>;
+  expireWorker: Worker<ExpireOrdersJobData, ExpireOrdersJobResult>;
+  refundWorker: Worker<RefundJobData, RefundJobResult>;
+  invoiceOutboxWorker: Worker<InvoiceOutboxJobData, InvoiceOutboxJobResult>;
   importQueue: Queue;
   inviteQueue: Queue;
   pdfQueue: Queue;
   broadcastQueue: Queue;
   alertsQueue: Queue;
-  reconcileQueue?: Queue;
-  expireQueue?: Queue;
-  refundQueue?: Queue;
-  invoiceOutboxQueue?: Queue;
+  reconcileQueue: Queue;
+  expireQueue: Queue;
+  refundQueue: Queue;
+  invoiceOutboxQueue: Queue;
   connection: IORedis;
   close: () => Promise<void>;
 }
@@ -379,6 +379,91 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
   };
 }
 
+interface RepeatJobOptions {
+  repeat: {
+    every?: number;
+    pattern?: string;
+  };
+  jobId?: string;
+}
+
+interface QueueWithRepeatSchedule {
+  add: (name: string, data: Record<string, unknown>, opts: RepeatJobOptions) => Promise<unknown>;
+  upsertJobScheduler?: (
+    id: string,
+    repeat: { every: number },
+    template: { name: string; data: Record<string, unknown>; opts?: { jobId?: string } },
+  ) => Promise<unknown>;
+}
+
+export async function scheduleRepeatableJobs(registry: WorkerInstanceRegistry): Promise<void> {
+  const { reconcileQueue, expireQueue, invoiceOutboxQueue } = registry;
+
+  const recQueue = reconcileQueue as unknown as QueueWithRepeatSchedule;
+  const expQueue = expireQueue as unknown as QueueWithRepeatSchedule;
+  const outQueue = invoiceOutboxQueue as unknown as QueueWithRepeatSchedule;
+
+  if (typeof recQueue.upsertJobScheduler === 'function') {
+    try {
+      await recQueue.upsertJobScheduler(
+        'reconcile-periodic',
+        { every: 10 * 60 * 1000 },
+        { name: 'reconcile-periodic', data: {}, opts: { jobId: 'reconcile-periodic' } },
+      );
+    } catch {
+      // Fallback to queue.add if scheduler lua execution is unavailable
+    }
+  }
+  await recQueue.add(
+    'reconcile-periodic',
+    {},
+    {
+      repeat: { every: 10 * 60 * 1000 },
+      jobId: 'reconcile-periodic',
+    },
+  );
+
+  if (typeof expQueue.upsertJobScheduler === 'function') {
+    try {
+      await expQueue.upsertJobScheduler(
+        'expire-periodic',
+        { every: 60 * 60 * 1000 },
+        { name: 'expire-periodic', data: { olderThanHours: 48 }, opts: { jobId: 'expire-periodic' } },
+      );
+    } catch {
+      // Fallback to queue.add if scheduler lua execution is unavailable
+    }
+  }
+  await expQueue.add(
+    'expire-periodic',
+    { olderThanHours: 48 },
+    {
+      repeat: { every: 60 * 60 * 1000 },
+      jobId: 'expire-periodic',
+    },
+  );
+
+  if (typeof outQueue.upsertJobScheduler === 'function') {
+    try {
+      await outQueue.upsertJobScheduler(
+        'outbox-periodic',
+        { every: 60 * 1000 },
+        { name: 'outbox-periodic', data: { batchLimit: 20 }, opts: { jobId: 'outbox-periodic' } },
+      );
+    } catch {
+      // Fallback to queue.add if scheduler lua execution is unavailable
+    }
+  }
+  await outQueue.add(
+    'outbox-periodic',
+    { batchLimit: 20 },
+    {
+      repeat: { every: 60 * 1000 },
+      jobId: 'outbox-periodic',
+    },
+  );
+}
+
 let activeRegistry: WorkerInstanceRegistry | null = null;
 
 async function main() {
@@ -389,6 +474,11 @@ async function main() {
   try {
     activeRegistry = startWorkerCluster(env);
     console.log(`[Worker - BullMQ Mode] Successfully connected to queues: ${Object.values(QUEUE_NAMES).join(', ')}`);
+
+    if (env.NODE_ENV !== 'test') {
+      await scheduleRepeatableJobs(activeRegistry);
+      console.log('[Worker - BullMQ Mode] Successfully registered repeatable payment jobs (reconcile: 10m, expire: 1h, outbox: 1m)');
+    }
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     console.error(`[Worker Startup Error] ${error.message}`);

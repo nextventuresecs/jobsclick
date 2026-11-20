@@ -26,6 +26,14 @@ export interface OutboxEntry {
   created_at: string;
 }
 
+export interface BillingSnapshot {
+  name?: string;
+  gstin?: string | null;
+  state_code?: string | null;
+  address?: string | null;
+  email?: string | null;
+}
+
 export interface IssuedInvoice {
   id: string;
   number: string;
@@ -38,7 +46,7 @@ export interface IssuedInvoice {
   igst_paise: number;
   total_paise: number;
   issued_at: string;
-  billing_snapshot: Record<string, unknown>;
+  billing_snapshot: BillingSnapshot | Record<string, unknown>;
   pdf_path: string | null;
   emailed_at: string | null;
 }
@@ -106,7 +114,7 @@ export class InvoiceOutboxService {
 
       const invoice = invData;
       const settings = await this.validatePlatformSettings();
-      const billing = invoice.billing_snapshot || {};
+      const billing = (invoice.billing_snapshot || {}) as BillingSnapshot;
 
       // 2. Render PDF using @react-pdf/renderer with Noto Sans Devanagari
       const pdfBuffer = await renderInvoicePdf({
@@ -123,9 +131,9 @@ export class InvoiceOutboxService {
         },
         buyer: {
           name: billing.name || 'Customer',
-          gstin: billing.gstin,
-          stateCode: billing.state_code,
-          address: billing.address,
+          gstin: billing.gstin ?? null,
+          stateCode: billing.state_code ?? null,
+          address: billing.address ?? null,
         },
         taxablePaise: Number(invoice.taxable_paise),
         cgstPaise: Number(invoice.cgst_paise),
@@ -150,9 +158,9 @@ export class InvoiceOutboxService {
 
       // 4. Send email via Resend if email is provided (body has NO phone number)
       let emailedAt: string | null = null;
-      if (billing.email) {
+      if (typeof billing.email === 'string' && billing.email.trim().length > 0) {
         const emailRes = await this.emailService.sendInvoiceEmail({
-          to: billing.email,
+          to: billing.email.trim(),
           invoiceNumber: invoice.number,
           kind: invoiceKind,
           totalInr: Number(invoice.total_paise) / 100,

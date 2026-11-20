@@ -8,6 +8,7 @@ import { ExpireOrdersService } from '../src/payments/expire-orders.processor.js'
 import { InvoiceOutboxService } from '../src/payments/invoice-outbox.processor.js';
 import { FakeRazorpayGateway } from '../src/payments/gateway.js';
 import { WorkerEmailService } from '../src/email/email.service.js';
+import { scheduleRepeatableJobs } from '../src/main.js';
 
 const DATABASE_URL =
   process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('pooler.supabase.com')
@@ -265,5 +266,53 @@ describe('Payments Worker: Reconciliation, Expire & Outbox (WAL-03, Task 5)', ()
       [outboxEntry.id]
     );
     expect(updatedOutbox.rows[0].done_at).not.toBeNull();
+  });
+
+  it('scheduleRepeatableJobs: registers periodic reconcile, expire, and outbox jobs with correct intervals', async () => {
+    const addCalls: Array<{ name: string; data: unknown; opts: unknown }> = [];
+    const schedulerCalls: Array<{ id: string; repeat: unknown; template: unknown }> = [];
+
+    const mockQueue = {
+      add: async (name: string, data: unknown, opts: unknown) => {
+        addCalls.push({ name, data, opts });
+        return {};
+      },
+      upsertJobScheduler: async (id: string, repeat: unknown, template: unknown) => {
+        schedulerCalls.push({ id, repeat, template });
+        return {};
+      },
+    };
+
+    const mockRegistry = {
+      reconcileQueue: mockQueue,
+      expireQueue: mockQueue,
+      invoiceOutboxQueue: mockQueue,
+    } as unknown as Parameters<typeof scheduleRepeatableJobs>[0];
+
+    await scheduleRepeatableJobs(mockRegistry);
+
+    // Verify add calls match reviewer requirements exactly
+    expect(addCalls).toHaveLength(3);
+    expect(addCalls[0]).toEqual({
+      name: 'reconcile-periodic',
+      data: {},
+      opts: { repeat: { every: 10 * 60 * 1000 }, jobId: 'reconcile-periodic' },
+    });
+    expect(addCalls[1]).toEqual({
+      name: 'expire-periodic',
+      data: { olderThanHours: 48 },
+      opts: { repeat: { every: 60 * 60 * 1000 }, jobId: 'expire-periodic' },
+    });
+    expect(addCalls[2]).toEqual({
+      name: 'outbox-periodic',
+      data: { batchLimit: 20 },
+      opts: { repeat: { every: 60 * 1000 }, jobId: 'outbox-periodic' },
+    });
+
+    // Verify BullMQ v6 scheduler calls
+    expect(schedulerCalls).toHaveLength(3);
+    expect(schedulerCalls[0].repeat).toEqual({ every: 10 * 60 * 1000 });
+    expect(schedulerCalls[1].repeat).toEqual({ every: 60 * 60 * 1000 });
+    expect(schedulerCalls[2].repeat).toEqual({ every: 60 * 1000 });
   });
 });
