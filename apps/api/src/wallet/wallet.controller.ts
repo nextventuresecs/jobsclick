@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Put,
   Body,
   Param,
   Header,
@@ -22,16 +23,21 @@ import {
   verifyPaymentSchema,
   grantCreditSchema,
   unlockContactSchema,
+  featureJobSchema,
+  configureCostSchema,
 } from '@indian-job-portal/validation';
 import {
   CreatePaymentOrderDto,
   VerifyPaymentDto,
   GrantCreditDto,
   UnlockContactDto,
+  FeatureJobDto,
+  ConfigureCostDto,
 } from './dto/wallet.dto.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard.js';
 import { CurrentUser, type AuthUser } from '../auth/decorators/current-user.decorator.js';
+import { RequireFeatureFlag } from '../auth/guards/feature-flag.guard.js';
 
 @Controller('wallet')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -45,6 +51,7 @@ export class WalletController {
 
   // List available pre-configured credit packs (P2 Recharge)
   @Get('packs')
+  @RequireFeatureFlag('ENABLE_P2_WALLET_RECHARGE')
   async getCreditPacks() {
     return Object.values(CREDIT_PACKS);
   }
@@ -66,6 +73,7 @@ export class WalletController {
   @Roles('job_seeker', 'employer', 'admin')
   @Throttle({ default: { limit: 10, ttl: 3600000 } })
   @Post('recharge/create-order')
+  @RequireFeatureFlag('ENABLE_P2_PAYMENTS')
   async createRechargeOrder(
     @CurrentUser() user: AuthUser,
     @Body(new ZodValidationPipe(createPaymentOrderSchema)) body: CreatePaymentOrderDto,
@@ -77,6 +85,7 @@ export class WalletController {
   // 30/h/user rate limit; order owner only (404 on non-owner or unknown order)
   @Throttle({ default: { limit: 30, ttl: 3600000 } })
   @Post('recharge/verify')
+  @RequireFeatureFlag('ENABLE_P2_PAYMENTS')
   async verifyPayment(
     @CurrentUser() user: AuthUser,
     @Body(new ZodValidationPipe(verifyPaymentSchema)) body: VerifyPaymentDto,
@@ -109,14 +118,30 @@ export class WalletController {
 
     const balanceRes = await this.walletService.getBalance(user.id);
 
-    return {
-      status: outcome.status === 'pending' ? 'pending' : 'settled',
-      balance: balanceRes.balance,
-    };
+    if (outcome.status === 'settled' || outcome.status === 'already_settled') {
+      return {
+        status: 'settled',
+        balance: balanceRes.balance,
+      };
+    }
+
+    if (outcome.status === 'pending') {
+      return {
+        status: 'pending',
+        balance: balanceRes.balance,
+      };
+    }
+
+    throw new BadRequestException({
+      statusCode: 400,
+      code: outcome.status.toUpperCase(),
+      message: `Payment verification failed with status: ${outcome.status}`,
+    });
   }
 
   // Download / view structured GST Tax Invoice for successful payment (WAL-03)
   @Get('invoice/:paymentId')
+  @RequireFeatureFlag('ENABLE_P2_PAYMENTS')
   async getInvoice(
     @CurrentUser() user: AuthUser,
     @Param('paymentId') paymentId: string,
@@ -126,6 +151,7 @@ export class WalletController {
 
   // Render downloadable HTML GST Tax Invoice
   @Get('invoice/:paymentId/html')
+  @RequireFeatureFlag('ENABLE_P2_PAYMENTS')
   @Header('Content-Type', 'text/html')
   async getInvoiceHtml(
     @CurrentUser() user: AuthUser,
@@ -161,5 +187,40 @@ export class WalletController {
       body.seekerId,
       body.cost,
     );
+  }
+
+  // Employer features a job posting
+  @Roles('employer', 'admin')
+  @Post('feature-job')
+  @RequireFeatureFlag('ENABLE_P2_FEATURED_PROMOTIONS')
+  async featureJob(
+    @CurrentUser() user: AuthUser,
+    @Body(new ZodValidationPipe(featureJobSchema)) body: FeatureJobDto,
+  ) {
+    return this.walletService.featureJob(
+      user.id,
+      body.jobId,
+      body.cost,
+    );
+  }
+
+  // View configured action costs (WAL-04)
+  @Get('costs')
+  async getActionCosts() {
+    return this.walletService.getAllActionCosts();
+  }
+
+  // Admin configures action costs (WAL-04)
+  @Roles('admin')
+  @Put('costs')
+  async configureCost(
+    @Body(new ZodValidationPipe(configureCostSchema)) body: ConfigureCostDto,
+  ) {
+    this.walletService.setActionCost(body.action, body.cost);
+    return {
+      success: true,
+      action: body.action,
+      cost: body.cost,
+    };
   }
 }

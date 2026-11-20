@@ -20,6 +20,8 @@ describe('Payment Verify E2E (WAL-03, Signature, Owner-Bound, Race Conditions, A
   const webhookSecret = 'test_webhook_secret_256bits_fixture';
   process.env['RAZORPAY_KEY_SECRET'] = keySecret;
   process.env['RAZORPAY_WEBHOOK_SECRET'] = webhookSecret;
+  process.env['ENABLE_P2_PAYMENTS'] = 'true';
+  process.env['ENABLE_P2_WALLET_RECHARGE'] = 'true';
 
   beforeAll(async () => {
     pgClient = new pg.Client({ connectionString: DATABASE_URL });
@@ -309,5 +311,48 @@ describe('Payment Verify E2E (WAL-03, Signature, Owner-Bound, Race Conditions, A
     );
     expect(ledgers.rows.length).toBe(1);
     expect(ledgers.rows[0].amount).toBe(50);
+  });
+
+  it('verification anomaly (amount mismatch) rejects with 400 Bad Request and AMOUNT_MISMATCH code', async () => {
+    const user = await createTestUser();
+    const orderId = `order_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+    const paymentId = `pay_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+
+    await createTestOrder(user, orderId, 59000, 50);
+    const validSig = signCheckout(orderId, paymentId);
+
+    // Gateway reports amount mismatch (100 paise instead of 59000 paise)
+    fakeGateway.seedPayment({
+      id: paymentId,
+      orderId,
+      status: 'captured',
+      amountPaise: 100,
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/wallet/recharge/verify',
+      headers: {
+        'content-type': 'application/json',
+        'x-user-id': user,
+        'x-user-role': 'job_seeker',
+      },
+      payload: {
+        razorpayOrderId: orderId,
+        razorpayPaymentId: paymentId,
+        razorpaySignature: validSig,
+      },
+    });
+
+    expect(res.statusCode).toBe(400);
+    const body = res.json();
+    expect(body.code).toBe('AMOUNT_MISMATCH');
+
+    // Verify ZERO recharge credits granted
+    const ledgers = await pgClient.query(
+      "SELECT amount FROM public.credit_ledgers WHERE user_id = $1 AND reason = 'wallet_recharge'",
+      [user],
+    );
+    expect(ledgers.rows.length).toBe(0);
   });
 });

@@ -16,6 +16,9 @@ describe('Wallet Endpoints E2E (WAL-01, WAL-03, Create-Order, Dynamic Balance, P
   let fakeGateway: FakeRazorpayGateway;
   let pgClient: pg.Client;
 
+  process.env['ENABLE_P2_PAYMENTS'] = 'true';
+  process.env['ENABLE_P2_WALLET_RECHARGE'] = 'true';
+
   beforeAll(async () => {
     pgClient = new pg.Client({ connectionString: DATABASE_URL });
     await pgClient.connect();

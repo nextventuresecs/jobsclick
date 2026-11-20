@@ -18,6 +18,8 @@ describe('Sponsorship Endpoints E2E (WAL-05, INT-05, Quotes, Seat Capping, Attac
   let paymentService: PaymentService;
   let pgClient: pg.Client;
 
+  process.env['ENABLE_P2_PAYMENTS'] = 'true';
+
   beforeAll(async () => {
     pgClient = new pg.Client({ connectionString: DATABASE_URL });
     await pgClient.connect();
@@ -351,6 +353,38 @@ describe('Sponsorship Endpoints E2E (WAL-05, INT-05, Quotes, Seat Capping, Attac
         [inst.institutionId],
       );
       expect(grants.rows.length).toBe(0);
+    });
+
+    it('rate limiting: exceeding limit on create-order returns 429 Too Many Requests', async () => {
+      const inst = await createInstitution('Throttled College');
+
+      const sendReq = () =>
+        app.inject({
+          method: 'POST',
+          url: '/institution/sponsorship/create-order',
+          headers: {
+            'content-type': 'application/json',
+            'x-user-id': inst.userId,
+            'x-user-role': 'intermediary',
+          },
+          payload: {
+            institutionId: inst.institutionId,
+            termsVersion: '2026.1',
+            billingStateCode: '07',
+          },
+        });
+
+      let hit429 = false;
+      // Limit is 10/h. Send requests until 429 is returned.
+      for (let i = 0; i < 12; i++) {
+        const res = await sendReq();
+        if (res.statusCode === 429) {
+          hit429 = true;
+          break;
+        }
+      }
+
+      expect(hit429).toBe(true);
     });
   });
 });

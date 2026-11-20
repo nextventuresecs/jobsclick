@@ -273,6 +273,13 @@ export class PaymentService {
     if (!isAdmin && payment.user_id !== userId) {
       throw new ForbiddenException('You are not authorized to access this invoice');
     }
+    if (payment.status !== 'captured') {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: 'PAYMENT_NOT_CAPTURED',
+        message: 'Invoice cannot be generated for uncaptured payment',
+      });
+    }
     return this.formatInvoice(payment);
   }
 

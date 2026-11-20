@@ -16,6 +16,7 @@ import { PaymentService } from './payment.service.js';
 import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
 import { captureException } from '../config/sentry.js';
 import { Public } from '../auth/decorators/public.decorator.js';
+import { RequireFeatureFlag } from '../auth/guards/feature-flag.guard.js';
 
 interface RequestWithRawBody extends FastifyRequest {
   rawBody?: Buffer | string;
@@ -24,6 +25,7 @@ interface RequestWithRawBody extends FastifyRequest {
 @SkipThrottle()
 @Public()
 @Controller()
+@RequireFeatureFlag('ENABLE_P2_PAYMENTS')
 export class RazorpayWebhookController {
   private readonly logger = new Logger(RazorpayWebhookController.name);
 
@@ -116,22 +118,18 @@ export class RazorpayWebhookController {
       const paymentId = String(paymentEntity['id'] ?? '');
       const orderId = String(paymentEntity['order_id'] ?? '');
 
-      try {
-        await this.auditLogRepo.append({
-          id: crypto.randomUUID(),
-          actor_id: null,
-          action: 'PAYMENT_FAILED_AT_GATEWAY',
-          meta: {
-            eventId,
-            orderId: orderId || null,
-            paymentId: paymentId || null,
-            error: paymentEntity['error_description'] || paymentEntity['error_reason'] || null,
-          },
-          created_at: new Date().toISOString(),
-        });
-      } catch {
-        // Non-blocking audit log
-      }
+      await this.auditLogRepo.append({
+        id: crypto.randomUUID(),
+        actor_id: null,
+        action: 'PAYMENT_FAILED_AT_GATEWAY',
+        meta: {
+          eventId,
+          orderId: orderId || null,
+          paymentId: paymentId || null,
+          error: paymentEntity['error_description'] || paymentEntity['error_reason'] || null,
+        },
+        created_at: new Date().toISOString(),
+      });
 
       return { status: 'ok', received: true };
     }

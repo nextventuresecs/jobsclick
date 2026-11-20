@@ -18,6 +18,7 @@ describe('Payment Webhook E2E (WAL-03, Razorpay HMAC, Deduplication, Anomalies)'
   let pgClient: pg.Client;
   const webhookSecret = 'test_webhook_secret_key_32bytes_long!';
   process.env['RAZORPAY_WEBHOOK_SECRET'] = webhookSecret;
+  process.env['ENABLE_P2_PAYMENTS'] = 'true';
 
   beforeAll(async () => {
     pgClient = new pg.Client({ connectionString: DATABASE_URL });
