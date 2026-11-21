@@ -127,7 +127,7 @@ export function MsmeBroadcastConsole({ onDispatch }: MsmeBroadcastConsoleProps) 
   useEffect(() => {
     let isMounted = true;
     setIsQuoteLoading(true);
-    const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:3001';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
     const reqBody = {
       filters: {
@@ -238,7 +238,7 @@ export function MsmeBroadcastConsole({ onDispatch }: MsmeBroadcastConsoleProps) 
         });
         setDispatchSuccessId(res.campaignId);
       } else {
-        const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:3001';
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
         const response = await fetch(`${apiUrl}/admin/broadcast/dispatch`, {
           method: 'POST',
           headers: {

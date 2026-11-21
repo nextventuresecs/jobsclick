@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { useApp } from '../../context/AppContext';
-import { type ClientRole, isStrictEnv } from '@indian-job-portal/validation';
+import { type ClientRole } from '@indian-job-portal/validation';
+import { isStrictEnv } from '@/lib/client-env';
 import {
   X,
   UserCheck,

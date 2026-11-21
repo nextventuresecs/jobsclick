@@ -3,7 +3,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppContext } from '@/context/AppContext';
-import { IndianPhoneSchema, SelfSignupRoleSchema, SendEmailOtpSchema, isStrictEnv, isTestEnv } from '@indian-job-portal/validation';
+import { IndianPhoneSchema, SelfSignupRoleSchema, SendEmailOtpSchema } from '@indian-job-portal/validation';
+import { isStrictEnv, isTestEnv } from '@/lib/client-env';
 import { getSupabaseBrowserClient } from '@/lib/supabaseClient';
 import { Turnstile } from '@marsidev/react-turnstile';
 
@@ -485,6 +486,7 @@ export function AuthModal() {
             </div>
 
             {/* Google OAuth Button */}
+            {process.env.NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN === 'true' && (
             <div className="mt-4">
               <button
                 type="button"
@@ -519,7 +521,9 @@ export function AuthModal() {
                   or sign in with
                 </span>
               </div>
-
+              </div>
+            )}
+            <div className="mt-4">
               {/* Channel Switcher: Mobile vs Email */}
               <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1">
                 <button

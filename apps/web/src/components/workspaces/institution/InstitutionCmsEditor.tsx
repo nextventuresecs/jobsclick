@@ -41,7 +41,7 @@ interface InstitutionCmsEditorProps {
 export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProps) {
   const t = useTranslations('InstitutionWorkspace');
   const { addToast, accessToken } = useApp();
-  const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:3001';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
   const [activeSubTab, setActiveSubTab] = useState<
     'courses' | 'subjects' | 'fees' | 'departments' | 'faculty' | 'paste-ai' | 'inquiries'

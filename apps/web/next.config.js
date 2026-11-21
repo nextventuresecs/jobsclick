@@ -15,6 +15,10 @@ const nextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   env: {
+    NEXT_PUBLIC_APP_ENV:
+      process.env.NEXT_PUBLIC_APP_ENV ||
+      process.env.APP_ENV ||
+      '',
     NEXT_PUBLIC_APP_URL:
       process.env.NEXT_PUBLIC_APP_URL ||
       process.env.APP_URL ||

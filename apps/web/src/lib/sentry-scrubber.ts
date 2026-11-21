@@ -20,6 +20,7 @@ import {
   type LogSeverityLevel,
   getAppEnv,
 } from '@indian-job-portal/validation';
+import { getClientAppEnv } from './client-env';
 
 export {
   BEARER_TOKEN_REGEX,
@@ -42,9 +43,9 @@ export {
 
 export function getSentryEnvironment(): string {
   return (
+    process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ||
     process.env['SENTRY_ENVIRONMENT'] ||
-    process.env['NEXT_PUBLIC_SENTRY_ENVIRONMENT'] ||
-    getAppEnv()
+    (typeof window !== 'undefined' ? getClientAppEnv() : getAppEnv())
   );
 }
 

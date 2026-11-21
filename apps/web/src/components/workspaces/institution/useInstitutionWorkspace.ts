@@ -81,8 +81,8 @@ export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInst
     if (!user?.id || !accessToken) return;
 
     const apiUrl =
-      process.env['NEXT_PUBLIC_API_URL'] ||
-      process.env['API_URL'] ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      process.env.API_URL ||
       'http://localhost:3001';
     const authHeader = `Bearer ${accessToken}`;
     const userId = user.id;
@@ -304,8 +304,8 @@ export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInst
     }
 
     const apiUrl =
-      process.env['NEXT_PUBLIC_API_URL'] ||
-      process.env['API_URL'] ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      process.env.API_URL ||
       'http://localhost:3001';
     const authHeader = `Bearer ${accessToken}`;
 

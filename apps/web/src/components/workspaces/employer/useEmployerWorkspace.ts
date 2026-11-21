@@ -62,7 +62,7 @@ export function useEmployerWorkspace({ user, accessToken, addToast }: UseEmploye
     return true;
   });
 
-  const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || process.env['API_URL'] || 'http://localhost:3001';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'http://localhost:3001';
   const authHeader = accessToken ? `Bearer ${accessToken}` : '';
   const userId = user?.id || '';
 

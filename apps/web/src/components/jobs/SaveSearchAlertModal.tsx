@@ -20,7 +20,7 @@ export function SaveSearchAlertModal({
 }: SaveSearchAlertModalProps) {
   const t = useTranslations('JobsPage');
   const { accessToken } = useApp();
-  const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:3001';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
   const [isOpen, setIsOpen] = useState(false);
   const [title, setTitle] = useState(
     currentKeyword || currentCity

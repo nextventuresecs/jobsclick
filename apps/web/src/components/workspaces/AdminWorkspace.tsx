@@ -39,7 +39,7 @@ export function AdminWorkspace({ isMsmeDept = false }: { readonly isMsmeDept?: b
   useEffect(() => {
     let isMounted = true;
     const abortCtrl = new AbortController();
-    const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || process.env['API_URL'] || 'http://localhost:3001';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.API_URL || 'http://localhost:3001';
     const authHeader = accessToken ? `Bearer ${accessToken}` : '';
     const adminId = user?.id || 'admin_root';
 

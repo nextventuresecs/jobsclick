@@ -25,7 +25,7 @@ export function PromoteJobModal({
 }: PromoteJobModalProps) {
   const t = useTranslations('EmployerWorkspace');
   const { accessToken, user } = useApp();
-  const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:3001';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
   const [isOpen, setIsOpen] = useState(false);
   const [isRechargeOpen, setIsRechargeOpen] = useState(false);
   const [durationDays, setDurationDays] = useState<7 | 14 | 30>(7);

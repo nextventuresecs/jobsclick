@@ -28,7 +28,7 @@ export function PublicInstitutionTabs({
   cmsData,
 }: PublicInstitutionTabsProps) {
   const t = useTranslations('InstitutionPublic');
-  const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:3001';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
   const [activeTab, setActiveTab] = useState<
     'courses' | 'subjects' | 'fees' | 'inquiry' | 'departments' | 'faculty'
