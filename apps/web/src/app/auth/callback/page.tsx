@@ -12,7 +12,7 @@ import { Loader2, AlertCircle, ArrowRight } from 'lucide-react';
 function CallbackHandler() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { loginAs, addToast } = useApp();
+  const { loginAs, setAuthSession, addToast } = useApp();
 
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -81,7 +81,17 @@ function CallbackHandler() {
           if (!isMounted) return;
 
           setStatus('success');
-          loginAs(resolvedRole);
+          setAuthSession({
+            accessToken: session.access_token,
+            user: {
+              id: session.user.id,
+              phone: session.user.phone || '',
+              email: session.user.email || null,
+              emailVerified: Boolean(session.user.email_confirmed_at),
+              role: resolvedRole,
+              status: 'active',
+            },
+          });
           addToast({
             type: 'success',
             title: 'Google Sign-In Successful',
@@ -117,7 +127,17 @@ function CallbackHandler() {
                 if (!isMounted) return;
 
                 setStatus('success');
-                loginAs(resolvedRole);
+                setAuthSession({
+                  accessToken: changedSession.access_token,
+                  user: {
+                    id: changedSession.user.id,
+                    phone: changedSession.user.phone || '',
+                    email: changedSession.user.email || null,
+                    emailVerified: Boolean(changedSession.user.email_confirmed_at),
+                    role: resolvedRole,
+                    status: 'active',
+                  },
+                });
                 addToast({
                   type: 'success',
                   title: 'Google Sign-In Successful',
@@ -144,7 +164,7 @@ function CallbackHandler() {
     return () => {
       isMounted = false;
     };
-  }, [router, searchParams, loginAs, addToast]);
+  }, [router, searchParams, loginAs, setAuthSession, addToast]);
 
   return (
     <div className="min-h-[70vh] flex items-center justify-center p-4">

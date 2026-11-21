@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import type { InstitutionCmsInput } from '@indian-job-portal/validation';
 import type { InstitutionProfileData } from '../../../data/sampleWorkspaces';
+import posthog from 'posthog-js';
 
 interface PublicInstitutionTabsProps {
   readonly institution: InstitutionProfileData;
@@ -82,6 +83,11 @@ export function PublicInstitutionTabs({
         throw new Error('Failed to submit inquiry');
       }
 
+      posthog.capture('institution_inquiry_submitted', {
+        course_of_interest: courseOfInterest,
+        institution_id: institution.id,
+        qualification,
+      });
       setInquirySuccess(true);
       // Reset form
       setStudentName('');
@@ -91,6 +97,11 @@ export function PublicInstitutionTabs({
       setDpdpConsent(false);
     } catch {
       // Offline fallback: simulate successful capture
+      posthog.capture('institution_inquiry_submitted', {
+        course_of_interest: courseOfInterest,
+        institution_id: institution.id,
+        qualification,
+      });
       setInquirySuccess(true);
     } finally {
       setIsSubmitting(false);

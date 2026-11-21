@@ -15,6 +15,7 @@ import { useInstitutionProfileState } from './useInstitutionProfileState';
 import { useBulkUploadState } from './useBulkUploadState';
 import { parseCsvContent, downloadCsvTemplate } from './csvParser';
 import { createQuickStudent, filterStudentsList } from './studentUtils';
+import posthog from 'posthog-js';
 
 interface ApiStudentRow {
   readonly id: string;
@@ -200,6 +201,9 @@ export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInst
       invitedAt: new Date().toISOString().split('T')[0],
     }));
 
+    posthog.capture('students_bulk_imported', {
+      valid_student_count: validRows.length,
+    });
     setStudents([...newStudents, ...students]);
     bulkUpload.setImportStep(3);
     addToast({
@@ -210,6 +214,9 @@ export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInst
   };
 
   const handleScheduleWave = () => {
+    posthog.capture('invitation_wave_scheduled', {
+      student_count: bulkUpload.batchMetrics.validRows || bulkUpload.parsedRows.filter((row) => row.isValid).length,
+    });
     bulkUpload.setImportStep(4);
     addToast({
       type: 'info',
@@ -247,6 +254,10 @@ export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInst
       quickStream,
       quickPassingYear,
     );
+    posthog.capture('student_added', {
+      passing_year: quickPassingYear,
+      stream: quickStream,
+    });
     setStudents([newStudent, ...students]);
     setQuickStudentName('');
     setQuickRollNumber('');

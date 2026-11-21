@@ -14,6 +14,7 @@ export async function register() {
   if (process.env['NEXT_RUNTIME'] === 'nodejs') {
     // @ts-expect-error Next.js resolves TS file at build time
     await import('../sentry.server.config');
+    await import('./lib/posthog-logs');
   }
 
   if (process.env['NEXT_RUNTIME'] === 'edge') {
