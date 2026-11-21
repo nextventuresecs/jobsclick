@@ -9,6 +9,7 @@ import {
 } from '@indian-job-portal/validation';
 
 export const clientEnvSchema = z.object({
+  NEXT_PUBLIC_APP_ENV: z.string().optional(),
   NEXT_PUBLIC_API_URL: z.string().default('http://localhost:3001'),
   NEXT_PUBLIC_APP_URL: z.string().default('http://localhost:3000'),
   NEXT_PUBLIC_SUPABASE_URL: z.string().optional(),

@@ -13,7 +13,7 @@ export type AppEnv = 'production' | 'staging' | 'test' | 'development';
 
 export function getAppEnv(source?: Record<string, string | undefined>): AppEnv {
   const envSource = source ?? (typeof process !== 'undefined' ? process.env : {});
-  const rawAppEnv = envSource['APP_ENV'];
+  const rawAppEnv = envSource['APP_ENV'] || envSource['NEXT_PUBLIC_APP_ENV'];
   const rawNodeEnv = envSource['NODE_ENV'];
 
   const candidate =
