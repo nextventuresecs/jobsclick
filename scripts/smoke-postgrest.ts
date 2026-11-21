@@ -27,8 +27,8 @@ function signJwt(payload: Record<string, unknown>, secret: string): string {
 }
 
 const EXPECTED_PUBLIC_JOBS_COLUMNS = [
-  'id',
-  'employer_id',
+  'slug',
+  'company_slug',
   'title',
   'description',
   'category',
@@ -47,7 +47,7 @@ const EXPECTED_PUBLIC_JOBS_COLUMNS = [
   'created_at',
 ].sort();
 
-const FORBIDDEN_COLUMNS = ['fts', 'source', 'created_by', 'updated_by'];
+const FORBIDDEN_COLUMNS = ['fts', 'source', 'created_by', 'updated_by', 'id', 'employer_id'];
 
 async function getAuthenticatedToken(baseUrl: string, serviceKey: string, anonKey: string): Promise<{ token: string; cleanupUserId?: string }> {
   try {
@@ -167,7 +167,7 @@ async function runSmokeTests() {
     // 3. Public Views Allow (Exact 200 for anon and authenticated)
     {
       name: '5. Anon Key -> Public View (public_jobs) [Expect EXACT 200]',
-      url: `${restUrl}/public_jobs?select=id`,
+      url: `${restUrl}/public_jobs?select=slug`,
       method: 'GET',
       token: anonToken,
       expectedStatus: 200,
@@ -175,7 +175,7 @@ async function runSmokeTests() {
     },
     {
       name: '6. Authenticated JWT -> Public View (public_jobs) [Expect EXACT 200]',
-      url: `${restUrl}/public_jobs?select=id`,
+      url: `${restUrl}/public_jobs?select=slug`,
       method: 'GET',
       token: authenticatedToken,
       expectedStatus: 200,
@@ -183,7 +183,7 @@ async function runSmokeTests() {
     },
     {
       name: '7. Anon Key -> Public View (public_business_profiles) [Expect EXACT 200]',
-      url: `${restUrl}/public_business_profiles?select=id`,
+      url: `${restUrl}/public_business_profiles?select=slug`,
       method: 'GET',
       token: anonToken,
       expectedStatus: 200,
@@ -327,16 +327,17 @@ async function runSmokeTests() {
     },
     // 8. Service-Role Positive RPC Execution (Exact 200)
     {
-      name: '21. Service-Role Key -> POST /rpc/get_user_credit_balance [Expect EXACT 200 Positive Execution]',
-      url: `${restUrl}/rpc/get_user_credit_balance`,
+      name: '21. Service-Role Key -> POST /rpc/rpc_get_balance [Expect EXACT 200 Positive Execution]',
+      url: `${restUrl}/rpc/rpc_get_balance`,
       method: 'POST',
       token: serviceRoleToken,
+      apiKey: serviceRoleToken,
       body: JSON.stringify({ p_user_id: '00000000-0000-0000-0000-000000000001' }),
       expectedStatus: 200,
       payloadValidator: (body) => {
         try {
-          const data = JSON.parse(body);
-          return typeof data.balance === 'number';
+          const val = JSON.parse(body);
+          return typeof val === 'number' || typeof val === 'string';
         } catch {
           return false;
         }
