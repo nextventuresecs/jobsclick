@@ -1,7 +1,9 @@
+import { randomUUID } from 'node:crypto';
 import { Job } from 'bullmq';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import IORedis from 'ioredis';
 import IORedisMock from 'ioredis-mock';
+import { isStrictEnv, isTestEnv } from '@indian-job-portal/validation';
 
 export interface BroadcastRecipient {
   businessProfileId: string;
@@ -60,16 +62,18 @@ export class BroadcastProcessor {
       this.redis = customRedis;
     } else {
       const redisUrl = process.env['REDIS_URL'];
-      const isTest = process.env['NODE_ENV'] === 'test' || Boolean(process.env['VITEST']) || process.env['USE_MOCK_REDIS'] === 'true';
+      const isTest = !isStrictEnv() && (isTestEnv() || Boolean(process.env['VITEST']) || process.env['USE_MOCK_REDIS'] === 'true');
 
       if (isTest) {
         this.redis = new (IORedisMock as unknown as typeof IORedis)() as IORedis;
       } else if (redisUrl) {
         try {
+          const isTls = redisUrl.startsWith("rediss://");
           this.redis = new IORedis(redisUrl, {
             maxRetriesPerRequest: null,
             enableReadyCheck: false,
             lazyConnect: true,
+            tls: isTls ? {} : undefined,
           });
         } catch (err) {
           console.warn('[BroadcastProcessor] Failed initializing Redis connection, falling back to memory/DB dedupe:', err);
@@ -169,13 +173,14 @@ export class BroadcastProcessor {
       // 4. Gateway dispatch (MSG91 or Mock)
       const maskedPhone = this.maskPhone(phone);
       const isTestMode =
-        process.env['NODE_ENV'] === 'test' ||
-        Boolean(process.env['VITEST']) ||
-        !process.env['MSG91_AUTH_KEY'] ||
-        process.env['MSG91_AUTH_KEY'] === 'dummy-msg91-key';
+        !isStrictEnv() &&
+        (isTestEnv() ||
+          Boolean(process.env['VITEST']) ||
+          !process.env['MSG91_AUTH_KEY'] ||
+          process.env['MSG91_AUTH_KEY'] === 'dummy-msg91-key');
 
       try {
-        let gatewayMsgId = `mock_gw_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+        let gatewayMsgId: string = randomUUID();
 
         if (!isTestMode) {
           const authKey = process.env['MSG91_AUTH_KEY']!;

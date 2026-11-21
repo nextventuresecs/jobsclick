@@ -25,6 +25,7 @@ describe('Ticket T-19: Adversarial Security, Multi-Tenant IDOR & FSM Audit (INT-
   };
 
   beforeAll(async () => {
+    process.env['ENABLE_P2_PLACEMENT_PIPELINE'] = 'true';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();

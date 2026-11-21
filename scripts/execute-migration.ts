@@ -8,16 +8,26 @@ if ((directUrl.startsWith('"') && directUrl.endsWith('"')) || (directUrl.startsW
 }
 
 function parsePostgresUrl(urlStr: string): ClientConfig {
-  const match = urlStr.match(/^postgres(?:ql)?:\/\/([^:]+):(.*)@([^:/]+)(?::(\d+))?\/([^?]+)(?:\?(.*))?$/);
+  const match = urlStr.match(/^postgres(?:ql)?:\/\/([^:]+):(.*)@([^:\/]+)(?::(\d+))?\/([^?]+)(?:\?(.*))?$/);
   if (!match) throw new Error('Regex failed to match postgres URL structure');
   const [, user, rawPassword, host, portStr, database] = match;
+
+  const nodeEnv = (process.env.NODE_ENV ?? '').trim().toLowerCase();
+  const isStrictEnv = nodeEnv !== 'development' && nodeEnv !== 'test';
+
+  if (isStrictEnv && (process.env.DB_ALLOW_INSECURE_TLS === '1' || process.env.DB_ALLOW_INSECURE_TLS === 'true')) {
+    throw new Error('DB_ALLOW_INSECURE_TLS is strictly forbidden in production/staging environments.');
+  }
+
+  const allowInsecureDevTls = !isStrictEnv && process.env.DB_ALLOW_INSECURE_TLS === '1';
+
   return {
     user: decodeURIComponent(user),
     password: rawPassword,
     host,
     port: portStr ? parseInt(portStr, 10) : 5432,
     database,
-    ssl: { rejectUnauthorized: false }
+    ssl: allowInsecureDevTls ? { rejectUnauthorized: false } : true,
   };
 }
 

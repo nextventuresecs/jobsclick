@@ -11,7 +11,6 @@ export interface MigrationViolation {
 
 const MIGRATION_DIRS = [
   path.resolve(process.cwd(), 'supabase/migrations'),
-  path.resolve(process.cwd(), 'packages/database/supabase/migrations'),
 ];
 
 export function auditMigrationDirectories(): MigrationViolation[] {

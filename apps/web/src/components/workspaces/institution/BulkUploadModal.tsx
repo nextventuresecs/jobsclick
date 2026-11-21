@@ -100,7 +100,12 @@ export function BulkUploadModal({
                     <span className="font-bold text-gray-900">{r.studentName}</span>
                     <span className="font-mono text-gray-400">Row {r.rowNumber}</span>
                   </div>
-                  <p className="text-gray-500 mt-0.5">Roll: {r.rollNumber} • Phone: +91 {r.phone} • Stream: {r.stream}</p>
+                  <p className="text-gray-500 mt-0.5">
+                    {r.rollNumber ? `Roll: ${r.rollNumber} • ` : ''}
+                    {r.email ? `${r.email} • ` : ''}
+                    {r.phone ? `+91 ${r.phone} • ` : ''}
+                    {r.stream}
+                  </p>
                 </div>
                 <div>
                   {r.isValid ? (

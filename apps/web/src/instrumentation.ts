@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nextjs';
+import { isStrictEnv } from '@indian-job-portal/validation';
 
 /**
  * Next.js native instrumentation registration hook
@@ -12,6 +13,17 @@ export async function register() {
   }
 
   if (process.env['NEXT_RUNTIME'] === 'nodejs') {
+    // @ts-expect-error Next.js resolves TS file at build time
+    const { validateWebEnv } = await import('./config/env');
+    try {
+      validateWebEnv();
+    } catch (err) {
+      if (isStrictEnv()) {
+        console.error('[FATAL] Next.js production runtime environment validation failed:', err);
+        process.exit(1);
+      }
+      throw err;
+    }
     // @ts-expect-error Next.js resolves TS file at build time
     await import('../sentry.server.config');
   }

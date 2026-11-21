@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { optionalHttpUrlSchema } from './safe-url';
 
 export const PartnershipStatusEnum = z.enum(['active', 'mou_signed', 'pending']);
 export type PartnershipStatus = z.infer<typeof PartnershipStatusEnum>;
@@ -55,7 +56,7 @@ export const PlacementApplicationSchema = z.object({
   stage: PlacementStageEnum,
   interviewDate: z.string().optional(),
   offerPackage: z.string().optional(),
-  offerLetterUrl: z.string().url().optional(),
+  offerLetterUrl: optionalHttpUrlSchema,
   updatedAt: z.string(),
 });
 

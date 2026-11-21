@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { JobRow, JobAlertRow, AlertDeliveryRow } from '@indian-job-portal/database';
+import { isStrictEnv, isTestEnv as isValidationTestEnv } from '@indian-job-portal/validation';
 import { WorkerEmailService } from '../email/email.service.js';
 
 export interface AlertsJobData {
@@ -44,7 +45,7 @@ export class AlertsProcessor {
     if (supabaseUrl && supabaseKey && supabaseKey !== 'dummy-service-role-key') {
       this.supabase = createClient(supabaseUrl, supabaseKey);
     }
-    if (process.env['NODE_ENV'] === 'production') {
+    if (isStrictEnv()) {
       this.persistenceFilePath = '';
       if (!this.supabase) {
         throw new Error('Supabase client connection is strictly required for AlertsProcessor in production mode.');
@@ -56,7 +57,7 @@ export class AlertsProcessor {
   }
 
   private readLocalState(): LocalPersistenceState {
-    if (process.env['NODE_ENV'] === 'production' || !this.persistenceFilePath) {
+    if (isStrictEnv() || !this.persistenceFilePath) {
       return {};
     }
     try {
@@ -70,7 +71,7 @@ export class AlertsProcessor {
   }
 
   private saveLocalState(state: LocalPersistenceState): void {
-    if (process.env['NODE_ENV'] === 'production' || !this.persistenceFilePath) {
+    if (isStrictEnv() || !this.persistenceFilePath) {
       return;
     }
     try {
@@ -104,7 +105,7 @@ export class AlertsProcessor {
           alertQuery = alertQuery.eq('user_id', candidateId);
         }
         const { data: alerts, error: alertError } = await alertQuery;
-        if (alertError && process.env['NODE_ENV'] === 'production') {
+        if (alertError && isStrictEnv()) {
           throw new Error(`Database error fetching job alerts: ${alertError.message}`);
         }
         activeAlerts = (alerts as JobAlertRow[]) || [];
@@ -115,7 +116,7 @@ export class AlertsProcessor {
           .select('*')
           .eq('is_active', true)
           .gte('created_at', cutoffTime);
-        if (jobError && process.env['NODE_ENV'] === 'production') {
+        if (jobError && isStrictEnv()) {
           throw new Error(`Database error fetching recent jobs: ${jobError.message}`);
         }
         recentJobs = (jobs as JobRow[]) || [];
@@ -133,12 +134,12 @@ export class AlertsProcessor {
           }
         }
         const { data: deliveries, error: delError } = await deliveriesQuery;
-        if (delError && process.env['NODE_ENV'] === 'production') {
+        if (delError && isStrictEnv()) {
           throw new Error(`Database error fetching alert deliveries: ${delError.message}`);
         }
         existingDeliveries = (deliveries as AlertDeliveryRow[]) || [];
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production') {
+        if (isStrictEnv()) {
           throw err;
         }
         // Fall back to local state in non-production
@@ -274,7 +275,7 @@ export class AlertsProcessor {
           }
         }
 
-        const isTestEnv = process.env['NODE_ENV'] === 'test' || !process.env['RESEND_API_KEY'];
+        const isTestEnv = isValidationTestEnv() || (!isStrictEnv() && !process.env['RESEND_API_KEY']);
         let dispatchSucceeded = isTestEnv;
 
         if (recipientEmail) {
@@ -300,11 +301,11 @@ export class AlertsProcessor {
           if (this.supabase) {
             try {
               const { error: insError } = await this.supabase.from('alert_deliveries').insert(userDeliveries);
-              if (insError && process.env['NODE_ENV'] === 'production') {
+              if (insError && isStrictEnv()) {
                 throw new Error(`Database error recording alert deliveries: ${insError.message}`);
               }
             } catch (err) {
-              if (process.env['NODE_ENV'] === 'production') {
+              if (isStrictEnv()) {
                 throw err;
               }
             }
@@ -323,7 +324,7 @@ export class AlertsProcessor {
     }
 
     // Save to local store in non-production
-    if (newDeliveries.length > 0 && process.env['NODE_ENV'] !== 'production') {
+    if (newDeliveries.length > 0 && !isStrictEnv()) {
       const freshState = this.readLocalState();
       if (!freshState.alert_deliveries) {
         freshState.alert_deliveries = {};

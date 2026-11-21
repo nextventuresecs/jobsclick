@@ -11,7 +11,10 @@ async function bootstrap() {
   const env = validateEnv();
   initSentry(env.SENTRY_DSN);
 
-  const adapter = new FastifyAdapter();
+  const adapter = new FastifyAdapter({
+    trustProxy: Number(process.env['TRUST_PROXY_HOPS'] ?? 1),
+    bodyLimit: 1_048_576,
+  });
   setupFastifySentry(adapter.getInstance());
 
   // SEC-01: Administrative Queue Dashboard Guard
@@ -55,6 +58,7 @@ async function bootstrap() {
     adapter,
     { rawBody: true },
   );
+  app.enableShutdownHooks();
 
   // Fastify multipart registration (No multer!)
   await app.register((multipart as unknown) as Parameters<NestFastifyApplication['register']>[0]);

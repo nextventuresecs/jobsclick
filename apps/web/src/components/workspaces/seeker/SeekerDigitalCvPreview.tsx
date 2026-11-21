@@ -4,14 +4,21 @@ import React from 'react';
 import { useTranslations } from 'next-intl';
 import { Button, JobsClickLogo } from '@indian-job-portal/ui';
 import type { SeekerProfileData } from '../../../data/sampleWorkspaces';
-import { ShieldCheck, GraduationCap, Printer } from 'lucide-react';
+import { ShieldCheck, GraduationCap, Printer, Download } from 'lucide-react';
 
 interface SeekerDigitalCvPreviewProps {
   readonly profile: SeekerProfileData;
   readonly onPrint: () => void;
+  readonly onDownloadPdf?: () => void;
+  readonly isDownloadingPdf?: boolean;
 }
 
-export function SeekerDigitalCvPreview({ profile, onPrint }: SeekerDigitalCvPreviewProps) {
+export function SeekerDigitalCvPreview({
+  profile,
+  onPrint,
+  onDownloadPdf,
+  isDownloadingPdf,
+}: SeekerDigitalCvPreviewProps) {
   const t = useTranslations('SeekerWorkspace');
 
   return (
@@ -23,16 +30,31 @@ export function SeekerDigitalCvPreview({ profile, onPrint }: SeekerDigitalCvPrev
             {t('statPrivacyStatusDesc')}
           </p>
         </div>
-        <Button
-          type="button"
-          variant="primary"
-          size="sm"
-          onClick={onPrint}
-          className="inline-flex items-center gap-1.5"
-        >
-          <Printer className="w-4 h-4" />
-          <span>{t('printResume')}</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          {onDownloadPdf && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isDownloadingPdf}
+              onClick={onDownloadPdf}
+              className="inline-flex items-center gap-1.5"
+            >
+              <Download className="w-4 h-4 text-gray-600" />
+              <span>{isDownloadingPdf ? '...' : t('downloadPdf')}</span>
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            onClick={onPrint}
+            className="inline-flex items-center gap-1.5"
+          >
+            <Printer className="w-4 h-4" />
+            <span>{t('printResume')}</span>
+          </Button>
+        </div>
       </div>
 
       {/* Printable CV sheet */}
@@ -56,16 +78,17 @@ export function SeekerDigitalCvPreview({ profile, onPrint }: SeekerDigitalCvPrev
             )}
           </div>
           <div className="text-right">
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>{t('verifiedCandidate')}</span>
-            </span>
-            <p className="text-[11px] text-gray-400 font-mono mt-2">{t('candidateRef')} {profile.id}</p>
-            {profile.aadhaarLastFour && (
-              <p className="text-[10px] text-gray-500 font-mono mt-0.5">
-                {t('labelAadhaarLastFour')}: •••• •••• {profile.aadhaarLastFour} ({t('verified')})
-              </p>
+            {profile.isVerified || profile.aadhaarVerified ? (
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span>{t('verifiedCandidate')}</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
+                <span>Unverified</span>
+              </span>
             )}
+            <p className="text-[11px] text-gray-400 font-mono mt-2">{t('candidateRef')} {profile.id}</p>
           </div>
         </div>
 

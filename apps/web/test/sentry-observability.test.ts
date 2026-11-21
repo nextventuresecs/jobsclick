@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Event, Breadcrumb } from '@sentry/nextjs';
 import {
   sanitizeString,
@@ -9,6 +9,7 @@ import {
   shouldDropTransaction,
   SENSITIVE_HEADERS,
   SENTRY_TRACE_PROPAGATION_TARGETS,
+  getSentryEnvironment,
 } from '../src/lib/sentry-scrubber';
 import { withGenAiSpan } from '../src/lib/sentry-ai-telemetry';
 import { onRequestError, register } from '../src/instrumentation';
@@ -295,6 +296,108 @@ describe('Sentry Observability & Zero-PII Suite', () => {
       expect(result.success).toBe(false);
       expect(result.error).toContain('[Sentry Server Action Test]');
       expect(result.eventId).toBeDefined();
+    });
+
+    describe('Staging & Production Access Controls for /api/sentry-test', () => {
+      const originalEnv = { ...process.env };
+
+      beforeEach(() => {
+        process.env = { ...originalEnv };
+      });
+
+      afterEach(() => {
+        process.env = { ...originalEnv };
+      });
+
+      it('returns 403 in production', async () => {
+        (process.env as Record<string, string | undefined>)['NODE_ENV'] = 'production';
+        delete process.env['APP_ENV'];
+
+        const req = new Request('http://localhost:3000/api/sentry-test?action=server-error');
+        const res = await sentryTestRoute(req);
+        expect(res.status).toBe(403);
+        const data = await res.json();
+        expect(data.error).toContain('disabled in production');
+      });
+
+      it('returns 401 in staging when called without authentication (not publicly callable)', async () => {
+        (process.env as Record<string, string | undefined>)['NODE_ENV'] = 'production';
+        process.env['APP_ENV'] = 'staging';
+        process.env['SENTRY_TEST_SECRET'] = 'secret-123';
+
+        const req = new Request('http://localhost:3000/api/sentry-test?action=server-error');
+        const res = await sentryTestRoute(req);
+        expect(res.status).toBe(401);
+        const data = await res.json();
+        expect(data.error).toContain('not publicly callable in staging');
+      });
+
+      it('allows access in staging with valid x-sentry-test-secret', async () => {
+        (process.env as Record<string, string | undefined>)['NODE_ENV'] = 'production';
+        process.env['APP_ENV'] = 'staging';
+        process.env['SENTRY_TEST_SECRET'] = 'secret-123';
+
+        const req = new Request('http://localhost:3000/api/sentry-test?action=server-error', {
+          headers: {
+            'x-sentry-test-secret': 'secret-123',
+          },
+        });
+        const res = await sentryTestRoute(req);
+        expect(res.status).toBe(200);
+      });
+
+      it('allows access in staging with valid x-admin-secret', async () => {
+        (process.env as Record<string, string | undefined>)['NODE_ENV'] = 'staging';
+        delete process.env['APP_ENV'];
+        process.env['ADMIN_DASHBOARD_SECRET'] = 'admin-secret-456';
+
+        const req = new Request('http://localhost:3000/api/sentry-test?action=server-error', {
+          headers: {
+            'x-admin-secret': 'admin-secret-456',
+          },
+        });
+        const res = await sentryTestRoute(req);
+        expect(res.status).toBe(200);
+      });
+    });
+
+    describe('Web Sentry Environment Resolution', () => {
+      const originalEnv = { ...process.env };
+
+      beforeEach(() => {
+        process.env = { ...originalEnv };
+      });
+
+      afterEach(() => {
+        process.env = { ...originalEnv };
+      });
+
+      it('resolves environment as staging when APP_ENV=staging', () => {
+        (process.env as Record<string, string | undefined>)['NODE_ENV'] = 'production';
+        process.env['APP_ENV'] = 'staging';
+        delete process.env['SENTRY_ENVIRONMENT'];
+        delete process.env['NEXT_PUBLIC_SENTRY_ENVIRONMENT'];
+
+        expect(getSentryEnvironment()).toBe('staging');
+      });
+
+      it('resolves environment as staging when only NODE_ENV=staging', () => {
+        (process.env as Record<string, string | undefined>)['NODE_ENV'] = 'staging';
+        delete process.env['APP_ENV'];
+        delete process.env['SENTRY_ENVIRONMENT'];
+        delete process.env['NEXT_PUBLIC_SENTRY_ENVIRONMENT'];
+
+        expect(getSentryEnvironment()).toBe('staging');
+      });
+
+      it('supports NEXT_PUBLIC_SENTRY_ENVIRONMENT on client', () => {
+        (process.env as Record<string, string | undefined>)['NODE_ENV'] = 'production';
+        delete process.env['APP_ENV'];
+        delete process.env['SENTRY_ENVIRONMENT'];
+        process.env['NEXT_PUBLIC_SENTRY_ENVIRONMENT'] = 'staging-client';
+
+        expect(getSentryEnvironment()).toBe('staging-client');
+      });
     });
   });
 });

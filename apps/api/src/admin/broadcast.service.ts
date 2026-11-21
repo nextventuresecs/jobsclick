@@ -6,8 +6,9 @@ import {
   UnprocessableEntityException,
   InternalServerErrorException,
   Inject,
+  Logger,
 } from '@nestjs/common';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@indian-job-portal/database';
 import {
@@ -15,6 +16,8 @@ import {
   CostPreviewRequest,
   CostPreviewResponse,
   DispatchBroadcast,
+  isTestEnv,
+  isStrictEnv,
 } from '@indian-job-portal/validation';
 import {
   calculateSmsSegments,
@@ -63,15 +66,12 @@ export interface BroadcastCampaignEntity {
 
 @Injectable()
 export class BroadcastService {
+  private readonly logger = new Logger(BroadcastService.name);
   private persistentStore = PersistentDatabaseStore.getInstance();
   private activeDispatchLocks = new Set<string>();
   private usedConfirmationTokens = new Set<string>();
 
-  private isTestMode =
-    process.env['NODE_ENV'] !== 'production' &&
-    (process.env['NODE_ENV'] === 'test' ||
-      !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
-      process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key');
+  private isTestMode = isTestEnv();
 
   constructor(
     @Inject(QueueService) private readonly queueService: QueueService,
@@ -217,7 +217,7 @@ export class BroadcastService {
         variables: dto.variables,
       });
 
-      const campaignId = `campaign_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+      const campaignId = randomUUID();
       const now = new Date().toISOString();
 
       // 5. Pre-allocation Escrow: Record credit ledger reservation (Hard Invariant #7)
@@ -231,7 +231,7 @@ export class BroadcastService {
           }
         }
         await this.creditLedgerRepo.append({
-          id: `cld_escrow_${campaignId}`,
+          id: randomUUID(),
           user_id: actor.id,
           amount: -costPreview.totalCostPaise,
           reason: `BROADCAST_ESCROW_RESERVED: Campaign ${campaignId}`,
@@ -277,15 +277,14 @@ export class BroadcastService {
             phone = user.phone.trim();
           }
         }
-        if (!phone && this.isTestMode) {
-          phone = '9876543210';
-        }
         if (phone) {
           recipientList.push({
             businessProfileId: biz.id,
             phone,
             idempotencyKey: `broadcast_${campaignId}_${biz.id}`,
           });
+        } else {
+          this.logger.warn(`Skipping broadcast recipient biz:${biz.id}: missing valid phone number`);
         }
       }
 
@@ -350,7 +349,7 @@ export class BroadcastService {
         }
         return (data as unknown as BroadcastCampaignEntity) || null;
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }

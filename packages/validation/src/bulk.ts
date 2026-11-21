@@ -25,8 +25,21 @@ export const updateWaveStatusSchema = z.object({
   action: z.enum(['pause', 'resume', 'cancel']),
 });
 
+export const bulkContactRowSchema = z
+  .object({
+    email: z.string().optional(),
+    phone: z.string().optional(),
+    name: z.string().optional(),
+    company_name: z.string().optional(),
+  })
+  .refine(
+    (row) => Boolean(row.email?.trim() || row.phone?.trim()),
+    'At least one contact identifier (email or phone) is required',
+  );
+
 export type BulkUploadInput = z.infer<typeof bulkUploadSchema>;
 export type SignedUrlInput = z.infer<typeof signedUrlSchema>;
 export type InviteWaveInput = z.infer<typeof inviteWaveSchema>;
 export type UpdateWaveStatusInput = z.infer<typeof updateWaveStatusSchema>;
+export type BulkContactRowInput = z.infer<typeof bulkContactRowSchema>;
 

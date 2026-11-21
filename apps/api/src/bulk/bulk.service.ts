@@ -1,5 +1,7 @@
-import { Injectable, NotFoundException, BadRequestException, Inject } from '@nestjs/common';
-import { BulkUploadInput, InviteWaveInput } from '@indian-job-portal/validation';
+import { randomUUID } from 'node:crypto';
+import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator.js';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject } from '@nestjs/common';
+import { BulkUploadInput, InviteWaveInput, normalizeIndianPhone, isTestEnv, isStrictEnv } from '@indian-job-portal/validation';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { parse as parseCsvSync } from 'csv-parse/sync';
 import { QstashService } from '../qstash/qstash.service.js';
@@ -18,6 +20,8 @@ if (typeof globalThis.WebSocket === 'undefined') {
 }
 
 export interface BulkBatchRecord {
+  createdBy?: string | null;
+  institutionId?: string | null;
   id: string;
   source: string;
   entityType: 'student' | 'employer';
@@ -36,6 +40,7 @@ export interface BulkBatchRecord {
 
 export interface InviteWaveRecord {
   id: string;
+  createdBy?: string | null;
   batchId: string;
   waveSize: number;
   costPerSmsInr: number;
@@ -43,7 +48,7 @@ export interface InviteWaveRecord {
   status: TaskStatus;
   sentCount: number;
   failedCount: number;
-  qstashMessageId: string | null;
+  qstashMessageId?: string | null;
   createdAt: string;
 }
 
@@ -75,8 +80,8 @@ function parseCsv(csvText: string): Array<Record<string, string>> {
 @Injectable()
 export class BulkService {
   private supabase: SupabaseClient;
-  private isTestMode = process.env['NODE_ENV'] === 'test' || !process.env['SUPABASE_SERVICE_ROLE_KEY'] || process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key';
-  
+  private isTestMode = isTestEnv();
+
   private memBatches = new Map<string, BulkBatchRecord>();
   private memWaves = new Map<string, InviteWaveRecord>();
 
@@ -84,20 +89,35 @@ export class BulkService {
     @Inject(QstashService) private readonly qstashService: QstashService,
     @Inject(QueueService) private readonly queueService: QueueService,
   ) {
-    const url = process.env['SUPABASE_URL'] || 'http://localhost:54321';
-    const key = process.env['SUPABASE_SERVICE_ROLE_KEY'] || 'dummy-service-role-key';
-    this.supabase = createClient(url, key, {
+    const url = process.env['SUPABASE_URL'];
+    const key = process.env['SUPABASE_SERVICE_ROLE_KEY'];
+
+    if (isStrictEnv()) {
+      if (!url || !url.trim() || url.includes('localhost') || url.includes('127.0.0.1')) {
+        throw new Error('SUPABASE_URL must be set and cannot point to localhost in production/staging');
+      }
+      if (!key || !key.trim() || key === 'dummy-service-role-key' || key.toLowerCase().includes('dummy')) {
+        throw new Error('SUPABASE_SERVICE_ROLE_KEY must be set and cannot be a dummy value in production/staging');
+      }
+    }
+
+    this.supabase = createClient(url || 'http://localhost:54321', key || 'dummy-service-role-key', {
       auth: { persistSession: false, autoRefreshToken: false },
     });
   }
 
-  async getSignedUploadUrl(fileName: string, _contentType = 'text/csv'): Promise<{
+  async getSignedUploadUrl(
+    fileName: string,
+    _contentType = 'text/csv',
+    actor?: AuthenticatedUser,
+  ): Promise<{
     signedUrl: string;
     storagePath: string;
     token: string;
   }> {
+    this.requireImporter(actor);
     const safeName = `${Date.now()}_${fileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-    const storagePath = `bulk-imports/${safeName}`;
+    const storagePath = `bulk-imports/${actor!.id}/${randomUUID()}_${safeName}`;
 
     if (this.isTestMode) {
       return {
@@ -122,22 +142,50 @@ export class BulkService {
     };
   }
 
-  async processBulkImport(input: BulkUploadInput, csvContent?: string): Promise<BulkBatchRecord> {
-    const batchId = `batch_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+  async processBulkImport(
+    input: BulkUploadInput,
+    csvContent?: string,
+    actor?: AuthenticatedUser,
+  ): Promise<BulkBatchRecord> {
+    this.requireImporter(actor);
+    if (actor!.role !== 'admin' && input.entityType !== (actor!.role === 'intermediary' ? 'student' : 'employer')) {
+      throw new ForbiddenException('BULK_ENTITY_FORBIDDEN');
+    }
+    if (input.storagePath) {
+      const prefix = `bulk-imports/${actor!.id}/`;
+      const leaf = input.storagePath.slice(prefix.length);
+      if (!input.storagePath.startsWith(prefix) || !/^[A-Za-z0-9_-][A-Za-z0-9._-]*$/.test(leaf)) {
+        throw new ForbiddenException('BULK_STORAGE_FORBIDDEN');
+      }
+    }
+    const batchId = randomUUID();
     const now = new Date().toISOString();
+
+    // Resolve batch owner's institution profile server-side (never from CSV)
+    let institutionId: string | null = null;
+    if (actor && actor.id && !this.isTestMode) {
+      try {
+        const { data: inst } = await this.supabase
+          .from('institution_profiles')
+          .select('id')
+          .or(`user_id.eq.${actor.id},created_by.eq.${actor.id}`)
+          .limit(1)
+          .maybeSingle();
+        if (inst?.id) {
+          institutionId = inst.id;
+        }
+      } catch {
+        // ignore
+      }
+    }
 
     // Direct Supabase Storage upload flow (Ticket T-08)
     if (input.storagePath) {
-      await this.queueService.publishBulkImportJob({
-        batchId,
-        source: input.source,
-        entityType: input.entityType,
-        storagePath: input.storagePath,
-      });
-
       if (this.isTestMode) {
         const record: BulkBatchRecord = {
           id: batchId,
+          createdBy: actor!.id,
+          institutionId,
           source: input.source,
           entityType: input.entityType || 'student',
           totalRows: 0,
@@ -150,20 +198,29 @@ export class BulkService {
           createdAt: now,
           startedAt: null,
           completedAt: null,
-          errorCsvContent: '',
         };
         this.memBatches.set(batchId, record);
+        await this.queueService.publishBulkImportJob({
+          batchId,
+          source: input.source,
+          entityType: input.entityType,
+          storagePath: input.storagePath,
+          institutionId,
+        });
         return record;
       }
 
       const { data: batch, error: insertError } = await this.supabase
         .from('bulk_import_batches')
         .insert({
+          id: batchId,
+          created_by: actor!.id,
           source: input.source,
           entity_type: input.entityType || 'student',
           total_rows: 0,
           status: 'queued' as TaskStatus,
           csv_storage_path: input.storagePath,
+          institution_id: institutionId,
         })
         .select()
         .single();
@@ -172,66 +229,53 @@ export class BulkService {
         throw new BadRequestException(`Failed to create batch record: ${insertError?.message}`);
       }
 
+      await this.queueService.publishBulkImportJob({
+        batchId: batch.id,
+        source: input.source,
+        entityType: input.entityType,
+        storagePath: input.storagePath,
+        institutionId,
+      });
       return this.toBatchRecord(batch);
     }
 
-    const actualCsv = csvContent || input.csvContent;
-    if (!actualCsv) {
-      throw new BadRequestException('Either storagePath or csvContent must be provided');
+    if (!csvContent || csvContent.trim().length === 0) {
+      throw new BadRequestException('CSV file content is required when storagePath is not provided');
     }
 
-    let records: Array<Record<string, string>> = [];
-    try {
-      records = parseCsv(actualCsv);
-    } catch {
-      throw new BadRequestException('Invalid CSV format');
-    }
+    const records = parseCsv(csvContent);
     if (records.length === 0) {
       throw new BadRequestException('CSV file is empty or has no data rows');
     }
 
-    // Publish to BullMQ bulk-import queue (Ticket T-07)
-    await this.queueService.publishBulkImportJob({
-      batchId,
-      source: input.source,
-      entityType: input.entityType,
-      csvContent,
-    });
-
     if (this.isTestMode) {
-      const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
-      const qstashResult = await this.qstashService.publishTask({
-        url: `${apiUrl}/webhooks/qstash/import-batch`,
-        body: { batchId, source: input.source, entityType: input.entityType, csvContent },
-        deduplicationId: `import_${batchId}`,
-      });
-
       let validCount = 0;
       const errors: Array<{ row: number; phone: string; reason: string }> = [];
-      const seenPhones = new Set<string>();
+      const seenContacts = new Set<string>();
 
       records.forEach((row, idx) => {
-        const rawPhone = (row['phone'] || row['mobile'] || '').replace(/\s+/g, '');
-        const phone = rawPhone.startsWith('+91') ? rawPhone.slice(3) : rawPhone;
-        if (!/^[6-9]\d{9}$/.test(phone)) {
-          errors.push({ row: idx + 2, phone: rawPhone, reason: 'Invalid Indian 10-digit mobile number format' });
-          return;
+        const phone = normalizeIndianPhone(row['phone'] || row['Phone'] || row['mobile'] || row['Mobile']);
+        const email = (row['email'] || row['Email'] || '').trim().toLowerCase();
+        const contact = phone || email;
+
+        if (!contact) {
+          errors.push({ row: idx + 2, phone: row['phone'] || '', reason: 'Invalid Indian 10-digit mobile number' });
+        } else if (seenContacts.has(contact)) {
+          errors.push({ row: idx + 2, phone: contact, reason: 'Duplicate mobile number inside file' });
+        } else {
+          seenContacts.add(contact);
+          validCount++;
         }
-        if (seenPhones.has(phone)) {
-          errors.push({ row: idx + 2, phone, reason: 'Duplicate mobile number inside file' });
-          return;
-        }
-        seenPhones.add(phone);
-        validCount++;
       });
 
-      let errorCsvContent = '';
-      if (errors.length > 0) {
-        errorCsvContent = 'row,phone,reason\n' + errors.map((e) => `${e.row},"${e.phone}","${e.reason}"`).join('\n');
-      }
+      const errorCsv =
+        errors.length > 0
+          ? 'row,phone,reason\n' + errors.map((e) => `${e.row},${e.phone},"${e.reason}"`).join('\n')
+          : undefined;
 
       const record: BulkBatchRecord = {
         id: batchId,
+        createdBy: actor!.id,
         source: input.source,
         entityType: input.entityType || 'student',
         totalRows: records.length,
@@ -239,24 +283,36 @@ export class BulkService {
         validRows: validCount,
         errorRows: errors.length,
         status: 'completed',
-        qstashMessageId: qstashResult.messageId,
+        qstashMessageId: null,
         failureReason: null,
         createdAt: now,
         startedAt: now,
         completedAt: now,
-        errorCsvContent,
+        errorCsvContent: errorCsv,
       };
       this.memBatches.set(batchId, record);
+
+      await this.queueService.publishBulkImportJob({
+        batchId,
+        source: input.source,
+        entityType: input.entityType,
+        csvContent,
+        institutionId,
+      });
+
       return record;
     }
 
     const { data: batch, error: insertError } = await this.supabase
       .from('bulk_import_batches')
       .insert({
+        id: batchId,
+        created_by: actor!.id,
         source: input.source,
         entity_type: input.entityType || 'student',
         total_rows: records.length,
         status: 'queued' as TaskStatus,
+        institution_id: institutionId,
       })
       .select()
       .single();
@@ -265,192 +321,68 @@ export class BulkService {
       throw new BadRequestException(`Failed to create batch record: ${insertError?.message}`);
     }
 
-    const dbBatchId = batch.id as string;
-    const storagePath = `bulk-imports/${dbBatchId}.csv`;
-    const { error: uploadError } = await this.supabase.storage
-      .from('private')
-      .upload(storagePath, actualCsv, {
-        contentType: 'text/csv',
-        upsert: false,
-      });
-
-    if (uploadError) {
-      await this.supabase
-        .from('bulk_import_batches')
-        .update({
-          status: 'failed' as TaskStatus,
-          failure_reason: `Storage upload failed: ${uploadError.message}`,
-        })
-        .eq('id', dbBatchId);
-      throw new BadRequestException(`Failed to upload CSV: ${uploadError.message}`);
-    }
-
-    await this.supabase
-      .from('bulk_import_batches')
-      .update({ csv_storage_path: storagePath })
-      .eq('id', dbBatchId);
-
-    // PRD §8.1: Primary async processing via BullMQ worker queue in apps/worker
     await this.queueService.publishBulkImportJob({
-      batchId: dbBatchId,
+      batchId: batch.id,
       source: input.source,
       entityType: input.entityType,
-      storagePath,
+      csvContent,
+      institutionId,
     });
 
-    const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
-    const qstashResult = await this.qstashService.publishTask({
-      url: `${apiUrl}/webhooks/qstash/import-batch`,
-      body: { batchId: dbBatchId },
-      deduplicationId: `import_${dbBatchId}`,
-    });
-
-    await this.supabase
-      .from('bulk_import_batches')
-      .update({
-        status: 'dispatched' as TaskStatus,
-        qstash_message_id: qstashResult.messageId,
-      })
-      .eq('id', dbBatchId);
-
-    return this.toBatchRecord(batch, 'dispatched', qstashResult.messageId);
+    return this.toBatchRecord(batch);
   }
 
-  async executeImportBatchJob(batchId: string, payloadBody?: { source?: string; entityType?: 'student' | 'employer'; csvContent?: string }): Promise<BulkBatchRecord> {
+  async executeImportBatchJob(
+    batchId: string,
+    payload: { source?: string; entityType?: 'student' | 'employer'; csvContent?: string },
+  ): Promise<BulkBatchRecord> {
     if (this.isTestMode) {
-      let record = this.memBatches.get(batchId);
-      const csvContent = payloadBody?.csvContent || 'name,phone\nKaran Patel,9876543230\nRavi Sharma,9876543231';
-      const records = parseCsv(csvContent);
-      let validCount = 0;
-      records.forEach(() => { validCount++; });
-
-      if (!record) {
-        record = {
-          id: batchId,
-          source: payloadBody?.source || 'MSME Department MP',
-          entityType: payloadBody?.entityType || 'student',
-          totalRows: records.length,
-          processedRows: records.length,
-          validRows: validCount,
-          errorRows: 0,
-          status: 'completed',
-          qstashMessageId: null,
-          failureReason: null,
-          createdAt: new Date().toISOString(),
-          startedAt: new Date().toISOString(),
-          completedAt: new Date().toISOString(),
-          errorCsvContent: 'row,phone,reason\n',
-        };
-        this.memBatches.set(batchId, record);
-      } else {
-        record.status = 'completed';
-        record.validRows = validCount;
-        record.totalRows = records.length;
-        record.processedRows = records.length;
+      const batch = this.memBatches.get(batchId);
+      if (batch) {
+        batch.status = 'completed';
+        batch.processedRows = batch.totalRows;
+        batch.validRows = batch.totalRows;
+        return batch;
       }
+      const record: BulkBatchRecord = {
+        id: batchId,
+        source: payload.source || 'Test Source',
+        entityType: payload.entityType || 'student',
+        totalRows: 10,
+        processedRows: 10,
+        validRows: 10,
+        errorRows: 0,
+        status: 'completed',
+        qstashMessageId: 'msg_test',
+        failureReason: null,
+        createdAt: new Date().toISOString(),
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+      };
+      this.memBatches.set(batchId, record);
       return record;
     }
 
-    const { data: batch, error: fetchError } = await this.supabase
+    const { data: batch, error } = await this.supabase
       .from('bulk_import_batches')
       .select('*')
       .eq('id', batchId)
       .single();
 
-    if (fetchError || !batch) {
-      throw new NotFoundException(`Batch ${batchId} not found`);
+    if (error || !batch) {
+      throw new NotFoundException('Batch not found');
     }
 
-    if (batch.status === 'completed') {
-      return this.toBatchRecord(batch);
-    }
-
-    await this.supabase
-      .from('bulk_import_batches')
-      .update({ status: 'processing' as TaskStatus, started_at: new Date().toISOString() })
-      .eq('id', batchId);
-
-    try {
-      const storagePath = batch.csv_storage_path;
-      if (!storagePath) {
-        throw new Error('CSV storage path missing');
-      }
-
-      const { data: fileData } = await this.supabase.storage.from('private').download(storagePath);
-      if (!fileData) {
-        throw new Error('Failed to download CSV from private storage');
-      }
-
-      const csvContent = await fileData.text();
-      const records = parseCsv(csvContent);
-      let validCount = 0;
-      const errors: Array<{ row: number; phone: string; reason: string }> = [];
-      const seenPhones = new Set<string>();
-
-      records.forEach((row, idx) => {
-        const rawPhone = (row['phone'] || row['mobile'] || '').replace(/\s+/g, '');
-        const phone = rawPhone.startsWith('+91') ? rawPhone.slice(3) : rawPhone;
-        if (!/^[6-9]\d{9}$/.test(phone)) {
-          errors.push({ row: idx + 2, phone: rawPhone, reason: 'Invalid mobile number' });
-          return;
-        }
-        if (seenPhones.has(phone)) {
-          errors.push({ row: idx + 2, phone, reason: 'Duplicate mobile number' });
-          return;
-        }
-        seenPhones.add(phone);
-        validCount++;
-      });
-
-      let errorCsvStoragePath: string | null = null;
-      if (errors.length > 0) {
-        const errorCsvContent = 'row,phone,reason\n' + errors.map((e) => `${e.row},"${e.phone}","${e.reason}"`).join('\n');
-        errorCsvStoragePath = `bulk-imports/${batchId}-errors.csv`;
-        await this.supabase.storage.from('private').upload(errorCsvStoragePath, errorCsvContent, {
-          contentType: 'text/csv',
-          upsert: true,
-        });
-      }
-
-      await this.supabase
-        .from('bulk_import_batches')
-        .update({
-          status: 'completed' as TaskStatus,
-          processed_rows: records.length,
-          valid_rows: validCount,
-          error_rows: errors.length,
-          error_csv_storage_path: errorCsvStoragePath,
-          completed_at: new Date().toISOString(),
-        })
-        .eq('id', batchId);
-
-      const { data: updated } = await this.supabase
-        .from('bulk_import_batches')
-        .select('*')
-        .eq('id', batchId)
-        .single();
-
-      return this.toBatchRecord(updated || batch);
-    } catch (err) {
-      const reason = err instanceof Error ? err.message : 'Unknown error';
-      await this.supabase
-        .from('bulk_import_batches')
-        .update({
-          status: 'failed' as TaskStatus,
-          failure_reason: reason,
-          retry_count: (batch.retry_count || 0) + 1,
-        })
-        .eq('id', batchId);
-      throw err;
-    }
+    return this.toBatchRecord(batch);
   }
 
-  async getBatchStatus(batchId: string): Promise<BulkBatchRecord> {
+  async getBatchStatus(batchId: string, actor?: AuthenticatedUser): Promise<BulkBatchRecord> {
     if (this.isTestMode) {
       const batch = this.memBatches.get(batchId);
       if (!batch) {
-        throw new NotFoundException('Import batch not found');
+        throw new NotFoundException('BULK_NOT_FOUND');
       }
+      this.assertOwner(batch.createdBy, actor);
       return batch;
     }
 
@@ -461,13 +393,16 @@ export class BulkService {
       .single();
 
     if (error || !data) {
-      throw new NotFoundException('Import batch not found');
+      throw new NotFoundException('BULK_NOT_FOUND');
     }
 
+    this.assertOwner(data.created_by, actor);
     return this.toBatchRecord(data);
   }
 
-  async getBatchErrorCsv(batchId: string): Promise<string> {
+  async getBatchErrorCsv(batchId: string, actor?: AuthenticatedUser): Promise<string> {
+    await this.getBatchStatus(batchId, actor);
+
     if (this.isTestMode) {
       const batch = this.memBatches.get(batchId);
       return batch?.errorCsvContent || 'row,phone,reason\n';
@@ -491,7 +426,12 @@ export class BulkService {
     return await fileData.text();
   }
 
-  async previewInviteWave(input: InviteWaveInput): Promise<{ waveSize: number; costPerSmsInr: number; totalCostInr: number }> {
+  async previewInviteWave(
+    input: InviteWaveInput,
+    actor?: AuthenticatedUser,
+  ): Promise<{ waveSize: number; costPerSmsInr: number; totalCostInr: number }> {
+    this.requireInviter(actor);
+    await this.getBatchStatus(input.batchId, actor);
     const totalCostInr = Number((input.waveSize * input.costPerSmsInr).toFixed(2));
     return {
       waveSize: input.waveSize,
@@ -500,20 +440,39 @@ export class BulkService {
     };
   }
 
-  async scheduleInviteWave(input: InviteWaveInput, delaySeconds = 0): Promise<InviteWaveRecord> {
-    const preview = await this.previewInviteWave(input);
-    const waveId = `wave_${Date.now()}`;
+  async scheduleInviteWave(
+    input: InviteWaveInput,
+    _delaySeconds = 0,
+    actor?: AuthenticatedUser,
+  ): Promise<InviteWaveRecord> {
+    const preview = await this.previewInviteWave(input, actor);
+    const waveId = randomUUID();
     const now = new Date().toISOString();
 
-    const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
-    const qstashResult = await this.qstashService.publishTask({
-      url: `${apiUrl}/webhooks/qstash/send-invite-wave`,
-      body: { waveId },
-      delaySeconds,
-      deduplicationId: `wave_${waveId}`,
-    });
+    let wave: Record<string, unknown> | null = null;
+    if (!this.isTestMode) {
+      const { data: storedWave, error: insertError } = await this.supabase
+        .from('invite_waves')
+        .insert({
+          id: waveId,
+          created_by: actor!.id,
+          batch_id: input.batchId,
+          wave_size: input.waveSize,
+          cost_per_sms_inr: input.costPerSmsInr,
+          total_cost_inr: preview.totalCostInr,
+          status: 'dispatched' as TaskStatus,
+        })
+        .select()
+        .single();
 
-    // Publish to BullMQ invite-wave queue (Ticket T-07)
+      if (insertError || !storedWave) {
+        throw new BadRequestException(`Failed to create wave record: ${insertError?.message}`);
+      }
+
+      wave = storedWave;
+    }
+
+    // BullMQ is the single source of truth for the 50k pipeline (Drop QStash duplicate invocation)
     await this.queueService.publishInviteWaveJob({
       waveId,
       batchId: input.batchId,
@@ -524,6 +483,7 @@ export class BulkService {
     if (this.isTestMode) {
       const record: InviteWaveRecord = {
         id: waveId,
+        createdBy: actor!.id,
         batchId: input.batchId,
         waveSize: input.waveSize,
         costPerSmsInr: input.costPerSmsInr,
@@ -531,31 +491,14 @@ export class BulkService {
         status: 'dispatched',
         sentCount: 0,
         failedCount: 0,
-        qstashMessageId: qstashResult.messageId,
+        qstashMessageId: null,
         createdAt: now,
       };
       this.memWaves.set(waveId, record);
       return record;
     }
 
-    const { data: wave, error: insertError } = await this.supabase
-      .from('invite_waves')
-      .insert({
-        batch_id: input.batchId,
-        wave_size: input.waveSize,
-        cost_per_sms_inr: input.costPerSmsInr,
-        total_cost_inr: preview.totalCostInr,
-        status: 'dispatched' as TaskStatus,
-        qstash_message_id: qstashResult.messageId,
-      })
-      .select()
-      .single();
-
-    if (insertError || !wave) {
-      throw new BadRequestException(`Failed to create wave record: ${insertError?.message}`);
-    }
-
-    return this.toWaveRecord(wave);
+    return this.toWaveRecord(wave!);
   }
 
   async executeInviteWaveJob(waveId: string): Promise<InviteWaveRecord> {
@@ -614,20 +557,32 @@ export class BulkService {
     return this.toWaveRecord(updated || wave);
   }
 
-  async updateWaveStatus(waveId: string, action: 'pause' | 'resume' | 'cancel'): Promise<InviteWaveRecord> {
+  async updateWaveStatus(
+    waveId: string,
+    action: 'pause' | 'resume' | 'cancel',
+    actor?: AuthenticatedUser,
+  ): Promise<InviteWaveRecord> {
+    this.requireInviter(actor);
+    const waveBatch = this.isTestMode
+      ? this.memWaves.get(waveId)?.batchId
+      : (await this.supabase.from('invite_waves').select('batch_id').eq('id', waveId).single()).data?.batch_id;
+    if (!waveBatch) throw new NotFoundException('BULK_NOT_FOUND');
+    await this.getBatchStatus(waveBatch, actor);
+
     if (this.isTestMode) {
       let wave = this.memWaves.get(waveId);
       if (!wave) {
         wave = {
           id: waveId,
-          batchId: 'batch_test',
+          createdBy: actor!.id,
+          batchId: waveBatch,
           waveSize: 100,
           costPerSmsInr: 0.2,
           totalCostInr: 20,
           status: 'dispatched' as TaskStatus,
           sentCount: 0,
           failedCount: 0,
-          qstashMessageId: 'msg_test',
+          qstashMessageId: null,
           createdAt: new Date().toISOString(),
         };
         this.memWaves.set(waveId, wave);
@@ -653,7 +608,11 @@ export class BulkService {
     if (action === 'cancel') {
       newStatus = 'failed';
       if (wave.qstash_message_id) {
-        await this.qstashService.cancelMessage(wave.qstash_message_id);
+        try {
+          await this.qstashService.cancelMessage(wave.qstash_message_id);
+        } catch {
+          // ignore
+        }
       }
     } else if (action === 'pause') {
       newStatus = 'queued';
@@ -723,10 +682,31 @@ export class BulkService {
     }
   }
 
+  private requireImporter(actor?: AuthenticatedUser): void {
+    if (!actor?.id || !['admin', 'intermediary', 'msme_admin'].includes(actor.role)) {
+      throw new ForbiddenException('BULK_ROLE_FORBIDDEN');
+    }
+  }
+
+  private requireInviter(actor?: AuthenticatedUser): void {
+    if (!actor?.id || !['admin', 'intermediary'].includes(actor.role)) {
+      throw new ForbiddenException('BULK_INVITE_FORBIDDEN');
+    }
+  }
+
+  private assertOwner(createdBy: string | null | undefined, actor?: AuthenticatedUser): void {
+    this.requireImporter(actor);
+    if (actor!.role !== 'admin' && (!createdBy || createdBy !== actor!.id)) {
+      throw new NotFoundException('BULK_NOT_FOUND');
+    }
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private toBatchRecord(row: any, statusOverride?: TaskStatus, messageIdOverride?: string): BulkBatchRecord {
     return {
       id: row.id,
+      createdBy: row.created_by,
+      institutionId: row.institution_id || null,
       source: row.source,
       entityType: row.entity_type,
       totalRows: row.total_rows,
@@ -746,6 +726,7 @@ export class BulkService {
   private toWaveRecord(row: any): InviteWaveRecord {
     return {
       id: row.id,
+      createdBy: row.created_by,
       batchId: row.batch_id,
       waveSize: row.wave_size,
       costPerSmsInr: Number(row.cost_per_sms_inr),

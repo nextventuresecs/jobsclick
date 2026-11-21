@@ -18,7 +18,9 @@ import {
   contextualTracesSampler,
   type SentryLogInput,
   type LogSeverityLevel,
+  getAppEnv,
 } from '@indian-job-portal/validation';
+import { getClientAppEnv } from './client-env';
 
 export {
   BEARER_TOKEN_REGEX,
@@ -38,6 +40,14 @@ export {
   type SentryLogInput,
   type LogSeverityLevel,
 };
+
+export function getSentryEnvironment(): string {
+  return (
+    process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ||
+    process.env['SENTRY_ENVIRONMENT'] ||
+    (typeof window !== 'undefined' ? getClientAppEnv() : getAppEnv())
+  );
+}
 
 /**
  * Next.js typed breadcrumb sanitizer wrapper

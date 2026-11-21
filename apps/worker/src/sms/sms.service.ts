@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import { isStrictEnv, isTestEnv } from '@indian-job-portal/validation';
 import { captureException } from '../config/sentry.js';
 
 export interface SendInviteSmsOptions {
@@ -18,8 +20,9 @@ export class WorkerSmsService {
    * DLT_2001_INVITE_EN (English) | DLT_2002_INVITE_HI (Hindi)
    */
   async sendInviteSms(options: SendInviteSmsOptions): Promise<SmsResponse> {
-    const { phone, language = 'en', inviteUrl = 'https://jobsclick.live' } = options;
-    const isTestMode = process.env['NODE_ENV'] === 'test';
+    const defaultInvite = process.env['APP_URL'] || process.env['WEB_URL'] || 'http://localhost:3000';
+    const { phone, language = 'en', inviteUrl = defaultInvite } = options;
+    const isTestMode = isTestEnv();
     const authKey = process.env['MSG91_AUTH_KEY'];
     const templateId =
       process.env['MSG91_INVITE_TEMPLATE_ID'] ||
@@ -28,7 +31,7 @@ export class WorkerSmsService {
     const gatewayMode =
       process.env['SMS_GATEWAY_MODE'] ||
       (authKey && authKey !== 'dummy-msg91-key'
-        ? (process.env['NODE_ENV'] === 'production' ? 'live' : 'sandbox')
+        ? (isStrictEnv() ? 'live' : 'sandbox')
         : 'mock');
 
     // QA whitelist range (+919876543210 through +919876543219)
@@ -38,25 +41,41 @@ export class WorkerSmsService {
       return {
         success: true,
         message: 'Invite SMS dispatched via MSG91 mock handler (QA whitelist)',
-        messageId: `qa_whitelist_invite_${Date.now()}`,
+        messageId: `qa_whitelist_invite_${randomUUID()}`,
       };
     }
 
-    if (isTestMode || gatewayMode === 'mock' || !authKey || authKey === 'dummy-msg91-key') {
+    if (isTestMode) {
       console.log(`[Worker SMS Hook - Mock] Invite SMS for +91${phone} via ${templateId}`);
       return {
         success: true,
         message: 'Invite SMS dispatched via MSG91 mock handler',
-        messageId: `mock_invite_${Date.now()}`,
+        messageId: `mock_invite_${randomUUID()}`,
       };
     }
 
-    if (gatewayMode === 'sandbox') {
+    if (!authKey || authKey === 'dummy-msg91-key') {
+      if (isStrictEnv()) {
+        console.error(`[Worker SMS Error] MSG91_AUTH_KEY is not configured or dummy in strict env when dispatching to +91${phone}`);
+        return {
+          success: false,
+          message: 'SMS service configuration error: missing auth key',
+        };
+      }
+      console.log(`[Worker SMS Hook - Mock] Invite SMS for +91${phone} via ${templateId}`);
+      return {
+        success: true,
+        message: 'Invite SMS dispatched via MSG91 mock handler',
+        messageId: `mock_invite_${randomUUID()}`,
+      };
+    }
+
+    if (gatewayMode === 'sandbox' && !isStrictEnv()) {
       console.log(`[Worker SMS Hook - Sandbox] Invite SMS for +91${phone} via ${templateId} (DLT Pending)`);
       return {
         success: true,
         message: 'Invite SMS processed via MSG91 sandbox',
-        messageId: `sandbox_invite_${Date.now()}`,
+        messageId: randomUUID(),
       };
     }
 
@@ -96,7 +115,7 @@ export class WorkerSmsService {
       return {
         success: true,
         message: 'Invite SMS delivered via MSG91',
-        messageId: (resData['message'] as string) || `msg91_inv_${Date.now()}`,
+        messageId: (resData['message'] as string) || randomUUID(),
       };
     } catch (err) {
       console.error(`[Worker MSG91 Exception] ${err}`);

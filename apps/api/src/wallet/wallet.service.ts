@@ -1,8 +1,8 @@
 import { Injectable, BadRequestException, Inject } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import type { CreditLedgerRow } from '@indian-job-portal/database';
 import { CreditLedgerRepository } from '../database/repositories/credit-ledger.repository.js';
 import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
-import { ProfileRepository } from '../database/repositories/profile.repository.js';
 
 export interface WalletTransactionInput {
   userId: string;
@@ -31,8 +31,6 @@ export class WalletService {
     private readonly creditLedgerRepository: CreditLedgerRepository,
     @Inject(AuditLogRepository)
     private readonly auditLogRepository: AuditLogRepository,
-    @Inject(ProfileRepository)
-    private readonly profileRepository: ProfileRepository,
   ) {}
 
   // WAL-01 & Hard Invariant #7: Calculate dynamic balance directly from immutable ledger
@@ -48,7 +46,7 @@ export class WalletService {
   // Append new ledger transaction (Strictly append-only)
   async recordTransaction(input: WalletTransactionInput): Promise<CreditLedgerRow> {
     const now = new Date().toISOString();
-    const id = `cld_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const id = randomUUID();
     const actorId = input.actorId ?? input.userId;
 
     const row: CreditLedgerRow = {
@@ -65,7 +63,7 @@ export class WalletService {
     // Hard Invariant #6: Append to persistent audit logs for all credit changes
     try {
       await this.auditLogRepository.append({
-        id: `aud_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+        id: randomUUID(),
         actor_id: actorId,
         action: input.amount >= 0 ? 'CREDIT_WALLET_GRANTED' : 'CREDIT_WALLET_DEDUCTED',
         meta: {
@@ -93,16 +91,9 @@ export class WalletService {
     });
   }
 
-  // Ensure starter credits are granted if not already done
+  // Ensure starter credits are granted if not already done (single insert on conflict do nothing)
   async ensureStarterCredits(userId: string): Promise<void> {
-    const entries = await this.creditLedgerRepository.findByUserId(userId);
-    const hasStarterGrant = entries.some(
-      (e) => e.amount === 10 && e.reason.includes('Starter grant'),
-    );
-
-    if (!hasStarterGrant && entries.length === 0) {
-      await this.grantStarterCredits(userId);
-    }
+    await this.creditLedgerRepository.ensureStarterCredits(userId);
   }
 
   // Deduct 1 credit for job application; 11th application prompts for recharge
@@ -113,35 +104,20 @@ export class WalletService {
     jobId: string,
     jobTitle?: string,
   ): Promise<{ success: boolean; remainingBalance: number; isSponsored?: boolean }> {
-    let isSponsored = false;
-    try {
-      const seekerProfile = await this.profileRepository.findSeekerProfileByUserId(applicantId);
-      isSponsored = Boolean(seekerProfile?.is_sponsored);
-    } catch {
-      // Non-blocking fallback
-    }
-
-    if (isSponsored) {
-      const { balance } = await this.getBalance(applicantId);
-      return {
-        success: true,
-        remainingBalance: balance,
-        isSponsored: true,
-      };
-    }
-
     // Ensure starter credits exist if candidate is fresh
     await this.ensureStarterCredits(applicantId);
 
-    const requiredCredits = this.getActionCost('JOB_APPLICATION');
-
-    return this.creditLedgerRepository.deductApplicationCreditAtomically({
+    const result = await this.creditLedgerRepository.deductApplicationCreditAtomically({
       applicantId,
       jobId,
       jobTitle,
-      cost: requiredCredits,
-      isSponsored: false,
     });
+
+    return {
+      success: result.success,
+      remainingBalance: result.remainingBalance,
+      isSponsored: result.isSponsored,
+    };
   }
 
   // Employer unlocks candidate contact details (WAL-04, Invariant #7)

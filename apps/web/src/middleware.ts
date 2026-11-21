@@ -1,25 +1,54 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { AUTH_COOKIE_NAME, verifyToken } from './lib/auth-session';
+import { NextRequest, NextResponse } from 'next/server';
+import { isProduction, getSessionCookieName } from '@indian-job-portal/validation';
 
-export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+const SESSION_COOKIE_NAME = getSessionCookieName();
+
+const PROTECTED_PATH_PREFIXES = ['/workspace', '/hi/workspace', '/company/bulk-onboard'];
+
+export function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
   const siteUrl = process.env['NEXT_PUBLIC_APP_URL'] || 'https://jobsclick.live';
 
-  // 1. Session resolution from secure HttpOnly cookie
-  const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
-  const requestHeaders = new Headers(request.headers);
-  let hasInvalidToken = false;
+  // 1. Strip spoofable identity headers from incoming client requests unconditionally
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.delete('x-user-id');
+  requestHeaders.delete('x-user-role');
+  requestHeaders.delete('x-user-status');
 
-  if (token) {
-    const session = await verifyToken(token);
-    if (session) {
-      requestHeaders.set('x-user-id', session.user.id);
-      requestHeaders.set('x-user-role', session.user.role);
-      requestHeaders.set('x-client-role', session.clientRole);
-    } else {
-      hasInvalidToken = true;
+  // 2. Enforce authentication gate on protected routes
+  const isProtected = PROTECTED_PATH_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+
+  const sessionCookie = req.cookies.get(SESSION_COOKIE_NAME)?.value;
+
+  // Reject missing cookie or legacy unsigned token format at the edge
+  const hasValidFormat =
+    Boolean(sessionCookie) &&
+    !sessionCookie!.startsWith('jwt_session_') &&
+    sessionCookie!.split('.').length === 3;
+
+  if (isProtected && !hasValidFormat) {
+    const loginRedirectUrl = new URL('/', req.url);
+    loginRedirectUrl.searchParams.set('authRequired', '1');
+    const redirectRes = NextResponse.redirect(loginRedirectUrl);
+    if (!isProduction()) {
+      redirectRes.headers.set('X-Robots-Tag', 'noindex, nofollow');
     }
+    return redirectRes;
+  }
+
+  // Bypass multilingual header generation for internal API routes
+  if (pathname.startsWith('/api/')) {
+    const response = NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
+    if (!isProduction()) {
+      response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+    }
+    return response;
   }
 
   // Helper to generate SEO alternate Link header
@@ -30,7 +59,7 @@ export async function middleware(request: NextRequest) {
     return `<${enUrl}>; rel="alternate"; hreflang="en", <${hiUrl}>; rel="alternate"; hreflang="hi", <${enUrl}>; rel="alternate"; hreflang="x-default"`;
   };
 
-  // 2. Multilingual Hindi Routing: /hi and /hi/... (Ticket T-12 / Issue #35)
+  // 3. Multilingual Hindi Routing: /hi and /hi/... (Ticket T-12 / Issue #35)
   // Rewrite without redirecting so search engine bots can crawl /hi and /hi/jobs with URL intact.
   const hiMatch = pathname.match(/^\/hi(?:\/(.*))?$/);
   if (hiMatch) {
@@ -41,7 +70,7 @@ export async function middleware(request: NextRequest) {
     requestHeaders.set('x-clean-path', cleanPath);
     requestHeaders.set('x-original-pathname', pathname);
 
-    const rewriteUrl = request.nextUrl.clone();
+    const rewriteUrl = req.nextUrl.clone();
     rewriteUrl.pathname = cleanPath;
 
     const response = NextResponse.rewrite(rewriteUrl, {
@@ -52,28 +81,28 @@ export async function middleware(request: NextRequest) {
 
     response.headers.set('Link', getLinkHeader(cleanPath));
     response.cookies.set('NEXT_LOCALE', 'hi', { path: '/', maxAge: 31536000, sameSite: 'lax' });
-    if (hasInvalidToken) {
-      response.cookies.delete(AUTH_COOKIE_NAME);
+    if (!isProduction()) {
+      response.headers.set('X-Robots-Tag', 'noindex, nofollow');
     }
     return response;
   }
 
-  // 3. /en or /en/... canonicalization redirect to non-prefixed English URLs
+  // 4. /en or /en/... canonicalization redirect to non-prefixed English URLs
   const enMatch = pathname.match(/^\/en(?:\/(.*))?$/);
   if (enMatch) {
     const rawSubPath = (enMatch[1] || '').replace(/\/+$/, '');
     const cleanPath = rawSubPath ? `/${rawSubPath}` : '/';
-    const redirectUrl = new URL(cleanPath, request.url);
+    const redirectUrl = new URL(cleanPath, req.url);
     const response = NextResponse.redirect(redirectUrl, 308);
     response.cookies.set('NEXT_LOCALE', 'en', { path: '/', maxAge: 31536000, sameSite: 'lax' });
-    if (hasInvalidToken) {
-      response.cookies.delete(AUTH_COOKIE_NAME);
+    if (!isProduction()) {
+      response.headers.set('X-Robots-Tag', 'noindex, nofollow');
     }
     return response;
   }
 
-  // 4. Default English / Non-prefixed routes
-  const localeCookie = request.cookies.get('NEXT_LOCALE')?.value || 'en';
+  // 5. Default English / Non-prefixed routes
+  const localeCookie = req.cookies.get('NEXT_LOCALE')?.value || 'en';
   requestHeaders.set('x-clean-path', pathname);
   requestHeaders.set('x-original-pathname', pathname);
   requestHeaders.set('x-locale', localeCookie);
@@ -86,12 +115,14 @@ export async function middleware(request: NextRequest) {
   });
 
   response.headers.set('Link', getLinkHeader(pathname));
-  if (hasInvalidToken) {
-    response.cookies.delete(AUTH_COOKIE_NAME);
+  // Prevent indexing on non-production (staging/dev/test) environments
+  if (!isProduction()) {
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow');
   }
+
   return response;
 }
 
 export const config = {
-  matcher: ['/((?!api|monitoring|_next|_vercel|.*\\..*).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|images|templates).*)'],
 };

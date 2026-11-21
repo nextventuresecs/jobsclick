@@ -4,6 +4,7 @@ import type { Job } from 'bullmq';
 import {
   wrapBullMQProcessor,
   handleWorkerJobFailure,
+  getSentryEnvironment,
 } from '../src/config/sentry.js';
 import {
   sanitizeSentryEvent,
@@ -217,6 +218,38 @@ describe('Worker Sentry Telemetry & BullMQ Alert Hygiene Suite', () => {
       expect(rawWire).toContain('[PHONE_REDACTED]');
       expect(rawWire).toContain('[OTP_REDACTED]');
       expect(rawWire).toContain('worker_log_test');
+    });
+  });
+
+  describe('5. Sentry Environment Tagging', () => {
+    const originalEnv = { ...process.env };
+
+    beforeEach(() => {
+      process.env = { ...originalEnv };
+    });
+
+    it('resolves environment as staging when APP_ENV=staging', () => {
+      process.env['NODE_ENV'] = 'production';
+      process.env['APP_ENV'] = 'staging';
+      delete process.env['SENTRY_ENVIRONMENT'];
+
+      expect(getSentryEnvironment()).toBe('staging');
+    });
+
+    it('resolves environment as staging when only NODE_ENV=staging', () => {
+      process.env['NODE_ENV'] = 'staging';
+      delete process.env['APP_ENV'];
+      delete process.env['SENTRY_ENVIRONMENT'];
+
+      expect(getSentryEnvironment()).toBe('staging');
+    });
+
+    it('prefers explicit SENTRY_ENVIRONMENT over APP_ENV or NODE_ENV', () => {
+      process.env['NODE_ENV'] = 'production';
+      process.env['APP_ENV'] = 'staging';
+      process.env['SENTRY_ENVIRONMENT'] = 'custom-worker-staging';
+
+      expect(getSentryEnvironment()).toBe('custom-worker-staging');
     });
   });
 });

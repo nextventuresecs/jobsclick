@@ -28,14 +28,16 @@ interface ParsedCompanyRow {
   readonly district: string;
   readonly email: string;
   readonly isValidPhone: boolean;
+  readonly isValidEmail: boolean;
+  readonly isValidContact: boolean;
 }
 
-const SAMPLE_CSV = `company_name,phone,ownership_type,company_size,sector,address,city,district,email,logo_url
-Shree Ganesh Textiles,9876543210,Proprietorship,Micro,Textiles & Garments,"Plot 14, Sector C, Industrial Area",Indore,Indore,contact@shreetextiles.in,https://example.com/logo1.png
-Malwa Agro Processing Pvt Ltd,9876543211,Private Limited,Small,Food Processing,Gram Sanwer Road,Indore,Indore,admin@malwaagro.com,
-Mahakal Auto Components,9876543212,LLP,Micro,Manufacturing,"Plot 5, Nagziri Industrial Area",Ujjain,Ujjain,info@mahakalauto.in,
-Kalyan Precision Forgings,9876543213,Private Limited,Medium,Manufacturing,"Phase 2, Pithampur Industrial Belt",Dhar,Dhar,contact@kalyanforgings.in,
-Narmada Logistics & Warehousing,9876543214,Partnership,Small,Logistics & Supply,"Depot 8, AB Road",Dewas,Dewas,dispatch@narmadalogistics.com,`;
+const SAMPLE_CSV = `email,phone,company_name,ownership_type,company_size,sector,city,district
+contact@shreetextiles.in,9876543210,Shree Ganesh Textiles,Proprietorship,Micro,Textiles & Garments,Indore,Indore
+admin@malwaagro.com,,Malwa Agro Processing Pvt Ltd,Private Limited,Small,Food Processing,Indore,Indore
+,9876543212,Mahakal Auto Components,LLP,Micro,Manufacturing,Ujjain,Ujjain
+contact@kalyanforgings.in,9876543213,Kalyan Precision Forgings,Private Limited,Medium,Manufacturing,Dhar,Dhar
+dispatch@narmadalogistics.com,,Narmada Logistics & Warehousing,Partnership,Small,Logistics & Supply,Dewas,Dewas`;
 
 // RFC-4180 compliant CSV line parser respecting quoted commas
 function parseCsvLine(line: string): string[] {
@@ -79,8 +81,35 @@ export default function EmployerBulkOnboardPage() {
 
   // Parse CSV rows with RFC-4180 compliance
   const parseRows = (text: string): readonly ParsedCompanyRow[] => {
-    const lines = text.trim().split('\n');
+    const lines = text.trim().split(/\r?\n/).filter((l) => l.trim().length > 0);
     if (lines.length <= 1) return [];
+
+    const headerParts = parseCsvLine(lines[0] || '').map((h) =>
+      h.toLowerCase().trim().replace(/[\s_-]+/g, ''),
+    );
+
+    const emailIdx = headerParts.findIndex((h) => h === 'email' || h === 'emailid' || h === 'mail');
+    const phoneIdx = headerParts.findIndex(
+      (h) =>
+        h === 'phone' ||
+        h === 'mobile' ||
+        h === 'phonenumber' ||
+        h === 'contact' ||
+        h === 'mobileno' ||
+        h === 'phoneno',
+    );
+    const nameIdx = headerParts.findIndex(
+      (h) => h === 'companyname' || h === 'company' || h === 'enterprise' || h === 'name',
+    );
+    const ownershipIdx = headerParts.findIndex(
+      (h) => h === 'ownershiptype' || h === 'ownership',
+    );
+    const sizeIdx = headerParts.findIndex((h) => h === 'companysize' || h === 'size');
+    const sectorIdx = headerParts.findIndex((h) => h === 'sector' || h === 'industry');
+    const cityIdx = headerParts.findIndex((h) => h === 'city');
+    const districtIdx = headerParts.findIndex((h) => h === 'district');
+
+    const isExplicitHeader = emailIdx !== -1 || phoneIdx !== -1 || nameIdx !== -1;
 
     const rows: ParsedCompanyRow[] = [];
     for (let i = 1; i < lines.length; i++) {
@@ -88,28 +117,39 @@ export default function EmployerBulkOnboardPage() {
       if (!line) continue;
 
       const parts = parseCsvLine(line);
-      const companyName = parts[0]?.replace(/"/g, '') || 'Unnamed Company';
-      const rawPhone = parts[1]?.trim() || '';
+      const companyName = (
+        (isExplicitHeader && nameIdx !== -1 ? parts[nameIdx] : parts[0]) || 'Unnamed Company'
+      ).replace(/"/g, '').trim();
+      const rawPhone = (
+        (isExplicitHeader && phoneIdx !== -1 ? parts[phoneIdx] : parts[1]) || ''
+      ).trim();
+      const rawEmail = (
+        (isExplicitHeader && emailIdx !== -1 ? parts[emailIdx] : parts[8]) || ''
+      ).trim();
       const cleanPhone = rawPhone.replace(/\D/g, '');
-      const isValidPhone = /^[6-9]\d{9}$/.test(cleanPhone);
+      const isValidPhone = cleanPhone.length === 10 && /^[6-9]\d{9}$/.test(cleanPhone);
+      const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail.toLowerCase());
+      const isValidContact = isValidPhone || isValidEmail;
 
       rows.push({
         companyName,
         phone: rawPhone,
-        ownershipType: parts[2] || 'Private Limited',
-        companySize: parts[3] || 'Small',
-        sector: parts[4]?.replace(/"/g, '') || 'Manufacturing',
-        city: parts[6] || 'Indore',
-        district: parts[7] || 'Indore',
-        email: parts[8] || '',
+        ownershipType: (isExplicitHeader && ownershipIdx !== -1 ? parts[ownershipIdx] : parts[2]) || 'Private Limited',
+        companySize: (isExplicitHeader && sizeIdx !== -1 ? parts[sizeIdx] : parts[3]) || 'Small',
+        sector: (isExplicitHeader && sectorIdx !== -1 ? parts[sectorIdx] : parts[4])?.replace(/"/g, '') || 'Manufacturing',
+        city: (isExplicitHeader && cityIdx !== -1 ? parts[cityIdx] : parts[6]) || 'Indore',
+        district: (isExplicitHeader && districtIdx !== -1 ? parts[districtIdx] : parts[7]) || 'Indore',
+        email: rawEmail,
         isValidPhone,
+        isValidEmail,
+        isValidContact,
       });
     }
     return rows;
   };
 
   const parsedRows = parseRows(csvText);
-  const validCount = parsedRows.filter((r) => r.isValidPhone).length;
+  const validCount = parsedRows.filter((r) => r.isValidContact).length;
   const invalidCount = parsedRows.length - validCount;
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -152,7 +192,7 @@ export default function EmployerBulkOnboardPage() {
       if (res.ok) {
         const data = await res.json();
         setBatchResult({
-          batchId: data.batchId || `batch_emp_${Date.now()}`,
+          batchId: data.batchId || data.id || '',
           totalRows: parsedRows.length,
           validCount,
           source: sourceName,
@@ -298,7 +338,7 @@ export default function EmployerBulkOnboardPage() {
                 <p className="font-bold text-gray-900 mt-0.5 font-mono">{batchResult.totalRows}</p>
               </div>
               <div className="p-3 bg-white rounded-xl border border-emerald-100">
-                <span className="text-gray-500">{t('valid')} Phones</span>
+                <span className="text-gray-500">{t('valid')} Contacts</span>
                 <p className="font-bold text-emerald-700 mt-0.5 font-mono">{batchResult.validCount}</p>
               </div>
               <div className="p-3 bg-white rounded-xl border border-emerald-100">
@@ -442,6 +482,7 @@ export default function EmployerBulkOnboardPage() {
                   <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10 text-gray-600 font-semibold">
                     <tr>
                       <th className="py-2.5 px-3">{t('companyNameCol')}</th>
+                      <th className="py-2.5 px-3">{t('emailCol')}</th>
                       <th className="py-2.5 px-3">{t('phoneCol')}</th>
                       <th className="py-2.5 px-3">{t('sectorCol')}</th>
                       <th className="py-2.5 px-3">{t('cityCol')}</th>
@@ -456,7 +497,10 @@ export default function EmployerBulkOnboardPage() {
                           {row.companyName}
                         </td>
                         <td className="py-2.5 px-3 font-mono text-gray-700">
-                          {row.phone}
+                          {row.email || '—'}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-gray-700">
+                          {row.phone || '—'}
                         </td>
                         <td className="py-2.5 px-3 text-gray-600">
                           {row.sector}
@@ -468,12 +512,12 @@ export default function EmployerBulkOnboardPage() {
                           {row.companySize}
                         </td>
                         <td className="py-2.5 px-3 text-center">
-                          {row.isValidPhone ? (
-                            <span className="inline-flex items-center text-emerald-600" title="Valid mobile format">
+                          {row.isValidContact ? (
+                            <span className="inline-flex items-center text-emerald-600" title="Valid email or mobile number">
                               <CheckCircle2 className="w-4 h-4" />
                             </span>
                           ) : (
-                            <span className="inline-flex items-center text-red-500" title="Invalid Indian mobile number">
+                            <span className="inline-flex items-center text-red-500" title="Invalid contact (requires email or 10-digit Indian mobile)">
                               <AlertCircle className="w-4 h-4" />
                             </span>
                           )}

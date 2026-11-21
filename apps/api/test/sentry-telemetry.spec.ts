@@ -6,6 +6,7 @@ import {
   getCurrentTraceContext,
   getTracePropagationHeaders,
   sentryLogger,
+  getSentryEnvironment,
 } from '../src/config/sentry.js';
 import {
   sanitizeString,
@@ -306,6 +307,38 @@ describe('API Sentry Telemetry & Trace Propagation Suite', () => {
       expect(rawWireString).not.toContain('654321');
       expect(rawWireString).toContain('[AADHAAR_REDACTED]');
       expect(rawWireString).toContain('[OTP_REDACTED]');
+    });
+  });
+
+  describe('5. Sentry Environment Tagging', () => {
+    const originalEnv = { ...process.env };
+
+    beforeEach(() => {
+      process.env = { ...originalEnv };
+    });
+
+    it('resolves environment as staging when APP_ENV=staging', () => {
+      process.env['NODE_ENV'] = 'production';
+      process.env['APP_ENV'] = 'staging';
+      delete process.env['SENTRY_ENVIRONMENT'];
+
+      expect(getSentryEnvironment()).toBe('staging');
+    });
+
+    it('resolves environment as staging when only NODE_ENV=staging', () => {
+      process.env['NODE_ENV'] = 'staging';
+      delete process.env['APP_ENV'];
+      delete process.env['SENTRY_ENVIRONMENT'];
+
+      expect(getSentryEnvironment()).toBe('staging');
+    });
+
+    it('prefers explicit SENTRY_ENVIRONMENT over APP_ENV or NODE_ENV', () => {
+      process.env['NODE_ENV'] = 'production';
+      process.env['APP_ENV'] = 'staging';
+      process.env['SENTRY_ENVIRONMENT'] = 'custom-staging-box';
+
+      expect(getSentryEnvironment()).toBe('custom-staging-box');
     });
   });
 });

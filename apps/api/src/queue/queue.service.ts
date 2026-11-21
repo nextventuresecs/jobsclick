@@ -1,4 +1,5 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { Queue, ConnectionOptions, Job } from 'bullmq';
 import IORedis from 'ioredis';
 import IORedisMock from 'ioredis-mock';
@@ -6,6 +7,7 @@ import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter.js';
 import { FastifyAdapter } from '@bull-board/fastify';
 import { getTracePropagationHeaders } from '../config/sentry.js';
+import { isStrictEnv } from '../config/env.js';
 
 export const QUEUE_NAMES = {
   BULK_IMPORT: 'bulk-import',
@@ -60,7 +62,14 @@ export class QueueService implements OnModuleDestroy {
   };
 
   constructor() {
-    this.isMock = process.env['NODE_ENV'] === 'test' || Boolean(process.env['VITEST']) || process.env['USE_MOCK_REDIS'] === 'true';
+    if (isStrictEnv()) {
+      if (process.env['USE_MOCK_REDIS'] === '1' || process.env['USE_MOCK_REDIS'] === 'true' || Boolean(process.env['VITEST'])) {
+        throw new Error('Mock Redis and test runners are strictly forbidden in strict/production environments');
+      }
+      this.isMock = false;
+    } else {
+      this.isMock = process.env['NODE_ENV'] === 'test' || Boolean(process.env['VITEST']) || process.env['USE_MOCK_REDIS'] === 'true';
+    }
     const redisUrl = process.env['REDIS_URL'] || 'redis://localhost:6379';
 
     if (this.isMock) {
@@ -70,7 +79,7 @@ export class QueueService implements OnModuleDestroy {
       this.connection = new IORedis(redisUrl, {
         maxRetriesPerRequest: null,
         enableReadyCheck: false,
-        tls: isTls ? { rejectUnauthorized: false } : undefined,
+        tls: isTls ? {} : undefined,
         retryStrategy(times) {
           return Math.min(times * 200, 5000);
         },
@@ -161,12 +170,13 @@ export class QueueService implements OnModuleDestroy {
     csvContent?: string;
     storagePath?: string;
     shouldSimulateFailure?: boolean;
+    institutionId?: string | null;
     _traceContext?: { sentryTrace?: string; baggage?: string; traceId?: string };
   }) {
     const jobData = this.enrichJobData(data);
     if (this.isMock) {
       this.mockCounters[QUEUE_NAMES.BULK_IMPORT].waiting++;
-      return { id: `mock_${Date.now()}`, name: 'bulk-import', data: jobData } as unknown as Job;
+      return { id: randomUUID(), name: 'bulk-import', data: jobData } as unknown as Job;
     }
     try {
       return await this.bulkImportQueue.add('bulk-import', jobData, DEFAULT_JOB_OPTIONS);
@@ -174,7 +184,7 @@ export class QueueService implements OnModuleDestroy {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes('cmsgpack') || message.includes('lua')) {
         this.mockCounters[QUEUE_NAMES.BULK_IMPORT].waiting++;
-        return { id: `mock_${Date.now()}`, name: 'bulk-import', data: jobData } as unknown as Job;
+        return { id: randomUUID(), name: 'bulk-import', data: jobData } as unknown as Job;
       }
       throw err;
     }
@@ -191,7 +201,7 @@ export class QueueService implements OnModuleDestroy {
     const jobData = this.enrichJobData(data);
     if (this.isMock) {
       this.mockCounters[QUEUE_NAMES.INVITE_WAVE].waiting++;
-      return { id: `mock_${Date.now()}`, name: 'invite-wave', data: jobData } as unknown as Job;
+      return { id: randomUUID(), name: 'invite-wave', data: jobData } as unknown as Job;
     }
     try {
       return await this.inviteWaveQueue.add('invite-wave', jobData, DEFAULT_JOB_OPTIONS);
@@ -199,7 +209,7 @@ export class QueueService implements OnModuleDestroy {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes('cmsgpack') || message.includes('lua')) {
         this.mockCounters[QUEUE_NAMES.INVITE_WAVE].waiting++;
-        return { id: `mock_${Date.now()}`, name: 'invite-wave', data: jobData } as unknown as Job;
+        return { id: randomUUID(), name: 'invite-wave', data: jobData } as unknown as Job;
       }
       throw err;
     }
@@ -218,7 +228,7 @@ export class QueueService implements OnModuleDestroy {
     const jobData = this.enrichJobData(data);
     if (this.isMock) {
       this.mockCounters[QUEUE_NAMES.PDF_GENERATOR].waiting++;
-      return { id: `mock_${Date.now()}`, name: 'generate-pdf', data: jobData } as unknown as Job;
+      return { id: randomUUID(), name: 'generate-pdf', data: jobData } as unknown as Job;
     }
     try {
       return await this.pdfGeneratorQueue.add('generate-pdf', jobData, DEFAULT_JOB_OPTIONS);
@@ -226,7 +236,7 @@ export class QueueService implements OnModuleDestroy {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes('cmsgpack') || message.includes('lua')) {
         this.mockCounters[QUEUE_NAMES.PDF_GENERATOR].waiting++;
-        return { id: `mock_${Date.now()}`, name: 'generate-pdf', data: jobData } as unknown as Job;
+        return { id: randomUUID(), name: 'generate-pdf', data: jobData } as unknown as Job;
       }
       throw err;
     }
@@ -249,7 +259,7 @@ export class QueueService implements OnModuleDestroy {
     const jobData = this.enrichJobData(data);
     if (this.isMock) {
       this.mockCounters[QUEUE_NAMES.BROADCAST].waiting++;
-      return { id: `mock_${Date.now()}`, name: 'broadcast-batch', data: jobData } as unknown as Job;
+      return { id: randomUUID(), name: 'broadcast-batch', data: jobData } as unknown as Job;
     }
     try {
       return await this.broadcastQueue.add('broadcast-batch', jobData, DEFAULT_JOB_OPTIONS);
@@ -257,7 +267,7 @@ export class QueueService implements OnModuleDestroy {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes('cmsgpack') || message.includes('lua')) {
         this.mockCounters[QUEUE_NAMES.BROADCAST].waiting++;
-        return { id: `mock_${Date.now()}`, name: 'broadcast-batch', data: jobData } as unknown as Job;
+        return { id: randomUUID(), name: 'broadcast-batch', data: jobData } as unknown as Job;
       }
       throw err;
     }
@@ -268,7 +278,7 @@ export class QueueService implements OnModuleDestroy {
     candidateId?: string;
     _traceContext?: { sentryTrace?: string; baggage?: string; traceId?: string };
   }): Promise<Job> {
-    const jobName = `search-alerts-${Date.now()}`;
+    const jobName = `search-alerts-${randomUUID()}`;
     const jobData = this.enrichJobData(data);
     if (this.isMock) {
       this.mockCounters[QUEUE_NAMES.ALERTS].waiting++;

@@ -9,7 +9,7 @@ export function createQuickStudent(
   passingYear: string
 ): StudentRecordData {
   return {
-    id: `stu-direct-${Date.now()}`,
+    id: crypto.randomUUID(),
     institutionId,
     studentName: name.trim(),
     rollNumber: roll.trim(),
@@ -45,9 +45,9 @@ export function maskContactNumber(phone?: string | null): string {
 
 export function maskEmailAddress(email?: string | null): string {
   if (!email || !email.trim()) {
-    return '•••••@••••.•••';
+    return '••••••@••••••';
   }
-  return '•••••@••••.•••';
+  return '••••••@••••••';
 }
 
 export function filterStudentsMultiSelect(

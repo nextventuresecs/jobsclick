@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs';
 import type { SeekerProfileData, ApplicationData } from '../../../data/sampleWorkspaces';
 
 interface ApiCandidateAppRow {
@@ -85,13 +86,13 @@ export async function fetchSeekerApplications(
       jobId: a.jobId,
       jobTitle: a.jobTitle || 'Verified Technical Vacancy',
       companyName: a.companyName || 'Verified MSME Enterprise',
-      companyId: a.companyId || 'comp-01',
+      companyId: a.companyId || '',
       candidateId: a.applicantId,
       candidateName: a.applicantProfile?.fullName || 'Candidate',
       candidateEducation: 'Trade Certified',
       candidateExperience: 'Vocational Experience',
       candidateSkills: a.applicantProfile?.skills || [],
-      appliedDate: a.createdAt?.split('T')[0] ?? '2026-10-16',
+      appliedDate: a.createdAt?.split('T')[0] ?? '',
       status: a.status || 'applied',
     }));
   } catch {
@@ -115,12 +116,68 @@ export async function saveSeekerProfile(
       },
       body: JSON.stringify(payload),
     });
-    if (res.ok) {
-      const saved = await res.json();
-      return { success: true, completenessScore: saved?.completenessScore };
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      const message = errData?.message || `Failed to save seeker profile (${res.status} ${res.statusText})`;
+      const error = new Error(message);
+      Sentry.captureException(error, { extra: { apiUrl, status: res.status } });
+      throw error;
     }
-  } catch {
-    // Offline fallback
+    const saved = await res.json();
+    return { success: true, completenessScore: saved?.completenessScore };
+  } catch (err) {
+    Sentry.captureException(err, { extra: { apiUrl, userId } });
+    throw err;
   }
-  return { success: false };
+}
+
+export async function downloadSeekerPdfApi(
+  apiUrl: string,
+  authHeader: string,
+  userId: string,
+  candidateName?: string
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${apiUrl}/profiles/seeker/me/pdf`, {
+      headers: {
+        Authorization: authHeader,
+        'x-user-id': userId,
+      },
+    });
+
+    if (!res.ok) {
+      throw new Error(`Failed to download resume PDF (${res.status})`);
+    }
+
+    const contentType = res.headers.get('content-type') || '';
+    let targetUrl: string;
+
+    if (contentType.includes('application/json')) {
+      const data = await res.json();
+      targetUrl = data.downloadUrl;
+    } else {
+      const blob = await res.blob();
+      targetUrl = typeof window !== 'undefined' && window.URL ? window.URL.createObjectURL(blob) : '';
+    }
+
+    if (targetUrl && typeof document !== 'undefined') {
+      const a = document.createElement('a');
+      a.href = targetUrl;
+      const cleanName = (candidateName || 'Candidate').trim().replace(/[^a-zA-Z0-9]/g, '-');
+      a.download = `${cleanName}-Resume.pdf`;
+      if (document.body) {
+        document.body.appendChild(a);
+      }
+      a.click();
+      if (document.body && a.parentNode === document.body) {
+        document.body.removeChild(a);
+      }
+      return true;
+    }
+
+    return Boolean(targetUrl);
+  } catch (err) {
+    Sentry.captureException(err, { extra: { apiUrl, userId } });
+    return false;
+  }
 }

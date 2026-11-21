@@ -40,7 +40,7 @@ export function useBulkUploadState(
     setIsUploading(true);
     setBatchStatus('uploading');
     setUploadStatusText(`Requesting signed URL for ${file.name}...`);
-    const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:3001';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
     try {
       const { signedUrl, storagePath } = await requestSignedUploadUrl(apiUrl, file.name);
