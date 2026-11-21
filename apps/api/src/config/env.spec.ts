@@ -35,6 +35,18 @@ const VALID_PROD: Record<string, string> = {
   TRUSTED_PROXY_CIDRS: '127.0.0.1/32,10.0.0.0/8',
 };
 
+const VALID_STAGING: Record<string, string> = {
+  ...VALID_PROD,
+  NODE_ENV: 'staging',
+  DATABASE_URL: 'postgresql://postgres.afxgvtfaofpnlhdsexnp:Kx9#mP2$vL8!zQ4@aws-0.supabase.com:5432/postgres',
+  SUPABASE_URL: 'https://afxgvtfaofpnlhdsexnp.supabase.co',
+  WEB_URL: 'https://staging.jobsclick.live',
+  APP_URL: 'https://staging.jobsclick.live',
+  API_URL: 'https://api-staging.jobsclick.live',
+  RAZORPAY_KEY_ID: 'rzp_test_1234567890abcdef',
+  SENTRY_DSN: 'https://key@sentry.io/123456',
+};
+
 /** Shared base environment with universal secrets required in all environments (Spec 0). */
 const BASE_ENV: Record<string, string> = {
   OTP_PEPPER: 'test-otp-pepper-min-32-characters-long!',
@@ -54,18 +66,8 @@ describe('validateEnv() – production/staging safety guards', () => {
     expect(() => validateEnv({ ...VALID_PROD, CF_ORIGIN_LOCKED: 'false' })).not.toThrow();
   });
 
-  it('accepts CF_ORIGIN_LOCKED=false as explicit production configuration', () => {
-    expect(() => validateEnv({ ...VALID_PROD, CF_ORIGIN_LOCKED: 'false' })).not.toThrow();
-  });
-
-  it('accepts a fully valid staging env (with rzp_test_ key)', () => {
-    expect(() =>
-      validateEnv({
-        ...VALID_PROD,
-        NODE_ENV: 'staging',
-        RAZORPAY_KEY_ID: 'rzp_test_1234567890abcdef',
-      }),
-    ).not.toThrow();
+  it('accepts a fully valid staging env (with rzp_test_ key and staging URLs)', () => {
+    expect(() => validateEnv({ ...VALID_STAGING })).not.toThrow();
   });
 
   // ── Requirement 1 & 9: Unset or unknown NODE_ENV => strict production rules ──
@@ -337,7 +339,8 @@ describe('validateEnv() – production/staging safety guards', () => {
   for (const { name, override, expectedSubstring } of failCases) {
     for (const nodeEnv of ['production', 'staging'] as const) {
       it(`rejects ${nodeEnv}: ${name}`, () => {
-        const env: Record<string, string> = { ...VALID_PROD, NODE_ENV: nodeEnv, ...override };
+        const base = nodeEnv === 'staging' ? VALID_STAGING : VALID_PROD;
+        const env: Record<string, string> = { ...base, NODE_ENV: nodeEnv, ...override };
         for (const [k, v] of Object.entries(env)) {
           if (v === undefined) delete env[k];
         }
@@ -743,6 +746,123 @@ describe('safeBoolean feature flag parsing', () => {
           ENABLE_P2_PAYMENTS: badVal,
         }),
       ).toThrow();
+    }
+  });
+});
+
+describe('TASK 5 - Staging prod-copy tripwires in validateEnv()', () => {
+  it('fails boot when DATABASE_URL contains forbidden production project ref in staging', () => {
+    expect(() =>
+      validateEnv({
+        ...VALID_STAGING,
+        DATABASE_URL: 'postgresql://postgres.aspahsnclunutwiqliau:secret_password@aws-0.supabase.com:5432/postgres',
+      }),
+    ).toThrowError(/DATABASE_URL contains forbidden production project ref in staging/);
+  });
+
+  it('fails boot when DATABASE_URL does not contain the staging project ref', () => {
+    expect(() =>
+      validateEnv({
+        ...VALID_STAGING,
+        DATABASE_URL: 'postgresql://postgres.unknownref:secret_password@aws-0.supabase.com:5432/postgres',
+      }),
+    ).toThrowError(/DATABASE_URL must contain staging project ref in staging/);
+  });
+
+  it('fails boot when RAZORPAY_KEY_ID starts with rzp_live_ in staging', () => {
+    expect(() =>
+      validateEnv({
+        ...VALID_STAGING,
+        RAZORPAY_KEY_ID: 'rzp_live_1234567890abcdef',
+      }),
+    ).toThrowError(/RAZORPAY_KEY_ID cannot use live key/);
+  });
+
+  it('fails boot when WEB_URL host equals jobsclick.live in staging', () => {
+    expect(() =>
+      validateEnv({
+        ...VALID_STAGING,
+        WEB_URL: 'https://jobsclick.live',
+      }),
+    ).toThrowError(/WEB_URL host must not be production domain in staging/);
+  });
+
+  it('fails boot when WEB_URL host is a non-staging subdomain', () => {
+    expect(() =>
+      validateEnv({
+        ...VALID_STAGING,
+        WEB_URL: 'https://www.jobsclick.live',
+      }),
+    ).toThrowError(/WEB_URL host must not be a non-staging subdomain in staging/);
+  });
+
+  it('fails boot when SENTRY_DSN is empty in staging', () => {
+    const env = { ...VALID_STAGING };
+    delete env['SENTRY_DSN'];
+    expect(() => validateEnv(env)).toThrowError(/SENTRY_DSN must be set in staging/);
+  });
+
+  it('fails boot when NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN is true but GOOGLE_CALLBACK_URL is unset', () => {
+    expect(() =>
+      validateEnv({
+        ...VALID_STAGING,
+        NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN: 'true',
+        GOOGLE_CALLBACK_URL: '',
+      }),
+    ).toThrowError(/GOOGLE_CALLBACK_URL must be set when NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN is enabled in staging/);
+  });
+
+  it('fails boot when GOOGLE_CALLBACK_URL contains forbidden prod ref aspahsnclunutwiqliau', () => {
+    expect(() =>
+      validateEnv({
+        ...VALID_STAGING,
+        NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN: 'true',
+        GOOGLE_CALLBACK_URL: 'https://aspahsnclunutwiqliau.supabase.co/auth/v1/callback',
+      }),
+    ).toThrowError(/GOOGLE_CALLBACK_URL contains forbidden production project ref in staging/);
+  });
+
+  it('fails boot when GOOGLE_CALLBACK_URL points to api host in staging', () => {
+    expect(() =>
+      validateEnv({
+        ...VALID_STAGING,
+        GOOGLE_CALLBACK_URL: 'https://api-staging.jobsclick.live/auth/callback',
+      }),
+    ).toThrowError(/GOOGLE_CALLBACK_URL must not point to api host in staging/);
+  });
+
+  it('fails boot when GOOGLE_CALLBACK_URL does not match expected Supabase callback URL', () => {
+    expect(() =>
+      validateEnv({
+        ...VALID_STAGING,
+        GOOGLE_CALLBACK_URL: 'https://afxgvtfaofpnlhdsexnp.supabase.co/auth/v2/callback',
+      }),
+    ).toThrowError(/GOOGLE_CALLBACK_URL must equal https:\/\/<STAGING_PROJECT_REF>\.supabase\.co\/auth\/v1\/callback in staging/);
+  });
+
+  it('boots cleanly in staging with APP_ENV=staging and valid staging values', () => {
+    const stagingConfig = {
+      ...VALID_STAGING,
+      NODE_ENV: 'production',
+      APP_ENV: 'staging',
+      NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN: 'true',
+      GOOGLE_CALLBACK_URL: 'https://afxgvtfaofpnlhdsexnp.supabase.co/auth/v1/callback',
+    };
+    expect(() => validateEnv(stagingConfig)).not.toThrow();
+  });
+
+  it('never logs offending sensitive values in tripwire error messages', () => {
+    const password = 'ultra_secret_db_password_never_log_this';
+    try {
+      validateEnv({
+        ...VALID_STAGING,
+        DATABASE_URL: `postgresql://postgres.aspahsnclunutwiqliau:${password}@aws-0.supabase.com:5432/postgres`,
+      });
+      expect.fail('Should have thrown');
+    } catch (err: unknown) {
+      const msg = (err as Error).message;
+      expect(msg).toContain('DATABASE_URL');
+      expect(msg).not.toContain(password);
     }
   });
 });

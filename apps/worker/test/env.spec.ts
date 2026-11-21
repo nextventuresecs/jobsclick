@@ -171,4 +171,44 @@ describe('Worker Environment Configuration (Phase 1.1 Remediation)', () => {
       expect(env.REDIS_URL).toBe('rediss://custom-test-redis.com:6379');
     });
   });
+
+  describe('Staging Tripwire Gate', () => {
+    const baseValidStaging = {
+      APP_ENV: 'staging',
+      REDIS_URL: 'rediss://default:token@remote-redis.upstash.io:6379',
+      SUPABASE_URL: 'https://afxgvtfaofpnlhdsexnp.supabase.co',
+      SUPABASE_SERVICE_ROLE_KEY: 'valid_service_role_key_for_production_workers_not_placeholder',
+      SENTRY_DSN: 'https://key@sentry.io/123456',
+    };
+
+    it('accepts completely valid staging configuration', () => {
+      const env = validateEnv(baseValidStaging);
+      expect(env.REDIS_URL).toBe(baseValidStaging.REDIS_URL);
+      expect(env.SUPABASE_URL).toBe(baseValidStaging.SUPABASE_URL);
+    });
+
+    it('rejects forbidden production project ref in SUPABASE_URL in staging', () => {
+      expect(() =>
+        validateEnv({
+          ...baseValidStaging,
+          SUPABASE_URL: 'https://aspahsnclunutwiqliau.supabase.co',
+        }),
+      ).toThrowError(/SUPABASE_URL contains forbidden production project ref in staging/);
+    });
+
+    it('rejects missing staging project ref in SUPABASE_URL in staging', () => {
+      expect(() =>
+        validateEnv({
+          ...baseValidStaging,
+          SUPABASE_URL: 'https://otherproject.supabase.co',
+        }),
+      ).toThrowError(/SUPABASE_URL must contain staging project ref in staging/);
+    });
+
+    it('rejects missing SENTRY_DSN in staging', () => {
+      const env = { ...baseValidStaging };
+      delete (env as Record<string, string | undefined>)['SENTRY_DSN'];
+      expect(() => validateEnv(env)).toThrowError(/SENTRY_DSN must be set in staging/);
+    });
+  });
 });

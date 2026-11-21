@@ -1,10 +1,18 @@
 import { z } from 'zod';
 import fs from 'node:fs';
+import {
+  validateStagingTripwire,
+  isStaging,
+  getAppEnv,
+  isStrictEnv as checkStrictEnv,
+} from '@indian-job-portal/validation';
 
 const PLACEHOLDER_REGEX = /change-?me|example|dummy|test|secret-key/i;
 
 export const envSchema = z.object({
   NODE_ENV: z.string().default('development'),
+  APP_ENV: z.string().optional(),
+  STAGING_PROJECT_REF: z.string().optional(),
   REDIS_URL: z.string().default('redis://localhost:6379'),
   REDIS_ALLOW_PLAINTEXT: z.string().optional(),
   DB_ALLOW_INSECURE_TLS: z.string().optional(),
@@ -26,8 +34,10 @@ export const envSchema = z.object({
 export type EnvConfig = z.infer<typeof envSchema>;
 
 export function isStrictEnv(rawNodeEnv?: string): boolean {
-  const env = rawNodeEnv !== undefined ? rawNodeEnv.trim().toLowerCase() : (process.env['NODE_ENV'] ?? '').trim().toLowerCase();
-  return env !== 'development' && env !== 'test';
+  if (rawNodeEnv !== undefined) {
+    return checkStrictEnv(rawNodeEnv);
+  }
+  return checkStrictEnv(process.env);
 }
 
 export function validateEnv(overrides?: Record<string, string | undefined>): EnvConfig {
@@ -49,11 +59,18 @@ export function validateEnv(overrides?: Record<string, string | undefined>): Env
 
   const rawSource = overrides ?? process.env;
   const rawNodeEnv = (rawSource['NODE_ENV'] ?? '').trim().toLowerCase();
-  const isDevOrTest = rawNodeEnv === 'development' || rawNodeEnv === 'test';
+  const appEnv = getAppEnv(rawSource);
+  const isDevOrTest = appEnv === 'development' || appEnv === 'test';
 
   // Strict Production / Staging guards evaluated on RAW source before Zod defaults
   if (!isDevOrTest) {
     const errors: string[] = [];
+
+    // Staging prod-copy tripwire
+    if (isStaging(rawSource)) {
+      const tripwireErrors = validateStagingTripwire(rawSource, { requireDatabaseUrl: false });
+      errors.push(...tripwireErrors);
+    }
 
     // REDIS_URL: raw required, reject localhost/127.0.0.1, enforce rediss:// unless opt-out
     const redisUrlRaw = rawSource['REDIS_URL'];

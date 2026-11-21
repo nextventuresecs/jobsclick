@@ -1,5 +1,12 @@
 import { z } from 'zod';
-import { safeBoolean, validateProductionJwtKey, validateSecretKey } from '@indian-job-portal/validation';
+import {
+  safeBoolean,
+  validateProductionJwtKey,
+  validateSecretKey,
+  validateStagingTripwire,
+  isStaging,
+  getAppEnv,
+} from '@indian-job-portal/validation';
 import fs from 'node:fs';
 import net from 'node:net';
 import { paymentEnv, DUMMY } from './payment-env.js';
@@ -34,6 +41,10 @@ function isValidCidrOrIp(entry: string): boolean {
 
 const baseSchema = z.object({
   NODE_ENV: z.string().default('development'),
+  APP_ENV: z.string().optional(),
+  STAGING_PROJECT_REF: z.string().optional(),
+  GOOGLE_CALLBACK_URL: z.string().optional(),
+  NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN: safeBoolean,
   PORT: z.coerce.number().default(3001),
   DATABASE_URL: z.string().optional(),
   REDIS_URL: z.string().optional(),
@@ -134,7 +145,8 @@ export function validateEnv(overrides?: Record<string, string | undefined>): Env
 
   const rawSource = overrides ?? process.env;
   const rawNodeEnv = (rawSource['NODE_ENV'] ?? '').trim().toLowerCase();
-  const isDevOrTest = rawNodeEnv === 'development' || rawNodeEnv === 'test';
+  const appEnv = getAppEnv(rawSource);
+  const isDevOrTest = appEnv === 'development' || appEnv === 'test';
 
   // ── Universal mandatory auth secrets across ALL environments (Spec 0) ──
   const universalErrors: string[] = [];
@@ -181,6 +193,12 @@ export function validateEnv(overrides?: Record<string, string | undefined>): Env
   // ── Production / Staging guards (Evaluated on RAW source before Zod defaults) ──
   if (!isDevOrTest) {
     const errors: string[] = [];
+
+    // Staging prod-copy tripwire (must fail boot if prod ref, live rzp key, prod domain, empty sentry, or bad google callback)
+    if (isStaging(rawSource)) {
+      const tripwireErrors = validateStagingTripwire(rawSource, { requireDatabaseUrl: true });
+      errors.push(...tripwireErrors);
+    }
 
     // DATABASE_URL: raw required, reject localhost/127.0.0.1, reject postgres:postgres
     const dbUrlRaw = rawSource['DATABASE_URL'];
