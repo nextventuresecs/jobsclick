@@ -856,6 +856,26 @@ describe('TASK 5 - Staging prod-copy tripwires in validateEnv()', () => {
     expect(() => validateEnv(stagingConfig)).not.toThrow();
   });
 
+  it('fails boot when APP_ENV=production and NODE_ENV=staging', () => {
+    expect(() =>
+      validateEnv({
+        ...VALID_STAGING,
+        APP_ENV: 'production',
+        NODE_ENV: 'staging',
+      }),
+    ).toThrowError(/Conflicting environment configuration: APP_ENV=production cannot be combined with NODE_ENV=staging/);
+  });
+
+  it('fails boot when APP_ENV=production and NODE_ENV=test', () => {
+    expect(() =>
+      validateEnv({
+        ...VALID_STAGING,
+        APP_ENV: 'production',
+        NODE_ENV: 'test',
+      }),
+    ).toThrowError(/Conflicting environment configuration: APP_ENV=production cannot be combined with NODE_ENV=test/);
+  });
+
   it('never logs offending sensitive values in tripwire error messages', () => {
     const password = 'ultra_secret_db_password_never_log_this';
     try {

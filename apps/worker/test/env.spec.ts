@@ -45,6 +45,30 @@ describe('Worker Environment Configuration (Phase 1.1 Remediation)', () => {
       expect(env.SUPABASE_URL).toBe(baseValidProd.SUPABASE_URL);
     });
 
+    it('fails boot when APP_ENV=production and NODE_ENV=staging', () => {
+      expect(() =>
+        validateEnv({
+          ...baseValidProd,
+          APP_ENV: 'production',
+          NODE_ENV: 'staging',
+        }),
+      ).toThrowError(
+        /Conflicting environment configuration: APP_ENV=production cannot be combined with NODE_ENV=staging/,
+      );
+    });
+
+    it('fails boot when APP_ENV=production and NODE_ENV=test', () => {
+      expect(() =>
+        validateEnv({
+          ...baseValidProd,
+          APP_ENV: 'production',
+          NODE_ENV: 'test',
+        }),
+      ).toThrowError(
+        /Conflicting environment configuration: APP_ENV=production cannot be combined with NODE_ENV=test/,
+      );
+    });
+
     it('rejects missing REDIS_URL in production', () => {
       expect(() =>
         validateEnv({

@@ -38,13 +38,18 @@ describe('runtime-env helper', () => {
       expect(isTestEnv(env)).toBe(false);
     });
 
-    it('returns production when APP_ENV=production and NODE_ENV=staging', () => {
+    it('throws conflict error when APP_ENV=production and NODE_ENV=staging', () => {
       const env = { NODE_ENV: 'staging', APP_ENV: 'production' };
-      expect(getAppEnv(env)).toBe('production');
-      expect(isProduction(env)).toBe(true);
-      expect(isStaging(env)).toBe(false);
-      expect(isStrictEnv(env)).toBe(true);
-      expect(isTestEnv(env)).toBe(false);
+      expect(() => getAppEnv(env)).toThrow(
+        /Conflicting environment configuration: APP_ENV=production cannot be combined with NODE_ENV=staging/
+      );
+    });
+
+    it('throws conflict error when APP_ENV=production and NODE_ENV=test', () => {
+      const env = { NODE_ENV: 'test', APP_ENV: 'production' };
+      expect(() => getAppEnv(env)).toThrow(
+        /Conflicting environment configuration: APP_ENV=production cannot be combined with NODE_ENV=test/
+      );
     });
 
     it('returns staging when APP_ENV=staging and NODE_ENV=development', () => {

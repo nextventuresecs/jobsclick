@@ -98,6 +98,30 @@ describe('Web Environment Configuration (Phase 1.1 Remediation)', () => {
       expect(env.JWT_SECRET).toBe(baseValidProd.JWT_SECRET);
     });
 
+    it('fails boot when APP_ENV=production and NODE_ENV=staging', () => {
+      expect(() =>
+        validateWebEnv({
+          ...baseValidProd,
+          APP_ENV: 'production',
+          NODE_ENV: 'staging',
+        }),
+      ).toThrowError(
+        /Conflicting environment configuration: APP_ENV=production cannot be combined with NODE_ENV=staging/,
+      );
+    });
+
+    it('fails boot when APP_ENV=production and NODE_ENV=test', () => {
+      expect(() =>
+        validateWebEnv({
+          ...baseValidProd,
+          APP_ENV: 'production',
+          NODE_ENV: 'test',
+        }),
+      ).toThrowError(
+        /Conflicting environment configuration: APP_ENV=production cannot be combined with NODE_ENV=test/,
+      );
+    });
+
     it('rejects missing or non-64-hex format JWT_SECRET in production', () => {
       expect(() =>
         validateWebEnv({

@@ -16,11 +16,21 @@ export function getAppEnv(source?: Record<string, string | undefined>): AppEnv {
   const rawAppEnv = envSource['APP_ENV'] || envSource['NEXT_PUBLIC_APP_ENV'];
   const rawNodeEnv = envSource['NODE_ENV'];
 
+  const normAppEnv = rawAppEnv !== undefined && rawAppEnv !== null ? rawAppEnv.trim().toLowerCase() : '';
+  const normNodeEnv = rawNodeEnv !== undefined && rawNodeEnv !== null ? rawNodeEnv.trim().toLowerCase() : '';
+
+  // Reject contradictory environment configuration
+  if (normAppEnv === 'production' && (normNodeEnv === 'staging' || normNodeEnv === 'test')) {
+    throw new Error(
+      `Conflicting environment configuration: APP_ENV=production cannot be combined with NODE_ENV=${normNodeEnv}`
+    );
+  }
+
   const candidate =
-    rawAppEnv !== undefined && rawAppEnv !== null && rawAppEnv.trim() !== ''
-      ? rawAppEnv.trim().toLowerCase()
-      : rawNodeEnv !== undefined && rawNodeEnv !== null && rawNodeEnv.trim() !== ''
-        ? rawNodeEnv.trim().toLowerCase()
+    normAppEnv !== ''
+      ? normAppEnv
+      : normNodeEnv !== ''
+        ? normNodeEnv
         : '';
 
   if (candidate === 'staging') return 'staging';
