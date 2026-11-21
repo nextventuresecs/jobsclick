@@ -78,7 +78,7 @@ export async function runCatalogCheck(connectionString: string): Promise<Catalog
     FROM information_schema.role_table_grants
     WHERE table_schema = 'public'
       AND grantee IN ('anon', 'authenticated')
-      AND table_name NOT IN ('public_business_profiles', 'public_institution_profiles', 'public_jobs')
+      AND table_name NOT IN ('public_business_profiles', 'public_jobs')
     ORDER BY table_name, grantee;
   `);
   checks.push({
@@ -87,16 +87,16 @@ export async function runCatalogCheck(connectionString: string): Promise<Catalog
     details: baseTableGrants.rows.length === 0 ? 'All base tables revoked from anon & authenticated' : baseTableGrants.rows,
   });
 
-  // Check 5: Only public_* views granted SELECT to anon / authenticated
+  // Check 5: Only public_* views granted SELECT to anon / authenticated (AUTH-05 F0-f: public_institution_profiles is service-only)
   const viewGrants = await client.query(`
     SELECT grantee, table_name, privilege_type
     FROM information_schema.role_table_grants
     WHERE table_schema = 'public'
       AND grantee IN ('anon', 'authenticated')
-      AND table_name IN ('public_business_profiles', 'public_institution_profiles', 'public_jobs')
+      AND table_name IN ('public_business_profiles', 'public_jobs')
     ORDER BY table_name, grantee;
   `);
-  const expectedViewCount = 6; // 3 views * 2 roles (anon, authenticated)
+  const expectedViewCount = 4; // 2 public views * 2 roles (anon, authenticated)
   checks.push({
     name: 'Public non-PII views granted SELECT to anon and authenticated',
     passed: viewGrants.rows.length === expectedViewCount && viewGrants.rows.every((r) => r.privilege_type === 'SELECT'),

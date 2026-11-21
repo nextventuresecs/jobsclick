@@ -57,9 +57,11 @@ grant  execute on function public.get_user_credit_balance(uuid) to service_role;
 revoke execute on function public.deduct_application_credit_with_ledger(uuid, uuid, text, integer) from public, anon, authenticated;
 grant  execute on function public.deduct_application_credit_with_ledger(uuid, uuid, text, integer) to service_role;
 
--- 5. Harden search_jobs to SECURITY DEFINER with pinned search_path
+-- 5. Harden search_jobs to SECURITY DEFINER with pinned search_path and service_role-only execution boundary
 alter function public.search_jobs(text, text, text, numeric, integer, integer) security definer;
 alter function public.search_jobs(text, text, text, numeric, integer, integer) set search_path = public, pg_temp;
+revoke execute on function public.search_jobs(text, text, text, numeric, integer, integer) from public, anon, authenticated;
+grant  execute on function public.search_jobs(text, text, text, numeric, integer, integer) to service_role;
 
 -- 6. Stub for rpc_settle_payment establishing service_role-only permission boundary
 --    (full implementation provided in 20261121000300_wallet_settlement.sql)

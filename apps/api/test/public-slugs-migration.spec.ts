@@ -17,26 +17,99 @@ describe('Migration 20261115000000: Public Slugs Backfill & Invariants (Task 1)'
       auth: { persistSession: false },
     });
 
+    // 1. Ensure business_profiles & employer user exist
     const { count: bCount } = await supabase
       .from('business_profiles')
       .select('id', { count: 'exact', head: true });
+    let employerUserId: string;
     if (!bCount || bCount === 0) {
-      const employerId = crypto.randomUUID();
+      employerUserId = crypto.randomUUID();
       const phone = '98' + Math.floor(10000000 + Math.random() * 90000000);
       await supabase.from('users').insert({
-        id: employerId,
+        id: employerUserId,
         phone,
         role: 'employer',
         status: 'active',
         source: 'seed',
       });
       await supabase.from('business_profiles').insert({
-        user_id: employerId,
+        user_id: employerUserId,
         company_name: 'Test Enterprise Corp',
         ownership_type: 'private_limited',
         company_size: '11-50',
         city: 'Indore',
         state: 'Madhya Pradesh',
+        source: 'seed',
+      });
+    } else {
+      const { data: bRow } = await supabase
+        .from('business_profiles')
+        .select('user_id')
+        .limit(1)
+        .single();
+      employerUserId = bRow!.user_id;
+    }
+
+    // 2. Ensure institution_profiles & intermediary user exist
+    const { count: iCount } = await supabase
+      .from('institution_profiles')
+      .select('id', { count: 'exact', head: true });
+    if (!iCount || iCount === 0) {
+      const intermediaryId = crypto.randomUUID();
+      const phone = '97' + Math.floor(10000000 + Math.random() * 90000000);
+      await supabase.from('users').insert({
+        id: intermediaryId,
+        phone,
+        role: 'intermediary',
+        status: 'active',
+        source: 'seed',
+      });
+      await supabase.from('institution_profiles').insert({
+        user_id: intermediaryId,
+        institution_name: 'Test ITI College',
+        institution_type: 'iti',
+        city: 'Indore',
+        state: 'Madhya Pradesh',
+        source: 'seed',
+      });
+    }
+
+    // 3. Ensure job_seeker_profiles & seeker user exist
+    const { count: sCount } = await supabase
+      .from('job_seeker_profiles')
+      .select('id', { count: 'exact', head: true });
+    if (!sCount || sCount === 0) {
+      const seekerId = crypto.randomUUID();
+      const phone = '96' + Math.floor(10000000 + Math.random() * 90000000);
+      await supabase.from('users').insert({
+        id: seekerId,
+        phone,
+        role: 'job_seeker',
+        status: 'active',
+        source: 'seed',
+      });
+      await supabase.from('job_seeker_profiles').insert({
+        user_id: seekerId,
+        full_name: 'Candidate Test',
+        source: 'seed',
+      });
+    }
+
+    // 4. Ensure jobs exist
+    const { count: jCount } = await supabase
+      .from('jobs')
+      .select('id', { count: 'exact', head: true });
+    if (!jCount || jCount === 0) {
+      await supabase.from('jobs').insert({
+        employer_id: employerUserId,
+        title: 'Software Developer',
+        description: 'Engineering role description',
+        category: 'other',
+        city: 'Indore',
+        district: 'Indore',
+        state: 'Madhya Pradesh',
+        openings: 2,
+        is_active: true,
         source: 'seed',
       });
     }
@@ -85,9 +158,10 @@ describe('Migration 20261115000000: Public Slugs Backfill & Invariants (Task 1)'
     expect(seekers).toBeDefined();
 
     for (const seeker of seekers!) {
-      const user = (seeker as unknown as { users?: { phone?: string } }).users;
-      if (user?.phone) {
-        const rawPhone = user.phone.replace(/\D/g, '');
+      const userObj = (seeker as unknown as { users?: { phone?: string } | { phone?: string }[] }).users;
+      const phone = Array.isArray(userObj) ? userObj[0]?.phone : userObj?.phone;
+      if (phone) {
+        const rawPhone = phone.replace(/\D/g, '');
         expect(seeker.public_slug).not.toBe(rawPhone);
         expect(seeker.public_slug).not.toContain(rawPhone);
         if (rawPhone.length >= 6) {
@@ -102,9 +176,10 @@ describe('Migration 20261115000000: Public Slugs Backfill & Invariants (Task 1)'
       .from('jobs')
       .select('id, public_slug')
       .limit(1)
-      .single();
+      .maybeSingle();
 
     expect(job).toBeDefined();
+    expect(job?.id).toBeDefined();
 
     const { error: updateError } = await supabase
       .from('jobs')

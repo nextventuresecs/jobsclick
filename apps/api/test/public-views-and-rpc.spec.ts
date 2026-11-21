@@ -4,6 +4,9 @@ describe('Public Views and RPC Security Specs (ID-02 Task 1)', () => {
   const anonKey =
     process.env['SUPABASE_ANON_KEY'] ||
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0';
+  const serviceRoleKey =
+    process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyZWZlcmVuY2UiOiJkZWZhdWx0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDY0ODQwMCwiZXhwIjoyMDk2MjI0NDAwfQ.dummy_service_role_key_for_testing_only';
   const restUrl =
     process.env['SUPABASE_URL']
       ? `${process.env['SUPABASE_URL']}/rest/v1`
@@ -69,12 +72,26 @@ describe('Public Views and RPC Security Specs (ID-02 Task 1)', () => {
   }
 
   describe('RPC: search_jobs', () => {
-    it('returns slug and company_slug without internal UUIDs or employer_id', async () => {
+    it('rejects anon direct access to search_jobs under service-role permission boundary', async () => {
       const res = await fetch(`${restUrl}/rpc/search_jobs`, {
         method: 'POST',
         headers: {
           apikey: anonKey,
           Authorization: `Bearer ${anonKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ p_limit: 5 }),
+      });
+
+      expect([401, 403, 404]).toContain(res.status);
+    });
+
+    it('returns slug and company_slug without internal UUIDs or employer_id with service role key', async () => {
+      const res = await fetch(`${restUrl}/rpc/search_jobs`, {
+        method: 'POST',
+        headers: {
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ p_limit: 5 }),
