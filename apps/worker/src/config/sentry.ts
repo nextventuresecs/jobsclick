@@ -8,6 +8,7 @@ import {
   deepScrubPii,
   contextualTracesSampler,
   SENTRY_IGNORE_ERRORS,
+  getAppEnv,
 } from '@indian-job-portal/validation';
 
 export interface TraceContextPayload {
@@ -20,6 +21,10 @@ let isInitialized = false;
 
 function sanitizeWorkerLog(message: string): string {
   return sanitizeString(message);
+}
+
+export function getSentryEnvironment(): string {
+  return process.env['SENTRY_ENVIRONMENT'] || getAppEnv();
 }
 
 /**
@@ -38,7 +43,8 @@ export function initSentry(dsn?: string): void {
 
     const options: Sentry.NodeOptions = {
       dsn: resolvedDsn,
-      environment: process.env['NODE_ENV'] || 'development',
+      environment: getSentryEnvironment(),
+      ...(process.env['SENTRY_RELEASE'] ? { release: process.env['SENTRY_RELEASE'] } : {}),
       integrations: [
         Sentry.consoleLoggingIntegration({ levels: ['log', 'warn', 'error'] }),
       ],

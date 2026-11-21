@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/nextjs';
 import {
+  getSentryEnvironment,
   sanitizeSentryEvent,
   sanitizeBreadcrumb,
   sanitizeLogRecord,
@@ -16,6 +17,7 @@ const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN;
 if (SENTRY_DSN) {
   const options = {
     dsn: SENTRY_DSN,
+    environment: getSentryEnvironment(),
     tracesSampler: contextualTracesSampler,
     tracePropagationTargets: SENTRY_TRACE_PROPAGATION_TARGETS,
     release:

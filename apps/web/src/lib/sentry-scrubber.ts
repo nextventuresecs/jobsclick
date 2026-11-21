@@ -18,6 +18,7 @@ import {
   contextualTracesSampler,
   type SentryLogInput,
   type LogSeverityLevel,
+  getAppEnv,
 } from '@indian-job-portal/validation';
 
 export {
@@ -38,6 +39,14 @@ export {
   type SentryLogInput,
   type LogSeverityLevel,
 };
+
+export function getSentryEnvironment(): string {
+  return (
+    process.env['SENTRY_ENVIRONMENT'] ||
+    process.env['NEXT_PUBLIC_SENTRY_ENVIRONMENT'] ||
+    getAppEnv()
+  );
+}
 
 /**
  * Next.js typed breadcrumb sanitizer wrapper

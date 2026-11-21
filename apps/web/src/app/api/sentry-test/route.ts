@@ -1,21 +1,47 @@
 import { NextResponse } from 'next/server';
 import * as Sentry from '@sentry/nextjs';
+import { isProduction, isStaging } from '@indian-job-portal/validation';
 import { sanitizeString, deepScrubPii } from '../../../lib/sentry-scrubber';
 import { withGenAiSpan } from '../../../lib/sentry-ai-telemetry';
+import { getServerSession } from '../../../lib/auth-session';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * Dedicated test-only verification endpoint for Sentry observability
  * Automatically restricted from running in production environments.
+ * Allowed in staging behind admin secret or platform_admin session.
  */
 export async function GET(request: Request) {
-  // Prevent test verification exposure in production deployments
-  if (process.env.NODE_ENV === 'production') {
+  // Disabled only in production (allowed in staging behind an existing auth/secret check)
+  if (isProduction()) {
     return NextResponse.json(
       { error: 'Sentry verification endpoint is disabled in production' },
       { status: 403 }
     );
+  }
+
+  // In staging, restrict behind admin secret or platform_admin session so it is not publicly callable
+  if (isStaging()) {
+    const secretHeader =
+      request.headers.get('x-sentry-test-secret') ||
+      request.headers.get('x-admin-secret');
+    const configuredSecret =
+      process.env['SENTRY_TEST_SECRET'] ||
+      process.env['ADMIN_DASHBOARD_SECRET'];
+
+    const session = await getServerSession().catch(() => null);
+    const isAdmin = session?.role === 'platform_admin';
+
+    const isSecretValid =
+      Boolean(configuredSecret && secretHeader && secretHeader === configuredSecret);
+
+    if (!isSecretValid && !isAdmin) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Sentry test endpoint is not publicly callable in staging' },
+        { status: 401 }
+      );
+    }
   }
 
   const { searchParams } = new URL(request.url);
