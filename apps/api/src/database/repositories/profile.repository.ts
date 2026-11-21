@@ -1,6 +1,6 @@
-import { Injectable, Inject, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, Inject, Optional, InternalServerErrorException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { generatePublicSlug } from '@indian-job-portal/validation';
+import { generatePublicSlug, isTestEnv, isStrictEnv } from '@indian-job-portal/validation';
 import type {
   Database,
   JobSeekerProfileRow,
@@ -13,9 +13,16 @@ import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.j
 @Injectable()
 export class ProfileRepository {
   private persistentStore = PersistentDatabaseStore.getInstance();
-  private isTestMode = false;
+  private isTestMode = isTestEnv();
 
-  constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>) {}
+  constructor(
+    @Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>,
+    @Optional() isTestMode?: boolean,
+  ) {
+    if (isTestEnv() && typeof isTestMode === 'boolean') {
+      this.isTestMode = isTestMode;
+    }
+  }
 
   // ==========================================
   // Job Seeker Profiles
@@ -33,7 +40,7 @@ export class ProfileRepository {
         }
         return (data as JobSeekerProfileRow) || null;
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }
@@ -55,7 +62,7 @@ export class ProfileRepository {
         }
         return (data as JobSeekerProfileRow) || null;
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }
@@ -77,7 +84,7 @@ export class ProfileRepository {
         }
         return (data as JobSeekerProfileRow) || null;
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }
@@ -115,7 +122,7 @@ export class ProfileRepository {
         }
         return (data as unknown as JobSeekerProfileRow[]) || [];
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }
@@ -173,7 +180,7 @@ export class ProfileRepository {
         }
         return (data as BusinessProfileRow) || null;
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }
@@ -195,7 +202,7 @@ export class ProfileRepository {
         }
         return (data as BusinessProfileRow) || null;
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }
@@ -217,7 +224,7 @@ export class ProfileRepository {
         }
         return (data as BusinessProfileRow) || null;
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }
@@ -260,7 +267,7 @@ export class ProfileRepository {
         }
         return (data as unknown as BusinessProfileRow[]) || [];
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }
@@ -283,7 +290,7 @@ export class ProfileRepository {
         }
         return (data as unknown as BusinessProfileRow[]) || [];
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }
@@ -308,7 +315,7 @@ export class ProfileRepository {
         }
         return (data as InstitutionProfileRow) || null;
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }
@@ -330,7 +337,7 @@ export class ProfileRepository {
         }
         return (data as InstitutionProfileRow) || null;
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }
@@ -352,7 +359,7 @@ export class ProfileRepository {
         }
         return (data as InstitutionProfileRow) || null;
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }

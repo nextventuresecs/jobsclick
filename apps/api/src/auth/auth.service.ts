@@ -23,6 +23,7 @@ import {
   OAuthExchangeInput,
   LinkPhoneInput,
   VerifyLinkPhoneInput,
+  isTestEnv,
 } from '@indian-job-portal/validation';
 export interface VerifyEmailInput {
   token: string;
@@ -708,7 +709,7 @@ export class AuthService {
       throw new ServiceUnavailableException('Failed to deliver SMS. Please try again later.');
     }
 
-    const isTest = process.env['NODE_ENV'] === 'test';
+    const isTest = isTestEnv();
     return {
       success: true,
       message: 'OTP sent to mobile number',

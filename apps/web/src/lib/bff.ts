@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isStrictEnv } from '@indian-job-portal/validation';
 import { SESSION_COOKIE_NAME, verifyToken, type VerifiedSession } from './auth-session';
 
 export interface CsrfValidationResult {
@@ -37,7 +38,7 @@ export function validateCsrf(req: NextRequest): CsrfValidationResult {
     } catch {
       return { valid: false, error: 'MALFORMED_ORIGIN' };
     }
-  } else if (process.env.NODE_ENV === 'production') {
+  } else if (isStrictEnv()) {
     return { valid: false, error: 'MISSING_ORIGIN' };
   }
 

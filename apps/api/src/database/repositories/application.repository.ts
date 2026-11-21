@@ -1,18 +1,22 @@
-import { Injectable, Inject, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, Inject, Optional, InternalServerErrorException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { isTestEnv, isStrictEnv } from '@indian-job-portal/validation';
 import type { Database, ApplicationRow } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
 
 @Injectable()
 export class ApplicationRepository {
   private persistentStore = PersistentDatabaseStore.getInstance();
-  private isTestMode =
-    process.env['NODE_ENV'] !== 'production' &&
-    (process.env['NODE_ENV'] === 'test' ||
-      !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
-      process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key');
+  private isTestMode = isTestEnv();
 
-  constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>) {}
+  constructor(
+    @Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>,
+    @Optional() isTestMode?: boolean,
+  ) {
+    if (isTestEnv() && typeof isTestMode === 'boolean') {
+      this.isTestMode = isTestMode;
+    }
+  }
 
   async create(application: ApplicationRow): Promise<ApplicationRow> {
     if (this.isTestMode) {
@@ -41,7 +45,7 @@ export class ApplicationRepository {
         }
         return (data as ApplicationRow) || null;
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }
@@ -64,7 +68,7 @@ export class ApplicationRepository {
         }
         return (data as ApplicationRow) || null;
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }
@@ -87,7 +91,7 @@ export class ApplicationRepository {
         }
         return (data as ApplicationRow[]) || [];
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }
@@ -108,7 +112,7 @@ export class ApplicationRepository {
         }
         return (data as ApplicationRow[]) || [];
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }
@@ -153,7 +157,7 @@ export class ApplicationRepository {
         }
         return (data as ApplicationRow[]) || [];
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }

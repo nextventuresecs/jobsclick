@@ -16,6 +16,8 @@ import {
   CostPreviewRequest,
   CostPreviewResponse,
   DispatchBroadcast,
+  isTestEnv,
+  isStrictEnv,
 } from '@indian-job-portal/validation';
 import {
   calculateSmsSegments,
@@ -69,11 +71,7 @@ export class BroadcastService {
   private activeDispatchLocks = new Set<string>();
   private usedConfirmationTokens = new Set<string>();
 
-  private isTestMode =
-    process.env['NODE_ENV'] !== 'production' &&
-    (process.env['NODE_ENV'] === 'test' ||
-      !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
-      process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key');
+  private isTestMode = isTestEnv();
 
   constructor(
     @Inject(QueueService) private readonly queueService: QueueService,
@@ -351,7 +349,7 @@ export class BroadcastService {
         }
         return (data as unknown as BroadcastCampaignEntity) || null;
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }

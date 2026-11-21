@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator.js';
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject } from '@nestjs/common';
-import { BulkUploadInput, InviteWaveInput, normalizeIndianPhone } from '@indian-job-portal/validation';
+import { BulkUploadInput, InviteWaveInput, normalizeIndianPhone, isTestEnv, isStrictEnv } from '@indian-job-portal/validation';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { parse as parseCsvSync } from 'csv-parse/sync';
 import { QstashService } from '../qstash/qstash.service.js';
@@ -80,10 +80,7 @@ function parseCsv(csvText: string): Array<Record<string, string>> {
 @Injectable()
 export class BulkService {
   private supabase: SupabaseClient;
-  private isTestMode =
-    process.env['NODE_ENV'] === 'test' ||
-    !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
-    process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key';
+  private isTestMode = isTestEnv();
 
   private memBatches = new Map<string, BulkBatchRecord>();
   private memWaves = new Map<string, InviteWaveRecord>();
@@ -92,9 +89,19 @@ export class BulkService {
     @Inject(QstashService) private readonly qstashService: QstashService,
     @Inject(QueueService) private readonly queueService: QueueService,
   ) {
-    const url = process.env['SUPABASE_URL'] || 'http://localhost:54321';
-    const key = process.env['SUPABASE_SERVICE_ROLE_KEY'] || 'dummy-service-role-key';
-    this.supabase = createClient(url, key, {
+    const url = process.env['SUPABASE_URL'];
+    const key = process.env['SUPABASE_SERVICE_ROLE_KEY'];
+
+    if (isStrictEnv()) {
+      if (!url || !url.trim() || url.includes('localhost') || url.includes('127.0.0.1')) {
+        throw new Error('SUPABASE_URL must be set and cannot point to localhost in production/staging');
+      }
+      if (!key || !key.trim() || key === 'dummy-service-role-key' || key.toLowerCase().includes('dummy')) {
+        throw new Error('SUPABASE_SERVICE_ROLE_KEY must be set and cannot be a dummy value in production/staging');
+      }
+    }
+
+    this.supabase = createClient(url || 'http://localhost:54321', key || 'dummy-service-role-key', {
       auth: { persistSession: false, autoRefreshToken: false },
     });
   }

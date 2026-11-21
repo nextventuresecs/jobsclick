@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppContext } from '@/context/AppContext';
-import { IndianPhoneSchema, SelfSignupRoleSchema, SendEmailOtpSchema } from '@indian-job-portal/validation';
+import { IndianPhoneSchema, SelfSignupRoleSchema, SendEmailOtpSchema, isTestEnv } from '@indian-job-portal/validation';
 import { getSupabaseBrowserClient } from '@/lib/supabaseClient';
 
 const DPDP_CONSENT_VERSION = 'v1.2-2026-10';
@@ -120,7 +120,7 @@ export function AuthModal() {
     // Require real Turnstile token in production
     const effectiveTurnstile =
       turnstileToken ||
-      (process.env.NODE_ENV === 'test' ? 'test_turnstile_token' : '');
+      (isTestEnv() ? 'test_turnstile_token' : '');
 
     if (!effectiveTurnstile) {
       setErrorMessage('Please complete the security verification check.');
@@ -184,7 +184,7 @@ export function AuthModal() {
 
     const effectiveTurnstile =
       turnstileToken ||
-      (process.env.NODE_ENV === 'test' ? 'test_turnstile_token' : '');
+      (isTestEnv() ? 'test_turnstile_token' : '');
 
     if (!effectiveTurnstile) {
       setErrorMessage('Please complete the security verification check.');

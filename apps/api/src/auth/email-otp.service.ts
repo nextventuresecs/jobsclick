@@ -8,6 +8,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import crypto from 'node:crypto';
+import { isTestEnv } from '@indian-job-portal/validation';
 import { EmailService } from '../email/email.service.js';
 import { OtpRedisService } from './otp-redis.service.js';
 
@@ -121,7 +122,7 @@ export class EmailOtpService {
       this.logger.error(`Failed to dispatch email OTP to ${normalizedEmail}: ${dispatchResult.error}`);
     }
 
-    const isTest = process.env['NODE_ENV'] === 'test';
+    const isTest = isTestEnv();
     return {
       success: true,
       ttlSeconds,

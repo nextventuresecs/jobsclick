@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nextjs';
+import { isStrictEnv } from '@indian-job-portal/validation';
 
 /**
  * Next.js native instrumentation registration hook
@@ -17,7 +18,7 @@ export async function register() {
     try {
       validateWebEnv();
     } catch (err) {
-      if (process.env['NODE_ENV'] === 'production') {
+      if (isStrictEnv()) {
         console.error('[FATAL] Next.js production runtime environment validation failed:', err);
         process.exit(1);
       }

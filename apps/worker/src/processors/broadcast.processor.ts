@@ -3,6 +3,7 @@ import { Job } from 'bullmq';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import IORedis from 'ioredis';
 import IORedisMock from 'ioredis-mock';
+import { isStrictEnv, isTestEnv } from '@indian-job-portal/validation';
 
 export interface BroadcastRecipient {
   businessProfileId: string;
@@ -61,7 +62,7 @@ export class BroadcastProcessor {
       this.redis = customRedis;
     } else {
       const redisUrl = process.env['REDIS_URL'];
-      const isTest = process.env['NODE_ENV'] === 'test' || Boolean(process.env['VITEST']) || process.env['USE_MOCK_REDIS'] === 'true';
+      const isTest = !isStrictEnv() && (isTestEnv() || Boolean(process.env['VITEST']) || process.env['USE_MOCK_REDIS'] === 'true');
 
       if (isTest) {
         this.redis = new (IORedisMock as unknown as typeof IORedis)() as IORedis;
@@ -172,10 +173,11 @@ export class BroadcastProcessor {
       // 4. Gateway dispatch (MSG91 or Mock)
       const maskedPhone = this.maskPhone(phone);
       const isTestMode =
-        process.env['NODE_ENV'] === 'test' ||
-        Boolean(process.env['VITEST']) ||
-        !process.env['MSG91_AUTH_KEY'] ||
-        process.env['MSG91_AUTH_KEY'] === 'dummy-msg91-key';
+        !isStrictEnv() &&
+        (isTestEnv() ||
+          Boolean(process.env['VITEST']) ||
+          !process.env['MSG91_AUTH_KEY'] ||
+          process.env['MSG91_AUTH_KEY'] === 'dummy-msg91-key');
 
       try {
         let gatewayMsgId: string = randomUUID();

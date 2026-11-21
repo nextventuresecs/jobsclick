@@ -1,5 +1,6 @@
-import { Injectable, Inject, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, Inject, Optional, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { isTestEnv, isStrictEnv } from '@indian-job-portal/validation';
 import type { Database } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
 
@@ -14,13 +15,16 @@ export interface AuditLogRow {
 @Injectable()
 export class AuditLogRepository {
   private persistentStore = PersistentDatabaseStore.getInstance();
-  private isTestMode =
-    process.env['NODE_ENV'] !== 'production' &&
-    (process.env['NODE_ENV'] === 'test' ||
-      !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
-      process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key');
+  private isTestMode = isTestEnv();
 
-  constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>) {}
+  constructor(
+    @Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>,
+    @Optional() isTestMode?: boolean,
+  ) {
+    if (isTestEnv() && typeof isTestMode === 'boolean') {
+      this.isTestMode = isTestMode;
+    }
+  }
 
   async append(record: AuditLogRow): Promise<AuditLogRow> {
     if (this.isTestMode) {
@@ -57,7 +61,7 @@ export class AuditLogRepository {
         }
         return (data as unknown as AuditLogRow[]) || [];
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }

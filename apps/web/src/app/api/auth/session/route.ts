@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { isStrictEnv } from '@indian-job-portal/validation';
 import { SESSION_COOKIE_NAME, verifyToken } from '@/lib/auth-session';
 
 function isValidOrigin(req: NextRequest): boolean {
@@ -49,7 +50,7 @@ export async function GET() {
  * Verifies a server-signed JWT and stores it in a strict __Host- HttpOnly cookie.
  */
 export async function POST(req: NextRequest) {
-  if (process.env.NODE_ENV === 'production' && !isValidOrigin(req)) {
+  if (isStrictEnv() && !isValidOrigin(req)) {
     return NextResponse.json({ error: 'Invalid origin' }, { status: 403 });
   }
 
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
       name: SESSION_COOKIE_NAME,
       value: token,
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: isStrictEnv(),
       sameSite: 'lax',
       path: '/',
       maxAge: ttlSeconds,
@@ -95,7 +96,7 @@ export async function POST(req: NextRequest) {
  * Clears the HttpOnly session cookie.
  */
 export async function DELETE(req: NextRequest) {
-  if (process.env.NODE_ENV === 'production' && !isValidOrigin(req)) {
+  if (isStrictEnv() && !isValidOrigin(req)) {
     return NextResponse.json({ error: 'Invalid origin' }, { status: 403 });
   }
 

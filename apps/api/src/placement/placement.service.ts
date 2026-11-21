@@ -20,6 +20,7 @@ import {
   IllegalStateTransitionError,
   MissingTransitionPayloadError,
   UnauthorizedStateTransitionActorError,
+  isStrictEnv,
 } from '@indian-job-portal/validation';
 import type { CorporateTieUpRow, PlacementApplicationRow } from '@indian-job-portal/database';
 import { CorporateTieUpRepository } from '../database/repositories/corporate-tie-up.repository.js';
@@ -239,7 +240,7 @@ export class PlacementService {
 
   private seedInitialDataIfEmpty(): void {
     // File-based seeding is disabled in production; Supabase is the sole source of truth.
-    if (process.env['NODE_ENV'] === 'production') {
+    if (isStrictEnv()) {
       return;
     }
 
@@ -261,7 +262,7 @@ export class PlacementService {
   private async getAllTieUps(): Promise<CorporateTieUp[]> {
     // 1. First retrieve all from repository
     const rows = await this.tieUpRepo.findAll();
-    if (process.env['NODE_ENV'] === 'production') {
+    if (isStrictEnv()) {
       return rows.map(mapTieUpRowToDomain);
     }
     // 2. Also check local persistent store for pre-seeded items
@@ -282,7 +283,7 @@ export class PlacementService {
 
   private async getAllApplications(): Promise<PlacementApplication[]> {
     const rows = await this.pipelineRepo.findAll();
-    if (process.env['NODE_ENV'] === 'production') {
+    if (isStrictEnv()) {
       return rows.map(mapAppRowToDomain);
     }
     const storeTable = this.persistentStore.getTable<PlacementApplication>('placement_applications');
@@ -357,7 +358,7 @@ export class PlacementService {
     // 1. Delegate persistence to CorporateTieUpRepository (Supabase table corporate_tie_ups)
     await this.tieUpRepo.create(mapDomainToTieUpRow(newTieUp));
     // 2. Also keep local persistent store updated for instant queries in non-production
-    if (process.env['NODE_ENV'] !== 'production') {
+    if (!isStrictEnv()) {
       this.persistentStore.setRow('corporate_tie_ups', newTieUp.id, newTieUp);
     }
 
@@ -442,7 +443,7 @@ export class PlacementService {
       // 1. Delegate persistence to PlacementPipelineRepository (Supabase table placement_applications)
       await this.pipelineRepo.create(mapDomainToAppRow(app, partner.id));
       // 2. Also keep local persistent store updated in non-production
-      if (process.env['NODE_ENV'] !== 'production') {
+      if (!isStrictEnv()) {
         this.persistentStore.setRow('placement_applications', app.id, app);
       }
     }
@@ -516,7 +517,7 @@ export class PlacementService {
         offer_package: updated.offerPackage || null,
         interview_date: updated.interviewDate || null,
       });
-      if (process.env['NODE_ENV'] !== 'production') {
+      if (!isStrictEnv()) {
         this.persistentStore.setRow('placement_applications', applicationId, updated);
       }
 
@@ -533,7 +534,7 @@ export class PlacementService {
           await this.pipelineRepo.update(lockedApp.id, {
             stage: lockedApp.stage,
           });
-          if (process.env['NODE_ENV'] !== 'production') {
+          if (!isStrictEnv()) {
             this.persistentStore.setRow('placement_applications', lockedApp.id, lockedApp);
           }
         }

@@ -1,15 +1,15 @@
 import crypto from 'node:crypto';
 import type { ClientRole } from '@indian-job-portal/validation';
-import { toClientRole } from '@indian-job-portal/validation';
+import { toClientRole, isStrictEnv } from '@indian-job-portal/validation';
 
 export const SESSION_COOKIE_NAME =
-  process.env.NODE_ENV === 'production' ? '__Host-jc_session' : 'jc_session';
+  isStrictEnv() ? '__Host-jc_session' : 'jc_session';
 
 export const AUTH_COOKIE_NAME = SESSION_COOKIE_NAME;
 
 export const AUTH_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
+  secure: isStrictEnv(),
   sameSite: 'lax' as const,
   path: '/',
   maxAge: 7 * 24 * 60 * 60, // 7 days

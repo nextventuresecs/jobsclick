@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { isStrictEnv } from '@indian-job-portal/validation';
 import { SESSION_COOKIE_NAME, verifyToken, signSessionToken } from '@/lib/auth-session';
 
 export async function POST(req: NextRequest) {
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
         name: SESSION_COOKIE_NAME,
         value: newToken,
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: isStrictEnv(),
         sameSite: 'lax',
         path: '/',
         maxAge: 7 * 24 * 60 * 60,

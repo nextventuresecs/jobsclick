@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { isStrictEnv, isTestEnv } from '@indian-job-portal/validation';
 import { captureException } from '../config/sentry.js';
 
 export interface SendInviteSmsOptions {
@@ -20,7 +21,7 @@ export class WorkerSmsService {
    */
   async sendInviteSms(options: SendInviteSmsOptions): Promise<SmsResponse> {
     const { phone, language = 'en', inviteUrl = 'https://jobsclick.live' } = options;
-    const isTestMode = process.env['NODE_ENV'] === 'test';
+    const isTestMode = isTestEnv();
     const authKey = process.env['MSG91_AUTH_KEY'];
     const templateId =
       process.env['MSG91_INVITE_TEMPLATE_ID'] ||
@@ -29,7 +30,7 @@ export class WorkerSmsService {
     const gatewayMode =
       process.env['SMS_GATEWAY_MODE'] ||
       (authKey && authKey !== 'dummy-msg91-key'
-        ? (process.env['NODE_ENV'] === 'production' ? 'live' : 'sandbox')
+        ? (isStrictEnv() ? 'live' : 'sandbox')
         : 'mock');
 
     // QA whitelist range (+919876543210 through +919876543219)

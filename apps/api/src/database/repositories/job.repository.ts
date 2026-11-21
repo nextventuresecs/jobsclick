@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
-import { generatePublicSlug } from '@indian-job-portal/validation';
+import { generatePublicSlug, isTestEnv, isStrictEnv } from '@indian-job-portal/validation';
 import type { Database, JobRow, JobAlertRow, AlertDeliveryRow, CreditLedgerRow, PromoteJobRpcResult, SearchJobsRpcResult } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
 
@@ -28,17 +28,13 @@ export interface JobFilterParams {
 export class JobRepository {
   private readonly logger = new Logger(JobRepository.name);
   private persistentStore = PersistentDatabaseStore.getInstance();
-  private isTestMode =
-    process.env['NODE_ENV'] !== 'production' &&
-    (process.env['NODE_ENV'] === 'test' ||
-      !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
-      process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key');
+  private isTestMode = isTestEnv();
 
   constructor(
     @Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>,
     @Optional() isTestMode?: boolean,
   ) {
-    if (process.env['NODE_ENV'] !== 'production' && typeof isTestMode === 'boolean') {
+    if (isTestEnv() && typeof isTestMode === 'boolean') {
       this.isTestMode = isTestMode;
     }
   }
@@ -498,7 +494,7 @@ export class JobRepository {
         }
         return (data as JobAlertRow[]) || [];
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }
@@ -520,7 +516,7 @@ export class JobRepository {
         }
         return (data as JobAlertRow[]) || [];
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }
@@ -544,7 +540,7 @@ export class JobRepository {
         }
         return Boolean(data);
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }
@@ -597,7 +593,7 @@ export class JobRepository {
         }
         return (data as JobRow[]) || [];
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }
