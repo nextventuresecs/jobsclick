@@ -9,6 +9,7 @@ import { OtpRedisService } from '../src/auth/otp-redis.service.js';
 import { JwtService } from '../src/auth/jwt.service.js';
 import { RateLimitService } from '../src/auth/rate-limit.service.js';
 import { OtpGenerator } from '../src/auth/otp-generator.service.js';
+import { EmailOtpService } from '../src/auth/email-otp.service.js';
 import { UserRepository } from '../src/database/repositories/user.repository.js';
 import { MockTurnstileVerifier } from './mocks/mock-turnstile.verifier.js';
 import { MockSmsGateway } from './mocks/mock-sms.gateway.js';
@@ -56,6 +57,13 @@ describe('Ticket T-06: MSG91 SMS Service & Turnstile Bot Challenge', () => {
           provide: SmsGateway,
           useClass: MockSmsGateway,
         },
+        {
+          provide: EmailOtpService,
+          useValue: {
+            sendOtp: vi.fn().mockResolvedValue({ success: true, ttlSeconds: 300 }),
+            verifyOtp: vi.fn().mockResolvedValue({ verified: true }),
+          },
+        },
       ],
     }).compile();
 
@@ -99,7 +107,7 @@ describe('Ticket T-06: MSG91 SMS Service & Turnstile Bot Challenge', () => {
       vi.stubGlobal('fetch', mockFetch);
 
       const result = await realSms.sendOtp({
-        phone: '9876543210',
+        phone: '9876543206',
         otp: '123456',
         language: 'en',
       });
@@ -131,7 +139,7 @@ describe('Ticket T-06: MSG91 SMS Service & Turnstile Bot Challenge', () => {
         vi.stubGlobal('fetch', mockFetch);
 
         const result = await realSms.sendOtp({
-          phone: '9876543210',
+          phone: '9876543206',
           otp: '654321',
           language: 'en',
         });
@@ -140,7 +148,7 @@ describe('Ticket T-06: MSG91 SMS Service & Turnstile Bot Challenge', () => {
         expect(mockFetch).toHaveBeenCalled();
         const calledUrl = mockFetch.mock.calls[0][0] as string;
         expect(calledUrl).toContain('https://control.msg91.com/api/v5/otp');
-        expect(calledUrl).toContain('mobile=919876543210');
+        expect(calledUrl).toContain('mobile=919876543206');
         expect(calledUrl).not.toContain('otp=');
         expect(calledUrl).not.toContain('authkey=');
         expect(calledUrl).toContain('template_id=1277179301139811147');
@@ -162,7 +170,7 @@ describe('Ticket T-06: MSG91 SMS Service & Turnstile Bot Challenge', () => {
     it('rejects invalid or failed Turnstile tokens with 400 Bad Request', async () => {
       await expect(
         authService.sendOtp({
-          phone: '9876543210',
+          phone: '9876543206',
           turnstileToken: 'invalid-token',
         })
       ).rejects.toThrow(BadRequestException);
@@ -198,7 +206,7 @@ describe('Ticket T-06: MSG91 SMS Service & Turnstile Bot Challenge', () => {
     it('rejects missing Turnstile tokens when secret key is enforced', async () => {
       await expect(
         authService.sendOtp({
-          phone: '9876543210',
+          phone: '9876543206',
           turnstileToken: '',
         })
       ).rejects.toThrow(BadRequestException);
@@ -207,21 +215,21 @@ describe('Ticket T-06: MSG91 SMS Service & Turnstile Bot Challenge', () => {
 
   describe('Test Mode Invariants (AC-3)', () => {
     it('verifies code after sendOtp when OtpGenerator returns known code', async () => {
-      await otpRedisService.resetForTest('9876543210');
+      await otpRedisService.resetForTest('9876543206');
       const sendRes = await authService.sendOtp({
-        phone: '9876543210',
+        phone: '9876543206',
         turnstileToken: 'mock-valid-token',
       });
       expect(sendRes.success).toBe(true);
 
       const verifyRes = await authService.verifyOtp({
-        phone: '9876543210',
+        phone: '9876543206',
         code: '123456',
         role: 'job_seeker',
       });
 
       expect(verifyRes.accessToken).toBeDefined();
-      expect(verifyRes.user.phone).toBe('9876543210');
+      expect(verifyRes.user.phone).toBe('9876543206');
     });
 
     it('prevents privilege escalation: existing user cannot become admin by submitting role=admin on login', async () => {

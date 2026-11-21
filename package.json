@@ -8,7 +8,7 @@
     "dev": "pnpm --parallel --recursive run dev",
     "lint": "pnpm --recursive run lint",
     "test": "vitest run",
-    "test:db": "vitest run local.test.ts --passWithNoTests",
+    "test:db": "vitest run local.test.ts --passWithNoTests --fileParallelism=false",
     "audit:migrations": "vitest run apps/worker/test/audit-migrations.spec.ts",
     "test:attack:module4": "node --experimental-strip-types scripts/attack/module4.ts",
     "ci:check-migrations": "node scripts/ci/check-migrations-single-tree.js",

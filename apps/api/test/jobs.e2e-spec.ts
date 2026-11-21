@@ -1,14 +1,55 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
+import { randomUUID } from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import type { UserRow } from '@indian-job-portal/database';
 import { AppModule } from '../src/app.module.js';
+import { UserRepository } from '../src/database/repositories/user.repository.js';
+import { ProfileRepository } from '../src/database/repositories/profile.repository.js';
+import { JwtService } from '../src/auth/jwt.service.js';
+import { OtpRedisService } from '../src/auth/otp-redis.service.js';
 
 describe('JobsController (e2e) - Issues #13, #14, #15', () => {
   let app: NestFastifyApplication;
+  let userRepo: UserRepository;
+  let profileRepo: ProfileRepository;
+  let jwtService: JwtService;
+  let otpRedis: OtpRedisService;
+
+  let employerUser: { id: string; phone: string; token: string };
+  let candidateUser: { id: string; phone: string; token: string };
+
   let createdJobId: string;
   let applicationId: string;
+
+  async function createTestUser(role: UserRow['role']): Promise<{ id: string; phone: string; token: string }> {
+    const userId = randomUUID();
+    const phone = '98' + Math.floor(10000000 + Math.random() * 90000000);
+    await userRepo.save({
+      id: userId,
+      phone,
+      email: null,
+      role,
+      status: 'active',
+      source: 'seed',
+      created_by: null,
+      updated_by: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    await otpRedis.setAuthState(userId, {
+      role,
+      status: 'active',
+      tokenVersion: 0,
+    });
+    const token = await jwtService.signAccessToken(userId, 0, {
+      role,
+      status: 'active',
+    });
+    return { id: userId, phone, token };
+  }
 
   beforeAll(async () => {
     const scratchFiles = [
@@ -31,6 +72,24 @@ describe('JobsController (e2e) - Issues #13, #14, #15', () => {
 
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
+
+    userRepo = app.get(UserRepository);
+    profileRepo = app.get(ProfileRepository);
+    jwtService = app.get(JwtService);
+    otpRedis = app.get(OtpRedisService);
+
+    employerUser = await createTestUser('employer');
+    candidateUser = await createTestUser('job_seeker');
+
+    await profileRepo.saveSeekerProfile({
+      id: randomUUID(),
+      user_id: candidateUser.id,
+      full_name: 'Rahul Sharma',
+      seeker_type: 'individual',
+      dpdp_consent_given: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
   });
 
   afterAll(async () => {
@@ -41,7 +100,7 @@ describe('JobsController (e2e) - Issues #13, #14, #15', () => {
     const createRes = await app.inject({
       method: 'POST',
       url: '/jobs',
-      headers: { 'x-user-id': 'usr_employer_55' },
+      headers: { Authorization: `Bearer ${employerUser.token}`, 'x-user-id': employerUser.id },
       payload: {
         title: 'Tally GST Accountant',
         description: 'Need full-time GST accountant for MSME enterprise in Indore.',
@@ -76,7 +135,7 @@ describe('JobsController (e2e) - Issues #13, #14, #15', () => {
     const applyRes = await app.inject({
       method: 'POST',
       url: `/jobs/${createdJobId}/apply`,
-      headers: { 'x-user-id': 'usr_candidate_77' },
+      headers: { Authorization: `Bearer ${candidateUser.token}`, 'x-user-id': candidateUser.id },
     });
 
     expect(applyRes.statusCode).toBe(201);
@@ -88,7 +147,7 @@ describe('JobsController (e2e) - Issues #13, #14, #15', () => {
     const appsRes = await app.inject({
       method: 'GET',
       url: `/jobs/${createdJobId}/applications`,
-      headers: { 'x-user-id': 'usr_employer_55' },
+      headers: { Authorization: `Bearer ${employerUser.token}`, 'x-user-id': employerUser.id },
     });
 
     expect(appsRes.statusCode).toBe(200);
@@ -106,7 +165,7 @@ describe('JobsController (e2e) - Issues #13, #14, #15', () => {
     const statusRes = await app.inject({
       method: 'PUT',
       url: `/jobs/applications/${applicationId}/status`,
-      headers: { 'x-user-id': 'usr_employer_55' },
+      headers: { Authorization: `Bearer ${employerUser.token}`, 'x-user-id': employerUser.id },
       payload: { status: 'shortlisted' },
     });
 
@@ -120,7 +179,7 @@ describe('JobsController (e2e) - Issues #13, #14, #15', () => {
     const seekerCreateRes = await app.inject({
       method: 'POST',
       url: '/jobs',
-      headers: { 'x-user-id': 'usr_candidate_77' },
+      headers: { Authorization: `Bearer ${candidateUser.token}`, 'x-user-id': candidateUser.id },
       payload: {
         title: 'Unauthorized Seeker Job',
         description: 'Should be rejected with 403',
@@ -138,7 +197,7 @@ describe('JobsController (e2e) - Issues #13, #14, #15', () => {
     const seekerAppsRes = await app.inject({
       method: 'GET',
       url: `/jobs/${createdJobId}/applications`,
-      headers: { 'x-user-id': 'usr_candidate_77' },
+      headers: { Authorization: `Bearer ${candidateUser.token}`, 'x-user-id': candidateUser.id },
     });
     expect(seekerAppsRes.statusCode).toBe(403);
 
@@ -146,7 +205,7 @@ describe('JobsController (e2e) - Issues #13, #14, #15', () => {
     const employerApplyRes = await app.inject({
       method: 'POST',
       url: `/jobs/${createdJobId}/apply`,
-      headers: { 'x-user-id': 'usr_employer_55' },
+      headers: { Authorization: `Bearer ${employerUser.token}`, 'x-user-id': employerUser.id },
     });
     expect(employerApplyRes.statusCode).toBe(403);
   });

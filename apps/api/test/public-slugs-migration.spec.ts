@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
+import crypto from 'node:crypto';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env['SUPABASE_URL'] || 'http://127.0.0.1:54321';
@@ -11,10 +12,34 @@ const CROCKFORD_BASE32_REGEX = /^[0-9a-km-np-tv-z]{12}$/;
 describe('Migration 20261115000000: Public Slugs Backfill & Invariants (Task 1)', () => {
   let supabase: SupabaseClient;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false },
     });
+
+    const { count: bCount } = await supabase
+      .from('business_profiles')
+      .select('id', { count: 'exact', head: true });
+    if (!bCount || bCount === 0) {
+      const employerId = crypto.randomUUID();
+      const phone = '98' + Math.floor(10000000 + Math.random() * 90000000);
+      await supabase.from('users').insert({
+        id: employerId,
+        phone,
+        role: 'employer',
+        status: 'active',
+        source: 'seed',
+      });
+      await supabase.from('business_profiles').insert({
+        user_id: employerId,
+        company_name: 'Test Enterprise Corp',
+        ownership_type: 'private_limited',
+        company_size: '11-50',
+        city: 'Indore',
+        state: 'Madhya Pradesh',
+        source: 'seed',
+      });
+    }
   });
 
   const tables = ['business_profiles', 'institution_profiles', 'job_seeker_profiles', 'jobs'] as const;

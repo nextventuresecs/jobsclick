@@ -104,6 +104,24 @@ export class PaymentRepository {
     return (data as unknown as PaymentRow) || null;
   }
 
+  async updateStatus(
+    orderId: string,
+    status: PaymentRow['status'],
+    metadata?: Record<string, unknown>,
+  ): Promise<void> {
+    const existing = await this.findByGatewayOrderId(orderId);
+    if (!existing) return;
+    const mergedMeta = { ...(existing.metadata ?? {}), ...(metadata ?? {}) };
+    await this.supabase
+      .from('payments')
+      .update({
+        status,
+        metadata: mergedMeta,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existing.id);
+  }
+
   async findByUserId(userId: string): Promise<PaymentRow[]> {
     const { data, error } = await this.supabase
       .from('payments')

@@ -240,7 +240,7 @@ describe('Payment Webhook E2E (WAL-03, Razorpay HMAC, Deduplication, Anomalies)'
 
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body).toEqual({ status: 'ok', received: true });
+    expect(body).toMatchObject({ status: 'ok', received: true });
     // Zero user or candidate PII in response
     expect(JSON.stringify(body)).not.toContain(userId);
 

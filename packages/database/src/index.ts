@@ -61,6 +61,7 @@ export interface Database {
         willing_to_relocate?: boolean;
         bio?: string | null;
         is_sponsored?: boolean;
+        sponsorship_id?: string | null;
         institution_id?: string | null;
         source: string;
         created_by: string | null;

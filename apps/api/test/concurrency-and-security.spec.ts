@@ -8,7 +8,9 @@ import { WalletService } from '../src/wallet/wallet.service.js';
 import { PaymentService } from '../src/wallet/payment.service.js';
 import { CreditLedgerRepository } from '../src/database/repositories/credit-ledger.repository.js';
 import { UserRepository } from '../src/database/repositories/user.repository.js';
-import { CREDIT_PACKS } from '@indian-job-portal/validation';
+import { ProfileRepository } from '../src/database/repositories/profile.repository.js';
+import { RAZORPAY_GATEWAY, FakeRazorpayGateway } from '../src/wallet/razorpay.gateway.js';
+import { CREDIT_PACKS, generatePublicSlug } from '@indian-job-portal/validation';
 import { BadRequestException } from '@nestjs/common';
 
 describe('Concurrency & Security Verification Suite (Ticket T-16/T-17 Hardening)', () => {
@@ -84,6 +86,40 @@ describe('Concurrency & Security Verification Suite (Ticket T-16/T-17 Hardening)
       updated_at: new Date().toISOString(),
     });
 
+    const profileRepo = app.get(ProfileRepository);
+    await profileRepo.saveInstitutionProfile({
+      id: idA,
+      user_id: idA,
+      institution_name: 'Institution Alpha',
+      city: 'Indore',
+      state: 'Madhya Pradesh',
+      public_slug: generatePublicSlug(),
+      is_sponsorship_active: false,
+      sponsorship_tier: null,
+      sponsorship_rate_per_student: null,
+      sponsorship_expires_at: null,
+      total_sponsored_students: 0,
+      annual_sponsorship_fee: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    await profileRepo.saveInstitutionProfile({
+      id: idB,
+      user_id: idB,
+      institution_name: 'Institution Beta',
+      city: 'Bhopal',
+      state: 'Madhya Pradesh',
+      public_slug: generatePublicSlug(),
+      is_sponsorship_active: false,
+      sponsorship_tier: null,
+      sponsorship_rate_per_student: null,
+      sponsorship_expires_at: null,
+      total_sponsored_students: 0,
+      annual_sponsorship_fee: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+
     await app.inject({
       method: 'POST',
       url: '/auth/send-otp',
@@ -147,15 +183,19 @@ describe('Concurrency & Security Verification Suite (Ticket T-16/T-17 Hardening)
         updated_at: new Date().toISOString(),
       });
       
-      // Ensure candidate has exactly 1 credit
-      await ledgerRepo.append({
-        id: crypto.randomUUID(),
-        user_id: candidateId,
-        amount: 1,
-        reason: 'Initial 1 credit grant for concurrency stress test',
-        actor_id: candidateId,
-        created_at: new Date().toISOString(),
-      });
+      // Candidate gets 10 starter credits automatically via trigger.
+      // Deduct 9 so balance is exactly 1 credit for the concurrency stress test.
+      const initialSeedBal = await walletService.getBalance(candidateId);
+      if (initialSeedBal.balance > 1) {
+        await ledgerRepo.append({
+          id: crypto.randomUUID(),
+          user_id: candidateId,
+          amount: -(initialSeedBal.balance - 1),
+          reason: 'Adjust to 1 credit for concurrency stress test',
+          actor_id: candidateId,
+          created_at: new Date().toISOString(),
+        });
+      }
 
       const initialBal = await walletService.getBalance(candidateId);
       expect(initialBal.balance).toBe(1);
@@ -164,7 +204,7 @@ describe('Concurrency & Security Verification Suite (Ticket T-16/T-17 Hardening)
       const CONCURRENCY_LEVEL = 30;
       const tasks = Array.from({ length: CONCURRENCY_LEVEL }, (_, i) =>
         walletService
-          .deductForJobApplication(candidateId, `job_${i}`, `Software Developer ${i}`)
+          .deductForJobApplication(candidateId, crypto.randomUUID(), `Software Developer ${i}`)
           .then((res) => ({ success: true, res }))
           .catch((err: BadRequestException) => ({
             success: false,
@@ -187,8 +227,8 @@ describe('Concurrency & Security Verification Suite (Ticket T-16/T-17 Hardening)
       // Hard Invariant #7: Sum of ledger entries must equal exactly 0, zero overdrafts possible
       const finalBal = await walletService.getBalance(candidateId);
       expect(finalBal.balance).toBe(0);
-      expect(finalBal.creditsAdded).toBe(1);
-      expect(finalBal.creditsUsed).toBe(1);
+      expect(finalBal.creditsAdded).toBe(10);
+      expect(finalBal.creditsUsed).toBe(10);
     });
   });
 
@@ -221,15 +261,23 @@ describe('Concurrency & Security Verification Suite (Ticket T-16/T-17 Hardening)
       });
 
       const gatewayPaymentId = `pay_stress_${Date.now()}`;
+      const gateway = app.get<FakeRazorpayGateway>(RAZORPAY_GATEWAY);
+      gateway.seedPayment({
+        id: gatewayPaymentId,
+        orderId: orderResult.orderId,
+        status: 'captured',
+        amountPaise: 59000,
+      });
 
       // Dispatch 10 parallel webhook captures for the same order
+      const runPrefix = `evt_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
       const WEBHOOK_DISPATCH_COUNT = 10;
-      const webhookTasks = Array.from({ length: WEBHOOK_DISPATCH_COUNT }, () =>
-        paymentService.processPaymentSuccess(
+      const webhookTasks = Array.from({ length: WEBHOOK_DISPATCH_COUNT }, (_, i) =>
+        paymentService.settleFromGateway(
           orderResult.orderId,
           gatewayPaymentId,
-          undefined,
-          { source: 'concurrency_test' },
+          'concurrency_test',
+          `${runPrefix}_${i}`,
         ),
       );
 
@@ -237,13 +285,14 @@ describe('Concurrency & Security Verification Suite (Ticket T-16/T-17 Hardening)
 
       // Verify all responses succeeded idempotently
       for (const res of responses) {
-        expect(res.payment.status).toBe('captured');
-        expect(res.invoice).toBeDefined();
+        expect(['settled', 'already_settled', 'duplicate_event']).toContain(res.status);
       }
 
-      // Exactly one execution transitions the status (alreadyProcessed: false); all others return alreadyProcessed: true
-      const firstWinners = responses.filter((r) => !r.alreadyProcessed);
-      const idempotentReturns = responses.filter((r) => r.alreadyProcessed);
+      // Exactly one execution transitions the status (status: settled); all others return idempotent status
+      const firstWinners = responses.filter((r) => r.status === 'settled');
+      const idempotentReturns = responses.filter(
+        (r) => r.status === 'already_settled' || r.status === 'duplicate_event',
+      );
 
       expect(firstWinners).toHaveLength(1);
       expect(idempotentReturns).toHaveLength(WEBHOOK_DISPATCH_COUNT - 1);

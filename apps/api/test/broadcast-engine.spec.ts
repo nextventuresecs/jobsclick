@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { randomUUID } from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import type { UserRow } from '@indian-job-portal/database';
 import { AppModule } from '../src/app.module.js';
 import {
   calculateSmsSegments,
@@ -14,6 +16,10 @@ import { ProfileRepository } from '../src/database/repositories/profile.reposito
 import { JobRepository } from '../src/database/repositories/job.repository.js';
 import { ApplicationRepository } from '../src/database/repositories/application.repository.js';
 import { CreditLedgerRepository } from '../src/database/repositories/credit-ledger.repository.js';
+import { UserRepository } from '../src/database/repositories/user.repository.js';
+import { JwtService } from '../src/auth/jwt.service.js';
+import { OtpRedisService } from '../src/auth/otp-redis.service.js';
+import { PersistentDatabaseStore } from '../src/database/supabase.provider.js';
 import { applyStatisticalDisclosureControl } from '../src/admin/reports.service.js';
 
 describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Reports', () => {
@@ -22,9 +28,52 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
   let jobRepo: JobRepository;
   let appRepo: ApplicationRepository;
   let ledgerRepo: CreditLedgerRepository;
+  let userRepo: UserRepository;
+  let jwtService: JwtService;
+  let otpRedis: OtpRedisService;
+
+  let adminUser: { id: string; phone: string; token: string };
+  let rootAdminUser: { id: string; phone: string; token: string };
+  let seekerUser: { id: string; phone: string; token: string };
+  let employerUser: { id: string; phone: string; token: string };
+  let bhopalEmployerUser: { id: string; phone: string; token: string };
+  let indoreEmployerUser: { id: string; phone: string; token: string };
+  let applicantUser: { id: string; phone: string; token: string };
+
+  async function createTestUser(role: UserRow['role']): Promise<{ id: string; phone: string; token: string }> {
+    const userId = randomUUID();
+    const phone = '98' + Math.floor(10000000 + Math.random() * 90000000);
+    await userRepo.save({
+      id: userId,
+      phone,
+      email: null,
+      role,
+      status: 'active',
+      source: 'seed',
+      created_by: null,
+      updated_by: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    await otpRedis.setAuthState(userId, {
+      role,
+      status: 'active',
+      tokenVersion: 0,
+    });
+    const token = await jwtService.signAccessToken(userId, 0, {
+      role,
+      status: 'active',
+    });
+    return { id: userId, phone, token };
+  }
 
   beforeAll(async () => {
     process.env['ENABLE_P2_MSME_BROADCAST'] = 'true';
+    const store = PersistentDatabaseStore.getInstance();
+    store.clearTable('applications');
+    store.clearTable('jobs');
+    store.clearTable('business_profiles');
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -40,6 +89,17 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
     jobRepo = app.get(JobRepository);
     appRepo = app.get(ApplicationRepository);
     ledgerRepo = app.get(CreditLedgerRepository);
+    userRepo = app.get(UserRepository);
+    jwtService = app.get(JwtService);
+    otpRedis = app.get(OtpRedisService);
+
+    adminUser = await createTestUser('msme_admin');
+    rootAdminUser = await createTestUser('admin');
+    seekerUser = await createTestUser('job_seeker');
+    employerUser = await createTestUser('employer');
+    bhopalEmployerUser = await createTestUser('employer');
+    indoreEmployerUser = await createTestUser('employer');
+    applicantUser = await createTestUser('job_seeker');
   });
 
   afterAll(async () => {
@@ -158,8 +218,8 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
     beforeEach(async () => {
       // Seed synthetic enterprise profiles across districts
       await profileRepo.saveBusinessProfile({
-        id: 'biz_msme_bhopal_1',
-        user_id: 'usr_emp_bhopal_1',
+        id: randomUUID(),
+        user_id: bhopalEmployerUser.id,
         company_name: 'Bhopal Precision Works',
         ownership_type: 'private_limited',
         company_size: 'micro',
@@ -172,8 +232,8 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
       });
 
       await profileRepo.saveBusinessProfile({
-        id: 'biz_msme_indore_1',
-        user_id: 'usr_emp_indore_1',
+        id: randomUUID(),
+        user_id: indoreEmployerUser.id,
         company_name: 'Indore Food Processors',
         ownership_type: 'partnership',
         company_size: 'small',
@@ -191,7 +251,8 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
         method: 'POST',
         url: '/admin/broadcast/preview',
         headers: {
-          'x-user-id': 'admin_state_officer_1',
+          Authorization: `Bearer ${adminUser.token}`,
+          'x-user-id': adminUser.id,
           'x-user-role': 'msme_admin',
         },
         payload: {
@@ -219,7 +280,8 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
         method: 'POST',
         url: '/admin/broadcast/dispatch',
         headers: {
-          'x-user-id': 'admin_state_officer_1',
+          Authorization: `Bearer ${adminUser.token}`,
+          'x-user-id': adminUser.id,
           'x-user-role': 'msme_admin',
         },
         payload: {
@@ -238,7 +300,7 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
       expect(data.audienceDigest).toBeDefined();
 
       // Verify Two-Phase Escrow in Credit Ledger (Hard Invariant #7)
-      const ledgerEntries = await ledgerRepo.findByUserId('admin_state_officer_1');
+      const ledgerEntries = await ledgerRepo.findByUserId(adminUser.id);
       const escrowEntry = ledgerEntries.find((e) => e.reason.includes('BROADCAST_ESCROW_RESERVED'));
       expect(escrowEntry).toBeDefined();
       expect(escrowEntry?.amount).toBeLessThan(0);
@@ -248,9 +310,11 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
         method: 'GET',
         url: '/admin/audit-logs',
         headers: {
-          'x-user-id': 'admin_state_officer_1',
+          Authorization: `Bearer ${rootAdminUser.token}`,
+          'x-user-id': rootAdminUser.id,
         },
       });
+      expect(auditRes.statusCode).toBe(200);
       const logs = JSON.parse(auditRes.payload);
       const broadcastLog = logs.find((l: { action: string }) => l.action === 'MSME_BROADCAST_DISPATCHED');
       expect(broadcastLog).toBeDefined();
@@ -263,7 +327,8 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
         method: 'POST',
         url: '/admin/broadcast/dispatch',
         headers: {
-          'x-user-id': 'admin_state_officer_1',
+          Authorization: `Bearer ${adminUser.token}`,
+          'x-user-id': adminUser.id,
           'x-user-role': 'msme_admin',
         },
         payload: {
@@ -284,7 +349,8 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
         method: 'POST',
         url: '/admin/broadcast/dispatch',
         headers: {
-          'x-user-id': 'admin_state_officer_1',
+          Authorization: `Bearer ${adminUser.token}`,
+          'x-user-id': adminUser.id,
           'x-user-role': 'msme_admin',
         },
         payload: {
@@ -306,7 +372,8 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
         method: 'POST',
         url: '/admin/broadcast/dispatch',
         headers: {
-          'x-user-id': 'usr_seeker_1',
+          Authorization: `Bearer ${seekerUser.token}`,
+          'x-user-id': seekerUser.id,
           'x-user-role': 'job_seeker',
         },
         payload: {
@@ -321,7 +388,8 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
         method: 'POST',
         url: '/admin/broadcast/dispatch',
         headers: {
-          'x-user-id': 'usr_emp_1',
+          Authorization: `Bearer ${employerUser.token}`,
+          'x-user-id': employerUser.id,
           'x-user-role': 'employer',
         },
         payload: {
@@ -379,8 +447,8 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
     beforeAll(async () => {
       // Seed jobs and applications
       const job1 = await jobRepo.create({
-        id: 'job_bhopal_cnc_1',
-        employer_id: 'usr_emp_bhopal_1',
+        id: randomUUID(),
+        employer_id: bhopalEmployerUser.id,
         title: 'CNC Operator',
         description: 'CNC lathe operator for auto components',
         category: 'blue',
@@ -393,9 +461,9 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
       });
 
       await appRepo.create({
-        id: 'app_bhopal_hired_1',
+        id: randomUUID(),
         job_id: job1.id,
-        applicant_id: 'usr_seeker_secret_pii_1',
+        applicant_id: applicantUser.id,
         status: 'hired',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -407,7 +475,8 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
         method: 'GET',
         url: '/admin/reports/district-employment',
         headers: {
-          'x-user-id': 'admin_state_officer_1',
+          Authorization: `Bearer ${adminUser.token}`,
+          'x-user-id': adminUser.id,
           'x-user-role': 'msme_admin',
         },
       });
@@ -447,7 +516,8 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
         method: 'GET',
         url: '/admin/reports/district-employment',
         headers: {
-          'x-user-id': 'usr_seeker_1',
+          Authorization: `Bearer ${seekerUser.token}`,
+          'x-user-id': seekerUser.id,
           'x-user-role': 'job_seeker',
         },
       });

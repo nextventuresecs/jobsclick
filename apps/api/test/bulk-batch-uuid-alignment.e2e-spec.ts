@@ -1,8 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { randomUUID } from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@indian-job-portal/database';
+import type { AuthenticatedUser } from '../src/auth/decorators/current-user.decorator.js';
 import { AppModule } from '../src/app.module.js';
 import { BulkService } from '../src/bulk/bulk.service.js';
 import { QueueService } from '../src/queue/queue.service.js';
@@ -14,6 +16,8 @@ describe('Bulk Batch: DB UUID Generation First & Queue Alignment (Task 2)', () =
   let bulkService: BulkService;
   let queueService: QueueService;
   let supabase: SupabaseClient<Database>;
+  let adminUserId: string;
+  let adminUserPhone: string;
 
   const SUPABASE_LOCAL_URL = 'http://127.0.0.1:54321';
   const SUPABASE_SERVICE_ROLE_KEY =
@@ -22,6 +26,16 @@ describe('Bulk Batch: DB UUID Generation First & Queue Alignment (Task 2)', () =
   beforeAll(async () => {
     supabase = createClient<Database>(SUPABASE_LOCAL_URL, SUPABASE_SERVICE_ROLE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+    adminUserId = randomUUID();
+    adminUserPhone = `98${Math.floor(10000000 + Math.random() * 90000000)}`;
+    await supabase.from('users').insert({
+      id: adminUserId,
+      phone: adminUserPhone,
+      role: 'admin',
+      status: 'active',
+      source: 'test',
     });
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -37,6 +51,9 @@ describe('Bulk Batch: DB UUID Generation First & Queue Alignment (Task 2)', () =
   });
 
   afterAll(async () => {
+    if (adminUserId) {
+      await supabase.from('users').delete().eq('id', adminUserId);
+    }
     await app.close();
   });
 
@@ -63,6 +80,11 @@ Suresh Kumar,${phone2}`;
         entityType: 'student',
       },
       sampleCsv,
+      {
+        id: adminUserId,
+        role: 'admin',
+        phone: adminUserPhone,
+      } as AuthenticatedUser,
     );
 
     expect(publishSpy).toHaveBeenCalled();

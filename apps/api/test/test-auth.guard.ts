@@ -23,7 +23,20 @@ export class TestAuthGuard implements CanActivate {
     const headers = request.headers || {};
     const authHeader = headers['authorization'] || headers['Authorization'];
     const testUserId = headers['x-user-id'];
-    const testRole = headers['x-user-role'];
+    let testRole = headers['x-user-role'];
+
+    if (!testRole && authHeader && typeof authHeader === 'string' && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.slice(7).trim();
+        const segments = token.split('.');
+        if (segments.length === 3 && segments[1]) {
+          const payload = JSON.parse(Buffer.from(segments[1], 'base64url').toString('utf-8'));
+          testRole = payload.app_metadata?.role || payload.role;
+        }
+      } catch {
+        // ignore
+      }
+    }
 
     let user: AuthUser | null = null;
 

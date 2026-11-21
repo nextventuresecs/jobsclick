@@ -1,12 +1,53 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { randomUUID } from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import type { UserRow } from '@indian-job-portal/database';
 import { AppModule } from '../src/app.module.js';
+import { UserRepository } from '../src/database/repositories/user.repository.js';
+import { JwtService } from '../src/auth/jwt.service.js';
+import { OtpRedisService } from '../src/auth/otp-redis.service.js';
 
 describe('BulkController (e2e) - Epic 4 (Issues #16-#20, #38, #39)', () => {
   let app: NestFastifyApplication;
+  let userRepo: UserRepository;
+  let jwtService: JwtService;
+  let otpRedis: OtpRedisService;
+
+  let adminUser: { id: string; phone: string; token: string };
+  let seekerUser: { id: string; phone: string; token: string };
+  let adminHeaders: Record<string, string>;
+  let seekerHeaders: Record<string, string>;
+
   let batchId: string;
   let waveId: string;
+
+  async function createTestUser(role: UserRow['role']): Promise<{ id: string; phone: string; token: string }> {
+    const userId = randomUUID();
+    const phone = '98' + Math.floor(10000000 + Math.random() * 90000000);
+    await userRepo.save({
+      id: userId,
+      phone,
+      email: null,
+      role,
+      status: 'active',
+      source: 'seed',
+      created_by: null,
+      updated_by: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    await otpRedis.setAuthState(userId, {
+      role,
+      status: 'active',
+      tokenVersion: 0,
+    });
+    const token = await jwtService.signAccessToken(userId, 0, {
+      role,
+      status: 'active',
+    });
+    return { id: userId, phone, token };
+  }
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -19,13 +60,30 @@ describe('BulkController (e2e) - Epic 4 (Issues #16-#20, #38, #39)', () => {
 
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
+
+    userRepo = app.get(UserRepository);
+    jwtService = app.get(JwtService);
+    otpRedis = app.get(OtpRedisService);
+
+    adminUser = await createTestUser('admin');
+    seekerUser = await createTestUser('job_seeker');
+
+    adminHeaders = {
+      Authorization: `Bearer ${adminUser.token}`,
+      'x-user-id': adminUser.id,
+      'x-user-role': 'admin',
+    };
+
+    seekerHeaders = {
+      Authorization: `Bearer ${seekerUser.token}`,
+      'x-user-id': seekerUser.id,
+      'x-user-role': 'job_seeker',
+    };
   });
 
   afterAll(async () => {
     await app.close();
   });
-
-  const adminHeaders = { 'x-user-id': 'usr_admin_tester' };
 
   it('enforces authentication and rejects unauthenticated callers on bulk & admin endpoints (Issue #3)', async () => {
     // 1. POST /bulk/signed-url without auth
@@ -53,8 +111,6 @@ describe('BulkController (e2e) - Epic 4 (Issues #16-#20, #38, #39)', () => {
   });
 
   it('enforces RBAC and rejects unauthorized job_seeker role from calling bulk/admin endpoints (Issue #3)', async () => {
-    const seekerHeaders = { 'x-user-id': 'usr_candidate_unauthorized' };
-
     const batchRes = await app.inject({
       method: 'POST',
       url: '/bulk/batches',
@@ -213,7 +269,7 @@ Duplicate Person,9876543210`;
       payload: {
         source: 'Indore Institute of Science & Tech',
         entityType: 'student',
-        storagePath: 'bulk-imports/mock_50k_batch.csv',
+        storagePath: `bulk-imports/${adminUser.id}/mock_50k_batch.csv`,
       },
     });
 

@@ -10,7 +10,17 @@ describe('Public Views and RPC Security Specs (ID-02 Task 1)', () => {
       : 'http://127.0.0.1:54321/rest/v1';
 
   const forbiddenRegex = /(^|_)(id|user_id|owner_id|employer_id)$/i;
-  const views = ['public_business_profiles', 'public_institution_profiles', 'public_jobs'] as const;
+  const views = ['public_business_profiles', 'public_jobs'] as const;
+
+  it('rejects anon direct access to public_institution_profiles under AUTH-05 F0-f (service-only view)', async () => {
+    const res = await fetch(`${restUrl}/public_institution_profiles?limit=1`, {
+      headers: {
+        apikey: anonKey,
+        Authorization: `Bearer ${anonKey}`,
+      },
+    });
+    expect(res.status).toBe(401);
+  });
 
   for (const view of views) {
     describe(`View: ${view}`, () => {

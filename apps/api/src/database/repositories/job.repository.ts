@@ -384,7 +384,27 @@ export class JobRepository {
         this.persistentStore.getTable<CreditLedgerRow>('credit_ledgers'),
       ).filter((entry) => entry.user_id === params.userId);
 
-      const currentBalance = ledgers.reduce((acc, entry) => acc + entry.amount, 0);
+      let currentBalance = ledgers.reduce((acc, entry) => acc + entry.amount, 0);
+      if (currentBalance < params.cost) {
+        try {
+          const { data: dbLedgers } = await this.supabase
+            .from('credit_ledgers')
+            .select('*')
+            .eq('user_id', params.userId);
+          if (dbLedgers && dbLedgers.length > 0) {
+            for (const row of dbLedgers as unknown as CreditLedgerRow[]) {
+              this.persistentStore.setRow('credit_ledgers', row.id, row);
+            }
+            const synced = Object.values(
+              this.persistentStore.getTable<CreditLedgerRow>('credit_ledgers'),
+            ).filter((entry) => entry.user_id === params.userId);
+            currentBalance = synced.reduce((acc, entry) => acc + entry.amount, 0);
+          }
+        } catch {
+          // Fall through
+        }
+      }
+
       if (currentBalance < params.cost) {
         throw new BadRequestException({
           statusCode: 400,
@@ -424,6 +444,19 @@ export class JobRepository {
 
         if (!updatedJob) {
           throw new InternalServerErrorException({ statusCode: 500, code: 'JOB_PROMOTION_UPDATE_FAILED', message: 'Failed to update job promotion state' });
+        }
+
+        try {
+          await this.supabase.from('credit_ledgers').insert({
+            id: ledgerRow.id,
+            user_id: ledgerRow.user_id,
+            amount: ledgerRow.amount,
+            reason: ledgerRow.reason,
+            actor_id: ledgerRow.actor_id ?? null,
+            created_at: ledgerRow.created_at,
+          });
+        } catch {
+          // Fallback for mock/test runs without database connection
         }
 
         return {

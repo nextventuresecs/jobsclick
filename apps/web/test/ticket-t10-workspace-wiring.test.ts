@@ -24,7 +24,7 @@ describe('Ticket T-10 Web Wiring: Workspace Forms & 1-Click Apply (PRD JOB-01, J
     for (const phone of rawPhones) {
       const masked = maskCandidatePhone(phone);
       expect(masked).not.toBe(phone);
-      expect(masked).toMatch(/\+91 ••••• ••\d{3}/);
+      expect(masked).toBe('+91 ••••• •••••');
       // Raw digits must not be exposed
       expect(masked.includes('982601')).toBe(false);
     }
@@ -32,7 +32,7 @@ describe('Ticket T-10 Web Wiring: Workspace Forms & 1-Click Apply (PRD JOB-01, J
     for (const email of rawEmails) {
       const masked = maskCandidateEmail(email);
       expect(masked).not.toBe(email);
-      expect(masked).toMatch(/[a-z0-9]{2}••••@[a-z0-9.-]+/i);
+      expect(masked).toBe('••••••@••••••');
       expect(masked.includes('anita.sharma')).toBe(false);
       expect(masked.includes('rahul.machinist')).toBe(false);
     }

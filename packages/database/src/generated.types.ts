@@ -1812,6 +1812,18 @@ export type Database = {
         Args: { p_applicant: string; p_job: string }
         Returns: Json
       }
+      check_stuck_outbox: { Args: { p_minutes?: number }; Returns: number }
+      claim_outbox_batch: {
+        Args: { p_limit?: number }
+        Returns: {
+          attempts: number
+          created_at: string
+          done_at: string
+          id: string
+          kind: string
+          payment_id: string
+        }[]
+      }
       claim_seats: {
         Args: { p_grant: string; p_inst: string; p_limit: number }
         Returns: number
@@ -1819,6 +1831,10 @@ export type Database = {
       claim_sponsorship_seats: {
         Args: { p_inst: string; p_profile_ids: string[] }
         Returns: number
+      }
+      complete_outbox: {
+        Args: { p_attempts: number; p_done?: boolean; p_id: string }
+        Returns: undefined
       }
       create_sponsorship_grant: {
         Args: {
@@ -2192,6 +2208,12 @@ export type Database = {
             referencedRelation: "institution_profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "bulk_import_batches_institution_id_fkey"
+            columns: ["institution_id"]
+            referencedRelation: "public_institution_profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       business_profiles: {
@@ -2391,6 +2413,12 @@ export type Database = {
             referencedRelation: "institution_profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "corporate_tie_ups_institution_id_fkey"
+            columns: ["institution_id"]
+            referencedRelation: "public_institution_profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       credit_action_costs: {
@@ -2517,6 +2545,12 @@ export type Database = {
             foreignKeyName: "institution_inquiries_institution_id_fkey"
             columns: ["institution_id"]
             referencedRelation: "institution_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "institution_inquiries_institution_id_fkey"
+            columns: ["institution_id"]
+            referencedRelation: "public_institution_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -2734,6 +2768,12 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "institution_sponsorships_institution_id_fkey"
+            columns: ["institution_id"]
+            referencedRelation: "public_institution_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "institution_sponsorships_payment_id_fkey"
             columns: ["payment_id"]
             referencedRelation: "payments"
@@ -2745,23 +2785,26 @@ export type Database = {
         Row: {
           batch_id: string | null
           created_at: string
+          email: string | null
           id: string
-          phone: string
+          phone: string | null
           status: string
         }
         ComputedFields: never
         Insert: {
           batch_id?: string | null
           created_at?: string
+          email?: string | null
           id?: string
-          phone: string
+          phone?: string | null
           status?: string
         }
         Update: {
           batch_id?: string | null
           created_at?: string
+          email?: string | null
           id?: string
-          phone?: string
+          phone?: string | null
           status?: string
         }
         Relationships: [
@@ -3062,6 +3105,12 @@ export type Database = {
             foreignKeyName: "job_seeker_profiles_institution_id_fkey"
             columns: ["institution_id"]
             referencedRelation: "institution_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_seeker_profiles_institution_id_fkey"
+            columns: ["institution_id"]
+            referencedRelation: "public_institution_profiles"
             referencedColumns: ["id"]
           },
           {
@@ -3401,6 +3450,12 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "placement_applications_institution_id_fkey"
+            columns: ["institution_id"]
+            referencedRelation: "public_institution_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "placement_applications_job_id_fkey"
             columns: ["job_id"]
             referencedRelation: "jobs"
@@ -3634,10 +3689,10 @@ export type Database = {
           affiliation: string | null
           annual_capacity: number | null
           city: string | null
-          cms_data: Json | null
           created_at: string | null
           district: string | null
           establishment_year: number | null
+          id: string | null
           institution_name: string | null
           institution_type: string | null
           placement_brochure_url: string | null
@@ -3647,40 +3702,6 @@ export type Database = {
           website: string | null
         }
         ComputedFields: never
-        Insert: {
-          about?: string | null
-          affiliation?: string | null
-          annual_capacity?: number | null
-          city?: string | null
-          cms_data?: Json | null
-          created_at?: string | null
-          district?: string | null
-          establishment_year?: number | null
-          institution_name?: string | null
-          institution_type?: string | null
-          placement_brochure_url?: string | null
-          slug?: string | null
-          state?: string | null
-          trades_offered?: string[] | null
-          website?: string | null
-        }
-        Update: {
-          about?: string | null
-          affiliation?: string | null
-          annual_capacity?: number | null
-          city?: string | null
-          cms_data?: Json | null
-          created_at?: string | null
-          district?: string | null
-          establishment_year?: number | null
-          institution_name?: string | null
-          institution_type?: string | null
-          placement_brochure_url?: string | null
-          slug?: string | null
-          state?: string | null
-          trades_offered?: string[] | null
-          website?: string | null
-        }
         Relationships: []
       }
       public_jobs: {
@@ -3740,6 +3761,7 @@ export type Database = {
         }
         Returns: Json
       }
+      read_public_institution_cms: { Args: { p_slug: string }; Returns: Json }
       rpc_apply_refund: {
         Args: {
           p_event_id?: string
@@ -3753,9 +3775,25 @@ export type Database = {
         Args: { p_applicant_id: string; p_job_id: string }
         Returns: Json
       }
+      rpc_check_stuck_outbox: { Args: { p_minutes?: number }; Returns: number }
+      rpc_claim_outbox_batch: {
+        Args: { p_limit?: number }
+        Returns: {
+          attempts: number
+          created_at: string
+          done_at: string
+          id: string
+          kind: string
+          payment_id: string
+        }[]
+      }
       rpc_claim_sponsorship_seats: {
         Args: { p_inst: string; p_profile_ids: string[] }
         Returns: number
+      }
+      rpc_complete_outbox: {
+        Args: { p_attempts: number; p_done?: boolean; p_id: string }
+        Returns: undefined
       }
       rpc_get_balance: { Args: { p_user_id: string }; Returns: number }
       rpc_issue_invoice: {
@@ -3817,6 +3855,18 @@ export type Database = {
           total_count: number
           updated_at: string
         }[]
+      }
+      search_public_jobs: {
+        Args: {
+          p_category?: string
+          p_city?: string
+          p_company?: string
+          p_keyword?: string
+          p_limit?: number
+          p_min_pay?: number
+          p_offset?: number
+        }
+        Returns: Json
       }
       unlock_contact_with_ledger: {
         Args: { p_cost?: number; p_employer_id: string; p_seeker_id: string }
@@ -3906,7 +3956,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_11_10: {
+      messages_2026_11_20: {
         Row: {
           binary_payload: string | null
           event: string | null
@@ -3949,7 +3999,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_11_11: {
+      messages_2026_11_21: {
         Row: {
           binary_payload: string | null
           event: string | null
@@ -3992,7 +4042,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_11_12: {
+      messages_2026_11_22: {
         Row: {
           binary_payload: string | null
           event: string | null
@@ -4035,7 +4085,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_11_13: {
+      messages_2026_11_23: {
         Row: {
           binary_payload: string | null
           event: string | null
@@ -4078,50 +4128,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_11_14: {
-        Row: {
-          binary_payload: string | null
-          event: string | null
-          expires_at: string | null
-          extension: string
-          id: string
-          inserted_at: string
-          payload: Json | null
-          private: boolean | null
-          skip_broadcast: boolean
-          topic: string
-          updated_at: string
-        }
-        ComputedFields: never
-        Insert: {
-          binary_payload?: string | null
-          event?: string | null
-          expires_at?: string | null
-          extension: string
-          id?: string
-          inserted_at?: string
-          payload?: Json | null
-          private?: boolean | null
-          skip_broadcast?: boolean
-          topic: string
-          updated_at?: string
-        }
-        Update: {
-          binary_payload?: string | null
-          event?: string | null
-          expires_at?: string | null
-          extension?: string
-          id?: string
-          inserted_at?: string
-          payload?: Json | null
-          private?: boolean | null
-          skip_broadcast?: boolean
-          topic?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      messages_2026_11_15: {
+      messages_2026_11_24: {
         Row: {
           binary_payload: string | null
           event: string | null

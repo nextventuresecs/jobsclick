@@ -8,6 +8,7 @@ import { OtpRedisService } from '../src/auth/otp-redis.service.js';
 import { JwtService } from '../src/auth/jwt.service.js';
 import { RateLimitService } from '../src/auth/rate-limit.service.js';
 import { OtpGenerator } from '../src/auth/otp-generator.service.js';
+import { EmailOtpService } from '../src/auth/email-otp.service.js';
 import { UserRepository } from '../src/database/repositories/user.repository.js';
 
 describe('Spec 0: Fail-Open Auth Behaviour (No DI Overrides)', () => {
@@ -21,6 +22,10 @@ describe('Spec 0: Fail-Open Auth Behaviour (No DI Overrides)', () => {
     create: vi.fn(),
     touchLastLogin: vi.fn().mockResolvedValue(undefined),
   };
+
+  const originalPepper = process.env['OTP_PEPPER'];
+  const originalTurnstile = process.env['TURNSTILE_SECRET_KEY'];
+  const originalMsg91 = process.env['MSG91_AUTH_KEY'];
 
   beforeAll(async () => {
     process.env['OTP_PEPPER'] = '12345678901234567890123456789012';
@@ -46,6 +51,13 @@ describe('Spec 0: Fail-Open Auth Behaviour (No DI Overrides)', () => {
         JwtService,
         RateLimitService,
         OtpGenerator,
+        {
+          provide: EmailOtpService,
+          useValue: {
+            sendOtp: vi.fn().mockResolvedValue({ success: true, ttlSeconds: 300 }),
+            verifyOtp: vi.fn().mockResolvedValue({ verified: true }),
+          },
+        },
       ],
     }).compile();
 
@@ -55,6 +67,9 @@ describe('Spec 0: Fail-Open Auth Behaviour (No DI Overrides)', () => {
   });
 
   afterAll(async () => {
+    if (originalPepper) process.env['OTP_PEPPER'] = originalPepper;
+    if (originalTurnstile) process.env['TURNSTILE_SECRET_KEY'] = originalTurnstile;
+    if (originalMsg91) process.env['MSG91_AUTH_KEY'] = originalMsg91;
     await otpRedisService?.onModuleDestroy?.();
     await moduleRef?.close();
   });

@@ -2,13 +2,17 @@ import { Injectable, Inject, BadRequestException, InternalServerErrorException }
 import { randomUUID } from 'node:crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, CreditLedgerRow } from '@indian-job-portal/database';
-import { SUPABASE_CLIENT } from '../supabase.provider.js';
+import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
 
 @Injectable()
 export class CreditLedgerRepository {
+  private persistentStore = PersistentDatabaseStore.getInstance();
+
   constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>) {}
 
   async append(record: CreditLedgerRow): Promise<CreditLedgerRow> {
+    this.persistentStore.setRow('credit_ledgers', record.id, record);
+
     const { error } = await this.supabase.from('credit_ledgers').insert({
       id: record.id,
       user_id: record.user_id,
@@ -53,15 +57,42 @@ export class CreditLedgerRepository {
     }
 
     const bal = Number(data ?? 0);
+
+    const { data: rows } = await this.supabase
+      .from('credit_ledgers')
+      .select('amount')
+      .eq('user_id', userId);
+
+    let creditsAdded = 0;
+    let creditsUsed = 0;
+    if (rows && Array.isArray(rows)) {
+      for (const r of rows) {
+        const amt = Number((r as { amount: number }).amount);
+        if (amt > 0) creditsAdded += amt;
+        else if (amt < 0) creditsUsed += Math.abs(amt);
+      }
+    }
+
     return {
       balance: bal,
-      creditsAdded: 0,
-      creditsUsed: 0,
+      creditsAdded,
+      creditsUsed,
     };
   }
 
   // Ensure starter credits are granted idempotently into the unique partial index
   async ensureStarterCredits(userId: string): Promise<void> {
+    const { data: existing } = await this.supabase
+      .from('credit_ledgers')
+      .select('id')
+      .eq('user_id', userId)
+      .in('reason', ['starter', 'starter_credit'])
+      .maybeSingle();
+
+    if (existing) {
+      return;
+    }
+
     const { error } = await this.supabase.from('credit_ledgers').insert({
       id: randomUUID(),
       user_id: userId,

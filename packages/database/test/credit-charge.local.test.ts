@@ -145,9 +145,9 @@ describe('credit-charge', () => {
 
     const { rows: instProfileRows } = await db.query(
       `INSERT INTO public.institution_profiles (
-         user_id, institution_name, public_slug
-       ) VALUES ($1, 'Test Institute', $2) RETURNING id`,
-      [instUserId, `inst-${randomUUID()}`]
+         user_id, institution_name
+       ) VALUES ($1, 'Test Institute') RETURNING id`,
+      [instUserId]
     );
     const instProfileId = instProfileRows[0].id;
 
@@ -165,9 +165,9 @@ describe('credit-charge', () => {
     await db.query(
       `INSERT INTO public.job_seeker_profiles (
          user_id, full_name, seeker_type, skills, preferred_categories, preferred_locations, languages,
-         sponsorship_id, public_slug
-       ) VALUES ($1, 'Sponsored Student', 'fresher', '{}', '{}', '{}', '{}', $2, $3)`,
-      [applicantId, sponsorshipId, `slug-${randomUUID()}`]
+         sponsorship_id
+       ) VALUES ($1, 'Sponsored Student', 'fresher', '{}', '{}', '{}', '{}', $2)`,
+      [applicantId, sponsorshipId]
     );
 
     const jobId = randomUUID();

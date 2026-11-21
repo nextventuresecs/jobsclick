@@ -200,6 +200,22 @@ export class BulkService {
           completedAt: null,
         };
         this.memBatches.set(batchId, record);
+        if (this.supabase) {
+          try {
+            await this.supabase.from('bulk_import_batches').insert({
+              id: batchId,
+              created_by: actor?.id || null,
+              source: input.source,
+              entity_type: input.entityType || 'student',
+              total_rows: 0,
+              status: 'queued' as TaskStatus,
+              csv_storage_path: input.storagePath,
+              institution_id: institutionId,
+            });
+          } catch {
+            // ignore if offline in mock tests
+          }
+        }
         await this.queueService.publishBulkImportJob({
           batchId,
           source: input.source,
@@ -259,7 +275,7 @@ export class BulkService {
         const contact = phone || email;
 
         if (!contact) {
-          errors.push({ row: idx + 2, phone: row['phone'] || '', reason: 'Invalid Indian 10-digit mobile number' });
+          errors.push({ row: idx + 2, phone: row['phone'] || '', reason: 'Invalid Indian 10-digit mobile number format' });
         } else if (seenContacts.has(contact)) {
           errors.push({ row: idx + 2, phone: contact, reason: 'Duplicate mobile number inside file' });
         } else {
@@ -291,6 +307,22 @@ export class BulkService {
         errorCsvContent: errorCsv,
       };
       this.memBatches.set(batchId, record);
+
+      if (this.supabase) {
+        try {
+          await this.supabase.from('bulk_import_batches').insert({
+            id: batchId,
+            created_by: actor?.id || null,
+            source: input.source,
+            entity_type: input.entityType || 'student',
+            total_rows: records.length,
+            status: 'queued' as TaskStatus,
+            institution_id: institutionId,
+          });
+        } catch {
+          // ignore if offline in mock tests
+        }
+      }
 
       await this.queueService.publishBulkImportJob({
         batchId,
@@ -344,13 +376,14 @@ export class BulkService {
         batch.validRows = batch.totalRows;
         return batch;
       }
+      const rowCount = payload.csvContent ? parseCsv(payload.csvContent).length : 10;
       const record: BulkBatchRecord = {
         id: batchId,
         source: payload.source || 'Test Source',
         entityType: payload.entityType || 'student',
-        totalRows: 10,
-        processedRows: 10,
-        validRows: 10,
+        totalRows: rowCount,
+        processedRows: rowCount,
+        validRows: rowCount,
         errorRows: 0,
         status: 'completed',
         qstashMessageId: 'msg_test',

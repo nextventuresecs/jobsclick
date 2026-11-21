@@ -11,6 +11,7 @@ import { RateLimitService } from '../src/auth/rate-limit.service.js';
 import { UserRepository } from '../src/database/repositories/user.repository.js';
 import { DatabaseModule } from '../src/database/database.module.js';
 import { OtpGenerator } from '../src/auth/otp-generator.service.js';
+import { EmailOtpService } from '../src/auth/email-otp.service.js';
 import * as sentryModule from '../src/config/sentry.js';
 
 // Note: Test suite runs against in-memory ioredis-mock in NODE_ENV=test (known gap, scheduled for real containerized Redis in Step 12).
@@ -38,6 +39,13 @@ describe('Audit P0-3: Predictable OTP Removal and OTP Security Lockdown', () => 
         OtpRedisService,
         RateLimitService,
         UserRepository,
+        {
+          provide: EmailOtpService,
+          useValue: {
+            sendOtp: vi.fn().mockResolvedValue({ success: true, ttlSeconds: 300 }),
+            verifyOtp: vi.fn().mockResolvedValue({ verified: true }),
+          },
+        },
         {
           provide: OtpGenerator,
           useClass: MockOtpGenerator,

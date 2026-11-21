@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import crypto from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import fs from 'node:fs';
@@ -6,6 +7,9 @@ import path from 'node:path';
 import { AppModule } from '../src/app.module.js';
 import { WalletService } from '../src/wallet/wallet.service.js';
 import { JobRepository } from '../src/database/repositories/job.repository.js';
+import { UserRepository } from '../src/database/repositories/user.repository.js';
+import { JwtService } from '../src/auth/jwt.service.js';
+import { OtpRedisService } from '../src/auth/otp-redis.service.js';
 import { alertsProcessor } from '../../worker/src/processors/alerts.processor.js';
 import type { Job } from 'bullmq';
 
@@ -13,10 +17,16 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
   let app: NestFastifyApplication;
   let walletService: WalletService;
   let jobRepository: JobRepository;
+  let userRepo: UserRepository;
+  let jwtService: JwtService;
+  let otpRedis: OtpRedisService;
 
-  const employerId = `emp_t21_${Date.now()}`;
-  const otherEmployerId = `emp_other_${Date.now()}`;
-  const candidateId = `cand_t21_${Date.now()}`;
+  let employerId: string;
+  let otherEmployerId: string;
+  let candidateId: string;
+  let employerToken: string;
+  let otherEmployerToken: string;
+  let candidateToken: string;
 
   let organicJobSlug: string;
   let featuredJobId: string;
@@ -44,6 +54,55 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
 
     walletService = app.get(WalletService);
     jobRepository = app.get(JobRepository);
+    userRepo = app.get(UserRepository);
+    jwtService = app.get(JwtService);
+    otpRedis = app.get(OtpRedisService);
+
+    employerId = crypto.randomUUID();
+    otherEmployerId = crypto.randomUUID();
+    candidateId = crypto.randomUUID();
+
+    await userRepo.save({
+      id: employerId,
+      phone: '98' + Math.floor(10000000 + Math.random() * 90000000),
+      role: 'employer',
+      status: 'active',
+      source: 'seed',
+      created_by: null,
+      updated_by: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    await userRepo.save({
+      id: otherEmployerId,
+      phone: '98' + Math.floor(10000000 + Math.random() * 90000000),
+      role: 'employer',
+      status: 'active',
+      source: 'seed',
+      created_by: null,
+      updated_by: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    await userRepo.save({
+      id: candidateId,
+      phone: '98' + Math.floor(10000000 + Math.random() * 90000000),
+      role: 'job_seeker',
+      status: 'active',
+      source: 'seed',
+      created_by: null,
+      updated_by: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+
+    await otpRedis.setAuthState(employerId, { role: 'employer', status: 'active', tokenVersion: 0 });
+    await otpRedis.setAuthState(otherEmployerId, { role: 'employer', status: 'active', tokenVersion: 0 });
+    await otpRedis.setAuthState(candidateId, { role: 'job_seeker', status: 'active', tokenVersion: 0 });
+
+    employerToken = await jwtService.signAccessToken(employerId, 0, { role: 'employer', status: 'active' });
+    otherEmployerToken = await jwtService.signAccessToken(otherEmployerId, 0, { role: 'employer', status: 'active' });
+    candidateToken = await jwtService.signAccessToken(candidateId, 0, { role: 'job_seeker', status: 'active' });
   });
 
   afterAll(async () => {
@@ -55,7 +114,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       const res = await app.inject({
         method: 'POST',
         url: '/jobs',
-        headers: { 'x-user-id': employerId, 'x-user-role': 'employer' },
+        headers: { Authorization: `Bearer ${employerToken}` },
         payload: {
           title: 'Senior CNC Lathe Operator',
           description: 'Automotive gearbox manufacturer looking for skilled CNC operator.',
@@ -81,7 +140,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       const res = await app.inject({
         method: 'POST',
         url: `/jobs/${featuredJobId}/promote`,
-        headers: { 'x-user-id': employerId, 'x-user-role': 'employer' },
+        headers: { Authorization: `Bearer ${employerToken}` },
         payload: {
           durationDays: 7,
         },
@@ -96,7 +155,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       const res = await app.inject({
         method: 'POST',
         url: `/jobs/${featuredJobId}/promote`,
-        headers: { 'x-user-id': otherEmployerId, 'x-user-role': 'employer' },
+        headers: { Authorization: `Bearer ${otherEmployerToken}` },
         payload: {
           durationDays: 7,
         },
@@ -117,7 +176,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       const res = await app.inject({
         method: 'POST',
         url: `/jobs/${featuredJobId}/promote`,
-        headers: { 'x-user-id': employerId, 'x-user-role': 'employer' },
+        headers: { Authorization: `Bearer ${employerToken}` },
         payload: {
           durationDays: 7,
         },
@@ -142,7 +201,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
         const createRes = await app.inject({
           method: 'POST',
           url: '/jobs',
-          headers: { 'x-user-id': employerId, 'x-user-role': 'employer' },
+          headers: { Authorization: `Bearer ${employerToken}` },
           payload: {
             title: `Concurrent Tech Position ${i}`,
             description: 'Testing concurrency safety in job promotion.',
@@ -163,7 +222,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
         app.inject({
           method: 'POST',
           url: `/jobs/${id}/promote`,
-          headers: { 'x-user-id': employerId, 'x-user-role': 'employer' },
+          headers: { Authorization: `Bearer ${employerToken}` },
           payload: { durationDays: 7 },
         }),
       );
@@ -196,7 +255,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       const createRes = await app.inject({
         method: 'POST',
         url: '/jobs',
-        headers: { 'x-user-id': employerId, 'x-user-role': 'employer' },
+        headers: { Authorization: `Bearer ${employerToken}` },
         payload: {
           title: 'Rollback Failure Test Job',
           description: 'Testing atomicity rollback.',
@@ -224,7 +283,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
         const promoteRes = await app.inject({
           method: 'POST',
           url: `/jobs/${failJobId}/promote`,
-          headers: { 'x-user-id': employerId, 'x-user-role': 'employer' },
+          headers: { Authorization: `Bearer ${employerToken}` },
           payload: { durationDays: 7 },
         });
 
@@ -246,7 +305,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       const res = await app.inject({
         method: 'POST',
         url: '/jobs',
-        headers: { 'x-user-id': employerId, 'x-user-role': 'employer' },
+        headers: { Authorization: `Bearer ${employerToken}` },
         payload: {
           title: 'Junior CNC Machinist',
           description: 'Entry level CNC milling machinist position.',
@@ -322,7 +381,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       const res = await app.inject({
         method: 'POST',
         url: '/jobs',
-        headers: { 'x-user-id': employerId, 'x-user-role': 'employer' },
+        headers: { Authorization: `Bearer ${employerToken}` },
         payload: {
           title: 'Circuit Hardware Technician',
           description: 'Assembly line technician for electronic components.',
@@ -359,7 +418,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
         const createRes = await app.inject({
           method: 'POST',
           url: '/jobs',
-          headers: { 'x-user-id': employerId, 'x-user-role': 'employer' },
+          headers: { Authorization: `Bearer ${employerToken}` },
           payload: {
             title: `Logistics Dispatcher Grade ${i}`,
             description: 'Warehouse dispatch and inventory management.',
@@ -390,7 +449,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       const promoteRes = await app.inject({
         method: 'POST',
         url: `/jobs/${olderJobId}/promote`,
-        headers: { 'x-user-id': employerId, 'x-user-role': 'employer' },
+        headers: { Authorization: `Bearer ${employerToken}` },
         payload: { durationDays: 7 },
       });
       expect(promoteRes.statusCode).toBe(201);
@@ -417,7 +476,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       const res = await app.inject({
         method: 'POST',
         url: '/jobs/alerts',
-        headers: { 'x-user-id': candidateId, 'x-user-role': 'job_seeker' },
+        headers: { Authorization: `Bearer ${candidateToken}` },
         payload: {
           title: 'Indore Manufacturing Openings',
           filters: {
@@ -440,7 +499,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       const res = await app.inject({
         method: 'GET',
         url: '/jobs/alerts',
-        headers: { 'x-user-id': candidateId, 'x-user-role': 'job_seeker' },
+        headers: { Authorization: `Bearer ${candidateToken}` },
       });
 
       expect(res.statusCode).toBe(200);

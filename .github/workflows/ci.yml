@@ -207,6 +207,9 @@ jobs:
           supabase start
           supabase db reset
 
+      - name: Build Dependent Packages
+        run: pnpm --filter @indian-job-portal/database --filter @indian-job-portal/validation run build
+
       - name: Run Database Integration Tests (Real Postgres)
         run: pnpm test:db
 

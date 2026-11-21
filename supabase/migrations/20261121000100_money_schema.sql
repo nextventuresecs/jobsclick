@@ -41,7 +41,7 @@ begin
     alter table public.payments add constraint payments_currency_chk check (currency = 'INR') not valid;
   end if;
   if not exists (select 1 from pg_constraint where conname = 'payments_status_chk') then
-    alter table public.payments add constraint payments_status_chk check (status in ('created','captured','expired','partially_refunded','refunded')) not valid;
+    alter table public.payments add constraint payments_status_chk check (status in ('created','authorized','captured','failed','expired','partially_refunded','refunded')) not valid;
   end if;
 end $$;
 

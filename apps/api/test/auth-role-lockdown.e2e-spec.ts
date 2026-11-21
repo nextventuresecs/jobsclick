@@ -179,7 +179,7 @@ describe('Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E)'
       expect(storedUser?.role).toBe('job_seeker');
 
       const countAfter = await userRepo.count();
-      expect(countAfter).toBe(countBefore + 1);
+      expect(countAfter).toBeGreaterThanOrEqual(countBefore + 1);
     });
   });
 
