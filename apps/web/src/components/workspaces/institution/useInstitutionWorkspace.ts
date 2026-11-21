@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import posthog from 'posthog-js';
 import type {
   StudentRecordData,
   InstitutionProfileData,
@@ -201,6 +202,9 @@ export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInst
     }));
 
     setStudents([...newStudents, ...students]);
+    posthog.capture('students_bulk_imported', {
+      valid_row_count: validRows.length,
+    });
     bulkUpload.setImportStep(3);
     addToast({
       type: 'success',
@@ -210,6 +214,9 @@ export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInst
   };
 
   const handleScheduleWave = () => {
+    posthog.capture('student_invite_wave_scheduled', {
+      recipient_count: bulkUpload.parsedRows.filter((row) => row.isValid).length,
+    });
     bulkUpload.setImportStep(4);
     addToast({
       type: 'info',
@@ -252,6 +259,9 @@ export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInst
     setQuickRollNumber('');
     setQuickPhone('');
     setIsAddingStudent(false);
+    posthog.capture('student_added', {
+      source: 'quick_add',
+    });
     addToast({
       type: 'success',
       title: 'Student Registered',
@@ -322,6 +332,9 @@ export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInst
 
     setIsOnboardingComplete(true);
     setIsEditingProfile(false);
+    posthog.capture('institution_profile_saved', {
+      trade_count: tradesArray.length,
+    });
     addToast({
       type: 'success',
       title: 'Profile Updated',

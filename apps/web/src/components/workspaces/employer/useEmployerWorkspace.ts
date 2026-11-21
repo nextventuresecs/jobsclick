@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import posthog from 'posthog-js';
 import type { CompanyItem } from '../../../data/sampleCompanies';
 
 import type { JobItem } from '../../../data/sampleJobs';
@@ -109,6 +110,12 @@ export function useEmployerWorkspace({ user, accessToken, addToast }: UseEmploye
     };
 
     setCompanyJobs([newJob, ...companyJobs]);
+    posthog.capture('job_published', {
+      job_id: newJob.id,
+      category: newJob.category,
+      employment_type: newJob.employmentType,
+      openings: newJob.openings,
+    });
     addToast({ type: 'success', title: 'Vacancy Published Successfully', message: `Position "${newJob.title}" is active.` });
     postJobState.setSuccessNotice(`Job posting "${newJob.title}" published successfully.`);
     postJobState.resetForm();
@@ -118,6 +125,9 @@ export function useEmployerWorkspace({ user, accessToken, addToast }: UseEmploye
   const handleUpdateStatus = async (appId: string, newStatus: ApplicationStatus) => {
     setApplicants((prev) => prev.map((a) => (a.id === appId ? { ...a, status: newStatus } : a)));
     await updateAppStatusApi(apiUrl, authHeader, userId, appId, newStatus);
+    posthog.capture('application_status_updated', {
+      application_status: newStatus,
+    });
     addToast({ type: 'info', title: 'Status Updated', message: `Candidate status set to "${newStatus}".` });
   };
 
@@ -135,6 +145,9 @@ export function useEmployerWorkspace({ user, accessToken, addToast }: UseEmploye
     setIsEditingProfile(false);
     setIsOnboardingComplete(true);
     updateBusinessProfileApi(apiUrl, authHeader, userId, updated);
+    posthog.capture('employer_profile_saved', {
+      is_msme: updated.udyamNumber.length > 0,
+    });
     addToast({ type: 'success', title: 'Profile Updated Successfully', message: `${updated.name} profile saved.` });
   };
 

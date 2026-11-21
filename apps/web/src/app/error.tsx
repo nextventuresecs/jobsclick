@@ -1,6 +1,7 @@
 'use client';
 
 import * as Sentry from '@sentry/nextjs';
+import posthog from 'posthog-js';
 import { useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 
@@ -15,6 +16,7 @@ export default function ErrorBoundary({
 
   useEffect(() => {
     Sentry.captureException(error);
+    posthog.captureException(error);
   }, [error]);
 
   return (
