@@ -32,4 +32,16 @@ describe('Public Projection Reads Migration (20261118085644)', () => {
     );
     expect(bucketMigration).toContain("'application/pdf'");
   });
+
+  it('defines is_published on institution_profiles with DEFAULT true prior to projection views', () => {
+    const isPublishedMigrationPath = resolve(
+      __dirname,
+      '../../../supabase/migrations/20261118080000_add_institution_is_published.sql'
+    );
+    expect(existsSync(isPublishedMigrationPath)).toBe(true);
+    const sql = readFileSync(isPublishedMigrationPath, 'utf-8');
+    expect(sql).toContain('ALTER TABLE public.institution_profiles');
+    expect(sql).toContain('ADD COLUMN IF NOT EXISTS is_published BOOLEAN NOT NULL DEFAULT true');
+    expect(sql).toContain('CREATE INDEX IF NOT EXISTS idx_institution_profiles_is_published');
+  });
 });

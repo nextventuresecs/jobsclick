@@ -127,6 +127,7 @@ export interface Database {
         annual_capacity?: number | null;
         placement_brochure_url?: string | null;
         about?: string | null;
+        is_published?: boolean;
         is_sponsorship_active?: boolean;
         sponsorship_tier?: 'Small' | 'Medium' | 'Large' | string;
         sponsorship_rate_per_student?: number;

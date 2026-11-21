@@ -2542,6 +2542,7 @@ export type Database = {
           id: string
           institution_name: string
           institution_type: string | null
+          is_published: boolean
           is_sponsorship_active: boolean
           pincode: string | null
           placement_brochure_url: string | null
@@ -2580,6 +2581,7 @@ export type Database = {
           id?: string
           institution_name: string
           institution_type?: string | null
+          is_published?: boolean
           is_sponsorship_active?: boolean
           pincode?: string | null
           placement_brochure_url?: string | null
@@ -2617,6 +2619,7 @@ export type Database = {
           id?: string
           institution_name?: string
           institution_type?: string | null
+          is_published?: boolean
           is_sponsorship_active?: boolean
           pincode?: string | null
           placement_brochure_url?: string | null
