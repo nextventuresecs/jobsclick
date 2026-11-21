@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isStrictEnv, isProduction } from '@indian-job-portal/validation';
+import { isProduction, getSessionCookieName } from '@indian-job-portal/validation';
 
-const SESSION_COOKIE_NAME =
-  isStrictEnv() ? '__Host-jc_session' : 'jc_session';
+const SESSION_COOKIE_NAME = getSessionCookieName();
 
 const PROTECTED_PATH_PREFIXES = ['/workspace', '/hi/workspace', '/company/bulk-onboard'];
 

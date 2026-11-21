@@ -45,7 +45,7 @@ export class WorkerSmsService {
       };
     }
 
-    if (isTestMode || gatewayMode === 'mock' || !authKey || authKey === 'dummy-msg91-key') {
+    if (isTestMode) {
       console.log(`[Worker SMS Hook - Mock] Invite SMS for +91${phone} via ${templateId}`);
       return {
         success: true,
@@ -54,7 +54,23 @@ export class WorkerSmsService {
       };
     }
 
-    if (gatewayMode === 'sandbox') {
+    if (!authKey || authKey === 'dummy-msg91-key') {
+      if (isStrictEnv()) {
+        console.error(`[Worker SMS Error] MSG91_AUTH_KEY is not configured or dummy in strict env when dispatching to +91${phone}`);
+        return {
+          success: false,
+          message: 'SMS service configuration error: missing auth key',
+        };
+      }
+      console.log(`[Worker SMS Hook - Mock] Invite SMS for +91${phone} via ${templateId}`);
+      return {
+        success: true,
+        message: 'Invite SMS dispatched via MSG91 mock handler',
+        messageId: `mock_invite_${randomUUID()}`,
+      };
+    }
+
+    if (gatewayMode === 'sandbox' && !isStrictEnv()) {
       console.log(`[Worker SMS Hook - Sandbox] Invite SMS for +91${phone} via ${templateId} (DLT Pending)`);
       return {
         success: true,

@@ -53,3 +53,34 @@ export function isStrictEnv(source?: Record<string, string | undefined> | string
   const env = getAppEnv(source);
   return env === 'production' || env === 'staging';
 }
+
+/**
+ * Single shared helper for session cookie name across middleware, auth-session, and API routes.
+ * Uses strict __Host- prefix in production and staging (HTTPS required).
+ */
+export function getSessionCookieName(source?: Record<string, string | undefined>): string {
+  return isStrictEnv(source) ? '__Host-jc_session' : 'jc_session';
+}
+
+/**
+ * Single shared helper for session cookie secure attribute.
+ * Mandatory true in production and staging.
+ */
+export function isSessionCookieSecure(source?: Record<string, string | undefined>): boolean {
+  return isStrictEnv(source);
+}
+
+/**
+ * Full cookie configuration object for session setting across route handlers.
+ */
+export function getSessionCookieConfig(source?: Record<string, string | undefined>) {
+  return {
+    name: getSessionCookieName(source),
+    secure: isSessionCookieSecure(source),
+    httpOnly: true,
+    sameSite: 'lax' as const,
+    path: '/',
+    maxAge: 7 * 24 * 60 * 60,
+  };
+}
+

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { isStrictEnv } from '@indian-job-portal/validation';
+import { getSessionCookieConfig } from '@indian-job-portal/validation';
 import { SESSION_COOKIE_NAME, verifyToken, signSessionToken } from '@/lib/auth-session';
 
 export async function POST(req: NextRequest) {
@@ -43,13 +43,8 @@ export async function POST(req: NextRequest) {
 
       const response = NextResponse.json(data, { status: res.status });
       response.cookies.set({
-        name: SESSION_COOKIE_NAME,
+        ...getSessionCookieConfig(),
         value: newToken,
-        httpOnly: true,
-        secure: isStrictEnv(),
-        sameSite: 'lax',
-        path: '/',
-        maxAge: 7 * 24 * 60 * 60,
       });
       return response;
     }

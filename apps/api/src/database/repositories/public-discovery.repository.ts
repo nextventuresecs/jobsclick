@@ -2,7 +2,7 @@ import { Inject, Injectable, ServiceUnavailableException, NotFoundException, Opt
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, BusinessProfileRow, InstitutionProfileRow, JobRow } from '@indian-job-portal/database';
 import { z } from 'zod';
-import { publicDirectoryQuerySchema, type PublicDirectoryQuery, type JobFilterInput, publicInstitutionCmsSchema } from '@indian-job-portal/validation';
+import { publicDirectoryQuerySchema, type PublicDirectoryQuery, type JobFilterInput, publicInstitutionCmsSchema, isTestEnv } from '@indian-job-portal/validation';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
 import { UserRepository } from './user.repository.js';
 
@@ -102,7 +102,7 @@ export class PublicDiscoveryRepository {
   constructor(
     @Inject(SUPABASE_CLIENT) private readonly db: SupabaseClient<Database>,
     @Inject(UserRepository) private readonly users: UserRepository,
-    @Optional() @Inject('PUBLIC_DISCOVERY_TEST_MODE') private readonly testMode = process.env['NODE_ENV'] === 'test',
+    @Optional() @Inject('PUBLIC_DISCOVERY_TEST_MODE') private readonly testMode = isTestEnv(),
   ) {}
 
   private unavailable(): never {

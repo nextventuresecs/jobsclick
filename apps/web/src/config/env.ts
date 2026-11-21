@@ -4,6 +4,8 @@ import {
   validateProductionJwtKey,
   getAppEnv,
   isStrictEnv as checkStrictEnv,
+  validateStagingTripwire,
+  isStaging,
 } from '@indian-job-portal/validation';
 
 export const clientEnvSchema = z.object({
@@ -43,6 +45,21 @@ export function validateWebEnv(overrides?: Record<string, string | undefined>): 
 
   if (!isDevOrTest) {
     const errors: string[] = [];
+
+    if (isStaging(raw)) {
+      const tripwireErrors = validateStagingTripwire(
+        {
+          ...raw,
+          WEB_URL: raw['NEXT_PUBLIC_APP_URL'] || raw['WEB_URL'],
+          API_URL: raw['NEXT_PUBLIC_API_URL'] || raw['API_URL'],
+          SUPABASE_URL: raw['NEXT_PUBLIC_SUPABASE_URL'] || raw['SUPABASE_URL'],
+          SENTRY_DSN: raw['NEXT_PUBLIC_SENTRY_DSN'] || raw['SENTRY_DSN'],
+          RAZORPAY_KEY_ID: raw['NEXT_PUBLIC_RAZORPAY_KEY_ID'] || raw['RAZORPAY_KEY_ID'],
+        },
+        { requireDatabaseUrl: false }
+      );
+      errors.push(...tripwireErrors);
+    }
 
     const jwtErr = validateProductionJwtKey('JWT_SECRET', raw['JWT_SECRET']);
     if (jwtErr) {

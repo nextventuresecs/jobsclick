@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { isStrictEnv } from '@indian-job-portal/validation';
+import { isStrictEnv, getSessionCookieConfig } from '@indian-job-portal/validation';
 import { SESSION_COOKIE_NAME, verifyToken } from '@/lib/auth-session';
 
 function isValidOrigin(req: NextRequest): boolean {
@@ -75,12 +75,8 @@ export async function POST(req: NextRequest) {
     });
 
     response.cookies.set({
-      name: SESSION_COOKIE_NAME,
+      ...getSessionCookieConfig(),
       value: token,
-      httpOnly: true,
-      secure: isStrictEnv(),
-      sameSite: 'lax',
-      path: '/',
       maxAge: ttlSeconds,
     });
 

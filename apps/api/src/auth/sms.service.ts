@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { isTestEnv } from '@indian-job-portal/validation';
 import { DLT_SMS_TEMPLATES } from './sms-templates.js';
 import { captureException } from '../config/sentry.js';
 import { maskPhone, scrubSensitiveData } from '../common/mask.js';
@@ -126,11 +127,18 @@ export class Msg91SmsGateway extends SmsGateway {
       '1277179291746795224';
 
     if (!authKey) {
-      this.logger.log(`[MSG91 Gateway] Live SMS key not configured; mock-dispatched interview invite to ${maskPhone(phone)}`);
+      if (isTestEnv()) {
+        this.logger.log(`[MSG91 Gateway] Live SMS key not configured; mock-dispatched interview invite to ${maskPhone(phone)}`);
+        return {
+          success: true,
+          message: 'Interview invite sent via SMS (mock mode)',
+          messageId: randomUUID(),
+        };
+      }
+      this.logger.error(`[MSG91 Gateway Error] MSG91_AUTH_KEY is not configured when dispatching invite to ${maskPhone(phone)}`);
       return {
-        success: true,
-        message: 'Interview invite sent via SMS (mock mode)',
-        messageId: randomUUID(),
+        success: false,
+        message: 'SMS service configuration error: missing auth key',
       };
     }
 

@@ -1,19 +1,16 @@
 import crypto from 'node:crypto';
 import type { ClientRole } from '@indian-job-portal/validation';
-import { toClientRole, isStrictEnv } from '@indian-job-portal/validation';
+import {
+  toClientRole,
+  getSessionCookieName,
+  getSessionCookieConfig,
+} from '@indian-job-portal/validation';
 
-export const SESSION_COOKIE_NAME =
-  isStrictEnv() ? '__Host-jc_session' : 'jc_session';
+export const SESSION_COOKIE_NAME = getSessionCookieName();
 
 export const AUTH_COOKIE_NAME = SESSION_COOKIE_NAME;
 
-export const AUTH_COOKIE_OPTIONS = {
-  httpOnly: true,
-  secure: isStrictEnv(),
-  sameSite: 'lax' as const,
-  path: '/',
-  maxAge: 7 * 24 * 60 * 60, // 7 days
-};
+export const AUTH_COOKIE_OPTIONS = getSessionCookieConfig();
 
 const JWT_ISSUER = 'jobsclick-api';
 const JWT_AUDIENCE = 'jobsclick-web';

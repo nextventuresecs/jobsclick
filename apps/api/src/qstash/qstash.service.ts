@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Client } from '@upstash/qstash';
+import { isTestEnv } from '@indian-job-portal/validation';
 
 export interface PublishTaskOptions {
   url: string;
@@ -13,7 +14,7 @@ export interface PublishTaskOptions {
 @Injectable()
 export class QstashService {
   private client: Client | null = null;
-  private isTestMode = process.env['NODE_ENV'] === 'test' || !process.env['QSTASH_TOKEN'] || process.env['QSTASH_TOKEN'] === 'qstash_dummy_token';
+  private isTestMode = isTestEnv();
 
   constructor() {
     const token = process.env['QSTASH_TOKEN'];
@@ -26,7 +27,7 @@ export class QstashService {
   }
 
   async publishTask(options: PublishTaskOptions): Promise<{ messageId: string; url: string; scheduled: boolean }> {
-    if (this.isTestMode || !this.client) {
+    if (this.isTestMode) {
       const mockMessageId = randomUUID();
       console.log(`[QStash Service (Mock)] Dispatched task to ${options.url} (delay: ${options.delaySeconds || 0}s):`, options.body);
       return {
@@ -34,6 +35,10 @@ export class QstashService {
         url: options.url,
         scheduled: true,
       };
+    }
+
+    if (!this.client) {
+      throw new ServiceUnavailableException('QStash client is not configured');
     }
 
     const response = await this.client.publishJSON({
@@ -52,9 +57,13 @@ export class QstashService {
   }
 
   async cancelMessage(messageId: string): Promise<boolean> {
-    if (this.isTestMode || !this.client) {
+    if (this.isTestMode) {
       console.log(`[QStash Service (Mock)] Cancelled message ${messageId}`);
       return true;
+    }
+
+    if (!this.client) {
+      throw new ServiceUnavailableException('QStash client is not configured');
     }
 
     try {
