@@ -16,6 +16,7 @@ import {
   Sparkles,
   Receipt,
 } from 'lucide-react';
+import posthog from 'posthog-js';
 
 interface RechargeModalProps {
   isOpen: boolean;
@@ -184,6 +185,11 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
             const verifiedData = await verifyRes.json();
             const calculatedNewBalance = currentBalance + selectedPack.credits;
 
+            posthog.capture('wallet_recharge_completed', {
+              credit_pack_id: selectedPack.id,
+              credits_added: selectedPack.credits,
+              total_amount_inr: selectedPack.totalAmountInr,
+            });
             setCompletedPayment({
               orderId: response.razorpay_order_id,
               paymentId: response.razorpay_payment_id,

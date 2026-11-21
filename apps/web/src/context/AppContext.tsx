@@ -1,6 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import posthog from 'posthog-js';
 import type { ClientRole } from '@indian-job-portal/validation';
 import { isClientRole, isUserRole, toClientRole } from '@indian-job-portal/validation';
 import type { VerifiedSession } from '../lib/auth-session';
@@ -47,6 +48,13 @@ const ROLE_STORAGE_KEY = 'jobsclick_user_role';
 const TOKEN_STORAGE_KEY = 'jobsclick_access_token';
 const USER_STORAGE_KEY = 'jobsclick_user_data';
 
+function identifyUser(user: AuthUser) {
+  posthog.identify(user.id, {
+    role: user.role,
+    ...(user.email ? { email: user.email } : {}),
+  });
+}
+
 export function AppProvider({
   children,
   initialSession,
@@ -67,6 +75,7 @@ export function AppProvider({
   const [authModalDefaultRole, setAuthModalDefaultRole] = useState<ClientRole>('jobseeker');
   const [isRoleSwitcherOpen, setIsRoleSwitcherOpen] = useState(false);
   const [toasts, setToasts] = useState<readonly ToastMessage[]>([]);
+  const currentUserRef = useRef<AuthUser | null>(initialSession?.user ?? null);
 
   // Authenticate session strictly from server session or secure HttpOnly cookie
   // Plaintext localStorage.getItem('jobsclick_user_role') is deprecated & ignored for privilege derivation (AUTH-05)
@@ -75,6 +84,8 @@ export function AppProvider({
       setCurrentUserRole(initialSession.clientRole);
       setUser(initialSession.user);
       setAccessToken(initialSession.accessToken);
+      currentUserRef.current = initialSession.user;
+      identifyUser(initialSession.user);
       return;
     }
 
@@ -88,6 +99,8 @@ export function AppProvider({
             setUser(data.session.user);
             setAccessToken(data.session.accessToken);
             setCurrentUserRole(data.session.clientRole);
+            currentUserRef.current = data.session.user;
+            identifyUser(data.session.user);
           }
         }
       } catch {
@@ -139,6 +152,11 @@ export function AppProvider({
 
   const setAuthSession = useCallback(
     ({ accessToken: token, user: authUser }: { accessToken: string; user: AuthUser }) => {
+      if (currentUserRef.current && currentUserRef.current.id !== authUser.id) {
+        posthog.reset();
+      }
+      currentUserRef.current = authUser;
+      identifyUser(authUser);
       setAccessToken(token);
       setUser(authUser);
 
@@ -182,6 +200,11 @@ export function AppProvider({
 
   const logout = useCallback(
     async (signOutAll = false) => {
+      if (user) {
+        posthog.reset();
+      }
+
+      currentUserRef.current = null;
       setCurrentUserRole(null);
       setAccessToken(null);
       setUser(null);
@@ -213,7 +236,7 @@ export function AppProvider({
           : 'You have been safely signed out.',
       });
     },
-    [addToast]
+    [addToast, user]
   );
 
   const value = {

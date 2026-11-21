@@ -13,6 +13,7 @@ import { useCompanyProfileState } from './useCompanyProfileState';
 import { useJobPostFormState } from './useJobPostFormState';
 import { postNewJobApi, updateAppStatusApi, updateBusinessProfileApi } from './employerApi';
 import { loadEmployerWorkspaceData } from './loadEmployerWorkspaceData';
+import posthog from 'posthog-js';
 
 interface UseEmployerWorkspaceProps {
   readonly user: { id?: string } | null;
@@ -108,6 +109,12 @@ export function useEmployerWorkspace({ user, accessToken, addToast }: UseEmploye
       status: 'active', applicantCount: 0, isUrgent: false,
     };
 
+    posthog.capture('job_published', {
+      employment_type: newJob.employmentType,
+      experience_level: newJob.experienceLevel,
+      job_id: newJob.id,
+      openings: newJob.openings,
+    });
     setCompanyJobs([newJob, ...companyJobs]);
     addToast({ type: 'success', title: 'Vacancy Published Successfully', message: `Position "${newJob.title}" is active.` });
     postJobState.setSuccessNotice(`Job posting "${newJob.title}" published successfully.`);
@@ -118,6 +125,10 @@ export function useEmployerWorkspace({ user, accessToken, addToast }: UseEmploye
   const handleUpdateStatus = async (appId: string, newStatus: ApplicationStatus) => {
     setApplicants((prev) => prev.map((a) => (a.id === appId ? { ...a, status: newStatus } : a)));
     await updateAppStatusApi(apiUrl, authHeader, userId, appId, newStatus);
+    posthog.capture('application_status_updated', {
+      application_id: appId,
+      status: newStatus,
+    });
     addToast({ type: 'info', title: 'Status Updated', message: `Candidate status set to "${newStatus}".` });
   };
 

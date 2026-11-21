@@ -12,6 +12,7 @@ import {
   Calculator,
 } from 'lucide-react';
 import { SPONSORSHIP_TIERS, type SponsorshipTier } from '@indian-job-portal/validation';
+import posthog from 'posthog-js';
 
 export interface SponsorshipCardProps {
   readonly institutionId: string;
@@ -82,6 +83,15 @@ export function SponsorshipCard({
     };
   }, [studentCount]);
 
+  const captureSponsorshipActivated = (tier: SponsorshipTier, studentCount: number) => {
+    posthog.capture('sponsorship_activated', {
+      institution_id: institutionId,
+      sponsored_student_count: studentCount,
+      tier,
+      total_fee_inr: calculation.totalFee,
+    });
+  };
+
   const handleActivate = async () => {
     setIsActivating(true);
     try {
@@ -106,6 +116,7 @@ export function SponsorshipCard({
         setCurrentTierState(data.quote?.tier || calculation.tier);
         setExpiryState(data.expiresAt);
         setSponsoredCountState(data.sponsoredStudentsCount || studentCount);
+        captureSponsorshipActivated(data.quote?.tier || calculation.tier, data.sponsoredStudentsCount || studentCount);
         setSuccessBanner(true);
         onActivateSuccess?.({
           tier: data.quote?.tier || calculation.tier,
@@ -119,6 +130,7 @@ export function SponsorshipCard({
         setCurrentTierState(calculation.tier);
         setExpiryState(oneYearLater);
         setSponsoredCountState(studentCount);
+        captureSponsorshipActivated(calculation.tier, studentCount);
         setSuccessBanner(true);
         onActivateSuccess?.({
           tier: calculation.tier,
@@ -133,6 +145,7 @@ export function SponsorshipCard({
       setCurrentTierState(calculation.tier);
       setExpiryState(oneYearLater);
       setSponsoredCountState(studentCount);
+      captureSponsorshipActivated(calculation.tier, studentCount);
       setSuccessBanner(true);
     } finally {
       setIsActivating(false);

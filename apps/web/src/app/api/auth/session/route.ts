@@ -1,3 +1,4 @@
+import { SeverityNumber } from '@opentelemetry/api-logs';
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import {
@@ -5,8 +6,19 @@ import {
   AUTH_COOKIE_OPTIONS,
   verifyToken,
 } from '../../../../lib/auth-session';
+import { flushPostHogLogs, getPostHogLogger } from '../../../../lib/posthog-logs';
 
 export const dynamic = 'force-dynamic';
+
+function emitSessionLog(state: 'restored' | 'expired' | 'established' | 'cleared') {
+  const severityNumber = state === 'expired' ? SeverityNumber.WARN : SeverityNumber.INFO;
+
+  getPostHogLogger()?.emit({
+    body: `Authentication session ${state}`,
+    severityNumber,
+    attributes: { 'auth.session_state': state },
+  });
+}
 
 export async function GET() {
   const cookieStore = cookies();
@@ -19,9 +31,13 @@ export async function GET() {
   const session = await verifyToken(token);
   if (!session) {
     cookieStore.delete(AUTH_COOKIE_NAME);
+    emitSessionLog('expired');
+    await flushPostHogLogs();
     return NextResponse.json({ session: null });
   }
 
+  emitSessionLog('restored');
+  await flushPostHogLogs();
   return NextResponse.json({ session });
 }
 
@@ -48,6 +64,8 @@ export async function POST(request: Request) {
     const cookieStore = cookies();
     cookieStore.set(AUTH_COOKIE_NAME, accessToken, AUTH_COOKIE_OPTIONS);
 
+    emitSessionLog('established');
+    await flushPostHogLogs();
     return NextResponse.json({
       success: true,
       session,
@@ -90,6 +108,8 @@ export async function DELETE(request: Request) {
 
     cookieStore.delete(AUTH_COOKIE_NAME);
 
+    emitSessionLog('cleared');
+    await flushPostHogLogs();
     return NextResponse.json({
       success: true,
       message: body.signOutAll ? 'Signed out of all devices' : 'Session cleared',

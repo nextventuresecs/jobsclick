@@ -6,6 +6,7 @@ import { headers } from 'next/headers';
 import { Inter, Noto_Sans_Devanagari } from 'next/font/google';
 
 import { ClientProviders } from '../components/ClientProviders';
+import { PostHogProvider } from '../components/PostHogProvider';
 import { getServerSession } from '../lib/auth-session';
 
 const inter = Inter({
@@ -70,9 +71,11 @@ export default async function RootLayout({
         <link rel="alternate" hrefLang="x-default" href={enUrl} />
       </head>
       <body className="antialiased bg-[#F3F4F6] text-[#1F2937] min-h-screen flex flex-col font-sans">
-        <NextIntlClientProvider messages={messages} locale={locale}>
-          <ClientProviders initialSession={session}>{children}</ClientProviders>
-        </NextIntlClientProvider>
+        <PostHogProvider>
+          <NextIntlClientProvider messages={messages} locale={locale}>
+            <ClientProviders initialSession={session}>{children}</ClientProviders>
+          </NextIntlClientProvider>
+        </PostHogProvider>
       </body>
     </html>
   );

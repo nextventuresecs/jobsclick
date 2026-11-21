@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   FileText,
 } from 'lucide-react';
+import posthog from 'posthog-js';
 
 export interface BroadcastFiltersState {
   district: string;
@@ -207,10 +208,22 @@ export function MsmeBroadcastConsole({ onDispatch }: MsmeBroadcastConsoleProps) 
           setDispatchSuccessId(`camp_${Date.now()}`);
         }
       }
+      posthog.capture('msme_broadcast_dispatched', {
+        audience_count: segmentCalculation.audienceCount,
+        company_size_filter: filters.companySize,
+        segment_count: segmentCalculation.segmentCount,
+        template_id: selectedTemplateId,
+      });
       setIsModalOpen(false);
     } catch {
       // Graceful fallback for mock mode
       setDispatchSuccessId(`camp_${Date.now()}`);
+      posthog.capture('msme_broadcast_dispatched', {
+        audience_count: segmentCalculation.audienceCount,
+        company_size_filter: filters.companySize,
+        segment_count: segmentCalculation.segmentCount,
+        template_id: selectedTemplateId,
+      });
       setIsModalOpen(false);
     } finally {
       setIsDispatching(false);

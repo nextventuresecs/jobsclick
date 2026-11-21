@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@indian-job-portal/ui';
 import { Sparkles, CheckCircle, AlertCircle, X, Clock } from 'lucide-react';
+import posthog from 'posthog-js';
 
 interface PromoteJobModalProps {
   readonly jobId: string;
@@ -46,6 +47,10 @@ export function PromoteJobModal({
         throw new Error(errorData?.message || 'Promotion failed');
       }
 
+      posthog.capture('job_promoted', {
+        duration_days: durationDays,
+        job_id: jobId,
+      });
       setStatus('success');
       onPromoted?.(jobId, durationDays);
       setTimeout(() => {
