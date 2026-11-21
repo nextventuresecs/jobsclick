@@ -15,6 +15,10 @@ const nextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   env: {
+    NEXT_PUBLIC_APP_URL:
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.APP_URL ||
+      '',
     NEXT_PUBLIC_SUPABASE_URL:
       process.env.NEXT_PUBLIC_SUPABASE_URL ||
       process.env.SUPABASE_URL ||
@@ -29,6 +33,21 @@ const nextConfig = {
       (process.env.NODE_ENV !== 'production' ? process.env.API_URL || 'http://localhost:3001' : ''),
     NEXT_PUBLIC_TURNSTILE_SITE_KEY:
       process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ||
+      '',
+    NEXT_PUBLIC_RAZORPAY_KEY_ID:
+      process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ||
+      process.env.RAZORPAY_KEY_ID ||
+      '',
+    NEXT_PUBLIC_SENTRY_DSN:
+      process.env.NEXT_PUBLIC_SENTRY_DSN ||
+      process.env.SENTRY_DSN ||
+      '',
+    NEXT_PUBLIC_SENTRY_ENVIRONMENT:
+      process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ||
+      process.env.SENTRY_ENVIRONMENT ||
+      '',
+    NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN:
+      process.env.NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN ||
       '',
   },
   async headers() {
