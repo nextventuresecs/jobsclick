@@ -47,7 +47,14 @@ export function isStrictEnv(rawNodeEnv?: string): boolean {
 
 export function validateEnv(overrides?: Record<string, string | undefined>): EnvConfig {
   if (!overrides) {
-    if (typeof process.loadEnvFile === 'function') {
+    const rawNodeEnv = (process.env['NODE_ENV'] ?? '').trim().toLowerCase();
+    const rawAppEnv = (process.env['APP_ENV'] ?? '').trim().toLowerCase();
+    const isDevOrTest =
+      rawAppEnv === 'development' ||
+      rawAppEnv === 'test' ||
+      (!rawAppEnv && (rawNodeEnv === 'development' || rawNodeEnv === 'test'));
+
+    if (isDevOrTest && typeof process.loadEnvFile === 'function') {
       const candidates = ['.env.local', '../../.env.local', '.env', '../../.env'];
       for (const file of candidates) {
         if (fs.existsSync(file)) {
