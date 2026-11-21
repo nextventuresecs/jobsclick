@@ -88,6 +88,64 @@ describe('Rollout Controls & Kill-Switch Semantics (WALLET_ENABLED & SPONSORSHIP
       }
     });
 
+    it('defaults to OFF in staging when unset (both NODE_ENV=staging and APP_ENV=staging)', () => {
+      const origNodeEnv = process.env['NODE_ENV'];
+      const origAppEnv = process.env['APP_ENV'];
+      const origWallet = process.env['WALLET_ENABLED'];
+      const origSponsorship = process.env['SPONSORSHIP_ENABLED'];
+      try {
+        delete process.env['WALLET_ENABLED'];
+        delete process.env['SPONSORSHIP_ENABLED'];
+
+        // Case 1: NODE_ENV=staging alone
+        delete process.env['APP_ENV'];
+        process.env['NODE_ENV'] = 'staging';
+        expect(isWalletRechargeEnabled()).toBe(false);
+        expect(isSponsorshipOrderEnabled()).toBe(false);
+
+        // Case 2: NODE_ENV=production + APP_ENV=staging
+        process.env['NODE_ENV'] = 'production';
+        process.env['APP_ENV'] = 'staging';
+        expect(isWalletRechargeEnabled()).toBe(false);
+        expect(isSponsorshipOrderEnabled()).toBe(false);
+
+        expect(() => assertWalletRechargeEnabled()).toThrowError(/Recharge temporarily paused/);
+        expect(() => assertSponsorshipOrderEnabled()).toThrowError(/Sponsorship temporarily paused/);
+      } finally {
+        process.env['NODE_ENV'] = origNodeEnv;
+        if (origAppEnv !== undefined) process.env['APP_ENV'] = origAppEnv;
+        else delete process.env['APP_ENV'];
+        if (origWallet !== undefined) process.env['WALLET_ENABLED'] = origWallet;
+        if (origSponsorship !== undefined) process.env['SPONSORSHIP_ENABLED'] = origSponsorship;
+      }
+    });
+
+    it('in staging returns true when explicitly set to "true" or "1"', () => {
+      const origNodeEnv = process.env['NODE_ENV'];
+      const origAppEnv = process.env['APP_ENV'];
+      const origWallet = process.env['WALLET_ENABLED'];
+      const origSponsorship = process.env['SPONSORSHIP_ENABLED'];
+      try {
+        process.env['NODE_ENV'] = 'production';
+        process.env['APP_ENV'] = 'staging';
+        process.env['WALLET_ENABLED'] = 'true';
+        process.env['SPONSORSHIP_ENABLED'] = '1';
+
+        expect(isWalletRechargeEnabled()).toBe(true);
+        expect(isSponsorshipOrderEnabled()).toBe(true);
+        expect(() => assertWalletRechargeEnabled()).not.toThrow();
+        expect(() => assertSponsorshipOrderEnabled()).not.toThrow();
+      } finally {
+        process.env['NODE_ENV'] = origNodeEnv;
+        if (origAppEnv !== undefined) process.env['APP_ENV'] = origAppEnv;
+        else delete process.env['APP_ENV'];
+        if (origWallet !== undefined) process.env['WALLET_ENABLED'] = origWallet;
+        else delete process.env['WALLET_ENABLED'];
+        if (origSponsorship !== undefined) process.env['SPONSORSHIP_ENABLED'] = origSponsorship;
+        else delete process.env['SPONSORSHIP_ENABLED'];
+      }
+    });
+
     it('returns true when explicitly set to "true" or "1"', () => {
       process.env['WALLET_ENABLED'] = 'true';
       process.env['SPONSORSHIP_ENABLED'] = '1';

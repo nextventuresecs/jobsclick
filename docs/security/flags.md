@@ -12,6 +12,8 @@ This document specifies the authoritative feature-flag inventory, security defau
 | `ENABLE_P2_FEATURED_PROMOTIONS` | `false` | `POST /jobs/:id/promote`<br>`POST /wallet/feature-job`<br>Web: `PromoteJobModal.tsx` | Featured Job Boosts & Ranking Algorithmic Promotions | Step 21 (Featured Job Promotions) |
 | `ENABLE_P2_JOB_ALERTS` | `false` | `POST /jobs/alerts`<br>`GET /jobs/alerts`<br>Web: `SaveSearchAlertModal.tsx` | Job Search Alert Subscriptions & Notifications | Step 21 (Search Alerts & Digest Engine) |
 | `ENABLE_P2_MSME_BROADCAST` | `false` | `POST /admin/broadcast/preview`<br>`POST /admin/broadcast/dispatch`<br>Web: `MsmeBroadcastConsole.tsx` | MSME Bulk SMS Outreach & District Quota Dispatch | Step 20 (MSME Department Broadcast) |
+| `WALLET_ENABLED` | `false` (in prod & staging when unset) | `POST /wallet/recharge/create-order` | Module 4 Rollout Kill-Switch | Operational Kill-Switch (default OFF in strict envs) |
+| `SPONSORSHIP_ENABLED` | `false` (in prod & staging when unset) | `POST /wallet/sponsorships/create-order` | Module 4 Rollout Kill-Switch | Operational Kill-Switch (default OFF in strict envs) |
 | `NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN` | `false` | Web: Google Sign-in button in `AuthModal.tsx` | Social OAuth Authentication | Step 97b (Social Auth Web Client) |
 
 ---

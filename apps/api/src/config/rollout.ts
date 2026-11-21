@@ -4,10 +4,12 @@ import {
   ExecutionContext,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { isStrictEnv } from '@indian-job-portal/validation';
 
 /**
  * Checks whether wallet recharge order creation is enabled.
- * Defaults to OFF (kill switch active) in production when unset.
+ * Defaults to OFF (kill switch active) in production AND staging when unset (isStrictEnv).
+ * Explicit true / 1 still enables.
  */
 export function isWalletRechargeEnabled(): boolean {
   const flag = process.env['WALLET_ENABLED'];
@@ -15,8 +17,8 @@ export function isWalletRechargeEnabled(): boolean {
     const normalized = flag.trim().toLowerCase();
     return normalized === 'true' || normalized === '1';
   }
-  // In production, default is OFF (kill-switch active)
-  if (process.env['NODE_ENV'] === 'production') {
+  // In production and staging (strict envs), default is OFF (kill-switch active)
+  if (isStrictEnv()) {
     return false;
   }
   return true;
@@ -24,7 +26,8 @@ export function isWalletRechargeEnabled(): boolean {
 
 /**
  * Checks whether institution sponsorship order creation is enabled.
- * Defaults to OFF (kill switch active) in production when unset.
+ * Defaults to OFF (kill switch active) in production AND staging when unset (isStrictEnv).
+ * Explicit true / 1 still enables.
  */
 export function isSponsorshipOrderEnabled(): boolean {
   const flag = process.env['SPONSORSHIP_ENABLED'];
@@ -32,8 +35,8 @@ export function isSponsorshipOrderEnabled(): boolean {
     const normalized = flag.trim().toLowerCase();
     return normalized === 'true' || normalized === '1';
   }
-  // In production, default is OFF (kill-switch active)
-  if (process.env['NODE_ENV'] === 'production') {
+  // In production and staging (strict envs), default is OFF (kill-switch active)
+  if (isStrictEnv()) {
     return false;
   }
   return true;

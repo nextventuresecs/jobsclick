@@ -15,6 +15,7 @@
 4. **Webhook Deduplication:** `private_payments.webhook_events` enforces unique `event_id`.
 5. **Kill-Switch Semantics:**
    - Turning `WALLET_ENABLED=false` or `SPONSORSHIP_ENABLED=false` blocks new order creations (`503 Service Unavailable`).
+   - In production AND staging environments (`isStrictEnv()`), `WALLET_ENABLED` and `SPONSORSHIP_ENABLED` default **OFF** when unset (fail-closed). Explicit `true` or `1` is required to enable order creation.
    - Webhook processing (`POST /webhooks/razorpay`), client verification (`POST /wallet/recharge/verify`), background worker reconciliation, and refunds **REMAIN LIVE** so in-flight and already-captured payments settle properly.
 
 ---

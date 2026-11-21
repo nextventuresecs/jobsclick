@@ -13,7 +13,7 @@ import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.j
 @Injectable()
 export class ProfileRepository {
   private persistentStore = PersistentDatabaseStore.getInstance();
-  private isTestMode = isTestEnv();
+  private isTestMode = false;
 
   constructor(
     @Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>,
