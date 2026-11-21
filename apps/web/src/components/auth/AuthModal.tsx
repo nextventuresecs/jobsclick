@@ -3,8 +3,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppContext } from '@/context/AppContext';
-import { IndianPhoneSchema, SelfSignupRoleSchema, SendEmailOtpSchema, isTestEnv } from '@indian-job-portal/validation';
+import { IndianPhoneSchema, SelfSignupRoleSchema, SendEmailOtpSchema, isStrictEnv, isTestEnv } from '@indian-job-portal/validation';
 import { getSupabaseBrowserClient } from '@/lib/supabaseClient';
+import { Turnstile } from '@marsidev/react-turnstile';
 
 const DPDP_CONSENT_VERSION = 'v1.2-2026-10';
 
@@ -117,6 +118,11 @@ export function AuthModal() {
       return;
     }
 
+    if (isStrictEnv() && !process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY) {
+      setErrorMessage('Security verification service is misconfigured (missing Turnstile site key).');
+      return;
+    }
+
     // Require real Turnstile token in production
     const effectiveTurnstile =
       turnstileToken ||
@@ -179,6 +185,11 @@ export function AuthModal() {
 
     if (!consentAccepted) {
       setErrorMessage('Please accept the Terms of Service & DPDP Privacy Notice to continue.');
+      return;
+    }
+
+    if (isStrictEnv() && !process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY) {
+      setErrorMessage('Security verification service is misconfigured (missing Turnstile site key).');
       return;
     }
 
@@ -640,14 +651,38 @@ export function AuthModal() {
               </label>
             </div>
 
-            {/* Turnstile Mount Container */}
-            <div key={turnstileGeneration} className="min-h-[4px]">
-              <input
-                type="hidden"
-                name="cf-turnstile-response"
-                value={turnstileToken}
-                onChange={(e) => setTurnstileToken(e.target.value)}
-              />
+            {/* Turnstile Bot Challenge (Hard Invariant #4) */}
+            <div key={turnstileGeneration} className="my-3 flex min-h-[65px] flex-col items-center justify-center">
+              {isStrictEnv() && !process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? (
+                <div
+                  role="alert"
+                  className="w-full rounded-lg border border-red-200 bg-red-50 p-2 text-center text-xs font-medium text-red-700"
+                >
+                  Security verification is unavailable (Turnstile site key missing).
+                </div>
+              ) : process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? (
+                <Turnstile
+                  siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+                  onSuccess={(token) => setTurnstileToken(token)}
+                  onError={() => resetTurnstile()}
+                  onExpire={() => resetTurnstile()}
+                  options={{
+                    theme: 'light',
+                    size: 'normal',
+                  }}
+                />
+              ) : isTestEnv() ? (
+                <div data-testid="turnstile-test-placeholder" className="text-xs text-slate-400">
+                  Bot verification enabled (test mode)
+                </div>
+              ) : (
+                <div
+                  role="alert"
+                  className="w-full rounded-lg border border-red-200 bg-red-50 p-2 text-center text-xs font-medium text-red-700"
+                >
+                  Security verification is unavailable.
+                </div>
+              )}
             </div>
 
             <button
@@ -691,6 +726,33 @@ export function AuthModal() {
                   />
                 ))}
               </div>
+            </div>
+
+            {/* Turnstile challenge for OTP resend */}
+            <div key={`resend-${turnstileGeneration}`} className="my-2 flex min-h-[65px] flex-col items-center justify-center">
+              {isStrictEnv() && !process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? (
+                <div
+                  role="alert"
+                  className="w-full rounded-lg border border-red-200 bg-red-50 p-2 text-center text-xs font-medium text-red-700"
+                >
+                  Security verification is unavailable (Turnstile site key missing).
+                </div>
+              ) : process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ? (
+                <Turnstile
+                  siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+                  onSuccess={(token) => setTurnstileToken(token)}
+                  onError={() => resetTurnstile()}
+                  onExpire={() => resetTurnstile()}
+                  options={{
+                    theme: 'light',
+                    size: 'normal',
+                  }}
+                />
+              ) : isTestEnv() ? (
+                <div data-testid="turnstile-test-placeholder" className="text-xs text-slate-400">
+                  Bot verification enabled (test mode)
+                </div>
+              ) : null}
             </div>
 
             <div className="flex items-center justify-between text-xs font-medium">
