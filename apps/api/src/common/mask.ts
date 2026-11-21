@@ -12,6 +12,17 @@ export function maskPhone(phone: string | null | undefined): string {
 }
 
 /**
+ * Redacts email addresses for privacy compliance (e.g. j***e@example.com).
+ */
+export function maskEmail(email: string | null | undefined): string {
+  if (!email || !email.includes('@')) return '***@***';
+  const [local, domain] = email.split('@');
+  if (!local || !domain) return '***@***';
+  const visible = local.length > 2 ? `${local[0]}***${local.slice(-1)}` : `${local[0]}***`;
+  return `${visible}@${domain}`;
+}
+
+/**
  * Scrubs potential phone numbers, OTP codes, and auth secrets from arbitrary error strings
  * before logging or passing to telemetry.
  */

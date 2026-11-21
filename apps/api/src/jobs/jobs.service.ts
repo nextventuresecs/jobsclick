@@ -1,4 +1,12 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+  ServiceUnavailableException,
+  Inject,
+  Logger,
+} from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import {
   CreateJobInput,
@@ -564,6 +572,9 @@ export class JobsService {
     });
 
     if (!smsResult.success) {
+      if (smsResult.message === 'no approved DLT template') {
+        throw new ServiceUnavailableException('no approved DLT template');
+      }
       throw new BadRequestException(smsResult.message || 'Failed to dispatch interview invite SMS');
     }
 

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { isStrictEnv, isTestEnv } from '@indian-job-portal/validation';
+import { isStaging, isTestEnv } from '@indian-job-portal/validation';
 import { captureException } from '../config/sentry.js';
 
 export interface SendInviteSmsOptions {
@@ -12,57 +12,49 @@ export interface SmsResponse {
   success: boolean;
   message: string;
   messageId?: string;
+  blocked_by_allowlist?: boolean;
 }
+
+export const WORKER_INVITE_DLT_TEMPLATES = {
+  INVITE_EN: {
+    templateId: '1277179291095585071',
+    templateName: 'JOBSCLICK_INVITE_CANDIDATE_EN',
+    language: 'en' as const,
+    senderId: 'JOBSCK',
+  },
+  INVITE_HI: {
+    templateId: '1277179291746795224',
+    templateName: 'JOBSCLICK_INVITE_CANDIDATE_HI',
+    language: 'hi' as const,
+    senderId: 'JOBSCK',
+  },
+} as const;
 
 export class WorkerSmsService {
   /**
-   * Dispatches candidate invitation SMS through MSG91 gateway using DLT template.
-   * DLT_2001_INVITE_EN (English) | DLT_2002_INVITE_HI (Hindi)
+   * Dispatches candidate invitation SMS through MSG91 gateway using approved DLT templates:
+   * INVITE_EN (1277179291095585071) | INVITE_HI (1277179291746795224)
    */
   async sendInviteSms(options: SendInviteSmsOptions): Promise<SmsResponse> {
     const defaultInvite = process.env['APP_URL'] || process.env['WEB_URL'] || 'http://localhost:3000';
     const { phone, language = 'en', inviteUrl = defaultInvite } = options;
-    const isTestMode = isTestEnv();
     const authKey = process.env['MSG91_AUTH_KEY'];
-    const templateId =
-      process.env['MSG91_INVITE_TEMPLATE_ID'] ||
-      (language === 'hi' ? '1277179291746795224' : '1277179291746795224');
+    const senderId = process.env['MSG91_SENDER_ID'] || 'JOBSCK';
 
-    const gatewayMode =
-      process.env['SMS_GATEWAY_MODE'] ||
-      (authKey && authKey !== 'dummy-msg91-key'
-        ? (isStrictEnv() ? 'live' : 'sandbox')
-        : 'mock');
-
-    // QA whitelist range (+919876543210 through +919876543219)
-    const isTestWhitelist = gatewayMode !== 'live' && phone.startsWith('987654321') && phone.length === 10;
-    if (isTestWhitelist) {
-      console.log(`[Worker SMS Hook - QA Whitelist] Invite SMS for +91${phone} via ${templateId} (Static QA Bypass)`);
-      return {
-        success: true,
-        message: 'Invite SMS dispatched via MSG91 mock handler (QA whitelist)',
-        messageId: `qa_whitelist_invite_${randomUUID()}`,
-      };
-    }
-
-    if (isTestMode) {
-      console.log(`[Worker SMS Hook - Mock] Invite SMS for +91${phone} via ${templateId}`);
-      return {
-        success: true,
-        message: 'Invite SMS dispatched via MSG91 mock handler',
-        messageId: `mock_invite_${randomUUID()}`,
-      };
-    }
-
-    if (!authKey || authKey === 'dummy-msg91-key') {
-      if (isStrictEnv()) {
-        console.error(`[Worker SMS Error] MSG91_AUTH_KEY is not configured or dummy in strict env when dispatching to +91${phone}`);
+    // Mock and QA whitelist branches MUST run ONLY when isTestEnv()
+    if (isTestEnv()) {
+      // QA whitelist range (+919876543210 through +919876543219)
+      const isTestWhitelist = phone.startsWith('987654321') && phone.length === 10;
+      if (isTestWhitelist) {
+        console.log(`[Worker SMS Hook - QA Whitelist] Invite SMS for +91${phone} (Static QA Bypass)`);
         return {
-          success: false,
-          message: 'SMS service configuration error: missing auth key',
+          success: true,
+          message: 'Invite SMS dispatched via MSG91 mock handler (QA whitelist)',
+          messageId: `qa_whitelist_invite_${randomUUID()}`,
         };
       }
-      console.log(`[Worker SMS Hook - Mock] Invite SMS for +91${phone} via ${templateId}`);
+
+      console.log(`[Worker SMS Hook - Mock] Invite SMS for +91${phone}`);
       return {
         success: true,
         message: 'Invite SMS dispatched via MSG91 mock handler',
@@ -70,12 +62,52 @@ export class WorkerSmsService {
       };
     }
 
-    if (gatewayMode === 'sandbox' && !isStrictEnv()) {
-      console.log(`[Worker SMS Hook - Sandbox] Invite SMS for +91${phone} via ${templateId} (DLT Pending)`);
+    // Staging safety allowlist gate (active ONLY in staging; not active in production)
+    if (isStaging()) {
+      const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+      const allowlistRaw = process.env['STAGING_SMS_ALLOWLIST'] || '';
+      const allowlist = allowlistRaw
+        .split(',')
+        .map((s) => s.trim().replace(/\D/g, '').slice(-10))
+        .filter(Boolean);
+
+      if (allowlist.length === 0 || !allowlist.includes(cleanPhone)) {
+        console.log(
+          `[Worker SMS Staging Gate] Invite SMS to +91${cleanPhone.slice(-4).padStart(cleanPhone.length, 'X')} skipped: blocked_by_allowlist`,
+        );
+        return {
+          success: true,
+          message: 'SMS skipped: blocked_by_allowlist',
+          messageId: `staging_allowlist_blocked_${randomUUID()}`,
+          blocked_by_allowlist: true,
+        };
+      }
+    }
+
+    // Language selection with env overrides; no cross-language fallback
+    let templateId: string | undefined;
+    if (language === 'hi') {
+      templateId = process.env['MSG91_INVITE_TEMPLATE_ID_HI'] || WORKER_INVITE_DLT_TEMPLATES.INVITE_HI.templateId;
+    } else {
+      templateId = process.env['MSG91_INVITE_TEMPLATE_ID'] || WORKER_INVITE_DLT_TEMPLATES.INVITE_EN.templateId;
+    }
+
+    if (!templateId) {
+      console.error(`[Worker SMS Error] Missing DLT template configuration for invite (${language})`);
       return {
-        success: true,
-        message: 'Invite SMS processed via MSG91 sandbox',
-        messageId: randomUUID(),
+        success: false,
+        message: `Missing DLT template configuration for invite (${language})`,
+      };
+    }
+
+    // In staging and production, missing or dummy auth key is a hard failure
+    if (!authKey || authKey === 'dummy-msg91-key') {
+      console.error(
+        `[Worker SMS Error] MSG91_AUTH_KEY is not configured or dummy in strict env when dispatching to +91${phone}`,
+      );
+      return {
+        success: false,
+        message: 'SMS service configuration error: missing auth key',
       };
     }
 
@@ -89,7 +121,7 @@ export class WorkerSmsService {
         },
         body: JSON.stringify({
           template_id: templateId,
-          sender: 'JOBSCK',
+          sender: senderId,
           short_url: '0',
           recipients: [
             {

@@ -69,7 +69,13 @@ const baseSchema = z.object({
   // Turnstile, SMS, Email
   TURNSTILE_SECRET_KEY: z.string().optional(),
   MSG91_AUTH_KEY: z.string().optional(),
-  MSG91_SENDER_ID: z.string().optional(),
+  MSG91_SENDER_ID: z.string().default('JOBSCK'),
+  MSG91_OTP_TEMPLATE_ID: z.string().optional(),
+  MSG91_OTP_TEMPLATE_ID_HI: z.string().optional(),
+  MSG91_INVITE_TEMPLATE_ID: z.string().optional(),
+  MSG91_INVITE_TEMPLATE_ID_HI: z.string().optional(),
+  STAGING_SMS_ALLOWLIST: z.string().optional(),
+  STAGING_EMAIL_ALLOWLIST: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   // Authentication & Administrative Security
   JWT_SECRET: z.string().optional(),

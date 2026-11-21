@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { isTestEnv } from '@indian-job-portal/validation';
+import { isStaging, isTestEnv } from '@indian-job-portal/validation';
 import { captureException } from '../config/sentry.js';
 
 export interface AlertDigestJobItem {
@@ -27,6 +27,15 @@ export interface SendEmailResult {
   success: boolean;
   messageId?: string;
   error?: string;
+  blocked_by_allowlist?: boolean;
+}
+
+function maskEmail(email: string | null | undefined): string {
+  if (!email || !email.includes('@')) return '***@***';
+  const [local, domain] = email.split('@');
+  if (!local || !domain) return '***@***';
+  const visible = local.length > 2 ? `${local[0]}***${local.slice(-1)}` : `${local[0]}***`;
+  return `${visible}@${domain}`;
 }
 
 export class WorkerEmailService {
@@ -40,9 +49,30 @@ export class WorkerEmailService {
     const from = options.from || this.defaultFrom;
     const recipients = Array.isArray(options.to) ? options.to : [options.to];
 
+    let activeRecipients = recipients;
+    if (isStaging()) {
+      const allowlistRaw = process.env['STAGING_EMAIL_ALLOWLIST'] || '';
+      const allowlist = allowlistRaw
+        .split(',')
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean);
+
+      activeRecipients = recipients.filter((r) => allowlist.includes(r.trim().toLowerCase()));
+      if (activeRecipients.length === 0) {
+        console.log(
+          `[Worker Staging Email Gate] Email to ${recipients.map((r) => maskEmail(r)).join(', ')} skipped: blocked_by_allowlist`,
+        );
+        return {
+          success: true,
+          messageId: `staging_email_blocked_${randomUUID()}`,
+          blocked_by_allowlist: true,
+        };
+      }
+    }
+
     if (isMock) {
       console.log(
-        `[Worker Resend Mock] Dispatched email to ${recipients.join(', ')} | Subject: "${options.subject}" (From: ${from})`,
+        `[Worker Resend Mock] Dispatched email to ${activeRecipients.join(', ')} | Subject: "${options.subject}" (From: ${from})`,
       );
       return {
         success: true,
@@ -59,7 +89,7 @@ export class WorkerEmailService {
         },
         body: JSON.stringify({
           from,
-          to: recipients,
+          to: activeRecipients,
           subject: options.subject,
           html: options.html,
           text: options.text,

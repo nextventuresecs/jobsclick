@@ -30,26 +30,7 @@ export interface DltTemplateOption {
   language: 'en' | 'hi';
 }
 
-const DEFAULT_TEMPLATES: DltTemplateOption[] = [
-  {
-    id: 'DLT_MSME_NOTICE_EN',
-    name: 'General Compliance Notice (English - GSM-7)',
-    templateText: '[Govt of India MSME Dept] Notice to {#companyName#}: {#message#} - District Industry Centre',
-    language: 'en',
-  },
-  {
-    id: 'DLT_MSME_NOTICE_HI',
-    name: 'सामान्य अनुपालन सूचना (हिंदी - Unicode UCS-2)',
-    templateText: '[भारत सरकार एमएसएमई विभाग] {#companyName#} के लिए सूचना: {#message#} - जिला उद्योग केंद्र',
-    language: 'hi',
-  },
-  {
-    id: 'DLT_MSME_SUBSIDY_ALERT_EN',
-    name: 'Cluster Subsidy Alert (English - GSM-7)',
-    templateText: '[MSME Alert] Subsidies available for {#sector#} units in {#district#}. Apply at msme.gov.in',
-    language: 'en',
-  },
-];
+const DEFAULT_TEMPLATES: DltTemplateOption[] = [];
 
 const DISTRICT_OPTIONS = [
   'All Districts',
@@ -111,7 +92,7 @@ export function MsmeBroadcastConsole({ onDispatch }: MsmeBroadcastConsoleProps) 
     companySize: 'all',
   });
 
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('DLT_MSME_NOTICE_EN');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(DEFAULT_TEMPLATES[0]?.id || '');
   const [customNotice, setCustomNotice] = useState<string>(
     'Quarterly industrial subsidy filing window is now open until 30th of this month.',
   );
@@ -393,16 +374,21 @@ export function MsmeBroadcastConsole({ onDispatch }: MsmeBroadcastConsoleProps) 
               id="select-template"
               value={selectedTemplateId}
               onChange={(e) => setSelectedTemplateId(e.target.value)}
-              className="w-full text-xs rounded-lg border border-gray-300 p-2.5 bg-white focus:ring-2 focus:ring-orange-500"
+              disabled={DEFAULT_TEMPLATES.length === 0}
+              className="w-full text-xs rounded-lg border border-gray-300 p-2.5 bg-white focus:ring-2 focus:ring-orange-500 disabled:bg-gray-100 disabled:text-gray-500"
             >
-              {DEFAULT_TEMPLATES.map((tpl) => (
-                <option key={tpl.id} value={tpl.id}>
-                  {tpl.name} ({tpl.id})
-                </option>
-              ))}
+              {DEFAULT_TEMPLATES.length === 0 ? (
+                <option value="">No approved DLT broadcast templates</option>
+              ) : (
+                DEFAULT_TEMPLATES.map((tpl) => (
+                  <option key={tpl.id} value={tpl.id}>
+                    {tpl.name} ({tpl.id})
+                  </option>
+                ))
+              )}
             </select>
             <span className="text-[11px] text-gray-500 mt-1 block">
-              Registered Sender Header: <strong className="text-gray-700">INDIAN</strong> • TRAI Principle Entity Whitelisted
+              Registered Sender Header: <strong className="text-gray-700">JOBSCK</strong> • TRAI Principal Entity Active
             </span>
           </div>
 

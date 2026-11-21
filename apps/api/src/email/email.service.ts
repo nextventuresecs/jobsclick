@@ -1,7 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { isTestEnv } from '@indian-job-portal/validation';
+import { isStaging, isTestEnv } from '@indian-job-portal/validation';
 import { captureException } from '../config/sentry.js';
+import { maskEmail } from '../common/mask.js';
 import type { IEmailService, SendEmailOptions, SendEmailResult } from './email.interface.js';
 
 @Injectable()
@@ -17,9 +18,30 @@ export class EmailService implements IEmailService {
     const from = options.from || this.defaultFrom;
     const recipients = Array.isArray(options.to) ? options.to : [options.to];
 
+    let activeRecipients = recipients;
+    if (isStaging()) {
+      const allowlistRaw = process.env['STAGING_EMAIL_ALLOWLIST'] || '';
+      const allowlist = allowlistRaw
+        .split(',')
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean);
+
+      activeRecipients = recipients.filter((r) => allowlist.includes(r.trim().toLowerCase()));
+      if (activeRecipients.length === 0) {
+        this.logger.log(
+          `[Staging Email Gate] Email to ${recipients.map((r) => maskEmail(r)).join(', ')} skipped: blocked_by_allowlist`,
+        );
+        return {
+          success: true,
+          messageId: `staging_email_blocked_${randomUUID()}`,
+          blocked_by_allowlist: true,
+        };
+      }
+    }
+
     if (isMock) {
       this.logger.log(
-        `[Resend Email Mock] Dispatched email to ${recipients.join(', ')} | Subject: "${options.subject}" (Sender: ${from})`,
+        `[Resend Email Mock] Dispatched email to ${activeRecipients.join(', ')} | Subject: "${options.subject}" (Sender: ${from})`,
       );
       return {
         success: true,
@@ -36,7 +58,7 @@ export class EmailService implements IEmailService {
         },
         body: JSON.stringify({
           from,
-          to: recipients,
+          to: activeRecipients,
           subject: options.subject,
           html: options.html,
           text: options.text,

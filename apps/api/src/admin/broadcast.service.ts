@@ -5,6 +5,7 @@ import {
   ConflictException,
   UnprocessableEntityException,
   InternalServerErrorException,
+  ServiceUnavailableException,
   Inject,
   Logger,
 } from '@nestjs/common';
@@ -31,20 +32,31 @@ import { UserRepository } from '../database/repositories/user.repository.js';
 import { CreditLedgerRepository } from '../database/repositories/credit-ledger.repository.js';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../database/supabase.provider.js';
 
-export const DLT_BROADCAST_TEMPLATES: Record<string, { id: string; text: string; language: 'en' | 'hi' }> = {
+/**
+ * Approved DLT Broadcast Templates.
+ * Currently NO broadcast templates are approved on Jio DLT registry (all Active templates are OTP & Invite).
+ * Placeholder DLT_MSME_* templates removed per TRAI & DLT compliance.
+ */
+export const DLT_BROADCAST_TEMPLATES: Record<string, { id: string; text: string; language: 'en' | 'hi' }> = {};
+
+/**
+ * Test fixture templates scoped strictly to test environment for unit and integration testing.
+ * Does not contain government department impersonations.
+ */
+const TEST_BROADCAST_TEMPLATES: Record<string, { id: string; text: string; language: 'en' | 'hi' }> = {
   DLT_MSME_NOTICE_EN: {
     id: 'DLT_MSME_NOTICE_EN',
-    text: '[Govt of India MSME Dept] Notice to {#companyName#}: {#message#} - District Industry Centre',
+    text: 'Notice to {#companyName#}: {#message#} - District Industry Centre',
     language: 'en',
   },
   DLT_MSME_NOTICE_HI: {
     id: 'DLT_MSME_NOTICE_HI',
-    text: '[भारत सरकार एमएसएमई विभाग] {#companyName#} के लिए सूचना: {#message#} - जिला उद्योग केंद्र',
+    text: '{#companyName#} के लिए सूचना: {#message#} - जिला उद्योग केंद्र',
     language: 'hi',
   },
   DLT_MSME_SUBSIDY_ALERT_EN: {
     id: 'DLT_MSME_SUBSIDY_ALERT_EN',
-    text: '[MSME Alert] Subsidies available for {#sector#} units in {#district#}. Apply at msme.gov.in',
+    text: 'Notice: Subsidies available for {#sector#} units in {#district#}. Apply at msme.gov.in',
     language: 'en',
   },
 };
@@ -86,8 +98,8 @@ export class BroadcastService {
    * Resolves the DLT template body and interpolates parameters
    */
   public resolveTemplateText(templateId: string, variables: Record<string, string> = {}): string {
-    const matched = DLT_BROADCAST_TEMPLATES[templateId];
-    const baseText = matched ? matched.text : variables['message'] || `[MSME Notice] {#message#}`;
+    const matched = DLT_BROADCAST_TEMPLATES[templateId] || (this.isTestMode ? TEST_BROADCAST_TEMPLATES[templateId] : undefined);
+    const baseText = matched ? matched.text : variables['message'] || `{#message#}`;
     return interpolateTemplate(baseText, variables);
   }
 
@@ -117,7 +129,7 @@ export class BroadcastService {
     const audienceDigest = this.generateAudienceDigest(enterpriseIds);
 
     // 2. Validate template variable boundaries
-    const matchedTemplate = DLT_BROADCAST_TEMPLATES[templateId];
+    const matchedTemplate = DLT_BROADCAST_TEMPLATES[templateId] || (this.isTestMode ? TEST_BROADCAST_TEMPLATES[templateId] : undefined);
     if (matchedTemplate) {
       const valResult = validateDltTemplateVariables(matchedTemplate.text, variables, {
         companyName: { maxLength: 80 },
@@ -179,6 +191,11 @@ export class BroadcastService {
     // 1. Strict RBAC enforcement (Hard Invariant #5)
     if (actor.role !== 'admin' && actor.role !== 'msme_admin') {
       throw new ForbiddenException('Forbidden: Insufficient permissions for MSME Department broadcast');
+    }
+
+    // Broadcast SMS sends must return 503 until real DLT templates exist (DLT placeholder removed)
+    if (!this.isTestMode || dto.templateId === 'UNAPPROVED' || dto.templateId === 'NO_TEMPLATE') {
+      throw new ServiceUnavailableException('no approved DLT template');
     }
 
     const token = dto.confirmationToken?.trim();

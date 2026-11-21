@@ -3,7 +3,7 @@ import { Job } from 'bullmq';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import IORedis from 'ioredis';
 import IORedisMock from 'ioredis-mock';
-import { isStrictEnv, isTestEnv } from '@indian-job-portal/validation';
+import { isStaging, isStrictEnv, isTestEnv } from '@indian-job-portal/validation';
 
 export interface BroadcastRecipient {
   businessProfileId: string;
@@ -170,8 +170,24 @@ export class BroadcastProcessor {
         }
       }
 
-      // 4. Gateway dispatch (MSG91 or Mock)
+      // 4. Staging safety allowlist gate & Gateway dispatch (MSG91 or Mock)
       const maskedPhone = this.maskPhone(phone);
+
+      if (isStaging()) {
+        const cleanPhone = phone.replace(/\D/g, '').slice(-10);
+        const allowlistRaw = process.env['STAGING_SMS_ALLOWLIST'] || '';
+        const allowlist = allowlistRaw
+          .split(',')
+          .map((s) => s.trim().replace(/\D/g, '').slice(-10))
+          .filter(Boolean);
+
+        if (allowlist.length === 0 || !allowlist.includes(cleanPhone)) {
+          console.log(`[Broadcast Staging Gate] Broadcast SMS to ${maskedPhone} skipped: blocked_by_allowlist`);
+          skippedCount++;
+          continue;
+        }
+      }
+
       const isTestMode =
         !isStrictEnv() &&
         (isTestEnv() ||
@@ -184,7 +200,7 @@ export class BroadcastProcessor {
 
         if (!isTestMode) {
           const authKey = process.env['MSG91_AUTH_KEY']!;
-          const senderId = process.env['MSG91_SENDER_ID'] || 'INDIAN';
+          const senderId = process.env['MSG91_SENDER_ID'] || 'JOBSCK';
           const msg91Url = new URL('https://control.msg91.com/api/v5/flow');
 
           const response = await fetch(msg91Url.toString(), {

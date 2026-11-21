@@ -119,8 +119,28 @@ describe('Ticket T-06: MSG91 SMS Service & Turnstile Bot Challenge', () => {
     });
 
     it('routes Hindi OTP requests to DLT_1002_OTP_HI template', async () => {
-      expect(DLT_SMS_TEMPLATES['OTP_HI']?.templateId).toBe('1277179301139811147');
-      expect(DLT_SMS_TEMPLATES['OTP_HI']?.isUnicode).toBe(false);
+      expect(DLT_SMS_TEMPLATES['OTP_HI']?.templateId).toBe('1277179312348407947');
+      expect(DLT_SMS_TEMPLATES['OTP_HI']?.isUnicode).toBe(true);
+
+      const realSms = new Msg91SmsGateway();
+      process.env['MSG91_AUTH_KEY'] = 'test-auth-key';
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ type: 'success', message: 'OTP sent', request_id: 'req_123' }),
+      });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const result = await realSms.sendOtp({
+        phone: '9876543206',
+        otp: '123456',
+        language: 'hi',
+      });
+
+      expect(result.success).toBe(true);
+      expect(mockFetch).toHaveBeenCalled();
+      const calledUrl = mockFetch.mock.calls[0][0] as string;
+      expect(calledUrl).toContain('template_id=1277179312348407947');
     });
 
     it('AC-1: sends live HTTP request to MSG91 gateway when production credentials are configured', async () => {
