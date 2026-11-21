@@ -10,7 +10,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl =
     process.env['NEXT_PUBLIC_APP_URL'] ||
     process.env['WEB_URL'] ||
-    'https://jobsclick.live';
+    '';
   const apiUrl =
     process.env['NEXT_PUBLIC_API_URL'] ||
     process.env['API_URL'] ||
