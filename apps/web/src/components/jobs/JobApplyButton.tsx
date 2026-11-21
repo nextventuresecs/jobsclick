@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Button } from '@indian-job-portal/ui';
 import { CheckCircle2, Send } from 'lucide-react';
+import posthog from 'posthog-js';
 
 export interface JobApplyButtonProps {
   readonly jobId: string;
@@ -72,6 +73,9 @@ export function JobApplyButton({
       });
 
       if (res.ok) {
+        posthog.capture('job_application_submitted', {
+          job_id: jobId,
+        });
         setHasApplied(true);
         addToast({
           type: 'success',

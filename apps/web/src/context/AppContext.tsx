@@ -1,6 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import posthog from 'posthog-js';
 import type { ClientRole } from '@indian-job-portal/validation';
 import { isClientRole, isUserRole, toClientRole } from '@indian-job-portal/validation';
 import type { VerifiedSession } from '../lib/auth-session';
@@ -46,6 +47,9 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 const ROLE_STORAGE_KEY = 'jobsclick_user_role';
 const TOKEN_STORAGE_KEY = 'jobsclick_access_token';
 const USER_STORAGE_KEY = 'jobsclick_user_data';
+const isPostHogConfigured = Boolean(
+  process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN && process.env.NEXT_PUBLIC_POSTHOG_HOST
+);
 
 export function AppProvider({
   children,
@@ -67,6 +71,7 @@ export function AppProvider({
   const [authModalDefaultRole, setAuthModalDefaultRole] = useState<ClientRole>('jobseeker');
   const [isRoleSwitcherOpen, setIsRoleSwitcherOpen] = useState(false);
   const [toasts, setToasts] = useState<readonly ToastMessage[]>([]);
+  const identifiedUserId = useRef<string | null>(null);
 
   // Authenticate session strictly from server session or secure HttpOnly cookie
   // Plaintext localStorage.getItem('jobsclick_user_role') is deprecated & ignored for privilege derivation (AUTH-05)
@@ -101,6 +106,23 @@ export function AppProvider({
       isMounted = false;
     };
   }, [initialSession]);
+
+  useEffect(() => {
+    if (!user || !isPostHogConfigured || identifiedUserId.current === user.id) {
+      return;
+    }
+
+    if (identifiedUserId.current) {
+      posthog.reset();
+    }
+
+    posthog.identify(user.id, {
+      ...(user.email ? { email: user.email } : {}),
+      role: user.role,
+      status: user.status,
+    });
+    identifiedUserId.current = user.id;
+  }, [user]);
 
   const openAuthModal = useCallback((defaultRole: ClientRole = 'jobseeker') => {
     setAuthModalDefaultRole(defaultRole);
@@ -182,6 +204,10 @@ export function AppProvider({
 
   const logout = useCallback(
     async (signOutAll = false) => {
+      if (isPostHogConfigured) {
+        posthog.reset();
+      }
+      identifiedUserId.current = null;
       setCurrentUserRole(null);
       setAccessToken(null);
       setUser(null);

@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@indian-job-portal/ui';
 import { Bell, CheckCircle, AlertCircle, X } from 'lucide-react';
+import posthog from 'posthog-js';
 
 interface SaveSearchAlertModalProps {
   readonly currentKeyword?: string;
@@ -57,6 +58,12 @@ export function SaveSearchAlertModal({
         );
       }
 
+      posthog.capture('search_alert_saved', {
+        frequency,
+        has_keyword_filter: Boolean(currentKeyword),
+        has_city_filter: Boolean(currentCity),
+        has_category_filter: Boolean(currentCategory),
+      });
       setStatus('success');
       setTimeout(() => {
         setIsOpen(false);
@@ -68,6 +75,12 @@ export function SaveSearchAlertModal({
         `saved_alert_${Date.now()}`,
         JSON.stringify({ title, frequency, filters: { currentKeyword, currentCity, currentCategory } }),
       );
+      posthog.capture('search_alert_saved', {
+        frequency,
+        has_keyword_filter: Boolean(currentKeyword),
+        has_city_filter: Boolean(currentCity),
+        has_category_filter: Boolean(currentCategory),
+      });
       setStatus('success');
       setTimeout(() => {
         setIsOpen(false);

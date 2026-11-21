@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
+import posthog from 'posthog-js';
 import { useApp } from '../../../context/AppContext';
 import type {
   SeekerProfileData,
@@ -209,6 +210,10 @@ export function useSeekerWorkspace() {
 
     setIsOnboardingComplete(true);
     setIsEditing(false);
+    posthog.capture('seeker_profile_saved', {
+      completion_percentage: completeness,
+      has_dpdp_consent: formData.formDpdpConsent,
+    });
     addToast({
       type: 'success',
       title: t('toastProfileSaved'),
