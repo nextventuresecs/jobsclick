@@ -100,11 +100,11 @@ describe('Migration 20261115000000: Public Slugs Backfill & Invariants (Task 1)'
       .from('jobs')
       .select('id', { count: 'exact', head: true });
     if (!jCount || jCount === 0) {
-      await supabase.from('jobs').insert({
+      const { error: jErr } = await supabase.from('jobs').insert({
         employer_id: employerUserId,
         title: 'Software Developer',
         description: 'Engineering role description',
-        category: 'other',
+        category: 'technology',
         city: 'Indore',
         district: 'Indore',
         state: 'Madhya Pradesh',
@@ -112,6 +112,7 @@ describe('Migration 20261115000000: Public Slugs Backfill & Invariants (Task 1)'
         is_active: true,
         source: 'seed',
       });
+      if (jErr) throw new Error(`Job insert failed: ${jErr.message}`);
     }
   });
 

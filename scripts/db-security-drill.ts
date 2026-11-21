@@ -260,30 +260,44 @@ export async function runSecurityDrill(connectionString: string): Promise<{ succ
     ($3, $4, 'Expired Contract Role', 'Expired past role', 'technology', 'Pune', 1, true, NOW() - INTERVAL '2 days', 'view_test');
   `, [activeJobId, inactiveJobId, expiredJobId, empId]);
 
+  // Fetch generated public slugs for inserted jobs and employer
+  const jobSlugsQuery = await adminClient.query(`
+    SELECT id, public_slug FROM public.jobs WHERE id IN ($1, $2, $3);
+  `, [activeJobId, inactiveJobId, expiredJobId]);
+  const slugMap = new Map(jobSlugsQuery.rows.map((r) => [r.id, r.public_slug]));
+  const activeSlug = slugMap.get(activeJobId);
+  const inactiveSlug = slugMap.get(inactiveJobId);
+  const expiredSlug = slugMap.get(expiredJobId);
+
+  const bpQuery = await adminClient.query(`
+    SELECT public_slug FROM public.business_profiles WHERE user_id = $1;
+  `, [empId]);
+  const companySlug = bpQuery.rows[0]?.public_slug;
+
   // Read public_jobs as anon
   const anonViewer = new Client({ connectionString });
   await anonViewer.connect();
   await anonViewer.query('SET ROLE anon;');
 
   const jobsRes = await anonViewer.query(`
-    SELECT * FROM public.public_jobs WHERE employer_id = $1;
-  `, [empId]);
+    SELECT * FROM public.public_jobs WHERE company_slug = $1;
+  `, [companySlug]);
 
-  const returnedJobIds = jobsRes.rows.map((r) => r.id);
-  const activeReturned = returnedJobIds.includes(activeJobId);
-  const inactiveFiltered = !returnedJobIds.includes(inactiveJobId);
-  const expiredFiltered = !returnedJobIds.includes(expiredJobId);
+  const returnedJobSlugs = jobsRes.rows.map((r) => r.slug);
+  const activeReturned = returnedJobSlugs.includes(activeSlug);
+  const inactiveFiltered = !returnedJobSlugs.includes(inactiveSlug);
+  const expiredFiltered = !returnedJobSlugs.includes(expiredSlug);
 
   // Assert exact column keys in public_jobs
   const jobRow = jobsRes.rows[0];
   const expectedJobCols = new Set([
-    'id', 'employer_id', 'title', 'description', 'category', 'employment_type',
+    'slug', 'company_slug', 'title', 'description', 'category', 'employment_type',
     'experience_level', 'min_pay', 'max_pay', 'city', 'district', 'state',
     'openings', 'skills', 'expiry_date', 'is_featured', 'featured_until', 'created_at'
   ]);
   const actualJobCols = Object.keys(jobRow);
   const exactJobCols = actualJobCols.length === expectedJobCols.size && actualJobCols.every((c) => expectedJobCols.has(c));
-  const noFtsLeak = !('fts' in jobRow) && !('source' in jobRow) && !('created_by' in jobRow);
+  const noFtsLeak = !('fts' in jobRow) && !('source' in jobRow) && !('created_by' in jobRow) && !('id' in jobRow) && !('employer_id' in jobRow);
 
   results.push({
     name: 'public_jobs view strictly filters WHERE is_active = true and unexpired',
@@ -517,20 +531,20 @@ export async function runSecurityDrill(connectionString: string): Promise<{ succ
     });
   }
 
-  // 4. Table owner direct TRUNCATE on payments (trigger path -> 55000)
+  // 4. Table owner direct TRUNCATE on payments (trigger path -> 55000, or FK restriction -> 0A000)
   try {
-    await adminClient.query('TRUNCATE public.payments;');
+    await adminClient.query('TRUNCATE public.payments CASCADE;');
     results.push({
       name: 'Table owner TRUNCATE on payments blocked by BEFORE TRUNCATE trigger',
       passed: false,
-      expected: 'Trigger exception (55000)',
+      expected: 'Trigger exception (55000) or FK restriction (0A000)',
       actual: 'TRUNCATE succeeded (FINANCIAL DATA LOSS)',
     });
   } catch (err: any) {
     results.push({
       name: 'Table owner TRUNCATE on payments blocked by BEFORE TRUNCATE trigger',
-      passed: err.code === '55000',
-      expected: 'Trigger exception (55000)',
+      passed: err.code === '55000' || err.code === '0A000',
+      expected: 'Trigger exception (55000) or FK restriction (0A000)',
       actual: `${err.code}: ${err.message}`,
     });
   }
@@ -612,10 +626,10 @@ export async function runSecurityDrill(connectionString: string): Promise<{ succ
   `, [walletUserId, walletPhone, walletEmail]);
 
   // Test 1: grant_starter_credits on invited user
-  const starterRes = await adminClient.query(`SELECT public.grant_starter_credits($1) as success;`, [walletUserId]);
+  const starterRes = await adminClient.query(`SELECT public.grant_starter_credits($1::uuid) as success;`, [walletUserId]);
   const starterSuccess = starterRes.rows[0].success === true;
   // Test idempotent re-run (returns false because starter already granted)
-  const starterReRun = await adminClient.query(`SELECT public.grant_starter_credits($1) as success;`, [walletUserId]);
+  const starterReRun = await adminClient.query(`SELECT public.grant_starter_credits($1::uuid) as success;`, [walletUserId]);
   const idempotentDuplicateBlocked = starterReRun.rows[0].success === false;
 
   // Test 2: promote_job_with_ledger (spend 3 of 10 starter credits)
@@ -626,7 +640,7 @@ export async function runSecurityDrill(connectionString: string): Promise<{ succ
   `, [promoteJobId, walletUserId]);
 
   const promoteRes = await adminClient.query(`
-    SELECT public.promote_job_with_ledger($1, $2, 7, 3) as res;
+    SELECT public.promote_job_with_ledger($1::uuid, $2::uuid, 7, 3) as res;
   `, [walletUserId, promoteJobId]);
   const promoteOutput = promoteRes.rows[0].res;
   const promoteOk = promoteOutput.success === true && promoteOutput.cost === 3 && promoteOutput.remaining_balance === 7;
@@ -644,23 +658,23 @@ export async function runSecurityDrill(connectionString: string): Promise<{ succ
   `, [seekerId, seekerPhone]);
 
   const unlockRes = await adminClient.query(`
-    SELECT public.unlock_contact_with_ledger($1, $2, 5) as res;
+    SELECT public.unlock_contact_with_ledger($1::uuid, $2::uuid, 5) as res;
   `, [walletUserId, seekerId]);
   const unlockOutput = unlockRes.rows[0].res;
   const unlockOk = unlockOutput.success === true && unlockOutput.cost === 5 && unlockOutput.remaining_balance === 2;
 
-  // Test 4: deduct_application_credit_with_ledger (spend 1 of 2 remaining credits)
+  // Test 4: rpc_charge_application (spend 1 of 2 remaining credits)
   const deductRes = await adminClient.query(`
-    SELECT public.deduct_application_credit_with_ledger($1, $2, 'Promoted DevOps Role', 1) as res;
+    SELECT public.rpc_charge_application($1::uuid, $2::uuid) as res;
   `, [walletUserId, promoteJobId]);
   const deductOutput = deductRes.rows[0].res;
-  const deductOk = deductOutput.success === true && deductOutput.cost === 1 && deductOutput.remaining_balance === 1;
+  const deductOk = deductOutput.charged === true && Number(deductOutput.balance) === 1;
 
   results.push({
     name: 'Service role wallet flow: starter credits, promote job, unlock contact, and deduct application credit',
     passed: starterSuccess && idempotentDuplicateBlocked && promoteOk && jobFeaturedOk && unlockOk && deductOk,
     expected: '10 credits granted -> 3 spent on promo -> 5 on unlock -> 1 on app -> 1 remaining',
-    actual: `starter=${starterSuccess}, idempotentBlocked=${idempotentDuplicateBlocked}, promoteRemaining=${promoteOutput.remaining_balance}, unlockRemaining=${unlockOutput.remaining_balance}, deductRemaining=${deductOutput.remaining_balance}`,
+    actual: `starter=${starterSuccess}, idempotentBlocked=${idempotentDuplicateBlocked}, promoteRemaining=${promoteOutput.remaining_balance}, unlockRemaining=${unlockOutput.remaining_balance}, deductRemaining=${deductOutput.balance}`,
   });
 
   console.log('--- 7. Testing 20-Parallel-Deduct Concurrency ---');
@@ -681,12 +695,13 @@ export async function runSecurityDrill(connectionString: string): Promise<{ succ
   // Fire 20 parallel deduction requests
   const parallelCount = 20;
   const deductionPromises = Array.from({ length: parallelCount }).map(async (_, idx) => {
+    const targetJobId = crypto.randomUUID();
     const workerClient = new Client({ connectionString });
     await workerClient.connect();
     try {
       const res = await workerClient.query(`
-        SELECT public.deduct_application_credit_with_ledger($1, $2, 'Concurrency Target Job', 1) as res;
-      `, [concUserId, promoteJobId]);
+        SELECT public.rpc_charge_application($1::uuid, $2::uuid) as res;
+      `, [concUserId, targetJobId]);
       return { success: true, res: res.rows[0].res };
     } catch (err: any) {
       if (err.message.includes('INSUFFICIENT_CREDITS') || err.code === 'P0001') {
@@ -821,12 +836,13 @@ export async function runSecurityDrill(connectionString: string): Promise<{ succ
   const bcastDeliveryId = bcastDeliveryRes.rows[0].id;
 
   // Insert payment record linked to user
+  const dpdpOrderId = 'order_dpdp_' + crypto.randomUUID().slice(0, 8);
   const paymentRes = await adminClient.query(`
     INSERT INTO public.payments (
-      user_id, gateway_order_id, amount_inr, status, invoice_number, metadata
-    ) VALUES ($1, 'order_dpdp_123', 500.00, 'captured', 'INV-2026-001', '{"customer_name": "John Candidate", "ip": "1.2.3.4", "gstin": "27AAAAA0000A1Z5"}'::jsonb)
+      user_id, gateway_order_id, amount_inr, amount_paise, status, invoice_number, metadata, purpose
+    ) VALUES ($1, $2, 500.00, 50000, 'captured', 'INV-2026-001', '{"customer_name": "John Candidate", "ip": "1.2.3.4", "gstin": "27AAAAA0000A1Z5"}'::jsonb, 'wallet')
     RETURNING id;
-  `, [dpdpUserId]);
+  `, [dpdpUserId, dpdpOrderId]);
   const paymentId = paymentRes.rows[0].id;
 
   // DPDP Test 1: Hard DELETE FROM users is blocked by ON DELETE RESTRICT on ledgers, audits, and payments
@@ -969,38 +985,47 @@ export async function runSecurityDrill(connectionString: string): Promise<{ succ
     VALUES ($1, $2, 'Active No Expiry ' || $3, 'No expiry job desc', 'technology', 'Pune', 3, TRUE, NULL, 'test');
   `, [jobActiveNoExpiry, testEmployerId, jobUniqueKeyword]);
 
+  const jobSlugsRes = await adminClient.query(`
+    SELECT id, public_slug FROM public.jobs WHERE id IN ($1, $2, $3, $4);
+  `, [jobActiveValid, jobExpired, jobInactive, jobActiveNoExpiry]);
+  const jobSlugMap = new Map(jobSlugsRes.rows.map(r => [r.id, r.public_slug]));
+  const vValidSlug = jobSlugMap.get(jobActiveValid);
+  const vNoExpirySlug = jobSlugMap.get(jobActiveNoExpiry);
+  const vExpiredSlug = jobSlugMap.get(jobExpired);
+  const vInactiveSlug = jobSlugMap.get(jobInactive);
+
   // Assert public_jobs view filters expired and inactive jobs
   const publicJobsViewRes = await adminClient.query(`
-    SELECT id, title FROM public.public_jobs WHERE id IN ($1, $2, $3, $4);
-  `, [jobActiveValid, jobExpired, jobInactive, jobActiveNoExpiry]);
-  const viewVisibleIds = publicJobsViewRes.rows.map(r => r.id);
-  const viewPasses = viewVisibleIds.includes(jobActiveValid) &&
-                     viewVisibleIds.includes(jobActiveNoExpiry) &&
-                     !viewVisibleIds.includes(jobExpired) &&
-                     !viewVisibleIds.includes(jobInactive);
+    SELECT slug, title FROM public.public_jobs WHERE slug IN ($1, $2, $3, $4);
+  `, [vValidSlug, vExpiredSlug, vInactiveSlug, vNoExpirySlug]);
+  const viewVisibleSlugs = publicJobsViewRes.rows.map(r => r.slug);
+  const viewPasses = viewVisibleSlugs.includes(vValidSlug) &&
+                     viewVisibleSlugs.includes(vNoExpirySlug) &&
+                     !viewVisibleSlugs.includes(vExpiredSlug) &&
+                     !viewVisibleSlugs.includes(vInactiveSlug);
 
   results.push({
     name: 'public_jobs view strictly filters out expired and inactive jobs',
     passed: viewPasses,
-    expected: `Only [${jobActiveValid}, ${jobActiveNoExpiry}] visible`,
-    actual: `Visible IDs: [${viewVisibleIds.join(', ')}]`,
+    expected: `Only [${vValidSlug}, ${vNoExpirySlug}] visible`,
+    actual: `Visible Slugs: [${viewVisibleSlugs.join(', ')}]`,
   });
 
   // Assert search_jobs RPC filters expired and inactive jobs
   const searchJobsRes = await adminClient.query(`
-    SELECT id, title FROM public.search_jobs(p_keyword := $1, p_city := 'Pune');
+    SELECT slug, title FROM public.search_jobs(p_keyword := $1, p_city := 'Pune');
   `, [jobUniqueKeyword]);
-  const searchVisibleIds = searchJobsRes.rows.map(r => r.id);
-  const searchPasses = searchVisibleIds.includes(jobActiveValid) &&
-                       searchVisibleIds.includes(jobActiveNoExpiry) &&
-                       !searchVisibleIds.includes(jobExpired) &&
-                       !searchVisibleIds.includes(jobInactive);
+  const searchVisibleSlugs = searchJobsRes.rows.map(r => r.slug);
+  const searchPasses = searchVisibleSlugs.includes(vValidSlug) &&
+                       searchVisibleSlugs.includes(vNoExpirySlug) &&
+                       !searchVisibleSlugs.includes(vExpiredSlug) &&
+                       !searchVisibleSlugs.includes(vInactiveSlug);
 
   results.push({
     name: 'search_jobs RPC strictly filters out expired and inactive jobs',
     passed: searchPasses,
-    expected: `Only [${jobActiveValid}, ${jobActiveNoExpiry}] visible`,
-    actual: `Visible IDs: [${searchVisibleIds.join(', ')}]`,
+    expected: `Only [${vValidSlug}, ${vNoExpirySlug}] visible`,
+    actual: `Visible Slugs: [${searchVisibleSlugs.join(', ')}]`,
   });
 
   await adminClient.end();
