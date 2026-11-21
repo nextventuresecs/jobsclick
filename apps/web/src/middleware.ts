@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isStrictEnv } from '@indian-job-portal/validation';
+import { isStrictEnv, isProduction } from '@indian-job-portal/validation';
 
 const SESSION_COOKIE_NAME =
   isStrictEnv() ? '__Host-jc_session' : 'jc_session';
@@ -31,14 +31,25 @@ export function middleware(req: NextRequest) {
   if (isProtected && !hasValidFormat) {
     const loginRedirectUrl = new URL('/', req.url);
     loginRedirectUrl.searchParams.set('authRequired', '1');
-    return NextResponse.redirect(loginRedirectUrl);
+    const redirectRes = NextResponse.redirect(loginRedirectUrl);
+    if (!isProduction()) {
+      redirectRes.headers.set('X-Robots-Tag', 'noindex, nofollow');
+    }
+    return redirectRes;
   }
 
-  return NextResponse.next({
+  const response = NextResponse.next({
     request: {
       headers: requestHeaders,
     },
   });
+
+  // Prevent indexing on non-production (staging/dev/test) environments
+  if (!isProduction()) {
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+  }
+
+  return response;
 }
 
 export const config = {
