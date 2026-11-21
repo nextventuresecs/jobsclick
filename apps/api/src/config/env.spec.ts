@@ -58,8 +58,14 @@ describe('validateEnv() – production/staging safety guards', () => {
     expect(() => validateEnv({ ...VALID_PROD, CF_ORIGIN_LOCKED: 'false' })).not.toThrow();
   });
 
-  it('accepts a fully valid staging env (same rules as production)', () => {
-    expect(() => validateEnv({ ...VALID_PROD, NODE_ENV: 'staging' })).not.toThrow();
+  it('accepts a fully valid staging env (with rzp_test_ key)', () => {
+    expect(() =>
+      validateEnv({
+        ...VALID_PROD,
+        NODE_ENV: 'staging',
+        RAZORPAY_KEY_ID: 'rzp_test_1234567890abcdef',
+      }),
+    ).not.toThrow();
   });
 
   // ── Requirement 1 & 9: Unset or unknown NODE_ENV => strict production rules ──

@@ -373,6 +373,7 @@ export function validateEnv(overrides?: Record<string, string | undefined>): Env
       RAZORPAY_WEBHOOK_SECRET: rawSource['RAZORPAY_WEBHOOK_SECRET'],
       TRUST_PROXY_HOPS: rawSource['TRUST_PROXY_HOPS'] ?? 1,
       NODE_ENV: rawSource['NODE_ENV'] ?? 'production',
+      APP_ENV: rawSource['APP_ENV'],
     });
     if (!paymentCheck.success) {
       for (const issue of paymentCheck.error.issues) {
