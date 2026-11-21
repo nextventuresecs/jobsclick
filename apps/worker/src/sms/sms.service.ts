@@ -20,7 +20,8 @@ export class WorkerSmsService {
    * DLT_2001_INVITE_EN (English) | DLT_2002_INVITE_HI (Hindi)
    */
   async sendInviteSms(options: SendInviteSmsOptions): Promise<SmsResponse> {
-    const { phone, language = 'en', inviteUrl = 'https://jobsclick.live' } = options;
+    const defaultInvite = process.env['APP_URL'] || process.env['WEB_URL'] || 'http://localhost:3000';
+    const { phone, language = 'en', inviteUrl = defaultInvite } = options;
     const isTestMode = isTestEnv();
     const authKey = process.env['MSG91_AUTH_KEY'];
     const templateId =

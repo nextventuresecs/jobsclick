@@ -7,6 +7,8 @@ describe('Worker Environment Configuration (Phase 1.1 Remediation)', () => {
     REDIS_URL: 'rediss://default:token@remote-redis.upstash.io:6379',
     SUPABASE_URL: 'https://test-project.supabase.co',
     SUPABASE_SERVICE_ROLE_KEY: 'valid_service_role_key_for_production_workers_not_placeholder',
+    APP_URL: 'https://example.com',
+    EMAIL_FROM: 'JobsClick Alerts <alerts@example.com>',
   };
 
   describe('Development & Default Behavior', () => {
@@ -179,6 +181,8 @@ describe('Worker Environment Configuration (Phase 1.1 Remediation)', () => {
       SUPABASE_URL: 'https://afxgvtfaofpnlhdsexnp.supabase.co',
       SUPABASE_SERVICE_ROLE_KEY: 'valid_service_role_key_for_production_workers_not_placeholder',
       SENTRY_DSN: 'https://key@sentry.io/123456',
+      APP_URL: 'https://staging.jobsclick.live',
+      EMAIL_FROM: 'JobsClick Staging Alerts <alerts@staging.jobsclick.live>',
     };
 
     it('accepts completely valid staging configuration', () => {

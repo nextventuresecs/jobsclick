@@ -28,6 +28,9 @@ const VALID_PROD: Record<string, string> = {
   QSTASH_CURRENT_SIGNING_KEY: 'sig_real_key',
   API_URL: 'https://api.example.com',
   WEB_URL: 'https://jobsclick.live',
+  APP_URL: 'https://jobsclick.live',
+  EMAIL_FROM: 'JobsClick <notifications@jobsclick.live>',
+  STORAGE_PUBLIC_URL: 'https://proj.supabase.co/storage/v1/object/public',
   RAZORPAY_KEY_ID: 'rzp_live_1234567890abcdef',
   RAZORPAY_KEY_SECRET: 'live_secret_key_16_chars_min',
   RAZORPAY_WEBHOOK_SECRET: 'live_webhook_secret_20_chars_min',
@@ -43,6 +46,8 @@ const VALID_STAGING: Record<string, string> = {
   WEB_URL: 'https://staging.jobsclick.live',
   APP_URL: 'https://staging.jobsclick.live',
   API_URL: 'https://api-staging.jobsclick.live',
+  EMAIL_FROM: 'JobsClick Staging <notifications@staging.jobsclick.live>',
+  STORAGE_PUBLIC_URL: 'https://afxgvtfaofpnlhdsexnp.supabase.co/storage/v1/object/public',
   RAZORPAY_KEY_ID: 'rzp_test_1234567890abcdef',
   SENTRY_DSN: 'https://key@sentry.io/123456',
 };

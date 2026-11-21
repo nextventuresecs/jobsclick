@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Inject, Optional } from '@nestjs/common';
+import { Injectable, NotFoundException, ServiceUnavailableException, Inject, Optional } from '@nestjs/common';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 import {
@@ -104,19 +104,24 @@ export class ProfilesService {
     }
 
     const storagePath = `resumes/${profile.id}.pdf`;
-    let downloadUrl = `https://storage.jobsclick.live/private/${storagePath}`;
+    let downloadUrl: string | null = null;
     let cached = false;
 
     if (this.supabase) {
       try {
-        const { data } = await this.supabase.storage.from('private').createSignedUrl(storagePath, 300);
+        const { data, error } = await this.supabase.storage.from('private').createSignedUrl(storagePath, 300);
+        if (error) {
+          throw error;
+        }
         if (data?.signedUrl) {
           downloadUrl = data.signedUrl;
           cached = true;
         }
       } catch {
-        // Fallback or not generated yet
+        throw new ServiceUnavailableException('Storage service unavailable for signed URL generation');
       }
+    } else {
+      throw new ServiceUnavailableException('Storage service not configured');
     }
 
     if (!cached && this.queueService) {
@@ -128,6 +133,10 @@ export class ProfilesService {
         skills: profile.skills || [],
         updatedAt: Date.now(),
       });
+    }
+
+    if (!downloadUrl) {
+      throw new ServiceUnavailableException('Resume PDF is currently generating, please retry shortly');
     }
 
     return { downloadUrl, cached };

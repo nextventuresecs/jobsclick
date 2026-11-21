@@ -57,6 +57,10 @@ const baseSchema = z.object({
   // API & Web URLs
   API_URL: z.string().optional(),
   WEB_URL: z.string().optional(),
+  APP_URL: z.string().default('http://localhost:3000'),
+  EMAIL_FROM: z.string().default('JobsClick <notifications@example.com>'),
+  STORAGE_PUBLIC_URL: z.string().default('http://localhost:54321/storage/v1/object/public'),
+  SENTRY_ENVIRONMENT: z.string().optional(),
   // Supabase — needed for storage (CSV uploads) and DB access
   SUPABASE_URL: z.string().optional(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
@@ -358,6 +362,28 @@ export function validateEnv(overrides?: Record<string, string | undefined>): Env
           errors.push('WEB_URL has invalid URL format');
         }
       }
+    }
+
+    // APP_URL: required in production/staging; must use HTTPS
+    const appUrlRaw = rawSource['APP_URL'];
+    if (!appUrlRaw || !appUrlRaw.trim()) {
+      errors.push('APP_URL must be set on raw environment in production/staging');
+    } else if (!appUrlRaw.startsWith('https://')) {
+      errors.push('APP_URL must use HTTPS in production/staging');
+    }
+
+    // EMAIL_FROM: required in production/staging
+    const emailFromRaw = rawSource['EMAIL_FROM'];
+    if (!emailFromRaw || !emailFromRaw.trim()) {
+      errors.push('EMAIL_FROM must be set on raw environment in production/staging');
+    }
+
+    // STORAGE_PUBLIC_URL: required in production/staging; must use HTTPS
+    const storagePublicUrlRaw = rawSource['STORAGE_PUBLIC_URL'];
+    if (!storagePublicUrlRaw || !storagePublicUrlRaw.trim()) {
+      errors.push('STORAGE_PUBLIC_URL must be set on raw environment in production/staging');
+    } else if (!storagePublicUrlRaw.startsWith('https://')) {
+      errors.push('STORAGE_PUBLIC_URL must use HTTPS in production/staging');
     }
 
     // API_URL HTTPS check in production

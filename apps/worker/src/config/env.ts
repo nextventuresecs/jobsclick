@@ -13,6 +13,11 @@ export const envSchema = z.object({
   NODE_ENV: z.string().default('development'),
   APP_ENV: z.string().optional(),
   STAGING_PROJECT_REF: z.string().optional(),
+  APP_URL: z.string().default('http://localhost:3000'),
+  WEB_URL: z.string().default('http://localhost:3000'),
+  EMAIL_FROM: z.string().default('JobsClick Alerts <alerts@example.com>'),
+  STORAGE_PUBLIC_URL: z.string().default('http://localhost:54321/storage/v1/object/public'),
+  SENTRY_ENVIRONMENT: z.string().optional(),
   REDIS_URL: z.string().default('redis://localhost:6379'),
   REDIS_ALLOW_PLAINTEXT: z.string().optional(),
   DB_ALLOW_INSECURE_TLS: z.string().optional(),
@@ -124,6 +129,18 @@ export function validateEnv(overrides?: Record<string, string | undefined>): Env
     const sRole = rawSource['SUPABASE_SERVICE_ROLE_KEY'];
     if (!sRole || !sRole.trim() || PLACEHOLDER_REGEX.test(sRole)) {
       errors.push('SUPABASE_SERVICE_ROLE_KEY must be set and not a placeholder/dummy value in production/staging');
+    }
+
+    // EMAIL_FROM: required in production/staging
+    const emailFromRaw = rawSource['EMAIL_FROM'];
+    if (!emailFromRaw || !emailFromRaw.trim()) {
+      errors.push('EMAIL_FROM must be set on raw environment in production/staging');
+    }
+
+    // APP_URL or WEB_URL: required in production/staging
+    const appUrlRaw = rawSource['APP_URL'] || rawSource['WEB_URL'];
+    if (!appUrlRaw || !appUrlRaw.trim()) {
+      errors.push('APP_URL or WEB_URL must be set on raw environment in production/staging');
     }
 
     // Dev/test-only flags must be unset in production/staging

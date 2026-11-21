@@ -18,7 +18,7 @@ describe('Web Environment Configuration (Phase 1.1 Remediation)', () => {
       expect(env.NODE_ENV).toBe('development');
       expect(env.PORT).toBe(3000);
       expect(env.NEXT_PUBLIC_API_URL).toBe('http://localhost:3001');
-      expect(env.NEXT_PUBLIC_APP_URL).toBe('https://jobsclick.live');
+      expect(env.NEXT_PUBLIC_APP_URL).toBe('http://localhost:3000');
       expect(env.NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN).toBe(false);
     });
 
@@ -188,11 +188,13 @@ describe('Web Environment Configuration (Phase 1.1 Remediation)', () => {
       const origRuntime = envObj['NEXT_RUNTIME'];
       const origNodeEnv = envObj['NODE_ENV'];
       const origJwt = envObj['JWT_SECRET'];
+      const origAppUrl = envObj['NEXT_PUBLIC_APP_URL'];
 
       try {
         envObj['NEXT_RUNTIME'] = 'nodejs';
         envObj['NODE_ENV'] = 'production';
         envObj['JWT_SECRET'] = 'de4772a0c0f3aa1c09aaa18a7ffde65b791b9a8324fe72e6465a533fa219a4b1';
+        envObj['NEXT_PUBLIC_APP_URL'] = 'https://jobsclick.live';
 
         const { register } = await import('../src/instrumentation.js');
         await expect(register()).resolves.toBeUndefined();
@@ -200,6 +202,7 @@ describe('Web Environment Configuration (Phase 1.1 Remediation)', () => {
         envObj['NEXT_RUNTIME'] = origRuntime;
         envObj['NODE_ENV'] = origNodeEnv;
         envObj['JWT_SECRET'] = origJwt;
+        envObj['NEXT_PUBLIC_APP_URL'] = origAppUrl;
       }
     });
 

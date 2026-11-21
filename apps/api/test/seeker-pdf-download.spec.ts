@@ -12,7 +12,7 @@ describe('Seeker PDF Download Endpoint (JS-03 / Hard Invariant #8a)', () => {
   beforeEach(async () => {
     const mockProfilesService = {
       getSeekerPdfDownload: async (userId: string) => ({
-        downloadUrl: `https://storage.jobsclick.live/private/resumes/seeker_${userId}.pdf?token=mock`,
+        downloadUrl: `https://storage.example.com/private/resumes/seeker_${userId}.pdf?token=mock`,
         cached: true,
       }),
     };
@@ -35,5 +35,71 @@ describe('Seeker PDF Download Endpoint (JS-03 / Hard Invariant #8a)', () => {
 
     expect(result.downloadUrl).toContain('resumes/seeker_usr-seeker-1.pdf');
     expect(result.cached).toBe(true);
+  });
+
+  describe('ProfilesService.getSeekerPdfDownload fail-closed behavior', () => {
+    it('throws ServiceUnavailableException when createSignedUrl throws an error', async () => {
+      const mockProfileRepo = {
+        findSeekerProfileByUserId: async () => ({
+          id: 'skr-123',
+          full_name: 'Test Seeker',
+          seeker_type: 'experienced',
+          city: 'Delhi',
+          skills: ['Welding'],
+        }),
+      } as unknown as import('../src/database/repositories/profile.repository.js').ProfileRepository;
+
+      const mockSupabase = {
+        storage: {
+          from: () => ({
+            createSignedUrl: async () => {
+              throw new Error('Supabase network error');
+            },
+          }),
+        },
+      } as unknown as import('@supabase/supabase-js').SupabaseClient<import('@indian-job-portal/database').Database>;
+
+      const service = new ProfilesService(
+        mockProfileRepo,
+        {} as import('../src/database/repositories/user.repository.js').UserRepository,
+        undefined,
+        mockSupabase,
+      );
+
+      await expect(service.getSeekerPdfDownload('usr-1')).rejects.toThrowError(
+        /Storage service unavailable for signed URL generation/,
+      );
+    });
+
+    it('throws ServiceUnavailableException when signedUrl is not yet generated', async () => {
+      const mockProfileRepo = {
+        findSeekerProfileByUserId: async () => ({
+          id: 'skr-123',
+          full_name: 'Test Seeker',
+          seeker_type: 'experienced',
+          city: 'Delhi',
+          skills: ['Welding'],
+        }),
+      } as unknown as import('../src/database/repositories/profile.repository.js').ProfileRepository;
+
+      const mockSupabase = {
+        storage: {
+          from: () => ({
+            createSignedUrl: async () => ({ data: null, error: null }),
+          }),
+        },
+      } as unknown as import('@supabase/supabase-js').SupabaseClient<import('@indian-job-portal/database').Database>;
+
+      const service = new ProfilesService(
+        mockProfileRepo,
+        {} as import('../src/database/repositories/user.repository.js').UserRepository,
+        undefined,
+        mockSupabase,
+      );
+
+      await expect(service.getSeekerPdfDownload('usr-1')).rejects.toThrowError(
+        /Resume PDF is currently generating, please retry shortly/,
+      );
+    });
   });
 });

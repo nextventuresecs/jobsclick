@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { isTestEnv } from '@indian-job-portal/validation';
 import { captureException } from '../config/sentry.js';
 
 export interface AlertDigestJobItem {
@@ -30,17 +31,16 @@ export interface SendEmailResult {
 
 export class WorkerEmailService {
   private readonly defaultFrom =
-    process.env['EMAIL_FROM'] || 'JobsClick Alerts <alerts@jobsclick.live>';
+    process.env['EMAIL_FROM'] || 'JobsClick Alerts <alerts@example.com>';
 
   async sendEmail(options: SendEmailOptions): Promise<SendEmailResult> {
     const apiKey = process.env['RESEND_API_KEY'];
-    const isTestEnv =
-      process.env['NODE_ENV'] === 'test' || !apiKey || apiKey === 're_dummy_resend_api_key';
+    const isMock = isTestEnv() || !apiKey || apiKey === 're_dummy_resend_api_key';
 
     const from = options.from || this.defaultFrom;
     const recipients = Array.isArray(options.to) ? options.to : [options.to];
 
-    if (isTestEnv) {
+    if (isMock) {
       console.log(
         `[Worker Resend Mock] Dispatched email to ${recipients.join(', ')} | Subject: "${options.subject}" (From: ${from})`,
       );
@@ -113,7 +113,7 @@ export class WorkerEmailService {
       )
       .join('');
 
-    const portalUrl = process.env['APP_URL'] || 'https://jobsclick.live';
+    const portalUrl = process.env['APP_URL'] || process.env['WEB_URL'] || 'http://localhost:3000';
     const unsubscribeUrl = `${portalUrl}/alerts/unsubscribe?user=${userId}`;
 
     const html = isHi
@@ -144,7 +144,7 @@ export class WorkerEmailService {
       to,
       subject,
       html,
-      from: 'JobsClick Alerts <alerts@jobsclick.live>',
+      from: this.defaultFrom,
       headers: {
         'List-Unsubscribe': `<${unsubscribeUrl}>`,
         'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
@@ -158,7 +158,7 @@ export class WorkerEmailService {
     source: string;
     name?: string;
   }): Promise<SendEmailResult> {
-    const webUrl = process.env['WEB_URL'] || 'https://jobsclick.live';
+    const webUrl = process.env['WEB_URL'] || process.env['APP_URL'] || 'http://localhost:3000';
     const isEmployer = options.role === 'employer';
     const subject = isEmployer
       ? `Welcome to JobsClick - Complete Your Employer Registration (${options.source})`

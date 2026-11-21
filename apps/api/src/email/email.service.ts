@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { isTestEnv } from '@indian-job-portal/validation';
 import { captureException } from '../config/sentry.js';
 import type { IEmailService, SendEmailOptions, SendEmailResult } from './email.interface.js';
 
@@ -7,17 +8,16 @@ import type { IEmailService, SendEmailOptions, SendEmailResult } from './email.i
 export class EmailService implements IEmailService {
   private readonly logger = new Logger(EmailService.name);
   private readonly defaultFrom =
-    process.env['EMAIL_FROM'] || 'JobsClick <notifications@jobsclick.live>';
+    process.env['EMAIL_FROM'] || 'JobsClick <notifications@example.com>';
 
   async sendEmail(options: SendEmailOptions): Promise<SendEmailResult> {
     const apiKey = process.env['RESEND_API_KEY'];
-    const isTestEnv =
-      process.env['NODE_ENV'] === 'test' || !apiKey || apiKey === 're_dummy_resend_api_key';
+    const isMock = isTestEnv() || !apiKey || apiKey === 're_dummy_resend_api_key';
 
     const from = options.from || this.defaultFrom;
     const recipients = Array.isArray(options.to) ? options.to : [options.to];
 
-    if (isTestEnv) {
+    if (isMock) {
       this.logger.log(
         `[Resend Email Mock] Dispatched email to ${recipients.join(', ')} | Subject: "${options.subject}" (Sender: ${from})`,
       );
@@ -76,7 +76,7 @@ export class EmailService implements IEmailService {
     token: string,
     language: 'en' | 'hi' = 'en',
   ): Promise<SendEmailResult> {
-    const portalUrl = process.env['APP_URL'] || 'https://jobsclick.live';
+    const portalUrl = process.env['APP_URL'] || process.env['WEB_URL'] || 'http://localhost:3000';
     const verifyLink = `${portalUrl}/auth/verify-email?token=${token}`;
 
     const isHi = language === 'hi';

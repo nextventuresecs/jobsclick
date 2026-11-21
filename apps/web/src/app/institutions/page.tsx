@@ -97,6 +97,7 @@ export default async function InstitutionsDirectoryPage({
     0
   );
 
+  const siteUrl = process.env['NEXT_PUBLIC_APP_URL'] || '';
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
@@ -118,7 +119,7 @@ export default async function InstitutionsDirectoryPage({
           addressRegion: inst.district,
           addressCountry: 'IN',
         },
-        url: `https://jobsclick.live/institution/${inst.id}`,
+        url: `${siteUrl}/institution/${inst.id}`,
       },
     })),
   };

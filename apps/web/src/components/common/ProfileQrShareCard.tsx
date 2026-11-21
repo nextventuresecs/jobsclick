@@ -48,7 +48,8 @@ export function ProfileQrShareCard({
   const { addToast } = useApp();
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [copied, setCopied] = useState(false);
-  const [fullUrl, setFullUrl] = useState<string>(`https://jobsclick.live${path}`);
+  const initialBase = process.env['NEXT_PUBLIC_APP_URL'] || '';
+  const [fullUrl, setFullUrl] = useState<string>(initialBase ? `${initialBase}${path}` : path);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {

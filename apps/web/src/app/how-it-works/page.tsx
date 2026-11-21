@@ -27,17 +27,18 @@ export const metadata = {
 };
 
 export default function HowItWorksPage() {
+  const siteUrl = process.env['NEXT_PUBLIC_APP_URL'] || '';
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'WebPage',
     name: 'How JobsClick Works - Candidate, Employer, and Institution Workflows',
     description:
       'Step-by-step guide for blue and grey collar job seekers, MSME employers, and vocational colleges to connect directly without middlemen.',
-    url: 'https://jobsclick.live/how-it-works',
+    url: `${siteUrl}/how-it-works`,
     publisher: {
       '@type': 'Organization',
       name: 'JobsClick India',
-      url: 'https://jobsclick.live',
+      url: siteUrl,
     },
     mainEntity: [
       {
