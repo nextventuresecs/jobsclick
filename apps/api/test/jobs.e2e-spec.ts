@@ -10,6 +10,7 @@ import { UserRepository } from '../src/database/repositories/user.repository.js'
 import { ProfileRepository } from '../src/database/repositories/profile.repository.js';
 import { JwtService } from '../src/auth/jwt.service.js';
 import { OtpRedisService } from '../src/auth/otp-redis.service.js';
+import { PersistentDatabaseStore } from '../src/database/supabase.provider.js';
 
 describe('JobsController (e2e) - Issues #13, #14, #15', () => {
   let app: NestFastifyApplication;
@@ -34,6 +35,7 @@ describe('JobsController (e2e) - Issues #13, #14, #15', () => {
       role,
       status: 'active',
       source: 'seed',
+      token_version: 0,
       created_by: null,
       updated_by: null,
       created_at: new Date().toISOString(),
@@ -52,6 +54,10 @@ describe('JobsController (e2e) - Issues #13, #14, #15', () => {
   }
 
   beforeAll(async () => {
+    const store = PersistentDatabaseStore.getInstance();
+    store.clearTable('jobs');
+    store.clearTable('applications');
+
     const scratchFiles = [
       path.resolve(process.cwd(), '.scratch/db-persistence.json'),
       path.resolve(process.cwd(), 'apps/api/.scratch/db-persistence.json'),
@@ -84,15 +90,27 @@ describe('JobsController (e2e) - Issues #13, #14, #15', () => {
     await profileRepo.saveSeekerProfile({
       id: randomUUID(),
       user_id: candidateUser.id,
+      public_slug: 'cand-rahul-sharma',
       full_name: 'Rahul Sharma',
+      photo_url: null,
       seeker_type: 'individual',
+      apaar_id: null,
+      aadhaar_last_four: null,
+      aadhaar_verified: false,
       dpdp_consent_given: true,
+      skills: ['Accounting'],
+      source: 'seed',
+      created_by: null,
+      updated_by: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
   });
 
   afterAll(async () => {
+    const store = PersistentDatabaseStore.getInstance();
+    store.clearTable('jobs');
+    store.clearTable('applications');
     await app.close();
   });
 
@@ -208,5 +226,28 @@ describe('JobsController (e2e) - Issues #13, #14, #15', () => {
       headers: { Authorization: `Bearer ${employerUser.token}`, 'x-user-id': employerUser.id },
     });
     expect(employerApplyRes.statusCode).toBe(403);
+  });
+
+  it('GET /jobs - safely handles jobs with missing/nullish description, city, and skills', async () => {
+    const store = PersistentDatabaseStore.getInstance();
+    // Insert a job row with undefined description and skills to verify null-safety
+    store.setRow('jobs', 'job_nullish_fields', {
+      id: 'job_nullish_fields',
+      employer_id: employerUser.id,
+      title: 'Field Worker',
+      category: 'blue',
+      is_active: true,
+      created_at: new Date().toISOString(),
+    } as unknown as JobRow);
+
+    const searchRes = await app.inject({
+      method: 'GET',
+      url: '/jobs?keyword=Field&city=Indore',
+    });
+
+    expect(searchRes.statusCode).toBe(200);
+    const searchData = JSON.parse(searchRes.payload);
+    expect(searchData.jobs).toBeDefined();
+    expect(Array.isArray(searchData.jobs)).toBe(true);
   });
 });

@@ -156,11 +156,13 @@ describe('Candidate Contact Visibility Policy & Audit Invariants (E2E)', () => {
       id: 'job_1',
       employer_id: 'usr_employer_1',
       title: 'CNC Machinist Apprentice',
+      description: 'CNC Machinist Apprentice position in Bhopal manufacturing plant.',
       category: 'manufacturing',
       city: 'Bhopal',
       state: 'Madhya Pradesh',
       min_pay: 15000,
       max_pay: 20000,
+      skills: ['CNC Machinist'],
       is_active: true,
       created_at: new Date().toISOString(),
     });

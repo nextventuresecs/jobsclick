@@ -225,14 +225,14 @@ export class JobRepository {
       const kw = filters.keyword.toLowerCase();
       list = list.filter(
         (j) =>
-          j.title.toLowerCase().includes(kw) ||
-          j.description.toLowerCase().includes(kw) ||
-          (j.skills && j.skills.some((s) => s.toLowerCase().includes(kw))),
+          Boolean(j.title?.toLowerCase().includes(kw)) ||
+          Boolean(j.description?.toLowerCase().includes(kw)) ||
+          Boolean(j.skills && j.skills.some((s) => s?.toLowerCase().includes(kw))),
       );
     }
 
     if (filters.city) {
-      list = list.filter((j) => j.city.toLowerCase() === filters.city!.toLowerCase());
+      list = list.filter((j) => Boolean(j.city && j.city.toLowerCase() === filters.city!.toLowerCase()));
     }
 
     if (filters.category) {
