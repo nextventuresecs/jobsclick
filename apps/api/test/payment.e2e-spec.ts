@@ -126,7 +126,7 @@ describe('Ticket T-16: Razorpay Payment Gateway & Invoicing (WAL-03, Section 8.7
       payload: fakePayload,
     });
     expect(resNoSig.statusCode).toBe(400);
-    expect(['INVALID_SIGNATURE', 'MISSING_SIGNATURE']).toContain(resNoSig.json().code);
+    expect(resNoSig.json().code).toBe('INVALID_SIGNATURE');
 
     // 2. Tampered / invalid signature header
     const resBadSig = await app.inject({
@@ -216,7 +216,7 @@ describe('Ticket T-16: Razorpay Payment Gateway & Invoicing (WAL-03, Section 8.7
     const ledgerEntries = await ledgerRepo.findByUserId(employerUserId);
     const rechargeEntry = ledgerEntries.find((e) => e.amount === 50);
     expect(rechargeEntry).toBeDefined();
-    expect(rechargeEntry?.payment_id === updatedPayment?.id || rechargeEntry?.reason.includes(paymentId)).toBe(true);
+    expect(rechargeEntry?.payment_id).toBe(updatedPayment?.id);
 
     // 6. GST Tax Invoice: Verify SAC code 998311 and 18% tax breakdown
     const invoice = await paymentService.getInvoice(updatedPayment!.id, employerUserId);
