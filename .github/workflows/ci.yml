@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: ['**']
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   verify:
     name: Lint, Typecheck, Test & Build
@@ -92,12 +96,6 @@ jobs:
     name: Database Security & Migration Gate
     runs-on: ubuntu-latest
 
-    services:
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-
     env:
       NODE_ENV: test
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
@@ -118,6 +116,19 @@ jobs:
         uses: pnpm/action-setup@v3
         with:
           version: 9
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
@@ -191,6 +202,19 @@ jobs:
         with:
           version: 9
 
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
@@ -241,6 +265,20 @@ jobs:
           push: false
           tags: indian-job-portal-worker:latest
 
+      - name: Build Web Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/web/Dockerfile
+          push: false
+          tags: indian-job-portal-web:latest
+          build-args: |
+            NEXT_PUBLIC_APP_ENV=test
+            NEXT_PUBLIC_APP_URL=http://localhost:3000
+            NEXT_PUBLIC_API_URL=http://localhost:3001
+            NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+
   deploy-staging:
     name: Deploy to Staging
     needs: [verify, db-security-gate, db-integration, container-build]
@@ -262,6 +300,19 @@ jobs:
         with:
           version: 9
 
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
@@ -273,7 +324,7 @@ jobs:
           pnpm db:bootstrap:staging
 
       - name: Install Railway CLI
-        run: npm install -g @railway/cli
+        run: npm install -g @railway/cli@3.3.4
 
       - name: Deploy Services to Railway (Staging)
         env:
@@ -304,11 +355,24 @@ jobs:
         with:
           version: 9
 
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Install Railway CLI
-        run: npm install -g @railway/cli
+        run: npm install -g @railway/cli@3.3.4
 
       - name: Deploy Services to Railway (Production)
         env:

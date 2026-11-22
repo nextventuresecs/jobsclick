@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
+import net from 'node:net';
 
 const nextBin = path.resolve(__dirname, '../node_modules/next/dist/bin/next');
 const webDir = path.resolve(__dirname, '..');
@@ -12,12 +13,22 @@ interface SpawnResult {
   stderr: string;
 }
 
-function runNextStart(
+function getAvailablePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const srv = net.createServer();
+    srv.listen(0, '127.0.0.1', () => {
+      const port = (srv.address() as net.AddressInfo).port;
+      srv.close((err) => (err ? reject(err) : resolve(port)));
+    });
+  });
+}
+
+async function runNextStart(
   envOverrides: Record<string, string | undefined>,
   options: { waitForReady?: boolean; timeoutMs?: number } = {},
 ): Promise<SpawnResult> {
   const { waitForReady = false, timeoutMs = 30000 } = options;
-  const port = Math.floor(Math.random() * 5000) + 40000;
+  const port = await getAvailablePort();
 
   return new Promise((resolve, reject) => {
     let stdout = '';
