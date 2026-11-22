@@ -14,6 +14,7 @@ export const USER_REPOSITORY = Symbol('USER_REPOSITORY');
 
 export interface IUserRepository {
   findById(id: string): Promise<UserRow | null>;
+  findByIds(ids: string[]): Promise<UserRow[]>;
   findByPhone(phone: string): Promise<UserRow | null>;
   findByEmail(email: string): Promise<UserRow | null>;
   findByPendingEmail(pendingEmail: string): Promise<UserRow | null>;
@@ -79,6 +80,57 @@ export class UserRepository implements IUserRepository {
       return users[id] || null;
     }
     return null;
+  }
+
+  async findByIds(ids: string[]): Promise<UserRow[]> {
+    if (!ids || ids.length === 0) {
+      return [];
+    }
+
+    const uniqueIds = [...new Set(ids)];
+    const CHUNK_SIZE = 500;
+    const chunks: string[][] = [];
+    for (let i = 0; i < uniqueIds.length; i += CHUNK_SIZE) {
+      chunks.push(uniqueIds.slice(i, i + CHUNK_SIZE));
+    }
+
+    const results: UserRow[] = [];
+    for (const chunk of chunks) {
+      let dbRows: UserRow[] = [];
+      try {
+        const { data, error } = await this.supabase
+          .from('users')
+          .select('*')
+          .in('id', chunk);
+
+        if (error) {
+          if (error.code === '22P02') {
+            if (!this.isTestMode) {
+              throw new InternalServerErrorException('Database error: failed to lookup users by ids');
+            }
+          } else if (!this.isTestMode) {
+            throw new InternalServerErrorException('Database error: failed to lookup users by ids');
+          }
+        }
+        if (data) {
+          dbRows = data as UserRow[];
+        }
+      } catch (err) {
+        if (!this.isTestMode) throw err;
+      }
+
+      if (this.isTestMode) {
+        const localUsers = this.persistentStore.getTable<UserRow>('users');
+        const foundLocal = chunk.map((id) => localUsers[id]).filter((u): u is UserRow => Boolean(u));
+        const idsInDb = new Set(dbRows.map((r) => r.id));
+        const merged = [...dbRows, ...foundLocal.filter((u) => !idsInDb.has(u.id))];
+        results.push(...merged);
+      } else {
+        results.push(...dbRows);
+      }
+    }
+
+    return results;
   }
 
   async findByPhone(phone: string): Promise<UserRow | null> {

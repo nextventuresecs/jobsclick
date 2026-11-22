@@ -2,7 +2,6 @@ import { Injectable, BadRequestException, NotFoundException, UnauthorizedExcepti
 import { randomUUID } from 'node:crypto';
 import { OtpRedisService } from '../auth/otp-redis.service.js';
 import { AdminUserStatusInput, AdminUserRoleInput, GenerateResumeInput, AdminExportQueryInput } from '@indian-job-portal/validation';
-import type { UserRow } from '@indian-job-portal/database';
 import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
 import { UserRepository } from '../database/repositories/user.repository.js';
 import { JobRepository } from '../database/repositories/job.repository.js';
@@ -202,16 +201,6 @@ export class AdminService {
   // ADM-04 Helper: Record Data Export Action
   async logDataExport(adminId: string, meta: Record<string, unknown> = {}): Promise<AuditLogRecord> {
     return this.recordAuditLog(adminId, 'DATA_EXPORT_PERFORMED', meta);
-  }
-
-  // ADM-05: Administrative User List with Read Audit Log (AUD-01)
-  async listUsers(adminId: string): Promise<UserRow[]> {
-    const users = this.userRepo ? await this.userRepo.findAll(1000) : [];
-    await this.recordAuditLog(adminId, 'ADMIN_USER_CONTACTS_VIEWED', {
-      count: users.length,
-      userIds: users.map((u) => u.id),
-    });
-    return users;
   }
 
   // Issue #33 & ADM-04: Admin Data Export with Immutable Audit Logging

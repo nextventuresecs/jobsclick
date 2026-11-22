@@ -150,30 +150,4 @@ describe('Admin Data Export & Audit Logging (ADM-04, Hard Invariant #6)', () => 
     expect(exportLog.actorId).toBe('usr_superadmin');
     expect(exportLog.meta.entity).toBe('users');
   });
-
-  it('records ADMIN_USER_CONTACTS_VIEWED audit log when admin accesses GET /admin/users', async () => {
-    const usersRes = await app.inject({
-      method: 'GET',
-      url: '/admin/users',
-      headers: {
-        'x-user-id': 'usr_superadmin',
-        'x-user-role': 'admin',
-      },
-    });
-    expect(usersRes.statusCode).toBe(200);
-
-    const auditRes = await app.inject({
-      method: 'GET',
-      url: '/admin/audit-logs',
-      headers: {
-        'x-user-id': 'usr_superadmin',
-        'x-user-role': 'admin',
-      },
-    });
-    const auditLogs = JSON.parse(auditRes.payload);
-    const viewLog = auditLogs.find((l: { action: string }) => l.action === 'ADMIN_USER_CONTACTS_VIEWED');
-    expect(viewLog).toBeDefined();
-    expect(viewLog.actorId).toBe('usr_superadmin');
-    expect(typeof viewLog.meta.count).toBe('number');
-  });
 });

@@ -1,16 +1,22 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { createHash } from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
-import { PersistentDatabaseStore } from '../src/database/supabase.provider.js';
+import { PersistentDatabaseStore, SUPABASE_CLIENT } from '../src/database/supabase.provider.js';
 import { AuditLogRepository } from '../src/database/repositories/audit-log.repository.js';
+import { UserRepository } from '../src/database/repositories/user.repository.js';
 import { ProfilesService } from '../src/profiles/profiles.service.js';
 import { BulkService } from '../src/bulk/bulk.service.js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@indian-job-portal/database';
 
 describe('Candidate Contact Visibility Policy & Audit Invariants (E2E)', () => {
   let app: NestFastifyApplication;
   let auditLogRepo: AuditLogRepository;
+  let userRepo: UserRepository;
   let profilesService: ProfilesService;
+  let supabase: SupabaseClient<Database>;
   const store = PersistentDatabaseStore.getInstance();
 
   beforeAll(async () => {
@@ -26,7 +32,9 @@ describe('Candidate Contact Visibility Policy & Audit Invariants (E2E)', () => {
     await app.getHttpAdapter().getInstance().ready();
 
     auditLogRepo = app.get(AuditLogRepository);
+    userRepo = app.get(UserRepository);
     profilesService = app.get(ProfilesService);
+    supabase = app.get(SUPABASE_CLIENT);
   });
 
   afterAll(async () => {
@@ -203,7 +211,9 @@ describe('Candidate Contact Visibility Policy & Audit Invariants (E2E)', () => {
       expect(log.actor_id).toBe('usr_inst_a');
       expect(log.meta.institutionId).toBe('inst_a');
       expect(log.meta.count).toBe(2);
-      expect(log.meta.studentIds).toEqual(['jsp_stu_1', 'jsp_stu_2']);
+      expect(log.meta.studentIds).toEqual(['jsp_stu_1', 'jsp_stu_2'].slice(0, 100));
+      const expectedSha256 = createHash('sha256').update(['jsp_stu_1', 'jsp_stu_2'].sort().join(',')).digest('hex');
+      expect(log.meta.studentIdsSha256).toBe(expectedSha256);
 
       // Hard Invariant: No phone or email in audit meta
       const metaString = JSON.stringify(log.meta);
@@ -211,6 +221,102 @@ describe('Candidate Contact Visibility Policy & Audit Invariants (E2E)', () => {
       expect(metaString).not.toContain('amitesh.c@iti.gov.in');
       expect(metaString).not.toContain('phone');
       expect(metaString).not.toContain('email');
+    });
+
+    it('batches student contact lookup with 1,200 students into 3 chunks, not 1,200 calls', async () => {
+      // Clear and seed exactly 1,200 students for Institution A
+      store.clearTable('users');
+      store.clearTable('job_seeker_profiles');
+      store.clearTable('audit_logs');
+
+      store.setRow('users', 'usr_inst_a', {
+        id: 'usr_inst_a',
+        role: 'institution',
+        status: 'active',
+        phone: '+919999000001',
+        email: 'admin@itia.edu',
+        source: 'web',
+        created_at: new Date().toISOString(),
+      });
+      store.setRow('institution_profiles', 'inst_a', {
+        id: 'inst_a',
+        user_id: 'usr_inst_a',
+        institution_name: 'Govt ITI Bhopal',
+        created_at: new Date().toISOString(),
+      });
+
+      const studentIds: string[] = [];
+      const usersTable = store.getTable('users');
+      const profilesTable = store.getTable('job_seeker_profiles');
+      const nowIso = new Date().toISOString();
+      for (let i = 0; i < 1200; i++) {
+        const uId = `usr_batch_stu_${i}`;
+        const sId = `jsp_batch_stu_${i}`;
+        studentIds.push(sId);
+        usersTable[uId] = {
+          id: uId,
+          role: 'job_seeker',
+          status: 'active',
+          phone: `+9198000${String(i).padStart(5, '0')}`,
+          email: `batch_stu_${i}@iti.gov.in`,
+          source: 'institution_import',
+          created_at: nowIso,
+        };
+        profilesTable[sId] = {
+          id: sId,
+          user_id: uId,
+          full_name: `Batch Student ${i}`,
+          institution_id: 'inst_a',
+          city: 'Bhopal',
+          skills: ['Machinist'],
+          created_at: nowIso,
+        };
+      }
+      store.save();
+
+      const findByIdSpy = vi.spyOn(userRepo, 'findById');
+      const findByIdsSpy = vi.spyOn(userRepo, 'findByIds');
+      const supabaseFromSpy = vi.spyOn(supabase, 'from');
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/profiles/institution/students',
+        headers: {
+          'x-user-id': 'usr_inst_a',
+          'x-user-role': 'institution',
+        },
+      });
+
+      expect(res.statusCode).toBe(200);
+      const returnedStudents = JSON.parse(res.payload);
+      expect(returnedStudents).toHaveLength(1200);
+
+      // Per-student findById MUST NOT be called (0 calls, not 1,200 times)
+      expect(findByIdSpy).toHaveBeenCalledTimes(0);
+
+      // Batched findByIds was called exactly once by the service
+      expect(findByIdsSpy).toHaveBeenCalledTimes(1);
+
+      // Inside findByIds, queries to 'users' were chunked in groups of 500 (3 chunks for 1,200 ids: 500, 500, 200)
+      const usersQueries = supabaseFromSpy.mock.calls.filter((call) => call[0] === 'users');
+      expect(usersQueries.length).toBe(3);
+
+      // Audit row verifies count, first 100 student IDs, and sha256 hash of sorted ID list
+      const auditLogs = await auditLogRepo.findAll();
+      const viewLogs = auditLogs.filter(
+        (l) => l.action === 'INSTITUTION_STUDENT_CONTACTS_VIEWED' && l.meta.count === 1200,
+      );
+      expect(viewLogs).toHaveLength(1);
+      const auditMeta = viewLogs[0].meta;
+      expect((auditMeta.studentIds as string[]).length).toBe(100);
+      expect(auditMeta.studentIds).toEqual(studentIds.slice(0, 100));
+
+      const expectedFullSha256 = createHash('sha256').update(studentIds.sort().join(',')).digest('hex');
+      expect(auditMeta.studentIdsSha256).toBe(expectedFullSha256);
+
+      findByIdSpy.mockRestore();
+      findByIdsSpy.mockRestore();
+      supabaseFromSpy.mockRestore();
     });
 
     it('Institution B sees ONLY its OWN students and cannot read Institution A (IDOR Prevention)', async () => {

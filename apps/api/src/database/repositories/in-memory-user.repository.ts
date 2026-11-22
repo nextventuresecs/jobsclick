@@ -18,6 +18,12 @@ export class InMemoryUserRepository implements IUserRepository {
     return users[id] || null;
   }
 
+  async findByIds(ids: string[]): Promise<UserRow[]> {
+    if (!ids || ids.length === 0) return [];
+    const users = this.persistentStore.getTable<UserRow>('users');
+    return ids.map((id) => users[id]).filter((u): u is UserRow => Boolean(u));
+  }
+
   async findByPhone(phone: string): Promise<UserRow | null> {
     const users = this.persistentStore.getTable<UserRow>('users');
     return Object.values(users).find((u) => u.phone === phone) || null;

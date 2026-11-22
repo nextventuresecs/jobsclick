@@ -187,6 +187,8 @@ Approved policy mandates that **every view of candidate contact details by insti
 | Institution Viewing Inquiries | [institution-cms.service.ts:318](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/profiles/institution-cms.service.ts#L318) | **Not Logged**: `getInstitutionInquiries` does not write to `audit_logs`. | **Missing Audit Log**: Must record `INSTITUTION_INQUIRIES_VIEWED`. |
 | Employer Applicant List / Detail | [jobs.service.ts:404](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/jobs/jobs.service.ts#L404) | Not Logged (Contact is completely stripped). | Compliant (No contact revealed). |
 
+*Note on Bulk Error-Report Audit*: The bulk error-report audit write (`BULK_ERROR_REPORT_DOWNLOADED`) is best-effort because the caller is solely downloading failed rows from their own previously uploaded file (ownership strictly verified via `assertOwner`, so no cross-tenant candidate discovery occurs), ensuring error remediation workflows are not blocked by transient audit logging failures.
+
 ---
 
 ## 8. Tests Asserting Masking

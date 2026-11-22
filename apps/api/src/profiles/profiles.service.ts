@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, ServiceUnavailableException, Inject, Optional, Logger } from '@nestjs/common';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import {
   JobSeekerProfileInput,
   BusinessProfileInput,
@@ -416,21 +416,19 @@ export class ProfilesService {
       return [];
     }
 
-    // 3. Join users for the caller's OWN students only
+    // 3. Batched join of users for the caller's OWN students only
     const studentUserIds = [...new Set(students.map((s) => s.user_id).filter(Boolean))];
     const userMap = new Map<string, { phone: string | null; email: string | null }>();
-    await Promise.all(
-      studentUserIds.map(async (uid) => {
-        try {
-          const u = await this.userRepository.findById(uid);
-          if (u) {
-            userMap.set(uid, { phone: u.phone ?? null, email: u.email ?? null });
-          }
-        } catch (err) {
-          this.logger.warn(`Failed to resolve user ${uid} for student contact visibility: ${(err as Error).message}`);
+    if (studentUserIds.length > 0) {
+      try {
+        const users = await this.userRepository.findByIds(studentUserIds);
+        for (const u of users) {
+          userMap.set(u.id, { phone: u.phone ?? null, email: u.email ?? null });
         }
-      }),
-    );
+      } catch (err) {
+        this.logger.warn(`Failed to resolve users for student contact visibility: ${(err as Error).message}`);
+      }
+    }
 
     const recordsToRedact = students.map((s) => {
       const u = userMap.get(s.user_id);
@@ -445,7 +443,12 @@ export class ProfilesService {
     });
 
     // ORDER OF OPERATIONS:
-    // (a) write ONE audit_logs row INSTITUTION_STUDENT_CONTACTS_VIEWED with actor, institution id, count and student ids, never phone or email;
+    // (a) write ONE audit_logs row INSTITUTION_STUDENT_CONTACTS_VIEWED with actor, institution id, count, first 100 student ids, and sha256 of sorted student ids (never phone or email);
+    const allStudentIds = students.map((s) => s.id);
+    const first100StudentIds = allStudentIds.slice(0, 100);
+    const sortedStudentIds = [...allStudentIds].sort();
+    const studentIdsSha256 = createHash('sha256').update(sortedStudentIds.join(',')).digest('hex');
+
     let auditConfirmed = false;
     if (this.auditLogRepo) {
       try {
@@ -456,7 +459,8 @@ export class ProfilesService {
           meta: {
             institutionId: instId,
             count: students.length,
-            studentIds: students.map((s) => s.id),
+            studentIds: first100StudentIds,
+            studentIdsSha256,
           },
           created_at: new Date().toISOString(),
         });
