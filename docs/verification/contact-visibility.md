@@ -31,8 +31,8 @@ The following table documents every egress point in the platform where candidate
 | `POST /placement/share-batch`<br>([placement.controller.ts:52](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/placement/placement.controller.ts#L52), [placement.service.ts:392](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/placement/placement.service.ts#L392)) | `institution`, `intermediary`, `admin` | `PlacementApplication[]` | Candidate batch shared to employer partner contains only academic/trade details; phone/email omitted. | Employer receives drive applicants without phone/email. | None. Adheres to policy. |
 | `GET /profiles/institution/students`<br>([profiles.controller.ts:117](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/profiles/profiles.controller.ts#L117), [profiles.service.ts:395](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/profiles/profiles.service.ts#L395)) | `institution`, `intermediary`, `admin` | `JobSeekerProfileRow[]` | Returns `job_seeker_profiles` rows without joining `users` table; phone & email are missing. No audit log is recorded. | Institution must see its **own** students' phone and email in full, never another institution's; every view must be audit-logged. | Join `users` table for own students only; return full phone/email to institution; log `INSTITUTION_STUDENT_CONTACTS_VIEWED` to `audit_logs`. |
 | `GET /profiles/institution/inquiries`<br>([profiles.controller.ts:175](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/profiles/profiles.controller.ts#L175), [institution-cms.service.ts:318](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/profiles/institution-cms.service.ts#L318)) | Authenticated user with institution profile | `InstitutionInquiryRow[]` (`id, institution_id, student_name, student_phone, student_email, message, status, created_at, updated_at`) | Returns prospective student phone and email in full for caller's institution leads. No audit log written. | Institution sees inquiries for its own institution; every view must be audit-logged. | Add mandatory audit log entry (`INSTITUTION_INQUIRIES_VIEWED`) on each access. |
-| `GET /bulk/batches/:id/error-report`<br>([bulk.controller.ts:62](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/bulk/bulk.controller.ts#L62), [bulk.service.ts:436](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/bulk/bulk.service.ts#L436)) | `admin`, `intermediary`, `msme_admin` | CSV: `row,phone,reason\n` | Returns unmasked candidate phone numbers for failed import rows. Accessible to `msme_admin`. No audit log written. | `msme_admin` must NOT receive individual candidate phone numbers. Admin and Intermediary access must be audit-logged. | Remove `msme_admin` role from `@Roles`. Record `BULK_ERROR_REPORT_DOWNLOADED` in `audit_logs`. |
-| `GET /admin/export`<br>([admin.controller.ts:90](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/admin/admin.controller.ts#L90), [admin.service.ts:208](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/admin/admin.service.ts#L208)) | `admin` | When `entity=users`: `id, phoneMasked (regex $1******$2), role, status, source, createdAt`. Email omitted. | Phone is regex masked; email is omitted. Action writes `DATA_EXPORT_PERFORMED` to `audit_logs`. | Platform admin is allowed full phone/email because export is strictly audit-logged. | Allow platform admin full phone and email on export since audit logging is already enforced. |
+| `GET /bulk/batches/:id/error-report`<br>([bulk.controller.ts:62](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/bulk/bulk.controller.ts#L62), [bulk.service.ts:436](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/bulk/bulk.service.ts#L436)) | `admin`, `intermediary`, `msme_admin` | CSV: `row,phone,reason\n` | Returns unmasked phone numbers for failed import rows. Enforces ownership via `assertOwner(createdBy, actor)` ([bulk.service.ts:418, 432, 730](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/bulk/bulk.service.ts#L730)). `intermediary` and `msme_admin` can ONLY access their own batches (`created_by === actor.id`), failing with `NotFoundException` otherwise. `msme_admin` batches contain business records uploaded by that user, not job-seeker batches. No cross-tenant leakage. No audit log currently written. | Importers may download error reports for their own batches with audit logging. Admin may download any batch with audit logging. | Add immutable audit log entry (`BULK_ERROR_REPORT_DOWNLOADED`) with actor, batchId, and error row count. |
+| `GET /admin/export`<br>([admin.controller.ts:90](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/admin/admin.controller.ts#L90), [admin.service.ts:208](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/admin/admin.service.ts#L208)) | `admin` | When `entity=users`: `id, phoneMasked (regex $1******$2), role, status, source, createdAt`. Email omitted. | Phone is regex-masked; email is omitted. Action writes `DATA_EXPORT_PERFORMED` to `audit_logs`. | Platform admin is allowed full phone/email on explicit request because export is strictly audit-logged. | Mask by default. When admin explicitly specifies `includeContacts=true`, return full contact details and record dedicated audit log. |
 | `GET /admin/reports/district-employment`<br>([admin.controller.ts:167](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/admin/admin.controller.ts#L167), [reports.service.ts:51](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/admin/reports.service.ts#L51)) | `admin`, `msme_admin` | `DistrictEmploymentReport[]` (`district, onboardedMsmes, activeJobs, totalHires, lastUpdated`) | Returns aggregate counts only; values <5 suppressed for k-anonymity. Zero candidate contacts. | MSME Department: business records and totals only, no individual contact. | None. Strictly conforms to policy. |
 | `POST /admin/broadcast/preview` & `POST /admin/broadcast/dispatch`<br>([admin.controller.ts:142, 148](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/admin/admin.controller.ts#L142)) | `admin`, `msme_admin` | Preview: `{ recipientCount, estimatedCostPaise, costPerSmsPaise, currency }`<br>Dispatch: `{ campaignId, status, recipientCount, ... }` | Returns aggregated counts; individual recipient contact numbers are never returned. Writes `MSME_BROADCAST_DISPATCHED` to `audit_logs`. | MSME Department: campaign totals only. No recipient contact leakage. | None. Strictly conforms to policy. |
 | `GET /profiles/seeker/me/pdf`<br>([profiles.controller.ts:64](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/profiles/profiles.controller.ts#L64), [profiles.service.ts:100](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/profiles/profiles.service.ts#L100)) | `job_seeker`, `admin` | `{ downloadUrl: string, cached: boolean }` | Returns pre-signed download URL for candidate CV PDF. PDF document contains NO phone and NO email. | Seeker downloads own digital CV. Direct contact hidden from PDF. | None. Adheres to policy. |
@@ -43,7 +43,7 @@ The following table documents every egress point in the platform where candidate
 | `studentUtils.ts`<br>([studentUtils.ts:35, 46](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/web/src/components/workspaces/institution/studentUtils.ts#L35)) | UI Helper | Functions `maskContactNumber` and `maskEmailAddress` | Masks all contact info to bullet characters regardless of viewer role. | Helper enforces blanket UI masking even for institution's own students. | Refactor helper to allow full display for verified institution viewers, or retire in favor of API redaction. |
 | `sampleWorkspaces.ts`<br>([sampleWorkspaces.ts:420, 437](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/web/src/data/sampleWorkspaces.ts#L420)) | Web Static Mock Data | `SAMPLE_STUDENTS` records contain unmasked phone numbers (`+91 94251 88301`) and emails | Dummy contact data bundled into frontend client scripts for offline/demo mode. | Client mock data must not leak real candidate data or create false security assumptions. | Replace raw demo phone numbers with synthetic dummy tokens (`+91 00000 00000`). |
 | `Database: public.users RLS`<br>([20261102100000_user_mutations_and_starter_credits.sql:151](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/supabase/migrations/20261102100000_user_mutations_and_starter_credits.sql#L151)) | Database Schema | `users` table columns: `phone`, `email` | `REVOKE ALL ON users FROM anon, authenticated;` All direct access revoked; accessible ONLY to `service_role`. | No non-service role can read users table directly. | None. Strictly secured. |
-| `Database: public.invitations RLS`<br>([20261016000001_remediate_rls_enabled_no_policy.sql:73](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/supabase/migrations/20261016000001_remediate_rls_enabled_no_policy.sql#L73)) | Database Schema | `invitations` table columns: `phone`, `email` | `invitations_select_policy` allows batch owner (`b.created_by = auth.uid()`) OR `admin`, `msme_admin`. | MSME Department must NOT access individual candidate phone or email. | Migration needed: alter policy to exclude `msme_admin` from selecting `invitations`. |
+| `Database: public.invitations RLS`<br>([20261110000002_rls_pii_and_policy_fixes.sql:240, 340](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/supabase/migrations/20261110000002_rls_pii_and_policy_fixes.sql#L240)) | Database Schema | `invitations` table columns: `phone`, `email` | Policies dropped in migration `20261110000002`. RLS is enabled with 0 policies (Deny-All Default). All privileges revoked from `anon` and `authenticated`. Accessible strictly to `service_role`. Verified: `has_table_privilege('authenticated', 'public.invitations', 'SELECT') = false`. | No non-service-role access to invitations table. | None. Fully secured at database layer. |
 | `Database: public.institution_inquiries RLS`<br>([20261017300000_institution_cms_and_inquiries.sql:44](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/supabase/migrations/20261017300000_institution_cms_and_inquiries.sql#L44)) | Database Schema | `institution_inquiries`: `student_phone`, `student_email` | Institution owner can SELECT inquiries for their own institution (`ip.user_id = auth.uid()`). | Institution sees inquiries for its own institution only. | None at DB layer; API access must be audit-logged. |
 | `Database: public.broadcast_deliveries`<br>([20261024000000_msme_broadcast_and_district_reports.sql:27](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/supabase/migrations/20261024000000_msme_broadcast_and_district_reports.sql#L27)) | Database Schema | Table column `phone_masked VARCHAR(20)` | Stores pre-masked phone (`+91******1234`), never raw phone. | Prevents exposure of raw recipient phone numbers in audit and delivery tables. | None. Strictly conforms to policy. |
 
@@ -94,12 +94,64 @@ A critical security principle is that data protection must never rely exclusivel
 | Database Object | Type | Grants / RLS Policy | Exposes Phone or Email? | Analysis & Policy Alignment |
 | :--- | :--- | :--- | :--- | :--- |
 | `public.users` | Table | `REVOKE ALL ON users FROM anon, authenticated;` `GRANT ALL TO service_role;` | Yes (`phone`, `email`) | **Complies**. Zero non-service-role access at DB level. Queries must pass through API guards. |
-| `public.invitations` | Table | `invitations_select_policy` allows batch creator (`created_by = auth.uid()`) OR `role IN ('admin', 'msme_admin')` | Yes (`phone`, `email`) | **Violation**: Allows `msme_admin` direct SELECT of candidate phone/email via client libraries. Policy forbids MSME contact access. |
+| `public.invitations` | Table | **RLS Enabled** (`relrowsecurity = t`). **0 policies** (`pg_policies` = 0 rows). Privileges granted exclusively to `service_role` and `postgres`. `has_table_privilege('authenticated', ...)` = `false`. | Yes (`phone`, `email`) | **Complies**. Direct client queries are fully blocked for all non-service roles (including `msme_admin`). All queries run through API via `service_role`. |
 | `public.institution_inquiries` | Table | `institution_inquiries_owner_select_policy` allows institution owner (`ip.user_id = auth.uid()`) | Yes (`student_phone`, `student_email`) | **Complies with tenancy**. Confined to own institution. Requires audit logging in API layer. |
 | `public.job_seeker_profiles` | Table | `job_seeker_own_profile_policy` allows `auth.uid() = user_id` | No | Table stores profile metadata (`apaar_id`, `aadhaar_last_four`), but does not contain `phone` or `email`. |
 | `public.broadcast_deliveries` | Table | Tenant isolated to business owner | Stores `phone_masked` | **Complies**. Only pre-masked phone is stored. |
 | `public.search_jobs` | RPC | `SECURITY INVOKER`, execute granted to `service_role` | No | Stripped of PII, internal columns, and `source`. |
-| `public.search_public_jobs` | RPC | `SECURITY DEFINER`, execute granted to `anon, authenticated, service_role` | No | Stripped of PII and internal columns. |
+| `public.search_public_jobs` | RPC | `SECURITY INVOKER` (`prosecdef = f`), `proconfig = {"search_path=\"\""}`. Execution revoked from `PUBLIC, anon, authenticated`, granted exclusively to `service_role`. | No | Stripped of PII and internal columns; executable strictly by `service_role`. |
+
+### Database Verification Query Evidence
+
+#### 1. `invitations` RLS & Privilege Verification Output
+```sql
+SELECT schemaname, tablename, policyname, permissive, roles, cmd, qual, with_check 
+FROM pg_policies WHERE tablename = 'invitations';
+-- Result:
+ schemaname | tablename | policyname | permissive | roles | cmd | qual | with_check 
+------------+-----------+------------+------------+-------+-----+------+------------
+(0 rows)
+
+SELECT role, 
+       has_table_privilege(role, 'public.invitations', 'SELECT') AS can_select, 
+       has_table_privilege(role, 'public.invitations', 'INSERT') AS can_insert, 
+       has_table_privilege(role, 'public.invitations', 'UPDATE') AS can_update, 
+       has_table_privilege(role, 'public.invitations', 'DELETE') AS can_delete 
+FROM (VALUES ('anon'), ('authenticated'), ('service_role'), ('postgres')) AS t(role);
+-- Result:
+     role      | can_select | can_insert | can_update | can_delete 
+---------------+------------+------------+------------+------------
+ anon          | f          | f          | f          | f
+ authenticated | f          | f          | f          | f
+ service_role  | t          | t          | t          | t
+ postgres      | t          | t          | t          | t
+(4 rows)
+```
+*Note*: Migration `20261110000002_rls_pii_and_policy_fixes.sql` lines 240–241 explicitly dropped `invitations_select_policy` and `invitations_insert_policy`. Combined with `ALTER TABLE public.invitations ENABLE ROW LEVEL SECURITY;`, PostgreSQL's default deny-all RLS rule applies, and standard client roles (`anon`, `authenticated`) have zero privileges on the table.
+
+#### 2. `search_public_jobs` Signature & Execution Privilege Verification Output
+```sql
+SELECT proname, prosecdef, proconfig FROM pg_proc WHERE proname = 'search_public_jobs';
+-- Result:
+      proname       | prosecdef |      proconfig       
+--------------------+-----------+----------------------
+ search_public_jobs | f         | {"search_path=\"\""}
+(1 row)
+
+SELECT r.role, has_function_privilege(r.role, p.oid, 'EXECUTE') AS can_execute 
+FROM pg_proc p 
+CROSS JOIN (VALUES ('anon'), ('authenticated'), ('public'), ('service_role')) AS r(role) 
+WHERE p.proname = 'search_public_jobs';
+-- Result:
+     role      | can_execute 
+---------------+-------------
+ anon          | f
+ authenticated | f
+ public        | f
+ service_role  | t
+(4 rows)
+```
+*Note*: As defined in migration `20261118085644_public_api_projection_reads.sql`, `search_public_jobs` is `SECURITY INVOKER` (`prosecdef = f`) with pinned empty search path (`search_path=""`). Execution is granted solely to `service_role`; `anon`, `authenticated`, and `public` cannot execute it directly.
 
 ---
 
@@ -128,9 +180,9 @@ Approved policy mandates that **every view of candidate contact details by insti
 
 | Operation / Read Access | Component (`file:line`) | Current Audit Log Status | Policy Requirement |
 | :--- | :--- | :--- | :--- |
-| Admin Data Export (`entity=users`) | [admin.service.ts:208](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/admin/admin.service.ts#L208) | **Logged**: Writes `DATA_EXPORT_PERFORMED` with actor ID and entity. | Compliant. |
+| Admin Data Export (`entity=users`) | [admin.service.ts:208](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/admin/admin.service.ts#L208) | **Logged**: Writes `DATA_EXPORT_PERFORMED` with actor ID and entity. | Masked by default; dedicated unmasked audit log required when `includeContacts=true`. |
 | Admin User List / Detail View | [admin.service.ts:98](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/admin/admin.service.ts#L98) | **Not Logged**: In-memory read of users does not write to `audit_logs`. | **Missing Audit Log**: Must record `ADMIN_USER_CONTACTS_VIEWED`. |
-| Bulk Batch Error Report Download | [bulk.service.ts:436](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/bulk/bulk.service.ts#L436) | **Not Logged**: CSV download containing unmasked phones is not recorded. | **Missing Audit Log**: Must record `BULK_ERROR_REPORT_DOWNLOADED`. |
+| Bulk Batch Error Report Download | [bulk.service.ts:436](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/bulk/bulk.service.ts#L436) | **Not Logged**: Batch ownership is enforced via `assertOwner` ([bulk.service.ts:730](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/bulk/bulk.service.ts#L730)), but CSV download is not recorded. | **Missing Audit Log**: Must record `BULK_ERROR_REPORT_DOWNLOADED`. |
 | Institution Viewing Own Students | [profiles.service.ts:395](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/profiles/profiles.service.ts#L395) | **Not Logged**: `getInstitutionStudents` does not write to `audit_logs`. | **Missing Audit Log**: Must record `INSTITUTION_STUDENT_CONTACTS_VIEWED`. |
 | Institution Viewing Inquiries | [institution-cms.service.ts:318](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/profiles/institution-cms.service.ts#L318) | **Not Logged**: `getInstitutionInquiries` does not write to `audit_logs`. | **Missing Audit Log**: Must record `INSTITUTION_INQUIRIES_VIEWED`. |
 | Employer Applicant List / Detail | [jobs.service.ts:404](file:///d:/Trun%20Dada/Projects/Products/Indian%20Job%20Portal/application/indian-job-portal/apps/api/src/jobs/jobs.service.ts#L404) | Not Logged (Contact is completely stripped). | Compliant (No contact revealed). |
@@ -149,7 +201,7 @@ The following test suites assert masking behaviour. Several suites were edited d
 2. **`apps/api/test/admin-export.e2e-spec.ts:66`**:
    - **Assertion**: `expect(first.phoneMasked).toMatch(/\d{2}\*{6}\d{2}/);`
    - **Evaluates**: Confirms admin export returns regex-masked phone (`98******10`).
-   - **Policy Alignment**: **Partially matches**. Policy permits platform admin full phone/email on export provided it is audit-logged.
+   - **Policy Alignment**: **Matches default masked export policy**. When unmasked export is requested via `includeContacts=true`, dedicated audit log must accompany it.
 
 3. **`apps/web/test/components.test.ts:106, 111`**:
    - **Assertion**: `expect(maskedPhone1).toBe('+91 ••••• •••••'); expect(maskedEmail).toBe('••••••@••••••');`
@@ -182,9 +234,31 @@ The following test suites assert masking behaviour. Several suites were edited d
 
 ## 9. Proposed Server-Side Redaction Architecture
 
-To establish a single source of truth and eliminate fragmented masking logic across client and server, candidate contact exposure should be governed by a centralized server-side redaction utility.
+To establish a single source of truth and eliminate fragmented masking logic across client and server, candidate contact exposure must be governed by a centralized server-side redaction utility adhering to four strict architectural conditions:
 
-### Proposed Server-Side Function Signature
+### Four Mandatory Architectural Conditions
+
+1. **Server-Derived `institutionId` (Zero Client Trust)**:
+   - The viewer's `institutionId` must always be derived exclusively on the server from the authenticated user's session and profile (e.g., via `profileRepository.findInstitutionProfileByUserId(user.id)`).
+   - Under no circumstances may `institutionId` be accepted from client headers, query parameters, or body payloads. This guarantees strict tenant isolation and prevents cross-tenant parameter tampering.
+
+2. **Batch Variant + Single Aggregated Audit Row (Zero PII in Audit Logs)**:
+   - For collection endpoints (student rosters, placement pipeline batches, data exports), redaction must process arrays via a dedicated batch variant: `redactCandidateContactsBatch()`.
+   - The operation must write exactly **ONE** audit log entry per request/page view containing high-level metadata (e.g. `{ action: 'INSTITUTION_STUDENT_CONTACTS_VIEWED', studentCount: N, institutionId: '...' }`).
+   - The audit log entry **must NEVER contain individual candidate phone numbers or email addresses**, preventing secondary PII leakage into the immutable audit store.
+
+3. **Fail-Closed Enforcement ("No Audit = Redacted")**:
+   - If audit logging is omitted, fails, or cannot be verified for any role requiring audit (institution viewing own students, platform admin unmasked export), the redaction function must fail closed: contact fields (`phone`, `email`) must be returned as `null` and `contactVisible: false`.
+   - Contact details are unmasked if and only if the view event is confirmed to be audit-logged.
+
+4. **Admin Export Masked by Default; Unmasked via `includeContacts=true` Audited**:
+   - Administrative data exports (`GET /admin/export`) must default to masked phone numbers (`$1******$2`) and omitted email addresses.
+   - Full unmasked contact details are returned only when an administrator explicitly supplies the query flag `includeContacts=true`.
+   - Supplying `includeContacts=true` must trigger a distinct, high-severity audit log entry (`ADMIN_CONTACTS_EXPORT_PERFORMED`) capturing the actor ID, entity, count, and export rationale.
+
+---
+
+### Proposed TypeScript Specification
 
 ```typescript
 // Proposed location: packages/validation/src/contact-visibility.ts
@@ -201,14 +275,27 @@ export type UserRole =
 export interface ViewerContext {
   readonly role: UserRole;
   readonly id: string; // Authenticated user ID (or anonymous session ID)
-  readonly institutionId?: string | null; // Profile ID if the caller represents an institution
+  /**
+   * MUST be derived on the server from the authenticated user's profile.
+   * Never accept from client query/body/headers.
+   */
+  readonly institutionId?: string | null;
+  /**
+   * Indicates whether a valid audit log write was successfully initiated/committed
+   * for this access request. If false, redaction fails closed.
+   */
+  readonly isAuditLogged: boolean;
+  /**
+   * Flag for platform admin unmasked export.
+   */
+  readonly includeContacts?: boolean;
 }
 
 export interface CandidateContactRecord {
   readonly id: string; // Seeker / Student User ID or Profile ID
   readonly phone?: string | null;
   readonly email?: string | null;
-  readonly institutionId?: string | null; // Enrolled institution ID
+  readonly institutionId?: string | null; // Student's enrolled institution profile ID
   readonly [key: string]: unknown;
 }
 
@@ -218,34 +305,55 @@ export type RedactedRecord<T extends CandidateContactRecord> = Omit<T, 'phone' |
   readonly contactVisible: boolean;
 };
 
+export interface BatchRedactionResult<T extends CandidateContactRecord> {
+  readonly records: RedactedRecord<T>[];
+  readonly totalCount: number;
+  readonly unmaskedCount: number;
+  /**
+   * Pre-computed metadata for writing exactly ONE audit row per request.
+   * Contains zero candidate contact values.
+   */
+  readonly auditMetadata: {
+    readonly viewerId: string;
+    readonly viewerRole: UserRole;
+    readonly institutionId?: string | null;
+    readonly accessedCount: number;
+    readonly unmaskedCount: number;
+  };
+}
+
 /**
- * Single server-side authority for candidate contact redaction.
- * Enforces the Approved Visibility Policy across all API controllers & DTO projections.
- *
- * Rules:
- * 1. Admin: Full phone and email (Caller MUST audit-log).
- * 2. Self (job_seeker): Full phone and email.
- * 3. Institution: Full phone and email IF institutionId matches viewer.institutionId (Caller MUST audit-log).
- * 4. Institution (cross-institution): Completely redacted (null).
- * 5. Employer / ATS: Completely redacted (null).
- * 6. MSME Department: Completely redacted (null).
- * 7. Public / Anonymous: Completely redacted (null).
+ * Single candidate contact redaction authority.
  */
 export function redactCandidateContact<T extends CandidateContactRecord>(
   viewer: ViewerContext,
   record: T,
 ): RedactedRecord<T> {
-  // 1. Platform Admin: Full visibility
+  // 1. Platform Admin: Full visibility only when audit-logged
   if (viewer.role === 'admin') {
+    // Condition 4: Admin exports/reads masked by default unless includeContacts=true and audit-logged
+    if (viewer.includeContacts) {
+      // Condition 3: Fail-closed if not audit-logged
+      if (!viewer.isAuditLogged) {
+        return { ...record, phone: null, email: null, contactVisible: false };
+      }
+      return {
+        ...record,
+        phone: record.phone ?? null,
+        email: record.email ?? null,
+        contactVisible: true,
+      };
+    }
+    // Default masked state for admin view
     return {
       ...record,
-      phone: record.phone ?? null,
-      email: record.email ?? null,
-      contactVisible: true,
+      phone: record.phone ? record.phone.replace(/(\d{2})\d{6}(\d{2})/, '$1******$2') : null,
+      email: null,
+      contactVisible: false,
     };
   }
 
-  // 2. Candidate viewing self
+  // 2. Candidate viewing self (no audit required for own data)
   if (viewer.role === 'job_seeker' && viewer.id === record.id) {
     return {
       ...record,
@@ -255,13 +363,18 @@ export function redactCandidateContact<T extends CandidateContactRecord>(
     };
   }
 
-  // 3. Institution viewing its OWN enrolled students
+  // 3. Institution viewing its OWN enrolled students (Condition 1 & 3)
   if (
     (viewer.role === 'institution' || viewer.role === 'intermediary') &&
     viewer.institutionId &&
     record.institutionId &&
     viewer.institutionId === record.institutionId
   ) {
+    // Condition 3: Fail-closed if audit logging failed or is omitted
+    if (!viewer.isAuditLogged) {
+      return { ...record, phone: null, email: null, contactVisible: false };
+    }
+
     return {
       ...record,
       phone: record.phone ?? null,
@@ -270,12 +383,37 @@ export function redactCandidateContact<T extends CandidateContactRecord>(
     };
   }
 
-  // 4. Default Fail-Closed: Employer, MSME, cross-institution, public
+  // 4. Default Fail-Closed: Employer, MSME Department, cross-institution, public
   return {
     ...record,
     phone: null,
     email: null,
     contactVisible: false,
+  };
+}
+
+/**
+ * Batch redaction variant (Condition 2).
+ * Formats arrays and generates single-row audit metadata with zero contact values.
+ */
+export function redactCandidateContactsBatch<T extends CandidateContactRecord>(
+  viewer: ViewerContext,
+  records: readonly T[],
+): BatchRedactionResult<T> {
+  const redacted = records.map((r) => redactCandidateContact(viewer, r));
+  const unmaskedCount = redacted.filter((r) => r.contactVisible).length;
+
+  return {
+    records: redacted,
+    totalCount: records.length,
+    unmaskedCount,
+    auditMetadata: {
+      viewerId: viewer.id,
+      viewerRole: viewer.role,
+      institutionId: viewer.institutionId ?? null,
+      accessedCount: records.length,
+      unmaskedCount,
+    },
   };
 }
 ```
@@ -287,22 +425,20 @@ export function redactCandidateContact<T extends CandidateContactRecord>(
 When implementing the approved policy in a subsequent task, the following files will be touched:
 
 1. **`packages/validation/src/contact-visibility.ts`** *(New File)*:
-   - Implement `redactCandidateContact`, `ViewerContext`, and audit logging action constants.
+   - Implement `redactCandidateContact`, `redactCandidateContactsBatch`, `ViewerContext`, and audit logging payload builders.
 2. **`packages/validation/src/index.ts`**:
    - Export the new contact visibility module.
 3. **`apps/api/src/profiles/profiles.service.ts`**:
-   - Update `getInstitutionStudents`: Join `users` table to fetch enrolled student phone/email; apply `redactCandidateContact`; write `INSTITUTION_STUDENT_CONTACTS_VIEWED` to `audit_logs`.
+   - Update `getInstitutionStudents`: Derive `institutionId` on server via `profileRepository.findInstitutionProfileByUserId(userId)`; join `users` table to fetch enrolled student phone/email; execute `redactCandidateContactsBatch`; record exactly one `INSTITUTION_STUDENT_CONTACTS_VIEWED` row in `audit_logs` with batch count and zero contact PII.
 4. **`apps/api/src/profiles/institution-cms.service.ts`**:
    - Update `getInstitutionInquiries`: Record `INSTITUTION_INQUIRIES_VIEWED` in `audit_logs`.
-5. **`apps/api/src/bulk/bulk.controller.ts` & `apps/api/src/bulk/bulk.service.ts`**:
-   - Remove `msme_admin` from `bulk/batches/:id/error-report` authorization. Record `BULK_ERROR_REPORT_DOWNLOADED` in `audit_logs`.
+5. **`apps/api/src/bulk/bulk.service.ts`**:
+   - In `getBatchErrorCsv`, record `BULK_ERROR_REPORT_DOWNLOADED` in `audit_logs` (capturing actor ID, batch ID, error row count; zero contact values in audit log).
 6. **`apps/api/src/admin/admin.service.ts`**:
-   - In `exportData`, allow full phone/email for admin exports since they are already audit-logged. Add audit log for administrative user list reads.
-7. **`supabase/migrations/<new_timestamp>_invitations_policy_msme_lockdown.sql`** *(New Migration)*:
-   - Alter `invitations_select_policy` on `public.invitations` to remove `msme_admin` from direct table access.
-8. **`apps/web/src/components/workspaces/institution/PlacementDashboard.tsx`**:
+   - In `exportData`, keep masked contact export by default. When `includeContacts=true` is requested by admin, return full contact details and record dedicated audit log `ADMIN_CONTACTS_EXPORT_PERFORMED`. Add audit log for administrative user list reads.
+7. **`apps/web/src/components/workspaces/institution/PlacementDashboard.tsx`**:
    - Update student roster table to display full phone and email for own verified students when `contactVisible: true`.
-9. **`apps/web/src/components/workspaces/institution/studentUtils.ts`**:
+8. **`apps/web/src/components/workspaces/institution/studentUtils.ts`**:
    - Refactor `maskContactNumber` and `maskEmailAddress` to allow full display when viewer is the student's verified institution.
-10. **`apps/web/test/ticket-t19-placement-dashboard.test.ts` & `identity-leaks-trust-badges.test.ts`**:
-    - Update assertions to reflect the approved policy: full contact visibility for institution's own students, complete masking for employers.
+9. **`apps/web/test/ticket-t19-placement-dashboard.test.ts` & `identity-leaks-trust-badges.test.ts`**:
+   - Update assertions to reflect the approved policy: full contact visibility for institution's own students (audit-logged), complete masking for employers.
