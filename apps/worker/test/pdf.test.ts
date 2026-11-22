@@ -1,7 +1,20 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { PdfGeneratorService, Semaphore } from '../src/pdf/pdf-generator.js';
 
 describe('PdfGeneratorService - Ticket T-09 (JS-03 & Hard Invariant #8a)', { timeout: 45000 }, () => {
+  beforeAll(async () => {
+    // Warm up the renderer (fonts & yoga engine) before timing tests
+    const warmUpService = new PdfGeneratorService();
+    await warmUpService.generateSeekerPdf({
+      seekerId: 'warmup_seeker_pdf',
+      fullName: 'Warm Up',
+      seekerType: 'student',
+      city: 'Indore',
+      skills: ['Warmup'],
+      updatedAt: Date.now(),
+    });
+  }, 30000);
+
   it('generates valid vector PDF and serves from cache in under 500ms (AC #1)', async () => {
     const service = new PdfGeneratorService();
     const data = {
@@ -15,10 +28,11 @@ describe('PdfGeneratorService - Ticket T-09 (JS-03 & Hard Invariant #8a)', { tim
 
     // First call generates fresh vector PDF
     const result1 = await service.generateSeekerPdf(data);
+    console.log(`[pdf.test.ts] Measured first generationTimeMs: ${result1.generationTimeMs}ms`);
     expect(result1.fromCache).toBe(false);
     expect(result1.buffer.length).toBeGreaterThan(1000);
     expect(result1.buffer.slice(0, 5).toString()).toBe('%PDF-');
-    expect(result1.generationTimeMs).toBeLessThan(30000);
+    expect(result1.generationTimeMs).toBeLessThan(10000);
 
     // Second call serves from cache in under 500ms (AC #1)
     const result2 = await service.generateSeekerPdf(data);

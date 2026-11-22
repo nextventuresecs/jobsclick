@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { Job } from 'bullmq';
 import { bulkImportProcessor, BulkImportJobData } from '../src/processors/import.processor.js';
 import { inviteWaveProcessor, InviteProcessor, InviteWaveJobData } from '../src/processors/invite.processor.js';
@@ -224,6 +224,24 @@ describe('Worker Processors (Ticket T-07)', () => {
   });
 
   describe('pdf-generator-processor', () => {
+    beforeAll(async () => {
+      // Warm up renderer before timing
+      const warmupJob = {
+        id: 'job_pdf_warmup',
+        attemptsMade: 0,
+        opts: { attempts: 1 },
+        data: {
+          seekerId: 'seeker_warmup_proc',
+          fullName: 'Warmup Seeker',
+          seekerType: 'student',
+          city: 'Indore',
+          skills: ['Warmup'],
+          updatedAt: Date.now(),
+        },
+      } as unknown as Job<PdfJobData>;
+      await pdfGeneratorProcessor(warmupJob);
+    }, 30000);
+
     it('renders vector PDF resume and serves from cache in sub-500ms', async () => {
       const timestamp = 1700000000000;
       const pdfData: PdfJobData = {
@@ -243,10 +261,11 @@ describe('Worker Processors (Ticket T-07)', () => {
       } as unknown as Job<PdfJobData>;
 
       const firstResult = await pdfGeneratorProcessor(mockJob1);
+      console.log(`[processors.spec.ts] Measured first generationTimeMs: ${firstResult.generationTimeMs}ms`);
       expect(firstResult.seekerId).toBe('seeker_test_123');
       expect(firstResult.status).toBe('completed');
       expect(firstResult.bufferLength).toBeGreaterThan(0);
-      expect(firstResult.generationTimeMs).toBeLessThan(45000);
+      expect(firstResult.generationTimeMs).toBeLessThan(10000);
       expect(firstResult.fromCache).toBe(false);
 
       // Second run with same data & timestamp should hit cache in sub-500ms

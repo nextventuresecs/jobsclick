@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -92,9 +92,33 @@ function runNextStart(
   });
 }
 
-const hasProductionBuild = fs.existsSync(path.join(webDir, '.next/BUILD_ID'));
-
-describe.skipIf(!hasProductionBuild)('Next.js Production Startup Verification (Finding 4)', () => {
+describe('Next.js Production Startup Verification (Finding 4)', () => {
+  beforeAll(async () => {
+    const buildIdPath = path.join(webDir, '.next/BUILD_ID');
+    if (!fs.existsSync(buildIdPath)) {
+      if (process.env.CI) {
+        throw new Error(
+          'Missing Next.js production build (.next/BUILD_ID) in CI environment. Expected `pnpm build` to be executed before running test suite.',
+        );
+      }
+      // Local environment fallback: build the web app
+      console.log('[startup.integration.spec] .next/BUILD_ID not found, building web application...');
+      const { execSync } = await import('node:child_process');
+      execSync('npx next build', {
+        cwd: webDir,
+        stdio: 'pipe',
+        env: {
+          ...process.env,
+          NODE_ENV: 'production',
+          APP_ENV: 'production',
+          NEXT_PUBLIC_APP_ENV: 'production',
+          NEXT_PUBLIC_API_URL: 'https://api.example.com',
+          NEXT_PUBLIC_APP_URL: 'https://jobsclick.live',
+          JWT_SECRET: 'de4772a0c0f3aa1c09aaa18a7ffde65b791b9a8324fe72e6465a533fa219a4b1',
+        },
+      });
+    }
+  }, 180000);
   it('precondition: .next production build exists', () => {
     expect(fs.existsSync(path.join(webDir, '.next/BUILD_ID'))).toBe(true);
   });

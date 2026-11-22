@@ -82,11 +82,11 @@ jobs:
       - name: Run TypeScript Check
         run: pnpm typecheck
 
-      - name: Run Test Suite
-        run: pnpm test
-
       - name: Build All Workspaces
         run: pnpm build
+
+      - name: Run Test Suite
+        run: pnpm test
 
   db-security-gate:
     name: Database Security & Migration Gate
