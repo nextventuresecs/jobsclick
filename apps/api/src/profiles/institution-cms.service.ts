@@ -3,6 +3,8 @@ import {
   NotFoundException,
   ForbiddenException,
   Inject,
+  Optional,
+  Logger,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import {
@@ -15,6 +17,7 @@ import {
 import type { InstitutionProfileRow, InstitutionInquiryRow } from '@indian-job-portal/database';
 import { ProfileRepository } from '../database/repositories/profile.repository.js';
 import { InquiryRepository } from '../database/repositories/inquiry.repository.js';
+import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
 
 export const DEFAULT_INSTITUTION_CMS: InstitutionCmsInput = {
   courses: [
@@ -183,9 +186,12 @@ function sanitizeObjectKeysForPublic(obj: unknown): unknown {
 
 @Injectable()
 export class InstitutionCmsService {
+  private readonly logger = new Logger(InstitutionCmsService.name);
+
   constructor(
     @Inject(ProfileRepository) private readonly profileRepository: ProfileRepository,
     @Inject(InquiryRepository) private readonly inquiryRepository: InquiryRepository,
+    @Optional() @Inject(AuditLogRepository) private readonly auditLogRepo?: AuditLogRepository,
   ) {}
 
   /**
@@ -318,7 +324,27 @@ export class InstitutionCmsService {
       return [];
     }
 
-    return this.inquiryRepository.findInquiriesByInstitutionId(profile.id);
+    const inquiries = await this.inquiryRepository.findInquiriesByInstitutionId(profile.id);
+
+    if (this.auditLogRepo) {
+      try {
+        await this.auditLogRepo.append({
+          id: randomUUID(),
+          actor_id: userId,
+          action: 'INSTITUTION_INQUIRIES_VIEWED',
+          meta: {
+            institutionId: profile.id,
+            count: inquiries.length,
+            inquiryIds: inquiries.map((i) => i.id),
+          },
+          created_at: new Date().toISOString(),
+        });
+      } catch (err) {
+        this.logger.error('Failed to log audit for institution inquiries read', err);
+      }
+    }
+
+    return inquiries;
   }
 
   /**

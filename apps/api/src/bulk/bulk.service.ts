@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator.js';
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject, Optional, Logger } from '@nestjs/common';
 import { BulkUploadInput, InviteWaveInput, normalizeIndianPhone, isTestEnv, isStrictEnv } from '@indian-job-portal/validation';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { parse as parseCsvSync } from 'csv-parse/sync';
 import { QstashService } from '../qstash/qstash.service.js';
 import { QueueService } from '../queue/queue.service.js';
+import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
 import type { TaskStatus } from '@indian-job-portal/database';
 
 if (typeof globalThis.WebSocket === 'undefined') {
@@ -79,6 +80,7 @@ function parseCsv(csvText: string): Array<Record<string, string>> {
 
 @Injectable()
 export class BulkService {
+  private readonly logger = new Logger(BulkService.name);
   private supabase: SupabaseClient;
   private isTestMode = isTestEnv();
 
@@ -88,6 +90,7 @@ export class BulkService {
   constructor(
     @Inject(QstashService) private readonly qstashService: QstashService,
     @Inject(QueueService) private readonly queueService: QueueService,
+    @Optional() @Inject(AuditLogRepository) private readonly auditLogRepo?: AuditLogRepository,
   ) {
     const url = process.env['SUPABASE_URL'];
     const key = process.env['SUPABASE_SERVICE_ROLE_KEY'];
@@ -436,27 +439,45 @@ export class BulkService {
   async getBatchErrorCsv(batchId: string, actor?: AuthenticatedUser): Promise<string> {
     await this.getBatchStatus(batchId, actor);
 
+    let csvContent = 'row,phone,reason\n';
     if (this.isTestMode) {
       const batch = this.memBatches.get(batchId);
-      return batch?.errorCsvContent || 'row,phone,reason\n';
+      csvContent = batch?.errorCsvContent || 'row,phone,reason\n';
+    } else {
+      const { data: batch } = await this.supabase
+        .from('bulk_import_batches')
+        .select('error_csv_storage_path')
+        .eq('id', batchId)
+        .single();
+
+      if (batch?.error_csv_storage_path) {
+        const { data: fileData } = await this.supabase.storage.from('private').download(batch.error_csv_storage_path);
+        if (fileData) {
+          csvContent = await fileData.text();
+        }
+      }
     }
 
-    const { data: batch } = await this.supabase
-      .from('bulk_import_batches')
-      .select('error_csv_storage_path')
-      .eq('id', batchId)
-      .single();
-
-    if (!batch?.error_csv_storage_path) {
-      return 'row,phone,reason\n';
+    const lines = (csvContent || '').split('\n').filter((l) => l.trim().length > 0);
+    const errorRowCount = Math.max(0, lines.length - 1);
+    if (this.auditLogRepo && actor?.id) {
+      try {
+        await this.auditLogRepo.append({
+          id: randomUUID(),
+          actor_id: actor.id,
+          action: 'BULK_ERROR_REPORT_DOWNLOADED',
+          meta: {
+            batchId,
+            errorRowCount,
+          },
+          created_at: new Date().toISOString(),
+        });
+      } catch (err) {
+        this.logger.error('Failed to write audit log for bulk error report download', err);
+      }
     }
 
-    const { data: fileData } = await this.supabase.storage.from('private').download(batch.error_csv_storage_path);
-    if (!fileData) {
-      return 'row,phone,reason\n';
-    }
-
-    return await fileData.text();
+    return csvContent;
   }
 
   async previewInviteWave(

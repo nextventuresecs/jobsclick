@@ -24,6 +24,16 @@ export const privacyRequestSchema = z.object({
 export const adminExportQuerySchema = z.object({
   entity: z.enum(['users', 'jobs', 'applications', 'institutions', 'audit_logs']).default('users'),
   format: z.enum(['json', 'csv']).default('json'),
+  includeContacts: z
+    .preprocess((val) => {
+      if (typeof val === 'string') {
+        const lower = val.trim().toLowerCase();
+        if (lower === 'true' || lower === '1') return true;
+        if (lower === 'false' || lower === '0' || lower === '') return false;
+      }
+      return val;
+    }, z.boolean())
+    .optional(),
 });
 
 export type AdminUserStatusInput = z.infer<typeof adminUserStatusSchema>;

@@ -82,6 +82,14 @@ export class AdminController {
     return this.adminService.recordAuditLog(callerId, body.action, body.meta);
   }
 
+  // ADM-05: Administrative User List with Read Audit Log
+  @Get('admin/users')
+  @Roles('admin')
+  async listUsers(@CurrentUser() user: AuthUser) {
+    if (!user?.id) throw new UnauthorizedException("Authentication required");
+    return this.adminService.listUsers(user.id);
+  }
+
   // Issue #33 & ADM-04: Data Export Restricted to Admin & Logged
   @Get('admin/export')
   @Roles('admin')

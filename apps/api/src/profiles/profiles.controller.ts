@@ -115,7 +115,7 @@ export class ProfilesController {
   @Roles('institution', 'intermediary', 'admin')
   @Get('institution/students')
   async getInstitutionStudents(@CurrentUser() user: AuthUser) {
-    return this.profilesService.getInstitutionStudents(user.id);
+    return this.profilesService.getInstitutionStudents(user.id, user.role);
   }
 
   @Get('institution/me')

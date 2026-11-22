@@ -49,14 +49,22 @@ describe('PR 3: Identity Leaks & Trust Badges Lockdown (P0/P1)', () => {
       expect(maskedEmpty).toBe('••••••@••••••');
     });
 
-    it('institution student utility functions fully mask phone and email', () => {
-      const studentPhone = maskContactNumber('+91 94250 88210');
-      expect(studentPhone).toBe('+91 ••••• •••••');
-      expect(studentPhone).not.toContain('210');
+    it('institution student utility functions apply policy per role: employer masked, institution own full', () => {
+      // Employer / default role: fully masked
+      const employerPhone = maskContactNumber('+91 94250 88210', 'employer');
+      expect(employerPhone).toBe('+91 ••••• •••••');
+      expect(employerPhone).not.toContain('210');
 
-      const studentEmail = maskEmailAddress('student@mp.gov.in');
-      expect(studentEmail).toBe('••••••@••••••');
-      expect(studentEmail).not.toContain('mp.gov.in');
+      const employerEmail = maskEmailAddress('student@mp.gov.in', 'employer');
+      expect(employerEmail).toBe('••••••@••••••');
+      expect(employerEmail).not.toContain('mp.gov.in');
+
+      // Institution role: full contact visible
+      const instPhone = maskContactNumber('+91 94250 88210', 'institution');
+      expect(instPhone).toBe('+91 94250 88210');
+
+      const instEmail = maskEmailAddress('student@mp.gov.in', 'institution');
+      expect(instEmail).toBe('student@mp.gov.in');
     });
   });
 

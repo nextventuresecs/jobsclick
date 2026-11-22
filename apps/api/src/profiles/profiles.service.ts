@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ServiceUnavailableException, Inject, Optional } from '@nestjs/common';
+import { Injectable, NotFoundException, ServiceUnavailableException, Inject, Optional, Logger } from '@nestjs/common';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 import {
@@ -8,10 +8,14 @@ import {
   JobCategory,
   InstitutionType,
   generatePublicSlug,
+  redactCandidateContactsBatch,
+  type ViewerContext,
+  type ContactViewerRole,
 } from '@indian-job-portal/validation';
 import { ProfileRepository } from '../database/repositories/profile.repository.js';
 import { UserRepository } from '../database/repositories/user.repository.js';
 import { QueueService } from '../queue/queue.service.js';
+import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
 import { SUPABASE_CLIENT } from '../database/supabase.provider.js';
 import type {
   Database,
@@ -89,11 +93,14 @@ export interface InstitutionPublicRecord {
 
 @Injectable()
 export class ProfilesService {
+  private readonly logger = new Logger(ProfilesService.name);
+
   constructor(
     @Inject(ProfileRepository) private readonly profileRepository: ProfileRepository,
     @Inject(UserRepository) private readonly userRepository: UserRepository,
     @Optional() @Inject(QueueService) private readonly queueService?: QueueService,
     @Optional() @Inject(SUPABASE_CLIENT) private readonly supabase?: SupabaseClient<Database>,
+    @Optional() @Inject(AuditLogRepository) private readonly auditLogRepo?: AuditLogRepository,
   ) {}
 
   // JS-03: Authenticated candidate CV PDF retrieval and generation dispatch
@@ -392,17 +399,91 @@ export class ProfilesService {
     }
   }
 
-  async getInstitutionStudents(userId: string): Promise<JobSeekerProfileRow[]> {
+  async getInstitutionStudents(
+    userId: string,
+    role: string = 'institution',
+  ): Promise<(JobSeekerProfileRow & { phone: string | null; email: string | null; contactVisible: boolean })[]> {
+    // 1. Derive institution profile ID on the server from the authenticated user (never from request input)
     const institution = await this.profileRepository.findInstitutionProfileByUserId(userId);
-    const instId = institution?.id || randomUUID();
-    const instName = institution?.institution_name || '';
-
-    const students = await this.profileRepository.findStudentsByInstitution(instId);
-    if (students.length === 0 && instName) {
-      const byName = await this.profileRepository.findStudentsByInstitution(instName);
-      if (byName.length > 0) return byName;
+    if (!institution) {
+      return [];
     }
-    return students;
+    const instId = institution.id;
+
+    // 2. Fetch the caller's OWN students only
+    const students = await this.profileRepository.findStudentsByInstitution(instId);
+    if (students.length === 0) {
+      return [];
+    }
+
+    // 3. Join users for the caller's OWN students only
+    const studentUserIds = [...new Set(students.map((s) => s.user_id).filter(Boolean))];
+    const userMap = new Map<string, { phone: string | null; email: string | null }>();
+    await Promise.all(
+      studentUserIds.map(async (uid) => {
+        try {
+          const u = await this.userRepository.findById(uid);
+          if (u) {
+            userMap.set(uid, { phone: u.phone ?? null, email: u.email ?? null });
+          }
+        } catch (err) {
+          this.logger.warn(`Failed to resolve user ${uid} for student contact visibility: ${(err as Error).message}`);
+        }
+      }),
+    );
+
+    const recordsToRedact = students.map((s) => {
+      const u = userMap.get(s.user_id);
+      return {
+        ...s,
+        id: s.id,
+        userId: s.user_id,
+        phone: u?.phone ?? null,
+        email: u?.email ?? null,
+        institutionId: s.institution_id || instId,
+      };
+    });
+
+    // ORDER OF OPERATIONS:
+    // (a) write ONE audit_logs row INSTITUTION_STUDENT_CONTACTS_VIEWED with actor, institution id, count and student ids, never phone or email;
+    let auditConfirmed = false;
+    if (this.auditLogRepo) {
+      try {
+        await this.auditLogRepo.append({
+          id: randomUUID(),
+          actor_id: userId,
+          action: 'INSTITUTION_STUDENT_CONTACTS_VIEWED',
+          meta: {
+            institutionId: instId,
+            count: students.length,
+            studentIds: students.map((s) => s.id),
+          },
+          created_at: new Date().toISOString(),
+        });
+        auditConfirmed = true;
+      } catch (auditErr) {
+        this.logger.error(
+          `Audit log write failed for institution student contacts read by user ${userId}`,
+          auditErr instanceof Error ? auditErr.stack : String(auditErr),
+        );
+        auditConfirmed = false;
+      }
+    }
+
+    // (b) call the batch redaction with auditConfirmed=true only if the audit write succeeded; if it failed, return the list with contacts redacted and log the error.
+    const viewerContext: ViewerContext = {
+      role: (role as ContactViewerRole) || 'institution',
+      id: userId,
+      institutionId: instId,
+      auditConfirmed,
+    };
+
+    const batchResult = redactCandidateContactsBatch(viewerContext, recordsToRedact);
+    return batchResult.records as (JobSeekerProfileRow & {
+      phone: string | null;
+      email: string | null;
+      contactVisible: boolean;
+    })[];
   }
 
   async getInstitutionProfileMe(userId: string): Promise<InstitutionProfileRecord> {

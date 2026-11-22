@@ -175,24 +175,34 @@ describe('Ticket T-19: Placement Cell HR Dashboard & Institutional Placement Pip
     });
   });
 
-  describe('Hard Invariant #1: Strict PII Masking Engine', () => {
-    it('masks phone numbers to prevent recruiter harvesting', () => {
-      const masked = maskContactNumber('+91 94251 88301');
+  describe('Contact Visibility Policy: Role-Aware Formatting (employer masked, institution full)', () => {
+    it('masks phone numbers for employers to prevent recruiter harvesting', () => {
+      const masked = maskContactNumber('+91 94251 88301', 'employer');
       expect(masked).toBe('+91 ••••• •••••');
       expect(masked).not.toContain('94251');
       expect(masked).not.toContain('88301');
     });
 
-    it('masks email addresses preserving complete confidentiality', () => {
-      const masked = maskEmailAddress('amitesh.c@iti.gov.in');
+    it('masks email addresses for employers preserving complete confidentiality', () => {
+      const masked = maskEmailAddress('amitesh.c@iti.gov.in', 'employer');
       expect(masked).toBe('••••••@••••••');
       expect(masked).not.toContain('amitesh.c');
       expect(masked).not.toContain('iti.gov.in');
     });
 
-    it('handles empty or missing contact values gracefully', () => {
-      expect(maskContactNumber('')).toBe('••••••••••');
-      expect(maskEmailAddress('')).toBe('••••••@••••••');
+    it('shows full phone and email for institution viewing own students', () => {
+      const phone = maskContactNumber('+91 94251 88301', 'institution');
+      expect(phone).toBe('+91 94251 88301');
+
+      const email = maskEmailAddress('amitesh.c@iti.gov.in', 'institution');
+      expect(email).toBe('amitesh.c@iti.gov.in');
+    });
+
+    it('handles empty or missing contact values gracefully per role', () => {
+      expect(maskContactNumber('', 'employer')).toBe('••••••••••');
+      expect(maskEmailAddress('', 'employer')).toBe('••••••@••••••');
+      expect(maskContactNumber('', 'institution')).toBe('—');
+      expect(maskEmailAddress('', 'institution')).toBe('—');
     });
   });
 

@@ -111,4 +111,69 @@ describe('Admin Data Export & Audit Logging (ADM-04, Hard Invariant #6)', () => 
     expect(exportLog.actorId).toBe('usr_superadmin');
     expect(exportLog.meta.entity).toBe('audit_logs');
   });
+
+  it('allows admin role to export users with unmasked contacts when includeContacts=true and logs ADMIN_CONTACTS_EXPORT_PERFORMED', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/admin/export?entity=users&format=json&includeContacts=true',
+      headers: {
+        'x-user-id': 'usr_superadmin',
+        'x-user-role': 'admin',
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload);
+    expect(body.success).toBe(true);
+    expect(body.entity).toBe('users');
+    expect(Array.isArray(body.data)).toBe(true);
+
+    if (body.data.length > 0) {
+      const first = body.data[0];
+      // Phone is not masked with asterisks when includeContacts=true
+      if (first.phone) {
+        expect(first.phone).not.toContain('******');
+      }
+    }
+
+    const auditRes = await app.inject({
+      method: 'GET',
+      url: '/admin/audit-logs',
+      headers: {
+        'x-user-id': 'usr_superadmin',
+        'x-user-role': 'admin',
+      },
+    });
+    const auditLogs = JSON.parse(auditRes.payload);
+    const exportLog = auditLogs.find((l: { action: string }) => l.action === 'ADMIN_CONTACTS_EXPORT_PERFORMED');
+    expect(exportLog).toBeDefined();
+    expect(exportLog.actorId).toBe('usr_superadmin');
+    expect(exportLog.meta.entity).toBe('users');
+  });
+
+  it('records ADMIN_USER_CONTACTS_VIEWED audit log when admin accesses GET /admin/users', async () => {
+    const usersRes = await app.inject({
+      method: 'GET',
+      url: '/admin/users',
+      headers: {
+        'x-user-id': 'usr_superadmin',
+        'x-user-role': 'admin',
+      },
+    });
+    expect(usersRes.statusCode).toBe(200);
+
+    const auditRes = await app.inject({
+      method: 'GET',
+      url: '/admin/audit-logs',
+      headers: {
+        'x-user-id': 'usr_superadmin',
+        'x-user-role': 'admin',
+      },
+    });
+    const auditLogs = JSON.parse(auditRes.payload);
+    const viewLog = auditLogs.find((l: { action: string }) => l.action === 'ADMIN_USER_CONTACTS_VIEWED');
+    expect(viewLog).toBeDefined();
+    expect(viewLog.actorId).toBe('usr_superadmin');
+    expect(typeof viewLog.meta.count).toBe('number');
+  });
 });

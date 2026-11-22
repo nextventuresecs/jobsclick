@@ -32,7 +32,10 @@ export interface StudentMultiSelectFilters {
   readonly search?: string;
 }
 
-export function maskContactNumber(phone?: string | null): string {
+export function maskContactNumber(phone?: string | null, viewerRole?: string): string {
+  if (viewerRole === 'institution') {
+    return phone && phone.trim() ? phone.trim() : '—';
+  }
   if (!phone || !phone.trim()) {
     return '••••••••••';
   }
@@ -43,7 +46,10 @@ export function maskContactNumber(phone?: string | null): string {
   return '••••• •••••';
 }
 
-export function maskEmailAddress(email?: string | null): string {
+export function maskEmailAddress(email?: string | null, viewerRole?: string): string {
+  if (viewerRole === 'institution') {
+    return email && email.trim() ? email.trim() : '—';
+  }
   if (!email || !email.trim()) {
     return '••••••@••••••';
   }

@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, NotFoundException, UnauthorizedExcepti
 import { randomUUID } from 'node:crypto';
 import { OtpRedisService } from '../auth/otp-redis.service.js';
 import { AdminUserStatusInput, AdminUserRoleInput, GenerateResumeInput, AdminExportQueryInput } from '@indian-job-portal/validation';
+import type { UserRow } from '@indian-job-portal/database';
 import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
 import { UserRepository } from '../database/repositories/user.repository.js';
 import { JobRepository } from '../database/repositories/job.repository.js';
@@ -203,6 +204,16 @@ export class AdminService {
     return this.recordAuditLog(adminId, 'DATA_EXPORT_PERFORMED', meta);
   }
 
+  // ADM-05: Administrative User List with Read Audit Log (AUD-01)
+  async listUsers(adminId: string): Promise<UserRow[]> {
+    const users = this.userRepo ? await this.userRepo.findAll(1000) : [];
+    await this.recordAuditLog(adminId, 'ADMIN_USER_CONTACTS_VIEWED', {
+      count: users.length,
+      userIds: users.map((u) => u.id),
+    });
+    return users;
+  }
+
   // Issue #33 & ADM-04: Admin Data Export with Immutable Audit Logging
   async exportData(
     adminId: string,
@@ -213,15 +224,27 @@ export class AdminService {
     switch (query.entity) {
       case 'users': {
         const users = this.userRepo ? await this.userRepo.findAll() : [];
-        // Mask phone per Hard Invariant #1 while providing admin audit data
-        rawRecords = users.map((u) => ({
-          id: u.id,
-          role: u.role,
-          status: u.status,
-          phoneMasked: u.phone ? u.phone.replace(/(\d{2})\d{6}(\d{2})/, '$1******$2') : null,
-          source: u.source,
-          created_at: u.created_at,
-        }));
+        if (query.includeContacts) {
+          rawRecords = users.map((u) => ({
+            id: u.id,
+            role: u.role,
+            status: u.status,
+            phone: u.phone ?? null,
+            email: u.email ?? null,
+            source: u.source,
+            created_at: u.created_at,
+          }));
+        } else {
+          // Mask phone per Hard Invariant #1 while providing admin audit data
+          rawRecords = users.map((u) => ({
+            id: u.id,
+            role: u.role,
+            status: u.status,
+            phoneMasked: u.phone ? u.phone.replace(/(\d{2})\d{6}(\d{2})/, '$1******$2') : null,
+            source: u.source,
+            created_at: u.created_at,
+          }));
+        }
         break;
       }
       case 'jobs': {
@@ -267,12 +290,21 @@ export class AdminService {
     }
 
     // ADM-04 & Hard Invariant #6: Mandatory append-only audit log for data export
-    await this.logDataExport(adminId, {
-      entity: query.entity,
-      format: query.format,
-      recordCount: rawRecords.length,
-      timestamp: new Date().toISOString(),
-    });
+    if (query.includeContacts) {
+      await this.recordAuditLog(adminId, 'ADMIN_CONTACTS_EXPORT_PERFORMED', {
+        entity: query.entity,
+        format: query.format,
+        recordCount: rawRecords.length,
+        timestamp: new Date().toISOString(),
+      });
+    } else {
+      await this.logDataExport(adminId, {
+        entity: query.entity,
+        format: query.format,
+        recordCount: rawRecords.length,
+        timestamp: new Date().toISOString(),
+      });
+    }
 
     if (query.format === 'csv') {
       const csv = convertToCsv(rawRecords);

@@ -11,8 +11,6 @@ import type {
 } from '../../../data/sampleWorkspaces';
 import {
   filterStudentsMultiSelect,
-  maskContactNumber,
-  maskEmailAddress,
 } from './studentUtils';
 import {
   Users,
@@ -851,12 +849,12 @@ export function PlacementDashboard({
                             </div>
                           </td>
                           <td className="py-3.5 px-4">
-                            <div className="space-y-0.5" title={t('contactMaskedTooltip')}>
+                            <div className="space-y-0.5">
                               <span className="font-mono text-gray-600 block text-[11px]">
-                                {maskContactNumber(st.phone)}
+                                {st.phone || '—'}
                               </span>
                               <span className="font-mono text-gray-400 block text-[10px]">
-                                {maskEmailAddress(st.email)}
+                                {st.email || '—'}
                               </span>
                             </div>
                           </td>
@@ -1373,12 +1371,12 @@ export function PlacementDashboard({
                           </div>
                         </td>
                         <td className="py-2.5 px-3">
-                          <div className="space-y-0.5" title={t('contactMaskedTooltip')}>
+                          <div className="space-y-0.5">
                             <span className="font-mono text-gray-600 block text-[10px]">
-                              {maskContactNumber(st.phone)}
+                              {st.phone || '—'}
                             </span>
                             <span className="font-mono text-gray-400 block text-[9px]">
-                              {maskEmailAddress(st.email)}
+                              {st.email || '—'}
                             </span>
                           </div>
                         </td>
