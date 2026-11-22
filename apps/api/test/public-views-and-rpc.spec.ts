@@ -109,6 +109,8 @@ describe('Public Views and RPC Security Specs (ID-02 Task 1)', () => {
           expect(job).not.toHaveProperty('employer_id');
           expect(job).not.toHaveProperty('created_by');
           expect(job).not.toHaveProperty('updated_by');
+          expect(job).not.toHaveProperty('source');
+          expect(job).not.toHaveProperty('fts');
 
           for (const key of Object.keys(job)) {
             expect(

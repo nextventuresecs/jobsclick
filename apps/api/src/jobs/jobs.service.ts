@@ -61,7 +61,6 @@ export interface PublicJobRecord {
   featuredUntil: string | null;
   isPromoted: boolean;
   isActive: boolean;
-  source: string;
   createdAt: string;
   updatedAt: string;
   companySlug?: string;
@@ -142,7 +141,6 @@ export function mapJobRowToPublicRecord(row: JobRow, companySlug?: string): Publ
     featuredUntil: row.featured_until ?? null,
     isPromoted,
     isActive: row.is_active,
-    source: row.source,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     ...(companySlug ? { companySlug } : {}),

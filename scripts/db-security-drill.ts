@@ -1013,13 +1013,15 @@ export async function runSecurityDrill(connectionString: string): Promise<{ succ
 
   // Assert search_jobs RPC filters expired and inactive jobs
   const searchJobsRes = await adminClient.query(`
-    SELECT slug, title FROM public.search_jobs(p_keyword := $1, p_city := 'Pune');
+    SELECT * FROM public.search_jobs(p_keyword := $1, p_city := 'Pune');
   `, [jobUniqueKeyword]);
   const searchVisibleSlugs = searchJobsRes.rows.map(r => r.slug);
+  const hasSourceLeak = searchJobsRes.rows.some(r => 'source' in r);
   const searchPasses = searchVisibleSlugs.includes(vValidSlug) &&
                        searchVisibleSlugs.includes(vNoExpirySlug) &&
                        !searchVisibleSlugs.includes(vExpiredSlug) &&
-                       !searchVisibleSlugs.includes(vInactiveSlug);
+                       !searchVisibleSlugs.includes(vInactiveSlug) &&
+                       !hasSourceLeak;
 
   results.push({
     name: 'search_jobs RPC strictly filters out expired and inactive jobs',

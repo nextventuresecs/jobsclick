@@ -645,7 +645,6 @@ export interface SearchJobsRpcResult {
   expiry_date?: string | null;
   is_featured?: boolean | null;
   featured_until?: string | null;
-  source?: string;
   total_count?: string | number;
   is_currently_promoted?: boolean;
   relevance_score?: number;

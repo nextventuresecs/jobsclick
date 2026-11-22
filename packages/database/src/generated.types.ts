@@ -3849,7 +3849,6 @@ export type Database = {
           openings: number
           skills: string[]
           slug: string
-          source: string
           state: string
           title: string
           total_count: number

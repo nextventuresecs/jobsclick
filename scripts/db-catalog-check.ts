@@ -33,7 +33,7 @@ export async function runCatalogCheck(connectionString: string): Promise<Catalog
   checks.push({
     name: 'All prosecdef functions have pinned search_path',
     passed: unpinnedProc.rows.length === 0,
-    details: unpinnedProc.rows.length === 0 ? 'All 10 security definer functions in public schema have search_path=public, pg_temp' : unpinnedProc.rows,
+    details: unpinnedProc.rows.length === 0 ? 'All security definer functions in public schema have search_path=public, pg_temp' : unpinnedProc.rows,
   });
 
   // Check 2: Zero prosecdef functions callable by anon or authenticated

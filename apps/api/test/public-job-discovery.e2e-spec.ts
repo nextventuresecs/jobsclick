@@ -357,5 +357,61 @@ describe('Ticket 2: Public Job Discovery & Live Database Search (E2E Integration
       expect(data.id).toBeUndefined();
       expect(data.title).toBe(testJob.title);
     });
+
+    it('asserts public search and detail responses omit source, id, employer_id, created_by, and fts', async () => {
+      const testSlug = generatePublicSlug();
+      const testJob: JobRow = {
+        id: '88888888-8888-8888-8888-888888888888',
+        public_slug: testSlug,
+        employer_id: 'usr_emp_sanitized_test',
+        title: 'Sanitized Public Job',
+        description: 'Verifying zero source, id, or employer_id leaks.',
+        category: 'white',
+        city: 'Indore',
+        openings: 1,
+        is_active: true,
+        source: 'bulk_upload_mp',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      await jobRepository.create(testJob);
+
+      // 1. Search response check
+      const searchRes = await app.inject({
+        method: 'GET',
+        url: '/jobs?limit=5',
+      });
+      expect(searchRes.statusCode).toBe(200);
+      const searchData = JSON.parse(searchRes.payload);
+      expect(Array.isArray(searchData.jobs)).toBe(true);
+      expect(searchData.jobs.length).toBeGreaterThan(0);
+
+      for (const job of searchData.jobs) {
+        expect(job).toHaveProperty('slug');
+        expect(job).not.toHaveProperty('source');
+        expect(job).not.toHaveProperty('id');
+        expect(job).not.toHaveProperty('employerId');
+        expect(job).not.toHaveProperty('employer_id');
+        expect(job).not.toHaveProperty('createdBy');
+        expect(job).not.toHaveProperty('created_by');
+        expect(job).not.toHaveProperty('fts');
+      }
+
+      // 2. Detail response check
+      const detailRes = await app.inject({
+        method: 'GET',
+        url: `/jobs/${testSlug}`,
+      });
+      expect(detailRes.statusCode).toBe(200);
+      const detailData = JSON.parse(detailRes.payload);
+      expect(detailData.slug).toBe(testSlug);
+      expect(detailData).not.toHaveProperty('source');
+      expect(detailData).not.toHaveProperty('id');
+      expect(detailData).not.toHaveProperty('employerId');
+      expect(detailData).not.toHaveProperty('employer_id');
+      expect(detailData).not.toHaveProperty('createdBy');
+      expect(detailData).not.toHaveProperty('created_by');
+      expect(detailData).not.toHaveProperty('fts');
+    });
   });
 });

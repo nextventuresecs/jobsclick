@@ -170,7 +170,7 @@ export class JobRepository {
             is_active: r.is_active,
             is_featured: r.is_featured ?? false,
             featured_until: r.featured_until ?? null,
-            source: r.source ?? 'web',
+            source: 'direct',
             created_by: '',
             updated_by: '',
             created_at: r.created_at,

@@ -46,6 +46,23 @@ describe('money surface is service_role-only', () => {
     expect(rows).toEqual([]);
   });
 
+  it('public.search_jobs is SECURITY INVOKER with search_path pinned and service_role-only execution', async () => {
+    const { rows } = await db.query(`
+      select p.prosecdef, p.proconfig,
+             has_function_privilege('anon', p.oid, 'EXECUTE') as anon_exec,
+             has_function_privilege('authenticated', p.oid, 'EXECUTE') as auth_exec,
+             has_function_privilege('service_role', p.oid, 'EXECUTE') as service_exec
+      from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+      where n.nspname='public' and p.proname='search_jobs'
+    `);
+    expect(rows.length).toBe(1);
+    expect(rows[0].prosecdef).toBe(false);
+    expect(rows[0].proconfig).toEqual(['search_path=public, pg_temp']);
+    expect(rows[0].anon_exec).toBe(false);
+    expect(rows[0].auth_exec).toBe(false);
+    expect(rows[0].service_exec).toBe(true);
+  });
+
   it.each([
     'payments',
     'credit_ledgers',
