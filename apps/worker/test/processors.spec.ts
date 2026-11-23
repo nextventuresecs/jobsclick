@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { Job } from 'bullmq';
+import { Job, DelayedError } from 'bullmq';
 import { bulkImportProcessor, BulkImportJobData } from '../src/processors/import.processor.js';
 import { inviteWaveProcessor, InviteProcessor, InviteWaveJobData } from '../src/processors/invite.processor.js';
 import { pdfGeneratorProcessor, PdfProcessor, PdfJobData } from '../src/processors/pdf.processor.js';
@@ -400,10 +400,13 @@ describe('Worker Processors (Ticket T-07)', () => {
             const concurrentProcessor = new InviteProcessor(sharedRedis, buildMockSupabase());
             Object.assign(concurrentProcessor, { smsService: mockSmsService });
 
+            const moveToDelayedSpy = vi.fn().mockResolvedValue(undefined);
             const concurrentJob = {
               id: 'job_wave_concurrent_resume',
               attemptsMade: 0,
               opts: { attempts: 3 },
+              token: 'test_token',
+              moveToDelayed: moveToDelayedSpy,
               data: {
                 waveId,
                 batchId,
@@ -496,9 +499,9 @@ describe('Worker Processors (Ticket T-07)', () => {
       expect(res1.status).toBe('queued');
       expect(res1.sentCount).toBe(30);
 
-      // Verify that concurrent job attempted while Job 1 was running was safely locked out and delayed
+      // Verify that concurrent job attempted while Job 1 was running was safely locked out and threw DelayedError
       expect(concurrentJobAttempted).toBe(true);
-      expect((concurrentJobResult as { status: string }).status).toBe('delayed');
+      expect(concurrentJobResult).toBeInstanceOf(DelayedError);
 
       // Now resume wave after Job 1 has exited and released the lock
       waveRecord.status = 'dispatched';
@@ -770,14 +773,21 @@ describe('Worker Processors (Ticket T-07)', () => {
             // While Wave 1 is actively sending and holding the batch lock, launch Wave 2 simultaneously
             const proc2 = new InviteProcessor(sharedRedis, buildMockSupabase());
             Object.assign(proc2, { smsService: mockSmsService });
+            const moveToDelayedSpy = vi.fn().mockResolvedValue(undefined);
             const job2 = {
               id: 'job_wave_sim_2',
               attemptsMade: 0,
               opts: { attempts: 3 },
+              token: 'token_sim_2',
+              moveToDelayed: moveToDelayedSpy,
               data: { waveId: wave2Id, batchId, waveSize: 20, costPerSmsInr: 0.2 } as InviteWaveJobData,
             } as unknown as Job<InviteWaveJobData>;
 
-            secondWaveResult = await proc2.process(job2);
+            try {
+              secondWaveResult = await proc2.process(job2);
+            } catch (err) {
+              secondWaveResult = err;
+            }
           }
           return { success: true, message: 'dispatched' };
         },
@@ -797,9 +807,9 @@ describe('Worker Processors (Ticket T-07)', () => {
       expect(res1.status).toBe('completed');
       expect(res1.sentCount).toBe(20);
 
-      // Verify that simultaneous Wave 2 delayed without throwing error
+      // Verify that simultaneous Wave 2 delayed without throwing error and threw DelayedError
       expect(secondWaveAttempted).toBe(true);
-      expect((secondWaveResult as { status: string }).status).toBe('delayed');
+      expect(secondWaveResult).toBeInstanceOf(DelayedError);
 
       // Now that Wave 1 has finished and released batch lock, execute Wave 2
       const proc2After = new InviteProcessor(sharedRedis, buildMockSupabase());
@@ -934,6 +944,72 @@ describe('Worker Processors (Ticket T-07)', () => {
       // Remaining 15 invitations were not processed
       expect(invitations.filter((i) => i.status === 'sent').length).toBe(5);
       expect(invitations.filter((i) => i.status === 'pending').length).toBe(15);
+    });
+
+    it('lock wait times out when wave age exceeds limit: reverts wave to queued and throws INVITE_BATCH_LOCK_TIMEOUT', async () => {
+      const batchId = 'batch_timeout_01';
+      const waveId = 'wave_timeout_01';
+      const sevenHoursAgo = new Date(Date.now() - 7 * 3600 * 1000).toISOString();
+
+      const waveRecord = {
+        id: waveId,
+        batch_id: batchId,
+        wave_size: 20,
+        cost_per_sms_inr: 0.2,
+        status: 'dispatched',
+        started_at: sevenHoursAgo,
+        created_at: sevenHoursAgo,
+        sent_count: 0,
+        failed_count: 0,
+        failure_reason: null as string | null,
+      };
+
+      const IORedisMock = (await import('ioredis-mock')).default;
+      const sharedRedis = new IORedisMock();
+      // Pre-lock the batch with another active wave token
+      await sharedRedis.set(`lock:invite-batch:${batchId}`, 'other_wave_token', 'EX', 120);
+
+      const buildMockSupabase = () => ({
+        from: (table: string) => {
+          if (table === 'invite_waves') {
+            return {
+              select: () => ({
+                eq: () => ({
+                  single: async () => ({ data: { ...waveRecord }, error: null }),
+                  maybeSingle: async () => ({ data: { ...waveRecord }, error: null }),
+                }),
+              }),
+              update: (fields: Record<string, unknown>) => ({
+                eq: async () => {
+                  Object.assign(waveRecord, fields);
+                  return { data: null, error: null };
+                },
+              }),
+            };
+          }
+          return {};
+        },
+      } as unknown as SupabaseClient);
+
+      const proc = new InviteProcessor(sharedRedis, buildMockSupabase());
+      const job = {
+        id: 'job_wave_timeout_test',
+        attemptsMade: 0,
+        opts: { attempts: 3 },
+        token: 'timeout_token',
+        data: { waveId, batchId, waveSize: 20, costPerSmsInr: 0.2 } as InviteWaveJobData,
+      } as unknown as Job<InviteWaveJobData>;
+
+      // Execute processor with wave older than 6h
+      await expect(proc.process(job)).rejects.toThrow('INVITE_BATCH_LOCK_TIMEOUT');
+
+      // Verify wave was reverted to queued (resumable)
+      expect(waveRecord.status).toBe('queued');
+      expect(waveRecord.failure_reason).toBe('INVITE_BATCH_LOCK_TIMEOUT');
+
+      // Verify delay counter was incremented with 24h TTL
+      const delayCount = await sharedRedis.get(`lock:invite-job-delays:job_wave_timeout_test`);
+      expect(Number(delayCount)).toBe(1);
     });
 
     it('simulates retry backoff on transient SMS dispatch failures', async () => {

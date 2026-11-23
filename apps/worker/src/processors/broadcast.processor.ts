@@ -108,6 +108,32 @@ export class BroadcastProcessor {
       throw new Error(`Simulated transient broadcast gateway failure for retry verification (attempt ${job.attemptsMade + 1})`);
     }
 
+    // Ensure campaign status is 'processing' on initial batch and bump updated_at on every batch
+    if (this.supabase) {
+      try {
+        const { data: campaignRow } = await this.supabase
+          .from('broadcast_campaigns')
+          .select('status')
+          .eq('id', campaignId)
+          .maybeSingle();
+
+        if (campaignRow) {
+          const updateData: { status?: string; updated_at: string } = {
+            updated_at: new Date().toISOString(),
+          };
+          if (campaignRow.status === 'queued' || batchIndex === 0) {
+            updateData.status = 'processing';
+          }
+          await this.supabase
+            .from('broadcast_campaigns')
+            .update(updateData)
+            .eq('id', campaignId);
+        }
+      } catch (err) {
+        console.warn(`[BroadcastProcessor] Failed updating campaign ${campaignId} status/heartbeat:`, err);
+      }
+    }
+
     let sentCount = 0;
     let skippedCount = 0;
     let failedCount = 0;
@@ -371,7 +397,32 @@ export class BroadcastProcessor {
   }
 }
 
-export const broadcastProcessor = async (job: Job<BroadcastBatchJobData>): Promise<BroadcastBatchJobResult> => {
+export const broadcastProcessor = async (
+  job: Job<BroadcastBatchJobData>,
+): Promise<BroadcastBatchJobResult> => {
+  if (job.name === 'broadcast-watchdog') {
+    const supabaseUrl = process.env['SUPABASE_URL'];
+    const supabaseKey = process.env['SUPABASE_SERVICE_ROLE_KEY'];
+    let finalized = 0;
+    if (supabaseUrl && supabaseKey && supabaseKey !== 'dummy-service-role-key') {
+      const supabase = createClient(supabaseUrl, supabaseKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const staleHours = Number((job.data as unknown as { staleHours?: number })?.staleHours || 6);
+      const res = await runCampaignWatchdog(supabase, staleHours);
+      finalized = res.finalizedCount;
+    }
+    return {
+      campaignId: 'watchdog',
+      batchIndex: 0,
+      processedCount: finalized,
+      sentCount: finalized,
+      skippedCount: 0,
+      failedCount: 0,
+      status: 'completed',
+    };
+  }
+
   const processor = new BroadcastProcessor();
   const result = await processor.process(job);
   if (result.status === 'failed') {

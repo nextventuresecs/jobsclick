@@ -1,4 +1,4 @@
-import { Job } from 'bullmq';
+import { Job, DelayedError } from 'bullmq';
 import { randomUUID } from 'node:crypto';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import IORedis from 'ioredis';
@@ -131,18 +131,33 @@ export class InviteProcessor {
       try {
         const res = await this.redis.set(batchLockKey, lockToken, 'EX', BATCH_LOCK_TTL_SECONDS, 'NX');
         if (!res) {
-          // Bounded total wait tracking via Redis counter
-          const delayKey = `lock:invite-batch-delays:${batchId}:${lockToken}`;
-          const delayAttempts = await this.redis.incr(delayKey);
-          await this.redis.expire(delayKey, 600);
+          // Delay counter keyed by job id with 24h TTL
+          const delayKey = `lock:invite-job-delays:${lockToken}`;
+          const delayCount = await this.redis.incr(delayKey);
+          await this.redis.expire(delayKey, 86400);
 
-          const MAX_DELAY_ATTEMPTS = 5;
-          if (delayAttempts > MAX_DELAY_ATTEMPTS) {
-            console.error(`[InviteProcessor] Bounded wait exceeded for batch ${batchId} (attempt ${delayAttempts}/${MAX_DELAY_ATTEMPTS}). Failing.`);
-            throw new Error(`INVITE_BATCH_LOCK_TIMEOUT: Maximum wait exceeded while waiting for batch ${batchId} lock`);
+          // Lock wait: bound by wave age (config, default 6h), not attempt count
+          const maxWaveAgeHours = Number(process.env['INVITE_WAVE_LOCK_MAX_HOURS'] || 6);
+          const maxWaveAgeMs = maxWaveAgeHours * 3600 * 1000;
+          const waveStartedAt = currentWave.started_at || (currentWave as { created_at?: string }).created_at;
+          const waveCreatedAtMs = waveStartedAt ? new Date(waveStartedAt).getTime() : Date.now();
+          const waveAgeMs = Date.now() - waveCreatedAtMs;
+
+          if (waveAgeMs > maxWaveAgeMs) {
+            console.error(`[InviteProcessor] Wave ${waveId} lock wait timed out after ${Math.round(waveAgeMs / 3600000)}h (max ${maxWaveAgeHours}h). Reverting wave to queued.`);
+            if (this.supabase) {
+              await this.supabase
+                .from('invite_waves')
+                .update({
+                  status: 'queued',
+                  failure_reason: 'INVITE_BATCH_LOCK_TIMEOUT',
+                })
+                .eq('id', waveId);
+            }
+            throw new Error(`INVITE_BATCH_LOCK_TIMEOUT: Maximum wave lock wait age (${maxWaveAgeHours}h) exceeded for wave ${waveId}`);
           }
 
-          console.log(`[InviteProcessor] Batch ${batchId} is currently locked by another active wave job. Delaying job ${lockToken} (attempt ${delayAttempts}/${MAX_DELAY_ATTEMPTS}).`);
+          console.log(`[InviteProcessor] Batch ${batchId} is currently locked by another active wave job. Delaying job ${lockToken} (delay #${delayCount}, wave age ${Math.round(waveAgeMs / 1000)}s).`);
           const jobWithDelayed = job as unknown as { moveToDelayed?: (timestamp: number, token?: string) => Promise<void>; token?: string };
           if (typeof jobWithDelayed?.moveToDelayed === 'function') {
             try {
@@ -150,6 +165,7 @@ export class InviteProcessor {
             } catch {
               // best-effort
             }
+            throw new DelayedError();
           }
 
           return {
@@ -189,7 +205,13 @@ export class InviteProcessor {
           renewalInterval.unref();
         }
       } catch (redisErr) {
-        if (redisErr instanceof Error && (redisErr.message.includes('INVITE_BATCH_LOCK_TIMEOUT') || redisErr.message.includes('INVITE_REDIS_LOCK_UNAVAILABLE'))) {
+        if (
+          redisErr instanceof DelayedError ||
+          (redisErr instanceof Error &&
+            (redisErr.name === 'DelayedError' ||
+              redisErr.message.includes('INVITE_BATCH_LOCK_TIMEOUT') ||
+              redisErr.message.includes('INVITE_REDIS_LOCK_UNAVAILABLE')))
+        ) {
           throw redisErr;
         }
         if (isStrictEnv()) throw redisErr;

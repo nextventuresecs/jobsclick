@@ -67,7 +67,21 @@ describe('Mixed Cluster (N vs N-1) Dual-Worker Rolling Deployment Invariance', (
       attemptsMade: 0,
     } as Job<BroadcastBatchJobData>;
 
-    const result = await new BroadcastProcessor(mockRedis).process(job);
+    const dummySupabase = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({ data: null, error: null }),
+            in: async () => ({ count: 0, error: null }),
+          }),
+        }),
+        upsert: async () => ({ data: null, error: null }),
+        update: () => ({
+          eq: async () => ({ data: null, error: null }),
+        }),
+      }),
+    } as unknown as import('@supabase/supabase-js').SupabaseClient;
+    const result = await new BroadcastProcessor(mockRedis, dummySupabase).process(job);
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(result).toMatchObject({ sentCount: 1, failedCount: 1, skippedCount: 0 });
@@ -161,7 +175,22 @@ describe('Mixed Cluster (N vs N-1) Dual-Worker Rolling Deployment Invariance', (
   });
 
   it('gracefully handles payload schema evolution (N version 2 and N-1 legacy unversioned payloads)', async () => {
-    const worker = new BroadcastProcessor(mockRedis);
+    const dummySupabase = {
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({ data: null, error: null }),
+            in: async () => ({ count: 0, error: null }),
+          }),
+        }),
+        upsert: async () => ({ data: null, error: null }),
+        update: () => ({
+          eq: async () => ({ data: null, error: null }),
+        }),
+      }),
+    } as unknown as import('@supabase/supabase-js').SupabaseClient;
+
+    const worker = new BroadcastProcessor(mockRedis, dummySupabase);
 
     const legacyPayload: BroadcastBatchJobData = {
       campaignId: 'camp_legacy_v1',
@@ -673,7 +702,7 @@ describe('Mixed Cluster (N vs N-1) Dual-Worker Rolling Deployment Invariance', (
     expect(recordedSkips).toBe(0);
 
     // Campaign target was NOT reduced (remains 2), so campaign status is NOT updated to completed
-    expect(updatedCampaignStatus).toBeNull();
+    expect(updatedCampaignStatus).not.toBe('completed');
   });
 
   describe('Campaign Watchdog for abandoned campaigns with lost leases', () => {
@@ -721,6 +750,65 @@ describe('Mixed Cluster (N vs N-1) Dual-Worker Rolling Deployment Invariance', (
       expect(result.finalizedCount).toBe(2);
       expect(updatedStatus['stale-c1']).toBe('completed');
       expect(updatedStatus['stale-c2']).toBe('failed');
+    });
+
+    it('sets queued campaign to processing and updates updated_at heartbeat on batch execution', async () => {
+      const updatesHistory: Array<Record<string, unknown>> = [];
+      const mockSupabase = {
+        from: (table: string) => {
+          if (table === 'broadcast_campaigns') {
+            return {
+              select: () => ({
+                eq: () => ({
+                  maybeSingle: async () => ({ data: { recipient_count: 5, status: 'queued' }, error: null }),
+                }),
+              }),
+              update: (fields: Record<string, unknown>) => ({
+                eq: async () => {
+                  updatesHistory.push(fields);
+                  return { data: null, error: null };
+                },
+              }),
+            };
+          }
+          if (table === 'broadcast_deliveries') {
+            return {
+              select: () => ({
+                eq: () => ({
+                  maybeSingle: async () => ({ data: null, error: null }),
+                  in: async () => ({ count: 1, error: null }),
+                  eq: async () => ({ count: 1, error: null }),
+                }),
+              }),
+              upsert: async () => ({ data: null, error: null }),
+            };
+          }
+          return {};
+        },
+      } as unknown as import('@supabase/supabase-js').SupabaseClient;
+
+      const worker = new BroadcastProcessor(mockRedis, mockSupabase);
+      const job = {
+        data: {
+          campaignId: 'camp_heartbeat_test',
+          batchIndex: 0,
+          totalBatches: 2,
+          templateId: 'DLT_NOTICE',
+          variables: {},
+          recipients: [
+            { businessProfileId: 'b1', phone: '9876543210', idempotencyKey: 'idemp_heartbeat_1' },
+          ],
+        },
+        attemptsMade: 0,
+        opts: { attempts: 1 },
+      } as Job<BroadcastBatchJobData>;
+
+      await worker.process(job);
+
+      // Verify initial update set status to 'processing' and bumped updated_at
+      expect(updatesHistory.length).toBeGreaterThanOrEqual(1);
+      expect(updatesHistory[0]?.status).toBe('processing');
+      expect(updatesHistory[0]?.updated_at).toBeDefined();
     });
   });
 });

@@ -397,11 +397,12 @@ interface QueueWithRepeatSchedule {
 }
 
 export async function scheduleRepeatableJobs(registry: WorkerInstanceRegistry): Promise<void> {
-  const { reconcileQueue, expireQueue, invoiceOutboxQueue } = registry;
+  const { reconcileQueue, expireQueue, invoiceOutboxQueue, broadcastQueue } = registry;
 
   const recQueue = reconcileQueue as unknown as QueueWithRepeatSchedule;
   const expQueue = expireQueue as unknown as QueueWithRepeatSchedule;
   const outQueue = invoiceOutboxQueue as unknown as QueueWithRepeatSchedule;
+  const bcastQueue = broadcastQueue as unknown as QueueWithRepeatSchedule;
 
   if (typeof recQueue.upsertJobScheduler === 'function') {
     try {
@@ -462,6 +463,28 @@ export async function scheduleRepeatableJobs(registry: WorkerInstanceRegistry): 
       jobId: 'outbox-periodic',
     },
   );
+
+  if (bcastQueue) {
+    if (typeof bcastQueue.upsertJobScheduler === 'function') {
+      try {
+        await bcastQueue.upsertJobScheduler(
+          'broadcast-watchdog',
+          { every: 15 * 60 * 1000 },
+          { name: 'broadcast-watchdog', data: { staleHours: 6 }, opts: { jobId: 'broadcast-watchdog' } },
+        );
+      } catch {
+        // Fallback to queue.add if scheduler lua execution is unavailable
+      }
+    }
+    await bcastQueue.add(
+      'broadcast-watchdog',
+      { staleHours: 6 },
+      {
+        repeat: { every: 15 * 60 * 1000 },
+        jobId: 'broadcast-watchdog',
+      },
+    );
+  }
 }
 
 let activeRegistry: WorkerInstanceRegistry | null = null;
@@ -477,7 +500,7 @@ async function main() {
 
     if (env.NODE_ENV !== 'test') {
       await scheduleRepeatableJobs(activeRegistry);
-      console.log('[Worker - BullMQ Mode] Successfully registered repeatable payment jobs (reconcile: 10m, expire: 1h, outbox: 1m)');
+      console.log('[Worker - BullMQ Mode] Successfully registered repeatable jobs (reconcile: 10m, expire: 1h, outbox: 1m, broadcast-watchdog: 15m)');
     }
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
