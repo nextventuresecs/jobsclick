@@ -120,10 +120,8 @@ export function parseCsvContent(rawCsvText: string): { rows: ParsedRow[]; error?
   return { rows };
 }
 
-export function downloadCsvTemplate(rawCsvText?: string) {
-  const content =
-    rawCsvText ||
-    `email,phone,student_name,roll_number,stream,passing_year\nmanish.k@college.edu,9826112233,Manish Kushwaha,0801ME221102,Mechanical Engineering (Diploma),2026\nankita.s@college.edu,,Ankita Soni,0801EC221105,Electronics & Comm (Diploma),2026\n,9111455667,Sunil Solanki,0801IT221110,ITI Machinist & Fitter,2025\n`;
+export function downloadCsvTemplate() {
+  const content = 'email,phone,student_name,roll_number,stream,passing_year\n';
   const blob = new Blob([content], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

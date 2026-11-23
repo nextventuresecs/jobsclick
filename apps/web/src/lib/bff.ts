@@ -75,6 +75,7 @@ export function extractSessionToken(req: NextRequest): string | null {
 
 export interface ForwardBffOptions {
   readonly timeoutMs?: number;
+  readonly multipart?: boolean;
 }
 
 /**
@@ -143,23 +144,35 @@ export async function forwardBffRequest(
   upstreamHeaders.set('Authorization', `Bearer ${session.accessToken}`);
   upstreamHeaders.set('Accept', 'application/json');
 
-  let bodyContent: string | undefined;
+  let bodyContent: BodyInit | undefined;
   if (req.method !== 'GET' && req.method !== 'HEAD') {
-    upstreamHeaders.set('Content-Type', 'application/json');
-    try {
-      bodyContent = await req.text();
-    } catch {
-      bodyContent = undefined;
+    if (options?.multipart) {
+      const contentType = req.headers.get('content-type');
+      if (!contentType || !/^multipart\/form-data;/i.test(contentType) || !req.body) {
+        clearTimeout(timer);
+        return NextResponse.json({ code: 'BULK_UPLOAD_INVALID' }, { status: 400 });
+      }
+      upstreamHeaders.set('Content-Type', contentType);
+      bodyContent = req.body;
+    } else {
+      upstreamHeaders.set('Content-Type', 'application/json');
+      try {
+        bodyContent = await req.text();
+      } catch {
+        bodyContent = undefined;
+      }
     }
   }
 
   try {
-    const upstreamRes = await fetch(targetUrl.toString(), {
+    const upstreamRequest: RequestInit & { duplex?: 'half' } = {
       method: req.method,
       headers: upstreamHeaders,
       body: bodyContent,
       signal: controller.signal,
-    });
+    };
+    if (options?.multipart) upstreamRequest.duplex = 'half';
+    const upstreamRes = await fetch(targetUrl.toString(), upstreamRequest);
 
     clearTimeout(timer);
 

@@ -407,7 +407,18 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
   // =========================================================================
   describe('Worker Consumer & Idempotency Guarantee', () => {
     it('skips duplicate message dispatch when identical idempotency key is processed', async () => {
-      const processor = new BroadcastProcessor();
+      const dummySupabase = {
+        from: () => ({
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: null, error: null }),
+              in: async () => ({ count: 0, error: null }),
+            }),
+          }),
+          upsert: async () => ({ data: null, error: null }),
+        }),
+      } as unknown as import('@supabase/supabase-js').SupabaseClient;
+      const processor = new BroadcastProcessor(null, dummySupabase);
       const jobMock = {
         id: 'job_bcast_test_1',
         data: {
@@ -420,7 +431,7 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
             {
               businessProfileId: 'biz_1',
               phone: '9876543210',
-              idempotencyKey: 'idemp_key_unique_abc123',
+              idempotencyKey: `idemp_key_${randomUUID()}`,
             },
           ],
         },
@@ -432,11 +443,13 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
       const result1 = await processor.process(jobMock as unknown as Parameters<typeof processor.process>[0]);
       expect(result1.status).toBe('completed');
       expect(result1.sentCount).toBe(1);
+      expect(result1.skippedCount).toBe(0);
 
       // Re-run simulating retry of same job
       const result2 = await processor.process(jobMock as unknown as Parameters<typeof processor.process>[0]);
       expect(result2.status).toBe('completed');
-      expect(result2.sentCount).toBe(1);
+      expect(result2.sentCount).toBe(0);
+      expect(result2.skippedCount).toBe(1);
     });
   });
 

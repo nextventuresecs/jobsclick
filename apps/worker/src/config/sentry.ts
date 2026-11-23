@@ -144,7 +144,6 @@ export function handleWorkerJobFailure(
         scope.setTag('job_name', job?.name || 'unknown');
         scope.setExtra('attempts_made', attemptsMade);
         scope.setExtra('max_attempts', attempts);
-        scope.setExtra('job_data', deepScrubPii(job?.data));
 
         return Sentry.captureException(err);
       });

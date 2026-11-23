@@ -280,6 +280,10 @@ export class AuthService {
       throw new ConflictException('Email address is already in use or pending verification');
     }
 
+    if (!this.emailService) {
+      throw new ServiceUnavailableException({ code: 'EMAIL_VERIFICATION_DELIVERY_FAILED' });
+    }
+
     // Update DB with pending email (email remains untouched)
     await this.userRepository.setPendingEmail(userId, email);
 
@@ -297,16 +301,10 @@ export class AuthService {
     await this.otpRedisService.saveEmailVerificationToken(userId, email, tokenHash, 86400);
     await this.otpRedisService.setUserActiveEmailToken(userId, tokenHash, 86400);
 
-    // Dispatch transactional email via Resend if email service is active
-    if (this.emailService) {
-      const baseUrl = process.env['WEB_URL'];
-      if (!baseUrl) {
-        throw new ServiceUnavailableException('WEB_URL is not configured');
-      }
-      const verificationLink = `${baseUrl}/auth/verify-email?token=${rawToken}`;
-      await this.emailService.sendVerificationEmail(email, verificationLink).catch((err: unknown) => {
-        this.logger.warn(`Failed to dispatch verification email: ${(err as Error).message}`);
-      });
+    const delivery = await this.emailService.sendVerificationEmail(email, rawToken).catch(() => null);
+    if (!delivery?.success) {
+      await this.otpRedisService.deleteEmailVerificationToken(tokenHash);
+      throw new ServiceUnavailableException({ code: 'EMAIL_VERIFICATION_DELIVERY_FAILED' });
     }
 
     return {
@@ -557,32 +555,13 @@ export class AuthService {
     await this.rateLimitService.checkVerifyIpRateLimit(clientIp);
 
     let email: string | undefined;
-
-    if (input.providerToken.startsWith('mock_provider_token:')) {
-      email = input.providerToken.replace('mock_provider_token:', '').trim().toLowerCase();
-    } else if (this.supabaseClient) {
-      try {
-        const { data, error } = await this.supabaseClient.auth.getUser(input.providerToken);
-        if (!error && data?.user?.email) {
-          email = data.user.email.toLowerCase();
-        }
-      } catch (err) {
-        this.logger.warn(`Failed to verify OAuth token with Supabase Auth: ${(err as Error).message}`);
+    try {
+      const result = await this.supabaseClient?.auth.getUser(input.providerToken);
+      if (result && !result.error && result.data.user?.email_confirmed_at) {
+        email = result.data.user.email?.trim().toLowerCase();
       }
-    }
-
-    if (!email && input.providerToken.includes('.')) {
-      try {
-        const parts = input.providerToken.split('.');
-        if (parts.length === 3 && parts[1]) {
-          const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
-          if (payload.email && typeof payload.email === 'string') {
-            email = payload.email.toLowerCase();
-          }
-        }
-      } catch {
-        // ignore
-      }
+    } catch {
+      this.logger.warn('Failed to verify OAuth token with Supabase Auth');
     }
 
     if (!email) {
@@ -592,6 +571,9 @@ export class AuthService {
     let userRow = await this.userRepository.findByEmail(email);
 
     if (userRow) {
+      if (userRow.email?.trim().toLowerCase() !== email) {
+        throw new UnauthorizedException('Invalid or unverified OAuth provider token');
+      }
       if (userRow.status === 'disabled' || (userRow.status as string) === 'suspended') {
         throw new ForbiddenException('Your account has been disabled. Contact support.');
       }
@@ -625,12 +607,11 @@ export class AuthService {
       }
     }
 
-    const isEmailVerified = Boolean((userRow as Record<string, unknown>)['email_verified_at']) || true;
     const session: UserSession = {
       id: userRow.id,
       phone: userRow.phone,
       email: userRow.email,
-      emailVerified: isEmailVerified,
+      emailVerified: true,
       role: userRow.role,
       status: userRow.status,
     };

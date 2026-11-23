@@ -1,9 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isProduction, getSessionCookieName } from '@indian-job-portal/validation';
+import { isProduction, isStrictEnv, getSessionCookieName } from '@indian-job-portal/validation';
 
 const SESSION_COOKIE_NAME = getSessionCookieName();
 
 const PROTECTED_PATH_PREFIXES = ['/workspace', '/hi/workspace', '/company/bulk-onboard'];
+
+function configuredOrigin(value: string | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    if (url.username || url.password || /[;']/.test(url.origin)) return undefined;
+    if (url.protocol === 'https:' || (url.protocol === 'http:' && !isStrictEnv())) {
+      return url.origin;
+    }
+  } catch {
+    // Malformed configuration must not add sources to the browser policy.
+  }
+  return undefined;
+}
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -14,6 +28,42 @@ export function middleware(req: NextRequest) {
   requestHeaders.delete('x-user-id');
   requestHeaders.delete('x-user-role');
   requestHeaders.delete('x-user-status');
+
+  const nonce = btoa(crypto.randomUUID());
+  const connectSources = [
+    "'self'",
+    'https://lumberjack.razorpay.com',
+    'https://api.razorpay.com',
+    'https://*.supabase.co',
+    'https://*.sentry.io',
+    configuredOrigin(process.env.NEXT_PUBLIC_API_URL),
+    configuredOrigin(process.env.NEXT_PUBLIC_SUPABASE_URL),
+  ].filter(Boolean).join(' ');
+  const developmentScripts = process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : '';
+  const csp = [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' https://checkout.razorpay.com https://challenges.cloudflare.com${developmentScripts}`,
+    "worker-src 'self' blob:",
+    "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://challenges.cloudflare.com",
+    `connect-src ${connectSources}`,
+    "img-src 'self' data: blob: https:",
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self' data:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ].join('; ');
+  // Next.js reads the request policy when inserting nonces on framework scripts.
+  requestHeaders.set('Content-Security-Policy', csp);
+
+  function applySecurityHeaders(response: NextResponse): NextResponse {
+    response.headers.set('Content-Security-Policy', csp);
+    if (!isProduction()) {
+      response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+    }
+    return response;
+  }
 
   // 2. Enforce authentication gate on protected routes
   const isProtected = PROTECTED_PATH_PREFIXES.some(
@@ -31,11 +81,7 @@ export function middleware(req: NextRequest) {
   if (isProtected && !hasValidFormat) {
     const loginRedirectUrl = new URL('/', req.url);
     loginRedirectUrl.searchParams.set('authRequired', '1');
-    const redirectRes = NextResponse.redirect(loginRedirectUrl);
-    if (!isProduction()) {
-      redirectRes.headers.set('X-Robots-Tag', 'noindex, nofollow');
-    }
-    return redirectRes;
+    return applySecurityHeaders(NextResponse.redirect(loginRedirectUrl));
   }
 
   // Bypass multilingual header generation for internal API routes
@@ -45,10 +91,7 @@ export function middleware(req: NextRequest) {
         headers: requestHeaders,
       },
     });
-    if (!isProduction()) {
-      response.headers.set('X-Robots-Tag', 'noindex, nofollow');
-    }
-    return response;
+    return applySecurityHeaders(response);
   }
 
   // Helper to generate SEO alternate Link header
@@ -81,10 +124,7 @@ export function middleware(req: NextRequest) {
 
     response.headers.set('Link', getLinkHeader(cleanPath));
     response.cookies.set('NEXT_LOCALE', 'hi', { path: '/', maxAge: 31536000, sameSite: 'lax' });
-    if (!isProduction()) {
-      response.headers.set('X-Robots-Tag', 'noindex, nofollow');
-    }
-    return response;
+    return applySecurityHeaders(response);
   }
 
   // 4. /en or /en/... canonicalization redirect to non-prefixed English URLs
@@ -95,10 +135,7 @@ export function middleware(req: NextRequest) {
     const redirectUrl = new URL(cleanPath, req.url);
     const response = NextResponse.redirect(redirectUrl, 308);
     response.cookies.set('NEXT_LOCALE', 'en', { path: '/', maxAge: 31536000, sameSite: 'lax' });
-    if (!isProduction()) {
-      response.headers.set('X-Robots-Tag', 'noindex, nofollow');
-    }
-    return response;
+    return applySecurityHeaders(response);
   }
 
   // 5. Default English / Non-prefixed routes
@@ -115,12 +152,7 @@ export function middleware(req: NextRequest) {
   });
 
   response.headers.set('Link', getLinkHeader(pathname));
-  // Prevent indexing on non-production (staging/dev/test) environments
-  if (!isProduction()) {
-    response.headers.set('X-Robots-Tag', 'noindex, nofollow');
-  }
-
-  return response;
+  return applySecurityHeaders(response);
 }
 
 export const config = {

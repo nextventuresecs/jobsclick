@@ -86,7 +86,7 @@ export function BulkUploadModal({
               <button type="button" onClick={() => s.setImportStep(1)} className="px-3 py-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 border border-gray-300 rounded-lg">
                 {t('cancel')}
               </button>
-              <Button type="button" variant="primary" size="sm" onClick={onExecuteImport}>
+              <Button type="button" variant="primary" size="sm" onClick={onExecuteImport} disabled={s.isUploading}>
                 {t('btnProceedToQueue')} ({s.parsedRows.filter((r) => r.isValid).length} {t('validRows')})
               </Button>
             </div>
@@ -133,32 +133,30 @@ export function BulkUploadModal({
             <div className="flex items-center gap-2 text-teal-900">
               <CheckCircle2 className="w-5 h-5 text-teal-600" />
               <h3 className="text-base font-bold">
-                {s.batchStatus === 'uploading' ? 'Uploading to Supabase Storage...' : s.batchStatus === 'processing' || s.batchStatus === 'queued' ? 'Background Worker Processing (500-Row Chunks)...' : t('batchSuccessTitle')}
+                {s.batchStatus === 'completed' ? t('batchSuccessTitle')
+                  : s.batchStatus === 'failed' ? t('rosterImportFailure')
+                  : s.batchStatus === 'processing' ? t('rosterProcessing')
+                  : t('rosterQueued')}
               </h3>
             </div>
-            {s.batchStatus !== 'idle' && (
-              <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${s.batchStatus === 'completed' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : s.batchStatus === 'failed' ? 'bg-red-100 text-red-800 border-red-300' : 'bg-amber-100 text-amber-800 border-amber-300 animate-pulse'}`}>
-                {s.batchStatus.toUpperCase()}
-              </span>
-            )}
           </div>
 
-          <p className="text-xs text-teal-800">{t('batchSuccessDesc')}</p>
+          {s.batchStatus === 'completed' && <p className="text-xs text-teal-800">{t('batchSuccessDesc')}</p>}
+          {s.batchMetrics.totalRows > 0 && <p className="text-xs text-teal-800">{t('rosterRowCounts', {
+            total: s.batchMetrics.totalRows,
+            valid: s.batchMetrics.validRows,
+            invalid: s.batchMetrics.errorRows,
+          })}</p>}
 
-          <div className="bg-white p-4 rounded-xl border border-teal-200 text-xs space-y-2">
+          {s.invitePreview && <div className="bg-white p-4 rounded-xl border border-teal-200 text-xs space-y-2">
             <h4 className="font-bold text-gray-900">{t('waveHeading')}</h4>
-            <div className="flex justify-between text-gray-600">
-              <span>Target Recipients:</span>
-              <span className="font-bold text-gray-900">{s.batchMetrics.validRows || s.parsedRows.filter((r) => r.isValid).length}</span>
-            </div>
-            <div className="flex justify-between text-gray-600">
-              <span>{t('smsCostPerCandidate')}</span>
-              <span className="font-bold text-gray-900">₹0.12 / SMS</span>
-            </div>
-          </div>
+            <p>{t('maximumWaveRecipients', { count: s.invitePreview.waveSize })}</p>
+            <p>{t('maximumWaveCost', { cost: s.invitePreview.totalCostInr.toFixed(2) })}</p>
+          </div>}
 
           <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="primary" size="sm" onClick={onScheduleWave} className="inline-flex items-center gap-1.5">
+            <Button type="button" variant="primary" size="sm" onClick={onScheduleWave}
+              disabled={!s.invitePreview || s.batchStatus !== 'completed' || s.isSchedulingWave} className="inline-flex items-center gap-1.5">
               <Send className="w-4 h-4" />
               <span>{t('btnDispatchWave')}</span>
             </Button>

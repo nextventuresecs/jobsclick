@@ -46,7 +46,7 @@ export class WorkerSmsService {
       // QA whitelist range (+919876543210 through +919876543219)
       const isTestWhitelist = phone.startsWith('987654321') && phone.length === 10;
       if (isTestWhitelist) {
-        console.log(`[Worker SMS Hook - QA Whitelist] Invite SMS for +91${phone} (Static QA Bypass)`);
+        console.log('[Worker SMS Hook - QA Whitelist] Simulated invite SMS');
         return {
           success: true,
           message: 'Invite SMS dispatched via MSG91 mock handler (QA whitelist)',
@@ -54,7 +54,7 @@ export class WorkerSmsService {
         };
       }
 
-      console.log(`[Worker SMS Hook - Mock] Invite SMS for +91${phone}`);
+      console.log('[Worker SMS Hook - Mock] Simulated invite SMS');
       return {
         success: true,
         message: 'Invite SMS dispatched via MSG91 mock handler',
@@ -76,9 +76,8 @@ export class WorkerSmsService {
           `[Worker SMS Staging Gate] Invite SMS to +91${cleanPhone.slice(-4).padStart(cleanPhone.length, 'X')} skipped: blocked_by_allowlist`,
         );
         return {
-          success: true,
+          success: false,
           message: 'SMS skipped: blocked_by_allowlist',
-          messageId: `staging_allowlist_blocked_${randomUUID()}`,
           blocked_by_allowlist: true,
         };
       }
@@ -103,7 +102,7 @@ export class WorkerSmsService {
     // In staging and production, missing or dummy auth key is a hard failure
     if (!authKey || authKey === 'dummy-msg91-key') {
       console.error(
-        `[Worker SMS Error] MSG91_AUTH_KEY is not configured or dummy in strict env when dispatching to +91${phone}`,
+        '[Worker SMS Error] MSG91_AUTH_KEY is not configured or dummy in strict env',
       );
       return {
         success: false,
@@ -133,25 +132,29 @@ export class WorkerSmsService {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[Worker MSG91 Error] HTTP ${response.status}: ${errorText}`);
-        captureException(new Error(`MSG91 Invite delivery failed: ${response.status} ${errorText}`));
+        await response.body?.cancel().catch(() => undefined);
+        console.error(`[Worker MSG91 Error] HTTP ${response.status}`);
+        captureException(new Error(`MSG91 Invite delivery failed: ${response.status}`));
         return {
           success: false,
-          message: `SMS gateway error: ${response.statusText}`,
+          message: `SMS gateway error: HTTP ${response.status}`,
         };
       }
 
-      const resData = (await response.json().catch(() => ({}))) as Record<string, unknown>;
-      console.log(`[Worker MSG91 Live] Successfully delivered Invite SMS to +91${phone} via template ${templateId}`);
+      const resData = (await response.json().catch(() => null)) as { type?: unknown; message?: unknown } | null;
+      const requestId = resData?.message;
+      if (resData?.type !== 'success' || typeof requestId !== 'string' || !requestId.trim()) {
+        return { success: false, message: 'MSG91 did not accept the invite' };
+      }
+      console.log('[Worker MSG91 Live] Invite SMS accepted by provider');
       return {
         success: true,
-        message: 'Invite SMS delivered via MSG91',
-        messageId: (resData['message'] as string) || randomUUID(),
+        message: 'Invite SMS accepted by MSG91',
+        messageId: requestId,
       };
-    } catch (err) {
-      console.error(`[Worker MSG91 Exception] ${err}`);
-      captureException(err instanceof Error ? err : new Error(String(err)));
+    } catch {
+      console.error('[Worker MSG91 Exception] SMS dispatch failed');
+      captureException(new Error('MSG91 Invite dispatch failed'));
       return {
         success: false,
         message: 'SMS delivery network failure',

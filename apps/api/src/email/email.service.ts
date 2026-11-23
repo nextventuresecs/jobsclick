@@ -12,8 +12,8 @@ export class EmailService implements IEmailService {
     process.env['EMAIL_FROM'] || 'JobsClick <notifications@example.com>';
 
   async sendEmail(options: SendEmailOptions): Promise<SendEmailResult> {
-    const apiKey = process.env['RESEND_API_KEY'];
-    const isMock = isTestEnv() || !apiKey || apiKey === 're_dummy_resend_api_key';
+    const apiKey = process.env['RESEND_API_KEY']?.trim();
+    const isMock = isTestEnv();
 
     const from = options.from || this.defaultFrom;
     const recipients = Array.isArray(options.to) ? options.to : [options.to];
@@ -32,8 +32,8 @@ export class EmailService implements IEmailService {
           `[Staging Email Gate] Email to ${recipients.map((r) => maskEmail(r)).join(', ')} skipped: blocked_by_allowlist`,
         );
         return {
-          success: true,
-          messageId: `staging_email_blocked_${randomUUID()}`,
+          success: false,
+          error: 'EMAIL_BLOCKED_BY_ALLOWLIST',
           blocked_by_allowlist: true,
         };
       }
@@ -41,7 +41,7 @@ export class EmailService implements IEmailService {
 
     if (isMock) {
       this.logger.log(
-        `[Resend Email Mock] Dispatched email to ${activeRecipients.join(', ')} | Subject: "${options.subject}" (Sender: ${from})`,
+        `[Resend Email Mock] Simulated dispatch to ${activeRecipients.length} recipients`,
       );
       return {
         success: true,
@@ -49,9 +49,14 @@ export class EmailService implements IEmailService {
       };
     }
 
+    if (!apiKey || apiKey === 're_dummy_resend_api_key') {
+      return { success: false, error: 'EMAIL_PROVIDER_UNAVAILABLE' };
+    }
+
     try {
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
+        signal: AbortSignal.timeout(15_000),
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
@@ -68,24 +73,27 @@ export class EmailService implements IEmailService {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        this.logger.error(`[Resend API Error] HTTP ${response.status}: ${errorText}`);
-        captureException(new Error(`Resend email delivery failed: ${response.status} ${errorText}`));
+        await response.body?.cancel().catch(() => undefined);
+        this.logger.error(`[Resend API Error] HTTP ${response.status}`);
+        captureException(new Error(`Resend email delivery failed: ${response.status}`));
         return {
           success: false,
-          error: `Resend error: ${response.statusText}`,
+          error: `Resend error: HTTP ${response.status}`,
         };
       }
 
-      const data = (await response.json()) as { id?: string };
-      this.logger.log(`[Resend Live] Successfully sent email to ${recipients.join(', ')} (ID: ${data.id})`);
+      const data = (await response.json()) as { id?: unknown };
+      if (typeof data?.id !== 'string' || !data.id.trim()) {
+        return { success: false, error: 'EMAIL_PROVIDER_UNCONFIRMED' };
+      }
+      this.logger.log(`[Resend Live] Provider accepted email for ${activeRecipients.length} recipients`);
       return {
         success: true,
-        messageId: data.id || randomUUID(),
+        messageId: data.id,
       };
-    } catch (err) {
-      this.logger.error(`[Resend Network Exception] ${err}`);
-      captureException(err instanceof Error ? err : new Error(String(err)));
+    } catch {
+      this.logger.error('[Resend Network Exception] Email dispatch failed');
+      captureException(new Error('Resend email dispatch failed'));
       return {
         success: false,
         error: 'Network failure during email dispatch',
@@ -99,7 +107,8 @@ export class EmailService implements IEmailService {
     language: 'en' | 'hi' = 'en',
   ): Promise<SendEmailResult> {
     const portalUrl = process.env['APP_URL'] || process.env['WEB_URL'] || 'http://localhost:3000';
-    const verifyLink = `${portalUrl}/auth/verify-email?token=${token}`;
+    const verifyLink = new URL('/auth/verify-email', portalUrl);
+    verifyLink.searchParams.set('token', token);
 
     const isHi = language === 'hi';
     const subject = isHi

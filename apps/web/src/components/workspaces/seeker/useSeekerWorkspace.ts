@@ -236,45 +236,16 @@ export function useSeekerWorkspace() {
   };
 
   const handleDownloadPdf = async () => {
-    if (!accessToken || !user?.id) {
-      addToast({
-        type: 'error',
-        title: 'Authentication Required',
-        message: 'Please sign in to download your official resume PDF.',
-      });
-      return;
-    }
-
-    const apiUrl =
-      process.env.NEXT_PUBLIC_API_URL ||
-      process.env.API_URL ||
-      'http://localhost:3001';
-    const authHeader = `Bearer ${accessToken}`;
+    if (!user?.id || isDownloadingPdf) return;
 
     setIsDownloadingPdf(true);
-    addToast({
-      type: 'info',
-      title: t('downloadPdf'),
-      message: 'Generating official authenticated vector PDF resume...',
-    });
-
+    addToast({ type: 'info', title: t('downloadPdf'), message: t('resumePreparing') });
     try {
-      const ok = await downloadSeekerPdfApi(apiUrl, authHeader, user.id, profile.name);
-      if (ok) {
-        addToast({
-          type: 'success',
-          title: 'PDF Downloaded',
-          message: 'Your official vector resume has been downloaded.',
-        });
-      } else {
-        throw new Error('Failed to generate resume PDF');
-      }
-    } catch (err) {
-      addToast({
-        type: 'error',
-        title: 'Download Failed',
-        message: err instanceof Error ? err.message : 'Unable to download resume PDF.',
-      });
+      await downloadSeekerPdfApi(profile.name);
+      addToast({ type: 'success', title: t('downloadPdf'), message: t('resumeReady') });
+    } catch (error) {
+      const pending = error instanceof Error && error.message === 'RESUME_PENDING';
+      addToast({ type: 'error', title: t('downloadPdf'), message: t(pending ? 'resumePending' : 'resumeUnavailable') });
     } finally {
       setIsDownloadingPdf(false);
     }

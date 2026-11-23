@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator.js';
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject, Optional, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Inject, Optional, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { BulkUploadInput, InviteWaveInput, normalizeIndianPhone, isTestEnv, isStrictEnv } from '@indian-job-portal/validation';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { parse as parseCsvSync } from 'csv-parse/sync';
@@ -8,6 +8,7 @@ import { QstashService } from '../qstash/qstash.service.js';
 import { QueueService } from '../queue/queue.service.js';
 import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
 import type { TaskStatus } from '@indian-job-portal/database';
+import { xlsxRosterToCsv } from './xlsx-roster.js';
 
 if (typeof globalThis.WebSocket === 'undefined') {
   // @ts-expect-error polyfill for Node 20 runtime compatibility with Supabase realtime-js
@@ -56,25 +57,24 @@ export interface InviteWaveRecord {
 function parseCsv(csvText: string): Array<Record<string, string>> {
   try {
     return parseCsvSync(csvText, {
-      columns: true,
+      columns: (headers: string[]) => {
+        const hasAadhaar = headers.some((header) => {
+          const normalized = header.normalize('NFKC').toLowerCase().replace(/[^a-z]/g, '');
+          return /aadhaar|aadhar/.test(normalized)
+            || /^uid(?:ai|number|no)?$/.test(normalized)
+            || header.includes('आधार');
+        });
+        if (hasAadhaar) throw new BadRequestException({ code: 'BULK_AADHAAR_UNSUPPORTED' });
+        return headers;
+      },
+      bom: true,
       skip_empty_lines: true,
       trim: true,
-      relax_column_count: true,
+      relax_column_count_less: true,
     }) as Array<Record<string, string>>;
-  } catch {
-    const lines = csvText.trim().split(/\r?\n/);
-    if (lines.length < 2) return [];
-    const headers = lines[0]!.split(',').map((h) => h.trim().replace(/^"|"$/g, ''));
-    const rows: Array<Record<string, string>> = [];
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i]!.split(',').map((v) => v.trim().replace(/^"|"$/g, ''));
-      const obj: Record<string, string> = {};
-      headers.forEach((h, idx) => {
-        obj[h] = values[idx] || '';
-      });
-      rows.push(obj);
-    }
-    return rows;
+  } catch (error) {
+    if (error instanceof BadRequestException) throw error;
+    throw new BadRequestException('BULK_CSV_INVALID');
   }
 }
 
@@ -109,40 +109,36 @@ export class BulkService {
     });
   }
 
-  async getSignedUploadUrl(
-    fileName: string,
-    _contentType = 'text/csv',
-    actor?: AuthenticatedUser,
-  ): Promise<{
-    signedUrl: string;
-    storagePath: string;
-    token: string;
-  }> {
-    this.requireImporter(actor);
-    const safeName = `${Date.now()}_${fileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-    const storagePath = `bulk-imports/${actor!.id}/${randomUUID()}_${safeName}`;
-
-    if (this.isTestMode) {
-      return {
-        signedUrl: `http://localhost:54321/storage/v1/upload/sign/private/${storagePath}`,
-        storagePath,
-        token: `mock_signed_token_${Date.now()}`,
-      };
+  async processRosterFile(
+    input: Pick<BulkUploadInput, 'source' | 'entityType'>,
+    file: Buffer,
+    actor: AuthenticatedUser,
+    isWorkbook = false,
+  ): Promise<BulkBatchRecord> {
+    this.requireEntityImporter(input.entityType, actor);
+    let csvContent: string;
+    if (isWorkbook) {
+      csvContent = await xlsxRosterToCsv(file);
+    } else {
+      try {
+        csvContent = new TextDecoder('utf-8', { fatal: true }).decode(file);
+      } catch {
+        throw new BadRequestException('BULK_CSV_INVALID');
+      }
+    }
+    const rowCount = parseCsv(csvContent).length;
+    if (rowCount === 0) {
+      throw new BadRequestException('BULK_CSV_EMPTY');
     }
 
-    const { data, error } = await this.supabase.storage
-      .from('private')
-      .createSignedUploadUrl(storagePath);
-
-    if (error || !data) {
-      throw new BadRequestException(`Failed to create signed upload URL: ${error?.message}`);
+    const storagePath = `bulk-imports/${actor.id}/${randomUUID()}.csv`;
+    if (!this.isTestMode) {
+      const { error } = await this.supabase.storage.from('private').upload(storagePath, isWorkbook ? Buffer.from(csvContent) : file, {
+        contentType: 'text/csv',
+      });
+      if (error) throw new ServiceUnavailableException('BULK_STORAGE_UNAVAILABLE');
     }
-
-    return {
-      signedUrl: data.signedUrl,
-      storagePath,
-      token: data.token,
-    };
+    return this.registerBulkImport(input, undefined, actor, { path: storagePath, rowCount });
   }
 
   async processBulkImport(
@@ -150,17 +146,16 @@ export class BulkService {
     csvContent?: string,
     actor?: AuthenticatedUser,
   ): Promise<BulkBatchRecord> {
-    this.requireImporter(actor);
-    if (actor!.role !== 'admin' && input.entityType !== (actor!.role === 'intermediary' ? 'student' : 'employer')) {
-      throw new ForbiddenException('BULK_ENTITY_FORBIDDEN');
-    }
-    if (input.storagePath) {
-      const prefix = `bulk-imports/${actor!.id}/`;
-      const leaf = input.storagePath.slice(prefix.length);
-      if (!input.storagePath.startsWith(prefix) || !/^[A-Za-z0-9_-][A-Za-z0-9._-]*$/.test(leaf)) {
-        throw new ForbiddenException('BULK_STORAGE_FORBIDDEN');
-      }
-    }
+    this.requireEntityImporter(input.entityType, actor);
+    return this.registerBulkImport(input, csvContent, actor!);
+  }
+
+  private async registerBulkImport(
+    input: Pick<BulkUploadInput, 'source' | 'entityType'>,
+    csvContent: string | undefined,
+    actor: AuthenticatedUser,
+    storedRoster?: { path: string; rowCount: number },
+  ): Promise<BulkBatchRecord> {
     const batchId = randomUUID();
     const now = new Date().toISOString();
 
@@ -182,8 +177,9 @@ export class BulkService {
       }
     }
 
-    // Direct Supabase Storage upload flow (Ticket T-08)
-    if (input.storagePath) {
+    // Validated CSV files are carried to the worker by storage reference.
+    if (storedRoster) {
+      const { path: storagePath, rowCount } = storedRoster;
       if (this.isTestMode) {
         const record: BulkBatchRecord = {
           id: batchId,
@@ -191,7 +187,7 @@ export class BulkService {
           institutionId,
           source: input.source,
           entityType: input.entityType || 'student',
-          totalRows: 0,
+          totalRows: rowCount,
           processedRows: 0,
           validRows: 0,
           errorRows: 0,
@@ -210,9 +206,9 @@ export class BulkService {
               created_by: actor?.id || null,
               source: input.source,
               entity_type: input.entityType || 'student',
-              total_rows: 0,
+              total_rows: rowCount,
               status: 'queued' as TaskStatus,
-              csv_storage_path: input.storagePath,
+              csv_storage_path: storagePath,
               institution_id: institutionId,
             });
           } catch {
@@ -223,7 +219,7 @@ export class BulkService {
           batchId,
           source: input.source,
           entityType: input.entityType,
-          storagePath: input.storagePath,
+          storagePath,
           institutionId,
         });
         return record;
@@ -236,9 +232,9 @@ export class BulkService {
           created_by: actor!.id,
           source: input.source,
           entity_type: input.entityType || 'student',
-          total_rows: 0,
+          total_rows: rowCount,
           status: 'queued' as TaskStatus,
-          csv_storage_path: input.storagePath,
+          csv_storage_path: storagePath,
           institution_id: institutionId,
         })
         .select()
@@ -252,14 +248,14 @@ export class BulkService {
         batchId: batch.id,
         source: input.source,
         entityType: input.entityType,
-        storagePath: input.storagePath,
+        storagePath,
         institutionId,
       });
       return this.toBatchRecord(batch);
     }
 
     if (!csvContent || csvContent.trim().length === 0) {
-      throw new BadRequestException('CSV file content is required when storagePath is not provided');
+      throw new BadRequestException('BULK_CSV_REQUIRED');
     }
 
     const records = parseCsv(csvContent);
@@ -474,6 +470,7 @@ export class BulkService {
         });
       } catch (err) {
         this.logger.error('Failed to write audit log for bulk error report download', err);
+        throw new ServiceUnavailableException('Audit logging unavailable for PII export');
       }
     }
 
@@ -485,7 +482,33 @@ export class BulkService {
     actor?: AuthenticatedUser,
   ): Promise<{ waveSize: number; costPerSmsInr: number; totalCostInr: number }> {
     this.requireInviter(actor);
-    await this.getBatchStatus(input.batchId, actor);
+    const batch = await this.getBatchStatus(input.batchId, actor);
+    if (batch.status !== 'completed') {
+      throw new BadRequestException({ code: 'BULK_BATCH_NOT_READY' });
+    }
+    let pendingCount = 0;
+    if (!this.isTestMode) {
+      const { count, error } = await this.supabase
+        .from('invitations')
+        .select('id', { count: 'exact', head: true })
+        .eq('batch_id', input.batchId)
+        .eq('status', 'pending')
+        .not('phone', 'is', null);
+
+      if (error) {
+        throw new BadRequestException('Failed to check available pending invitations');
+      }
+      pendingCount = count ?? 0;
+    } else {
+      pendingCount = batch.validRows || 0;
+    }
+
+    if (!this.isTestMode && input.waveSize > pendingCount) {
+      throw new BadRequestException({
+        code: 'WAVE_SIZE_EXCEEDS_AVAILABLE',
+        message: `Requested wave size ${input.waveSize} exceeds available pending candidates (${pendingCount})`,
+      });
+    }
     const totalCostInr = Number((input.waveSize * input.costPerSmsInr).toFixed(2));
     return {
       waveSize: input.waveSize,
@@ -527,12 +550,28 @@ export class BulkService {
     }
 
     // BullMQ is the single source of truth for the 50k pipeline (Drop QStash duplicate invocation)
-    await this.queueService.publishInviteWaveJob({
-      waveId,
-      batchId: input.batchId,
-      waveSize: input.waveSize,
-      costPerSmsInr: input.costPerSmsInr,
-    });
+    try {
+      await this.queueService.publishInviteWaveJob({
+        waveId,
+        batchId: input.batchId,
+        waveSize: input.waveSize,
+        costPerSmsInr: input.costPerSmsInr,
+      });
+    } catch (queueErr) {
+      this.logger.error(`Failed to publish invite wave job for wave ${waveId}`, queueErr);
+      if (!this.isTestMode) {
+        await this.supabase
+          .from('invite_waves')
+          .update({ status: 'failed' as TaskStatus, updated_at: new Date().toISOString() })
+          .eq('id', waveId);
+      } else {
+        const memWave = this.memWaves.get(waveId);
+        if (memWave) {
+          memWave.status = 'failed';
+        }
+      }
+      throw new ServiceUnavailableException('Failed to schedule invite wave in queue');
+    }
 
     if (this.isTestMode) {
       const record: InviteWaveRecord = {
@@ -573,7 +612,7 @@ export class BulkService {
         };
         this.memWaves.set(waveId, wave);
       }
-      if (wave.status === 'queued') {
+      if (wave.status !== 'dispatched') {
         return wave;
       }
       wave.status = 'completed';
@@ -592,23 +631,19 @@ export class BulkService {
       throw new NotFoundException('Invite wave not found');
     }
 
-    if (wave.status === 'completed' || wave.status === 'queued') {
-      console.log(`[QStash Webhook] Wave ${waveId} is completed or paused (status: ${wave.status}). Skipping execution.`);
+    if (wave.status !== 'dispatched') {
+      console.log(`[Invite Wave Job] Wave ${waveId} is ${wave.status} (expected 'dispatched'). Skipping duplicate dispatch.`);
       return this.toWaveRecord(wave);
     }
 
-    await this.supabase
-      .from('invite_waves')
-      .update({ status: 'completed' as TaskStatus, sent_count: wave.wave_size, completed_at: new Date().toISOString() })
-      .eq('id', waveId);
+    await this.queueService.publishInviteWaveJob({
+      waveId: wave.id,
+      batchId: wave.batch_id,
+      waveSize: wave.wave_size,
+      costPerSmsInr: Number(wave.cost_per_sms_inr) || 0.2,
+    });
 
-    const { data: updated } = await this.supabase
-      .from('invite_waves')
-      .select('*')
-      .eq('id', waveId)
-      .single();
-
-    return this.toWaveRecord(updated || wave);
+    return this.toWaveRecord(wave);
   }
 
   async updateWaveStatus(
@@ -643,9 +678,61 @@ export class BulkService {
       }
       if (action === 'cancel') wave.status = 'failed';
       if (action === 'pause') wave.status = 'queued';
-      if (action === 'resume') wave.status = 'dispatched';
+      if (action === 'resume') {
+        if (wave.status !== 'queued') {
+          throw new BadRequestException({ code: 'WAVE_NOT_QUEUED', message: 'Only queued waves can be resumed' });
+        }
+        wave.status = 'dispatched';
+        this.memWaves.set(waveId, wave);
+        try {
+          await this.queueService.publishInviteWaveJob({
+            waveId: wave.id,
+            batchId: wave.batchId,
+            waveSize: wave.waveSize,
+            costPerSmsInr: wave.costPerSmsInr,
+          });
+        } catch {
+          wave.status = 'queued';
+          this.memWaves.set(waveId, wave);
+          throw new ServiceUnavailableException('Service temporarily unavailable: failed to publish resume job');
+        }
+      }
       this.memWaves.set(waveId, wave);
       return wave;
+    }
+
+    if (action === 'resume') {
+      const { data: updatedWave, error: updateErr } = await this.supabase
+        .from('invite_waves')
+        .update({ status: 'dispatched' })
+        .eq('id', waveId)
+        .eq('status', 'queued')
+        .select('*')
+        .maybeSingle();
+
+      if (updateErr) {
+        throw new BadRequestException('Failed to resume wave');
+      }
+      if (!updatedWave) {
+        throw new BadRequestException({ code: 'WAVE_NOT_QUEUED', message: 'Only queued waves can be resumed' });
+      }
+
+      try {
+        await this.queueService.publishInviteWaveJob({
+          waveId: updatedWave.id,
+          batchId: updatedWave.batch_id,
+          waveSize: updatedWave.wave_size,
+          costPerSmsInr: Number(updatedWave.cost_per_sms_inr) || 0.2,
+        });
+      } catch {
+        await this.supabase
+          .from('invite_waves')
+          .update({ status: 'queued' })
+          .eq('id', waveId);
+        throw new ServiceUnavailableException('Service temporarily unavailable: failed to publish resume job');
+      }
+
+      return this.toWaveRecord(updatedWave);
     }
 
     const { data: wave, error } = await this.supabase
@@ -670,8 +757,6 @@ export class BulkService {
       }
     } else if (action === 'pause') {
       newStatus = 'queued';
-    } else if (action === 'resume') {
-      newStatus = 'dispatched';
     }
 
     await this.supabase
@@ -733,6 +818,13 @@ export class BulkService {
         ],
         uiUrl: '/admin/queues/ui',
       };
+    }
+  }
+
+  private requireEntityImporter(entityType: BulkUploadInput['entityType'], actor?: AuthenticatedUser): void {
+    this.requireImporter(actor);
+    if (actor!.role !== 'admin' && entityType !== (actor!.role === 'intermediary' ? 'student' : 'employer')) {
+      throw new ForbiddenException('BULK_ENTITY_FORBIDDEN');
     }
   }
 

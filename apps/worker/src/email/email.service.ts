@@ -43,8 +43,8 @@ export class WorkerEmailService {
     process.env['EMAIL_FROM'] || 'JobsClick Alerts <alerts@example.com>';
 
   async sendEmail(options: SendEmailOptions): Promise<SendEmailResult> {
-    const apiKey = process.env['RESEND_API_KEY'];
-    const isMock = isTestEnv() || !apiKey || apiKey === 're_dummy_resend_api_key';
+    const apiKey = process.env['RESEND_API_KEY']?.trim();
+    const isMock = isTestEnv();
 
     const from = options.from || this.defaultFrom;
     const recipients = Array.isArray(options.to) ? options.to : [options.to];
@@ -63,8 +63,8 @@ export class WorkerEmailService {
           `[Worker Staging Email Gate] Email to ${recipients.map((r) => maskEmail(r)).join(', ')} skipped: blocked_by_allowlist`,
         );
         return {
-          success: true,
-          messageId: `staging_email_blocked_${randomUUID()}`,
+          success: false,
+          error: 'EMAIL_BLOCKED_BY_ALLOWLIST',
           blocked_by_allowlist: true,
         };
       }
@@ -72,7 +72,7 @@ export class WorkerEmailService {
 
     if (isMock) {
       console.log(
-        `[Worker Resend Mock] Dispatched email to ${activeRecipients.join(', ')} | Subject: "${options.subject}" (From: ${from})`,
+        `[Worker Resend Mock] Simulated dispatch to ${activeRecipients.length} recipients`,
       );
       return {
         success: true,
@@ -80,9 +80,14 @@ export class WorkerEmailService {
       };
     }
 
+    if (!apiKey || apiKey === 're_dummy_resend_api_key') {
+      return { success: false, error: 'EMAIL_PROVIDER_UNAVAILABLE' };
+    }
+
     try {
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
+        signal: AbortSignal.timeout(15_000),
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
@@ -100,24 +105,27 @@ export class WorkerEmailService {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[Worker Resend Error] HTTP ${response.status}: ${errorText}`);
-        captureException(new Error(`Resend email delivery failed: ${response.status} ${errorText}`));
+        await response.body?.cancel().catch(() => undefined);
+        console.error(`[Worker Resend Error] HTTP ${response.status}`);
+        captureException(new Error(`Resend email delivery failed: ${response.status}`));
         return {
           success: false,
-          error: `Resend error: ${response.statusText}`,
+          error: `Resend error: HTTP ${response.status}`,
         };
       }
 
-      const data = (await response.json()) as { id?: string };
-      console.log(`[Worker Resend Live] Successfully sent email to ${recipients.join(', ')} (ID: ${data.id})`);
+      const data = (await response.json()) as { id?: unknown };
+      if (typeof data?.id !== 'string' || !data.id.trim()) {
+        return { success: false, error: 'EMAIL_PROVIDER_UNCONFIRMED' };
+      }
+      console.log(`[Worker Resend Live] Provider accepted email for ${activeRecipients.length} recipients`);
       return {
         success: true,
-        messageId: data.id || randomUUID(),
+        messageId: data.id,
       };
-    } catch (err) {
-      console.error(`[Worker Resend Exception] ${err}`);
-      captureException(err instanceof Error ? err : new Error(String(err)));
+    } catch {
+      console.error('[Worker Resend Exception] Email dispatch failed');
+      captureException(new Error('Resend email dispatch failed'));
       return {
         success: false,
         error: 'Network failure during email dispatch',

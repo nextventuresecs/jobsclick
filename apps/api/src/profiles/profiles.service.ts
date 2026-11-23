@@ -104,49 +104,46 @@ export class ProfilesService {
   ) {}
 
   // JS-03: Authenticated candidate CV PDF retrieval and generation dispatch
-  async getSeekerPdfDownload(userId: string): Promise<{ downloadUrl: string; cached: boolean }> {
+  async getSeekerPdfDownload(userId: string): Promise<{ downloadUrl: string | null; cached: boolean }> {
     const profile = await this.profileRepository.findSeekerProfileByUserId(userId);
     if (!profile) {
       throw new NotFoundException('Job seeker profile not found');
     }
 
-    const storagePath = `resumes/${profile.id}.pdf`;
-    let downloadUrl: string | null = null;
-    let cached = false;
-
-    if (this.supabase) {
-      try {
-        const { data, error } = await this.supabase.storage.from('private').createSignedUrl(storagePath, 300);
-        if (error) {
-          throw error;
-        }
-        if (data?.signedUrl) {
-          downloadUrl = data.signedUrl;
-          cached = true;
-        }
-      } catch {
-        throw new ServiceUnavailableException('Storage service unavailable for signed URL generation');
-      }
-    } else {
+    if (!this.supabase) {
       throw new ServiceUnavailableException('Storage service not configured');
     }
+    const storagePath = `resumes/${profile.id}.pdf`;
+    const { data, error } = await this.supabase.storage
+      .from('private')
+      .createSignedUrl(storagePath, 300, { download: 'JobsClick-resume.pdf' })
+      .catch(() => {
+        throw new ServiceUnavailableException('Storage service unavailable for signed URL generation');
+      });
 
-    if (!cached && this.queueService) {
+    if (data?.signedUrl && !error) return { downloadUrl: data.signedUrl, cached: true };
+    const missingObject = error && 'statusCode' in error && String(error.statusCode) === '404'
+      && (error.message === 'Object not found' || error.message === 'NoSuchKey');
+    if (!missingObject) {
+      throw new ServiceUnavailableException('Storage service unavailable for signed URL generation');
+    }
+    if (!this.queueService) {
+      throw new ServiceUnavailableException('Resume generation service unavailable');
+    }
+
+    try {
       await this.queueService.publishPdfJob({
         seekerId: profile.id,
         fullName: profile.full_name,
         seekerType: profile.seeker_type,
         city: profile.city || '',
         skills: profile.skills || [],
-        updatedAt: Date.now(),
+        updatedAt: Date.parse(profile.updated_at) || Date.now(),
       });
+    } catch {
+      throw new ServiceUnavailableException('Resume generation service unavailable');
     }
-
-    if (!downloadUrl) {
-      throw new ServiceUnavailableException('Resume PDF is currently generating, please retry shortly');
-    }
-
-    return { downloadUrl, cached };
+    return { downloadUrl: null, cached: false };
   }
 
   // Calculate completeness score (JS-02 / Section 3.2 measure)

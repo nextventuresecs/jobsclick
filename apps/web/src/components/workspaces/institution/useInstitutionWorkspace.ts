@@ -174,49 +174,21 @@ export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInst
     statusFilter,
   );
 
-  const handleDownloadTemplate = () => downloadCsvTemplate(bulkUpload.rawCsvText);
+  const handleDownloadTemplate = () => downloadCsvTemplate();
 
   const handleParseCsv = () => {
     const parsed = parseCsvContent(bulkUpload.rawCsvText);
     bulkUpload.setParsedRows(parsed.rows);
-    bulkUpload.setImportStep(2);
+    if (parsed.rows.length) bulkUpload.setImportStep(2);
   };
 
   const handleExecuteImport = () => {
-    const validRows = bulkUpload.parsedRows.filter((r) => r.isValid);
-    const newStudents: StudentRecordData[] = validRows.map((r, i) => ({
-      id: crypto.randomUUID(),
-      institutionId: institution.id,
-      institutionName: institution.institutionName,
-      studentName: r.studentName,
-      rollNumber: r.rollNumber || `ROLL-${i + 1}`,
-      phone: r.phone,
-      stream: r.stream || 'Vocational Trade',
-      passingYear: r.passingYear || '2026',
-      profileCompleted: false,
-      placementStatus: 'Available',
-      state: 'invited',
-      invitedAt: new Date().toISOString().split('T')[0],
-    }));
-
-    setStudents([...newStudents, ...students]);
-    bulkUpload.setImportStep(3);
-    addToast({
-      type: 'success',
-      title: 'Bulk Students Imported',
-      message: `${validRows.length} candidates registered in invited state. Zero SMS sent (BULK-03).`,
-    });
+    if (!bulkUpload.rawCsvText.trim() || bulkUpload.isUploading) return;
+    const file = new File([bulkUpload.rawCsvText], 'student-roster.csv', { type: 'text/csv' });
+    void bulkUpload.handleDirectFileUpload(file);
   };
 
-  const handleScheduleWave = () => {
-    bulkUpload.setImportStep(4);
-    addToast({
-      type: 'info',
-      title: 'Invite Wave Queued',
-      message:
-        'Batch dispatched with cost preview. Students will receive verification links via MSG91 OTP hook.',
-    });
-  };
+  const handleScheduleWave = bulkUpload.handleScheduleWave;
 
   const handleQuickAddStudent = (e: React.FormEvent) => {
     e.preventDefault();

@@ -9,8 +9,10 @@ import {
   UseGuards,
   Inject,
   NotFoundException,
+  Res,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
+import type { FastifyReply } from 'fastify';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { ProfilesService } from './profiles.service.js';
 import { InstitutionCmsService } from './institution-cms.service.js';
@@ -62,8 +64,11 @@ export class ProfilesController {
   // JS-03 / Hard Invariant #8a: Authenticated digital CV vector PDF download
   @Roles('job_seeker', 'admin')
   @Get('seeker/me/pdf')
-  async getSeekerPdfMe(@CurrentUser() user: AuthUser) {
-    return this.profilesService.getSeekerPdfDownload(user.id);
+  async getSeekerPdfMe(@CurrentUser() user: AuthUser, @Res({ passthrough: true }) reply?: FastifyReply) {
+    const result = await this.profilesService.getSeekerPdfDownload(user.id);
+    reply?.header('Cache-Control', 'no-store');
+    if (!result.downloadUrl) reply?.code(202).header('Retry-After', '2');
+    return result;
   }
 
   // Employer / Public viewing candidate profile (Hard Invariant 1 + ID-02: Public slug lookup only)

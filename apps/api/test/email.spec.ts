@@ -28,6 +28,23 @@ describe('EmailService (Resend Provider & Domain jobsclick.live)', () => {
     expect(hiResult.success).toBe(true);
   });
 
+  it.each(['', 're_dummy_resend_api_key'])('fails closed in staging when Resend is unconfigured', async (key) => {
+    vi.stubEnv('APP_ENV', 'staging');
+    vi.stubEnv('RESEND_API_KEY', key);
+    vi.stubEnv('STAGING_EMAIL_ALLOWLIST', 'candidate@example.test');
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    try {
+      const result = await service.sendEmail({ to: 'candidate@example.test', subject: 'Fixture', html: '<p>Fixture</p>' });
+      expect(result.success).toBe(false);
+      expect(result.messageId).toBeUndefined();
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('dispatches live email through Resend API when live key is provided', async () => {
     const originalApiKey = process.env['RESEND_API_KEY'];
     const originalEnv = process.env['NODE_ENV'];
@@ -75,11 +92,12 @@ describe('EmailService (Resend Provider & Domain jobsclick.live)', () => {
       process.env['RESEND_API_KEY'] = 're_test_live_key';
       process.env['NODE_ENV'] = 'production';
 
+      const readProviderBody = vi.fn(async () => 'Domain jobsclick.live not verified yet');
       const mockFetch = vi.fn().mockResolvedValue({
         ok: false,
         status: 403,
         statusText: 'Forbidden',
-        text: async () => 'Domain jobsclick.live not verified yet',
+        text: readProviderBody,
       });
       vi.stubGlobal('fetch', mockFetch);
 
@@ -90,7 +108,8 @@ describe('EmailService (Resend Provider & Domain jobsclick.live)', () => {
       });
 
       expect(result.success).toBe(false);
-      expect(result.error).toContain('Resend error: Forbidden');
+      expect(result.error).toBe('Resend error: HTTP 403');
+      expect(readProviderBody).not.toHaveBeenCalled();
     } finally {
       process.env['RESEND_API_KEY'] = originalApiKey;
       process.env['NODE_ENV'] = originalEnv;

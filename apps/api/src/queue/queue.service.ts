@@ -199,17 +199,21 @@ export class QueueService implements OnModuleDestroy {
     _traceContext?: { sentryTrace?: string; baggage?: string; traceId?: string };
   }) {
     const jobData = this.enrichJobData(data);
+    const uniqueJobId = `wave-${data.waveId}-${randomUUID()}`;
     if (this.isMock) {
       this.mockCounters[QUEUE_NAMES.INVITE_WAVE].waiting++;
-      return { id: randomUUID(), name: 'invite-wave', data: jobData } as unknown as Job;
+      return { id: uniqueJobId, name: 'invite-wave', data: jobData } as unknown as Job;
     }
     try {
-      return await this.inviteWaveQueue.add('invite-wave', jobData, DEFAULT_JOB_OPTIONS);
+      return await this.inviteWaveQueue.add('invite-wave', jobData, {
+        ...DEFAULT_JOB_OPTIONS,
+        jobId: uniqueJobId,
+      });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       if (message.includes('cmsgpack') || message.includes('lua')) {
         this.mockCounters[QUEUE_NAMES.INVITE_WAVE].waiting++;
-        return { id: randomUUID(), name: 'invite-wave', data: jobData } as unknown as Job;
+        return { id: uniqueJobId, name: 'invite-wave', data: jobData } as unknown as Job;
       }
       throw err;
     }

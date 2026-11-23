@@ -38,19 +38,6 @@ export interface ImportErrorRecord {
 }
 
 /**
- * Extracts only the last 4 digits of Aadhaar (Hard Invariant #8).
- * Ensures full 12-digit Aadhaar numbers are never persisted or logged.
- */
-export function extractAadhaarLast4(input?: string): string | undefined {
-  if (!input) return undefined;
-  const digitsOnly = input.replace(/\D/g, '');
-  if (digitsOnly.length >= 4) {
-    return digitsOnly.slice(-4);
-  }
-  return undefined;
-}
-
-/**
  * Flexible field extractor that handles common header casing variations.
  */
 export function getField(record: Record<string, string>, ...keys: string[]): string {
@@ -85,8 +72,6 @@ interface ChunkItem {
   companyName?: string;
   ownershipType?: string;
   companySize?: string;
-  aadhaar_last4?: string;
-  aadhaar_verified: boolean;
 }
 
 export class ImportProcessor {
@@ -285,8 +270,6 @@ export class ImportProcessor {
                   user_id: user.id,
                   full_name: meta.name || 'Invited Student',
                   seeker_type: meta.seekerType || 'student',
-                  aadhaar_last_four: meta.aadhaar_last4 ?? null,
-                  aadhaar_verified: false,
                   source: meta.source,
                   skills: [],
                   institution_id: resolvedInstitutionId,
@@ -426,7 +409,6 @@ export class ImportProcessor {
       const rawEmail = getField(record, 'email', 'Email', 'email_address', 'mail');
       const rawName = getField(record, 'name', 'full_name', 'Student Name', 'student_name', 'candidate_name', 'Name', 'FullName');
       const rawCompanyName = getField(record, 'company_name', 'Company Name', 'companyName', 'enterprise_name', 'Enterprise Name', 'company');
-      const rawAadhaar = getField(record, 'aadhaar', 'aadhaar_number', 'aadhaar_no', 'Aadhaar', 'Aadhaar Number', 'uid', 'UID');
 
       // Contact Validation: Either email or phone is required
       const phone = rawPhone ? normalizeIndianPhone(rawPhone) : null;
@@ -499,8 +481,6 @@ export class ImportProcessor {
       if (phone) seenPhones.add(phone);
       if (email) seenEmails.add(email);
 
-      // Aadhaar handling (Hard Invariant #8: Never store full Aadhaar number)
-      const aadhaarLast4 = extractAadhaarLast4(rawAadhaar);
       const isEmployer = entityType === 'employer';
 
       currentChunk.push({
@@ -515,8 +495,6 @@ export class ImportProcessor {
         seekerType: entityType === 'student' ? 'student' : 'individual',
         ownershipType: getField(record, 'ownership_type', 'ownershipType', 'legal_status') || 'Private Limited',
         companySize: getField(record, 'company_size', 'companySize', 'size') || 'Small',
-        aadhaar_last4: aadhaarLast4,
-        aadhaar_verified: false,
       });
 
       // Flush when chunk size reaches 500 rows (natural backpressure)

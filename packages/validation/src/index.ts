@@ -39,6 +39,7 @@ export * from './public-discovery';
 export * from './runtime-env';
 export * from './staging-tripwire';
 export * from './contact-visibility';
+export * from './verhoeff';
 
 export const PLACEHOLDER_SECRET_REGEX = /change-?me|example|dummy|test|secret-key|jwt-secret|password|default|placeholder|12345678|abcdef/i;
 

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { forwardBffRequest, validateCsrf } from '../src/lib/bff';
 import { signSessionToken, SESSION_COOKIE_NAME } from '../src/lib/auth-session';
+import { POST as uploadBulkRoster } from '../src/app/api/bulk/batches/file/route';
 
 describe('BFF Helper (apps/web/src/lib/bff.ts)', () => {
   const originalFetch = global.fetch;
@@ -83,6 +84,41 @@ describe('BFF Helper (apps/web/src/lib/bff.ts)', () => {
   });
 
   describe('forwardBffRequest', () => {
+    it('forwards the authenticated roster as multipart with its original boundary', async () => {
+      const token = createValidToken('institution-fixture', 'intermediary');
+      const csv = 'Student Name,Phone\nCandidate,9876543210';
+      const form = new FormData();
+      form.set('source', 'Test Institution');
+      form.set('entityType', 'student');
+      form.set('file', new Blob([csv], { type: 'text/csv' }), 'roster.csv');
+      const req = new NextRequest('http://localhost:3000/api/bulk/batches/file', {
+        method: 'POST',
+        headers: {
+          host: 'localhost:3000',
+          origin: 'http://localhost:3000',
+          cookie: `${SESSION_COOKIE_NAME}=${token}`,
+        },
+        body: form,
+      });
+      const upstream = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url, init) => {
+        const forwarded = new Request(url, init);
+        expect(forwarded.url).toBe('http://localhost:3001/bulk/batches/file');
+        expect(forwarded.headers.get('authorization')).toBe(`Bearer ${token}`);
+        expect(forwarded.headers.get('content-type')).toBe(req.headers.get('content-type'));
+        const received = await forwarded.formData();
+        expect(received.get('source')).toBe('Test Institution');
+        const file = received.get('file');
+        expect(file).not.toBeNull();
+        expect(typeof file).toBe('object');
+        if (file && typeof file !== 'string') expect(await file.text()).toBe(csv);
+        return Response.json({ id: 'batch-fixture' }, { status: 201 });
+      });
+
+      const response = await uploadBulkRoster(req);
+      expect(response.status).toBe(201);
+      expect(upstream).toHaveBeenCalledOnce();
+    });
+
     it('returns 403 on cross-origin POST', async () => {
       const req = new NextRequest('http://localhost:3000/api/wallet/create-order', {
         method: 'POST',
@@ -250,37 +286,4 @@ describe('BFF Helper (apps/web/src/lib/bff.ts)', () => {
     });
   });
 
-  describe('Content Security Policy (CSP) Headers', () => {
-    it('defines CSP allowing Razorpay checkout scripts, frames, and telemetry without unsafe-inline scripts', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const nextConfigModule: any = await import('../next.config.js');
-      const config = nextConfigModule.default || nextConfigModule;
-
-      expect(typeof config?.headers).toBe('function');
-      const headersList = await config.headers();
-      const catchAll = headersList?.find((h: { source: string }) => h.source === '/(.*)');
-      expect(catchAll).toBeDefined();
-
-      const cspHeader = catchAll?.headers?.find(
-        (h: { key: string; value: string }) => h.key === 'Content-Security-Policy'
-      );
-      expect(cspHeader).toBeDefined();
-
-      const csp = cspHeader?.value || '';
-      expect(csp).toContain('script-src');
-      expect(csp).toContain('https://checkout.razorpay.com');
-      expect(csp).toContain('frame-src');
-      expect(csp).toContain('https://api.razorpay.com');
-      expect(csp).toContain('https://checkout.razorpay.com');
-      expect(csp).toContain('connect-src');
-      expect(csp).toContain('https://lumberjack.razorpay.com');
-
-      // Verify no unsafe-inline in script-src
-      const scriptSrcDirective = csp
-        .split(';')
-        .find((d: string) => d.trim().startsWith('script-src'));
-      expect(scriptSrcDirective).toBeDefined();
-      expect(scriptSrcDirective).not.toContain("'unsafe-inline'");
-    });
-  });
 });

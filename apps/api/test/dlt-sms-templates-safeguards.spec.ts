@@ -101,7 +101,7 @@ describe('SMS / DLT Templates & Staging Safeguards Verification', () => {
 
       const mockFetch = vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ message: 'success', request_id: 'req_en_1' }),
+        json: async () => ({ type: 'success', request_id: 'req_en_1' }),
       });
       vi.stubGlobal('fetch', mockFetch);
 
@@ -117,7 +117,7 @@ describe('SMS / DLT Templates & Staging Safeguards Verification', () => {
 
       const mockFetch = vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ message: 'success', request_id: 'req_hi_1' }),
+        json: async () => ({ type: 'success', request_id: 'req_hi_1' }),
       });
       vi.stubGlobal('fetch', mockFetch);
 
@@ -134,7 +134,7 @@ describe('SMS / DLT Templates & Staging Safeguards Verification', () => {
 
       const mockFetch = vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ message: 'req_inv_en' }),
+        json: async () => ({ type: 'success', message: 'req_inv_en' }),
       });
       vi.stubGlobal('fetch', mockFetch);
 
@@ -152,7 +152,7 @@ describe('SMS / DLT Templates & Staging Safeguards Verification', () => {
 
       const mockFetch = vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ message: 'req_inv_hi' }),
+        json: async () => ({ type: 'success', message: 'req_inv_hi' }),
       });
       vi.stubGlobal('fetch', mockFetch);
 
@@ -176,7 +176,7 @@ describe('SMS / DLT Templates & Staging Safeguards Verification', () => {
 
       const mockFetch = vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ message: 'success' }),
+        json: async () => ({ type: 'success', request_id: 'fixture-request' }),
       });
       vi.stubGlobal('fetch', mockFetch);
 
@@ -196,7 +196,7 @@ describe('SMS / DLT Templates & Staging Safeguards Verification', () => {
 
       const mockFetch = vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ message: 'success' }),
+        json: async () => ({ type: 'success', request_id: 'fixture-request' }),
       });
       vi.stubGlobal('fetch', mockFetch);
 
@@ -217,7 +217,7 @@ describe('SMS / DLT Templates & Staging Safeguards Verification', () => {
 
       const mockFetch = vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ message: 'success' }),
+        json: async () => ({ type: 'success', request_id: 'fixture-request' }),
       });
       vi.stubGlobal('fetch', mockFetch);
 
@@ -357,7 +357,7 @@ describe('SMS / DLT Templates & Staging Safeguards Verification', () => {
         vi.stubGlobal('fetch', mockFetch);
 
         const res = await gateway.sendOtp({ phone: '9999988888', otp: '123456', language: 'en' });
-        expect(res.success).toBe(true);
+        expect(res.success).toBe(false);
         expect(res.blocked_by_allowlist).toBe(true);
         expect(res.message).toContain('blocked_by_allowlist');
         expect(mockFetch).not.toHaveBeenCalled();
@@ -373,7 +373,7 @@ describe('SMS / DLT Templates & Staging Safeguards Verification', () => {
         vi.stubGlobal('fetch', mockFetch);
 
         const res = await gateway.sendOtp({ phone: '9876543210', otp: '123456', language: 'en' });
-        expect(res.success).toBe(true);
+        expect(res.success).toBe(false);
         expect(res.blocked_by_allowlist).toBe(true);
         expect(mockFetch).not.toHaveBeenCalled();
       });
@@ -387,7 +387,7 @@ describe('SMS / DLT Templates & Staging Safeguards Verification', () => {
 
         const mockFetch = vi.fn().mockResolvedValue({
           ok: true,
-          json: async () => ({ message: 'success', request_id: 'req_stg_1' }),
+          json: async () => ({ type: 'success', request_id: 'req_stg_1' }),
         });
         vi.stubGlobal('fetch', mockFetch);
 
@@ -406,7 +406,7 @@ describe('SMS / DLT Templates & Staging Safeguards Verification', () => {
 
         const mockFetch = vi.fn().mockResolvedValue({
           ok: true,
-          json: async () => ({ message: 'success', request_id: 'req_prod_1' }),
+          json: async () => ({ type: 'success', request_id: 'req_prod_1' }),
         });
         vi.stubGlobal('fetch', mockFetch);
 
@@ -433,7 +433,7 @@ describe('SMS / DLT Templates & Staging Safeguards Verification', () => {
           html: '<p>Test</p>',
         });
 
-        expect(res.success).toBe(true);
+        expect(res.success).toBe(false);
         expect(res.blocked_by_allowlist).toBe(true);
         expect(mockFetch).not.toHaveBeenCalled();
       });
@@ -453,7 +453,7 @@ describe('SMS / DLT Templates & Staging Safeguards Verification', () => {
           html: '<p>Digest</p>',
         });
 
-        expect(res.success).toBe(true);
+        expect(res.success).toBe(false);
         expect(res.blocked_by_allowlist).toBe(true);
         expect(mockFetch).not.toHaveBeenCalled();
       });

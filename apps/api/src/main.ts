@@ -5,6 +5,7 @@ import multipart from '@fastify/multipart';
 import crypto from 'node:crypto';
 import { AppModule } from './app.module.js';
 import { validateEnv } from './config/env.js';
+import { configureWebCors } from './config/web-cors.js';
 import { initSentry, setupFastifySentry } from './config/sentry.js';
 
 async function bootstrap() {
@@ -15,6 +16,7 @@ async function bootstrap() {
     trustProxy: Number(process.env['TRUST_PROXY_HOPS'] ?? 1),
     bodyLimit: 1_048_576,
   });
+  configureWebCors(adapter, env.WEB_URL || env.APP_URL);
   setupFastifySentry(adapter.getInstance());
 
   // SEC-01: Administrative Queue Dashboard Guard

@@ -32,8 +32,11 @@
     "nestjs-zod": "^3.0.0",
     "qrcode": "^1.5.3",
     "razorpay": "^2.9.8",
+    "read-excel-file": "9.3.20",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0",
+    "saxen": "11.1.0",
+    "yauzl": "3.4.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
@@ -42,6 +45,7 @@
     "@types/node": "^20.14.0",
     "@types/qrcode": "^1.5.5",
     "@types/supertest": "^6.0.0",
+    "@types/yauzl": "3.4.0",
     "ioredis-mock": "^8.13.1",
     "supertest": "^7.0.0",
     "tsx": "^4.19.0",

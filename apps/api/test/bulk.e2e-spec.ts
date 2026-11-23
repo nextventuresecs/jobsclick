@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import type { UserRow } from '@indian-job-portal/database';
@@ -7,6 +8,8 @@ import { AppModule } from '../src/app.module.js';
 import { UserRepository } from '../src/database/repositories/user.repository.js';
 import { JwtService } from '../src/auth/jwt.service.js';
 import { OtpRedisService } from '../src/auth/otp-redis.service.js';
+import { QueueService } from '../src/queue/queue.service.js';
+import multipart from '@fastify/multipart';
 
 describe('BulkController (e2e) - Epic 4 (Issues #16-#20, #38, #39)', () => {
   let app: NestFastifyApplication;
@@ -58,6 +61,7 @@ describe('BulkController (e2e) - Epic 4 (Issues #16-#20, #38, #39)', () => {
       new FastifyAdapter(),
     );
 
+    await app.register(multipart as unknown as Parameters<NestFastifyApplication['register']>[0]);
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
 
@@ -86,11 +90,10 @@ describe('BulkController (e2e) - Epic 4 (Issues #16-#20, #38, #39)', () => {
   });
 
   it('enforces authentication and rejects unauthenticated callers on bulk & admin endpoints (Issue #3)', async () => {
-    // 1. POST /bulk/signed-url without auth
+    // 1. POST /bulk/batches/file without auth
     const signedUrlRes = await app.inject({
       method: 'POST',
-      url: '/bulk/signed-url',
-      payload: { fileName: 'test.csv', contentType: 'text/csv' },
+      url: '/bulk/batches/file',
     });
     expect(signedUrlRes.statusCode).toBe(401);
 
@@ -243,7 +246,7 @@ Duplicate Person,9876543210`;
     expect(queueData.queues.length).toBeGreaterThan(0);
   });
 
-  it('POST /bulk/signed-url - generates secure signed upload URL for direct storage upload (Ticket T-08)', async () => {
+  it('does not issue direct storage upload credentials for imports', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/bulk/signed-url',
@@ -254,14 +257,10 @@ Duplicate Person,9876543210`;
       },
     });
 
-    expect(res.statusCode).toBe(201);
-    const data = JSON.parse(res.payload);
-    expect(data.signedUrl).toBeDefined();
-    expect(data.storagePath).toContain('bulk-imports/');
-    expect(data.token).toBeDefined();
+    expect(res.statusCode).toBe(404);
   });
 
-  it('POST /bulk/batches - accepts storagePath and creates queued batch asynchronously (Ticket T-08)', async () => {
+  it('rejects caller-supplied storage paths', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/bulk/batches',
@@ -273,10 +272,103 @@ Duplicate Person,9876543210`;
       },
     });
 
-    expect(res.statusCode).toBe(201);
-    const batch = JSON.parse(res.payload);
-    expect(batch.id).toBeDefined();
-    expect(batch.status).toBe('queued');
-    expect(batch.source).toBe('Indore Institute of Science & Tech');
+    expect(res.statusCode).toBe(400);
+  });
+
+  async function submitRoster(content: BlobPart, filename = 'roster.csv', entityType = 'student') {
+    const form = new FormData();
+    form.set('source', 'Test Institution');
+    form.set('entityType', entityType);
+    form.set('file', new Blob([content]), filename);
+    const request = new Request('http://localhost', { method: 'POST', body: form });
+
+    return app.inject({
+      method: 'POST',
+      url: '/bulk/batches/file',
+      headers: { ...adminHeaders, 'content-type': request.headers.get('content-type')! },
+      payload: Buffer.from(await request.arrayBuffer()),
+    });
+  }
+
+  it('accepts an Excel workbook and queues a validated CSV reference', async () => {
+    const workbook = await readFile(new URL('./fixtures/bulk-roster.xlsx', import.meta.url));
+    const publish = vi.spyOn(app.get(QueueService), 'publishBulkImportJob');
+    try {
+      const response = await submitRoster(Uint8Array.from(workbook), 'roster.xlsx', 'employer');
+      expect(response.statusCode).toBe(201);
+      const batch = response.json();
+      expect(batch).toMatchObject({ status: 'queued', totalRows: 1, entityType: 'employer' });
+      expect(publish).toHaveBeenCalledWith(expect.objectContaining({
+        batchId: batch.id,
+        entityType: 'employer',
+        storagePath: expect.stringMatching(/\.csv$/),
+      }));
+      expect(publish.mock.calls[0]?.[0]).not.toHaveProperty('csvContent');
+    } finally {
+      publish.mockRestore();
+    }
+  });
+
+  it('rejects an Excel workbook with Aadhaar columns before queueing', async () => {
+    const workbook = await readFile(new URL('./fixtures/bulk-roster-aadhaar.xlsx', import.meta.url));
+    const publish = vi.spyOn(app.get(QueueService), 'publishBulkImportJob');
+    try {
+      const response = await submitRoster(Uint8Array.from(workbook), 'roster.xlsx');
+      expect(response.statusCode).toBe(400);
+      expect(response.json()).toMatchObject({ code: 'BULK_AADHAAR_UNSUPPORTED' });
+      expect(publish).not.toHaveBeenCalled();
+    } finally {
+      publish.mockRestore();
+    }
+  });
+
+  it('provides blank CSV and Excel templates that cannot enqueue sample accounts', async () => {
+    const base = new URL('../../web/public/templates/', import.meta.url);
+    const csv = await readFile(new URL('msme_business_onboarding_template.csv', base), 'utf8');
+    const workbook = await readFile(new URL('msme_business_onboarding_template.xlsx', base));
+    expect(csv.trim().split(/\r?\n/)).toHaveLength(1);
+    const response = await submitRoster(Uint8Array.from(workbook), 'template.xlsx', 'employer');
+    expect(response.statusCode).toBe(400);
+    expect(response.json().message).toBe('BULK_CSV_EMPTY');
+  });
+
+  it('rejects Aadhaar columns before either import path can enqueue a roster', async () => {
+    const csv = '\uFEFF"Student Name",Phone,"Aadhaar Number"\nCandidate,9876543210,1234';
+    const publish = vi.spyOn(app.get(QueueService), 'publishBulkImportJob');
+    try {
+      const inline = await app.inject({
+        method: 'POST',
+        url: '/bulk/batches',
+        headers: adminHeaders,
+        payload: { source: 'Test Institution', entityType: 'student', csvContent: csv },
+      });
+      const file = await submitRoster(csv);
+      expect(inline.statusCode).toBe(400);
+      expect(file.statusCode).toBe(400);
+      expect(publish).not.toHaveBeenCalled();
+    } finally {
+      publish.mockRestore();
+    }
+  });
+
+  it('queues a 50,000-row CSV through the file endpoint without carrying it in the queue payload', async () => {
+    const rows = Array.from({ length: 50_000 }, (_, index) =>
+      `Example Candidate ${index},${9_000_000_000 + index}`,
+    );
+    const publish = vi.spyOn(app.get(QueueService), 'publishBulkImportJob');
+    try {
+      const response = await submitRoster(['Student Name,Phone', ...rows].join('\n'));
+      expect(response.statusCode).toBe(201);
+      const batch = JSON.parse(response.payload);
+      expect(batch.status).toBe('queued');
+      expect(batch.source).toBe('Test Institution');
+      expect(publish.mock.calls[0]?.[0]).toMatchObject({
+        batchId: batch.id,
+        storagePath: expect.stringMatching(/^bulk-imports\//),
+      });
+      expect(publish.mock.calls[0]?.[0]).not.toHaveProperty('csvContent');
+    } finally {
+      publish.mockRestore();
+    }
   });
 });

@@ -1,64 +1,54 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from 'next-intl';
 import type { ParsedRow } from './BulkUploadModal';
-import {
-  requestSignedUploadUrl,
-  uploadFileToSignedUrl,
-  registerBatchJob,
-  pollBatchStatus,
-} from './institutionApi';
-
-const DEFAULT_CSV = `Student Name,Roll Number,Phone,Stream,Passing Year
-Manish Kushwaha,0801ME221102,9826112233,"Mechanical Engineering (Diploma)",2026
-Ankita Soni,0801EC221105,9893044556,"Electronics & Comm (Diploma)",2026
-Sunil Solanki,0801IT221110,9111455667,"ITI Machinist & Fitter",2025
-Pooja Rajput,0801EE221115,9752099881,"Electrical Engineering (Diploma)",2026
-Rajendra Bheel,0801CS221120,9300188223,"Computer Science (B.Tech)",2026`;
+import { uploadBulkRoster } from '@/lib/bulk-upload';
+import { pollBatchStatus, previewInviteWave, queueInviteWave, type InvitePreview } from './institutionApi';
 
 export function useBulkUploadState(
   institutionName: string,
   addToast: (t: { type: 'success' | 'error' | 'info'; title: string; message: string }) => void
 ) {
+  const t = useTranslations('InstitutionWorkspace');
   const [importStep, setImportStep] = useState<1 | 2 | 3 | 4>(1);
-  const [rawCsvText, setRawCsvText] = useState(DEFAULT_CSV);
+  const [rawCsvText, setRawCsvText] = useState('');
   const [parsedRows, setParsedRows] = useState<readonly ParsedRow[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSchedulingWave, setIsSchedulingWave] = useState(false);
+  const [invitePreview, setInvitePreview] = useState<InvitePreview | null>(null);
   const [uploadStatusText, setUploadStatusText] = useState('');
   const [activeBatchId, setActiveBatchId] = useState<string | null>(null);
   const [batchStatus, setBatchStatus] = useState<'idle' | 'uploading' | 'queued' | 'processing' | 'completed' | 'failed'>('idle');
   const [batchMetrics, setBatchMetrics] = useState({ totalRows: 0, validRows: 0, errorRows: 0 });
 
   const handleDirectFileUpload = async (fileToUpload?: File) => {
+    if (isUploading) return;
     const file = fileToUpload || selectedFile;
     if (!file) {
-      addToast({ type: 'error', title: 'No File Selected', message: 'Please select a CSV file to upload.' });
+      addToast({ type: 'error', title: t('rosterUploadFailure'), message: t('rosterFileRequired') });
       return;
     }
 
     setIsUploading(true);
+    setInvitePreview(null);
+    setBatchMetrics({ totalRows: 0, validRows: 0, errorRows: 0 });
     setBatchStatus('uploading');
-    setUploadStatusText(`Requesting signed URL for ${file.name}...`);
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    setUploadStatusText(t('uploadingRoster'));
 
     try {
-      const { signedUrl, storagePath } = await requestSignedUploadUrl(apiUrl, file.name);
-      setUploadStatusText(`Uploading ${file.name} to storage...`);
-      await uploadFileToSignedUrl(signedUrl, file);
-      setUploadStatusText('Registering batch with background BullMQ queue...');
-      const batchData = await registerBatchJob(apiUrl, institutionName, storagePath, file.name);
+      const batchData = await uploadBulkRoster(institutionName, 'student', file);
       const newBatchId = batchData.id;
       setActiveBatchId(newBatchId);
       setBatchStatus('queued');
       setImportStep(3);
       addToast({
-        type: 'success', title: 'Bulk Import Queued',
-        message: 'File uploaded. Background worker processing in 500-row chunks with zero SMS (Hard Invariant #2).',
+        type: 'success', title: t('rosterQueued'), message: t('rosterQueuedDescription'),
       });
 
       const pollInterval = setInterval(async () => {
-        const statusData = await pollBatchStatus(apiUrl, newBatchId);
+        const statusData = await pollBatchStatus(newBatchId).catch(() => null);
         if (statusData) {
           setBatchMetrics({
             totalRows: statusData.totalRows || 0,
@@ -69,21 +59,45 @@ export function useBulkUploadState(
             clearInterval(pollInterval);
             setBatchStatus('completed');
             setIsUploading(false);
-            addToast({ type: 'success', title: 'Onboarding Completed', message: `Processed ${statusData.validRows} candidates.` });
+            const waveSize = Math.min(statusData.validRows || 0, 10_000);
+            if (waveSize) {
+              try {
+                setInvitePreview(await previewInviteWave(newBatchId, waveSize));
+              } catch {
+                addToast({ type: 'error', title: t('waveHeading'), message: t('wavePreviewFailed') });
+              }
+            }
+            addToast({ type: 'success', title: t('batchSuccessTitle'), message: t('batchSuccessDesc') });
           } else if (statusData.status === 'failed') {
             clearInterval(pollInterval);
             setBatchStatus('failed');
             setIsUploading(false);
-            addToast({ type: 'error', title: 'Import Failed', message: statusData.failureReason || 'Worker encountered an error.' });
+            addToast({ type: 'error', title: t('rosterImportFailure'), message: t('rosterImportFailureDescription') });
           } else {
-            setBatchStatus('processing');
+            setBatchStatus(statusData.status === 'processing' ? 'processing' : 'queued');
           }
         }
       }, 2000);
     } catch (err: unknown) {
       setIsUploading(false);
       setBatchStatus('failed');
-      addToast({ type: 'error', title: 'Upload Failed', message: err instanceof Error ? err.message : 'Upload failed' });
+      const message = err instanceof Error && err.message === 'BULK_AADHAAR_UNSUPPORTED'
+        ? t('aadhaarColumnUnsupported')
+        : t('rosterUploadFailure');
+      addToast({ type: 'error', title: t('rosterUploadFailure'), message });
+    }
+  };
+
+  const handleScheduleWave = async () => {
+    if (!activeBatchId || !invitePreview || isSchedulingWave || batchStatus !== 'completed') return;
+    setIsSchedulingWave(true);
+    try {
+      await queueInviteWave(activeBatchId, invitePreview);
+      setImportStep(4);
+    } catch {
+      addToast({ type: 'error', title: t('waveHeading'), message: t('waveQueueFailed') });
+    } finally {
+      setIsSchedulingWave(false);
     }
   };
 
@@ -92,8 +106,8 @@ export function useBulkUploadState(
     rawCsvText, setRawCsvText,
     parsedRows, setParsedRows,
     selectedFile, setSelectedFile,
-    isUploading, uploadStatusText,
+    isUploading, isSchedulingWave, invitePreview, uploadStatusText,
     activeBatchId, batchStatus, batchMetrics,
-    handleDirectFileUpload,
+    handleDirectFileUpload, handleScheduleWave,
   };
 }

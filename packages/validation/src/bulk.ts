@@ -2,17 +2,15 @@ import { z } from 'zod';
 
 export const entityTypeSchema = z.enum(['student', 'employer']);
 
-export const bulkUploadSchema = z.object({
+export const bulkRosterMetadataSchema = z.object({
   source: z.string().min(2, 'Source is required (e.g. MSME Department or College Name)'),
   entityType: entityTypeSchema.default('student'),
-  csvContent: z.string().optional(),
-  storagePath: z.string().optional(),
-  fileName: z.string().optional(),
 });
 
-export const signedUrlSchema = z.object({
-  fileName: z.string().min(1, 'File name is required'),
-  contentType: z.string().optional().default('text/csv'),
+export const bulkUploadSchema = bulkRosterMetadataSchema.extend({
+  csvContent: z.string().optional(),
+  storagePath: z.never().optional(),
+  fileName: z.string().optional(),
 });
 
 export const inviteWaveSchema = z.object({
@@ -38,7 +36,6 @@ export const bulkContactRowSchema = z
   );
 
 export type BulkUploadInput = z.infer<typeof bulkUploadSchema>;
-export type SignedUrlInput = z.infer<typeof signedUrlSchema>;
 export type InviteWaveInput = z.infer<typeof inviteWaveSchema>;
 export type UpdateWaveStatusInput = z.infer<typeof updateWaveStatusSchema>;
 export type BulkContactRowInput = z.infer<typeof bulkContactRowSchema>;

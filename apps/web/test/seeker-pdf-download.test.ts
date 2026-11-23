@@ -3,6 +3,7 @@ import { downloadSeekerPdfApi } from '../src/components/workspaces/seeker/seeker
 
 interface MockAnchor {
   click: () => void;
+  remove: () => void;
   href: string;
   download: string;
   parentNode: unknown;
@@ -20,6 +21,7 @@ describe('Seeker PDF Client Download Handler', () => {
   beforeEach(() => {
     mockAnchor = {
       click: vi.fn(),
+      remove: vi.fn(),
       href: '',
       download: '',
       parentNode: null,
@@ -47,25 +49,16 @@ describe('Seeker PDF Client Download Handler', () => {
     vi.restoreAllMocks();
   });
 
-  it('requests /profiles/seeker/me/pdf and triggers browser download link', async () => {
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      headers: {
-        get: (h: string) => (h === 'content-type' ? 'application/json' : null),
-      },
-      json: async () => ({ downloadUrl: 'https://cdn.jobsclick.live/resume.pdf' }),
-    } as unknown as Response);
+  it('requests the authenticated web route and triggers the signed download link', async () => {
+    const signedUrl = 'https://storage.example.test/resume.pdf';
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ downloadUrl: signedUrl }));
 
-    const success = await downloadSeekerPdfApi('http://localhost:3001', 'Bearer mock-token', 'usr-123', 'Priya Sharma');
-    expect(success).toBe(true);
-    expect(global.fetch).toHaveBeenCalledWith(
-      'http://localhost:3001/profiles/seeker/me/pdf',
-      expect.objectContaining({
-        headers: expect.objectContaining({ Authorization: 'Bearer mock-token' }),
-      })
-    );
+    await downloadSeekerPdfApi('Priya Sharma');
+    expect(fetchMock).toHaveBeenCalledWith('/api/profiles/seeker/me/pdf', { cache: 'no-store' });
 
     expect(document.createElement).toHaveBeenCalledWith('a');
+    expect(mockAnchor.href).toBe(signedUrl);
     expect(mockAnchor.click).toHaveBeenCalled();
+    expect(mockAnchor.remove).toHaveBeenCalled();
   });
 });

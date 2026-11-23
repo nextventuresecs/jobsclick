@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { randomUUID } from 'node:crypto';
 import { isStaging, isStrictEnv } from '@indian-job-portal/validation';
 import { DLT_SMS_TEMPLATES } from './sms-templates.js';
 import { captureException } from '../config/sentry.js';
@@ -56,9 +55,8 @@ export class Msg91SmsGateway extends SmsGateway {
       if (allowlist.length === 0 || !allowlist.includes(cleanPhone)) {
         this.logger.log(`[Staging SMS Gate] OTP SMS to ${maskPhone(phone)} skipped: blocked_by_allowlist`);
         return {
-          success: true,
+          success: false,
           message: 'SMS skipped: blocked_by_allowlist',
-          messageId: `staging_allowlist_blocked_${randomUUID()}`,
           blocked_by_allowlist: true,
         };
       }
@@ -120,18 +118,19 @@ export class Msg91SmsGateway extends SmsGateway {
         };
       }
 
-      const resData = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+      const resData = (await response.json().catch(() => null)) as { type?: unknown; request_id?: unknown } | null;
+      const requestId = resData?.request_id;
+      if (resData?.type !== 'success' || typeof requestId !== 'string' || !requestId.trim()) {
+        return { success: false, message: 'MSG91 did not accept the OTP' };
+      }
       this.logger.log(
-        `[SMS Hook - MSG91 Live] Successfully delivered OTP to ${maskPhone(phone)} via template ${templateId}`
+        `[SMS Hook - MSG91 Live] Provider accepted OTP for ${maskPhone(phone)} via template ${templateId}`
       );
 
       return {
         success: true,
-        message: 'OTP delivered via MSG91',
-        messageId:
-          (resData['message'] as string) ||
-          (resData['request_id'] as string) ||
-          randomUUID(),
+        message: 'OTP accepted by MSG91',
+        messageId: requestId,
       };
     } catch (err) {
       this.logger.error(`[MSG91 Network Exception] dispatching to ${maskPhone(phone)}: ${err instanceof Error ? err.message : String(err)}`);

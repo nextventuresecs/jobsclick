@@ -1,5 +1,6 @@
-import type { FastifyReply } from 'fastify';
-import { Controller, Get, Post, Put, Body, Param, Headers, Res, Inject, UsePipes, UseGuards } from '@nestjs/common';
+import type { FastifyReply, FastifyRequest } from 'fastify';
+import type {} from '@fastify/multipart';
+import { BadRequestException, Controller, Get, Post, Put, Body, Param, Headers, Req, Res, Inject, UsePipes, UseGuards, PayloadTooLargeException } from '@nestjs/common';
 import { ZodValidationPipe, createZodDto } from 'nestjs-zod';
 import { BulkService } from './bulk.service.js';
 import { QstashSignatureGuard } from '../qstash/qstash-signature.guard.js';
@@ -9,13 +10,12 @@ import { CurrentUser, type AuthenticatedUser } from '../auth/decorators/current-
 import { Public } from '../auth/decorators/public.decorator.js';
 import {
   bulkUploadSchema,
-  signedUrlSchema,
+  bulkRosterMetadataSchema,
   inviteWaveSchema,
   updateWaveStatusSchema,
 } from '@indian-job-portal/validation';
 
 export class BulkUploadDto extends createZodDto(bulkUploadSchema) {}
-export class SignedUrlDto extends createZodDto(signedUrlSchema) {}
 export class InviteWaveDto extends createZodDto(inviteWaveSchema) {}
 export class UpdateWaveStatusDto extends createZodDto(updateWaveStatusSchema) {}
 
@@ -26,9 +26,36 @@ export class BulkController {
   constructor(@Inject(BulkService) private readonly bulkService: BulkService) {}
 
   @Roles('admin', 'intermediary', 'msme_admin')
-  @Post('bulk/signed-url')
-  async getSignedUploadUrl(@Body(new ZodValidationPipe(signedUrlSchema)) body: SignedUrlDto, @CurrentUser() user: AuthenticatedUser) {
-    return this.bulkService.getSignedUploadUrl(body.fileName, body.contentType, user);
+  @Post('bulk/batches/file')
+  async uploadRoster(@Req() req: FastifyRequest, @CurrentUser() user: AuthenticatedUser) {
+    const fields: Record<string, unknown> = Object.create(null);
+    let file: { bytes: Buffer; isWorkbook: boolean } | undefined;
+    try {
+      for await (const part of req.parts({ limits: { files: 1, fields: 2, fileSize: 16 * 1024 * 1024, fieldSize: 1024 } })) {
+        if (part.type === 'file') {
+          if (part.fieldname !== 'file' || !/\.(csv|xlsx)$/i.test(part.filename)) {
+            throw new BadRequestException({ code: 'BULK_FILE_FORMAT' });
+          }
+          file = { bytes: await part.toBuffer(), isWorkbook: /\.xlsx$/i.test(part.filename) };
+        } else {
+          if (part.fieldname in fields || part.valueTruncated) {
+            throw new BadRequestException('BULK_UPLOAD_INVALID');
+          }
+          fields[part.fieldname] = part.value;
+        }
+      }
+    } catch (error) {
+      if (error instanceof BadRequestException) throw error;
+      if (error instanceof Error && 'statusCode' in error && error.statusCode === 413) {
+        throw new PayloadTooLargeException('BULK_UPLOAD_LIMIT');
+      }
+      throw new BadRequestException('BULK_UPLOAD_INVALID');
+    }
+    const metadata = bulkRosterMetadataSchema.strict().safeParse(fields);
+    if (!file || !metadata.success) {
+      throw new BadRequestException('BULK_UPLOAD_INVALID');
+    }
+    return this.bulkService.processRosterFile(metadata.data, file.bytes, user, file.isWorkbook);
   }
 
   @Roles('admin', 'intermediary', 'msme_admin')

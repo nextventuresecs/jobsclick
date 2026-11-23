@@ -16,7 +16,8 @@ describe('EmailOtpService', () => {
 
     const fakeRedisClient = {
       get: vi.fn(async (key: string) => mockRedis.get(key) || null),
-      set: vi.fn(async (key: string, val: string) => {
+      set: vi.fn(async (key: string, val: string, _mode?: string, _ttl?: number, condition?: 'NX') => {
+        if (condition === 'NX' && mockRedis.has(key)) return null;
         mockRedis.set(key, val);
         return 'OK';
       }),
@@ -76,5 +77,12 @@ describe('EmailOtpService', () => {
   it('enforces 60-second cooldown between consecutive sends', async () => {
     await service.sendOtp('cooldown@test.com');
     await expect(service.sendOtp('cooldown@test.com')).rejects.toThrow('Please wait 60 seconds');
+  });
+
+  it('fails the send and invalidates the code when email delivery is rejected', async () => {
+    mockEmailService.sendEmail.mockResolvedValueOnce({ success: false, error: 'fixture failure' });
+    await expect(service.sendOtp('student@example.test')).rejects.toMatchObject({ status: 503 });
+    expect(mockRedis.has('otp:email:student@example.test')).toBe(false);
+    expect(mockRedis.has('ratelimit:email-otp:student@example.test')).toBe(true);
   });
 });

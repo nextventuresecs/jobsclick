@@ -4,50 +4,8 @@ import type {
   UpdateInquiryStatusInput,
 } from '@indian-job-portal/validation';
 
-export async function requestSignedUploadUrl(apiUrl: string, fileName: string) {
-  const res = await fetch(`${apiUrl}/bulk/signed-url`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fileName, contentType: 'text/csv' }),
-  });
-  if (!res.ok) throw new Error('Failed to obtain signed upload URL');
-  return res.json() as Promise<{ signedUrl: string; storagePath: string }>;
-}
-
-export async function uploadFileToSignedUrl(signedUrl: string, file: File) {
-  try {
-    await fetch(signedUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'text/csv' },
-      body: file,
-    });
-  } catch (uploadErr) {
-    console.warn('Storage upload notice:', uploadErr);
-  }
-}
-
-export async function registerBatchJob(
-  apiUrl: string,
-  source: string,
-  storagePath: string,
-  fileName: string,
-) {
-  const res = await fetch(`${apiUrl}/bulk/batches`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      source,
-      entityType: 'student',
-      storagePath,
-      fileName,
-    }),
-  });
-  if (!res.ok) throw new Error('Failed to create batch job');
-  return res.json() as Promise<{ id: string }>;
-}
-
-export async function pollBatchStatus(apiUrl: string, batchId: string) {
-  const res = await fetch(`${apiUrl}/bulk/batches/${batchId}`);
+export async function pollBatchStatus(batchId: string) {
+  const res = await fetch(`/api/bulk/batches/${encodeURIComponent(batchId)}`);
   if (!res.ok) return null;
   return res.json() as Promise<{
     status: string;
@@ -56,6 +14,31 @@ export async function pollBatchStatus(apiUrl: string, batchId: string) {
     errorRows?: number;
     failureReason?: string;
   }>;
+}
+
+export interface InvitePreview {
+  waveSize: number;
+  costPerSmsInr: number;
+  totalCostInr: number;
+}
+
+export async function previewInviteWave(batchId: string, waveSize: number): Promise<InvitePreview> {
+  const response = await fetch('/api/bulk/invites/preview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ batchId, waveSize }),
+  });
+  if (!response.ok) throw new Error('INVITE_PREVIEW_UNAVAILABLE');
+  return response.json() as Promise<InvitePreview>;
+}
+
+export async function queueInviteWave(batchId: string, preview: InvitePreview): Promise<void> {
+  const response = await fetch('/api/bulk/invites/schedule', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ batchId, waveSize: preview.waveSize, costPerSmsInr: preview.costPerSmsInr }),
+  });
+  if (!response.ok) throw new Error('INVITE_QUEUE_UNAVAILABLE');
 }
 
 export async function fetchInstitutionCms(

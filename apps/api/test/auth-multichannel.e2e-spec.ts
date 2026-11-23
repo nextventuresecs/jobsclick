@@ -1,8 +1,12 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
 import { ThrottlerGuard } from '@nestjs/throttler';
+import { AuthError, type SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@indian-job-portal/database';
+import { SUPABASE_CLIENT } from '../src/database/supabase.provider.js';
+import { UserRepository } from '../src/database/repositories/user.repository.js';
 
 describe('Auth Multichannel Endpoints (E2E)', () => {
   let app: NestFastifyApplication;
@@ -30,6 +34,8 @@ describe('Auth Multichannel Endpoints (E2E)', () => {
   afterAll(async () => {
     if (app) await app.close();
   });
+
+  afterEach(() => vi.restoreAllMocks());
 
   it('POST /auth/email/send-otp dispatches OTP and POST /auth/email/verify-otp creates user with requiresPhoneLink', async () => {
     const testEmail = `seeker_${Date.now()}@test-domain.ac.in`;
@@ -71,12 +77,26 @@ describe('Auth Multichannel Endpoints (E2E)', () => {
 
   it('POST /auth/oauth/exchange exchanges valid provider token for session with requiresPhoneLink', async () => {
     const testGoogleEmail = `google_${Date.now()}@gmail.com`;
+    const providerToken = 'verified-provider-session-fixture';
+    const { auth } = app.get<SupabaseClient<Database>>(SUPABASE_CLIENT);
+    const getUser = vi.spyOn(auth, 'getUser').mockResolvedValueOnce({
+      data: { user: {
+        id: '1204a402-d29a-4794-b714-ce4bd020cad2',
+        aud: 'authenticated',
+        app_metadata: { provider: 'google' },
+        user_metadata: {},
+        created_at: '2026-01-01T00:00:00Z',
+        email_confirmed_at: '2026-01-01T00:00:00Z',
+        email: testGoogleEmail,
+      } },
+      error: null,
+    });
 
     const res = await app.inject({
       method: 'POST',
       url: '/auth/oauth/exchange',
       payload: {
-        providerToken: `mock_provider_token:${testGoogleEmail}`,
+        providerToken,
         role: 'employer',
       },
     });
@@ -88,6 +108,50 @@ describe('Auth Multichannel Endpoints (E2E)', () => {
     expect(body.user.role).toBe('employer');
     expect(body.user.email).toBe(testGoogleEmail);
     expect(body.user.requiresPhoneLink).toBe(true);
+    expect(getUser).toHaveBeenCalledWith(providerToken);
+  });
+
+  it('denies an unconfirmed provider email before looking up an account', async () => {
+    const { auth } = app.get<SupabaseClient<Database>>(SUPABASE_CLIENT);
+    vi.spyOn(auth, 'getUser').mockResolvedValueOnce({
+      data: { user: {
+        id: 'fe662dcc-de2e-4877-985f-785df59ffd02',
+        aud: 'authenticated',
+        app_metadata: { provider: 'google' },
+        user_metadata: {},
+        created_at: '2026-01-01T00:00:00Z',
+        email: 'unconfirmed@example.com',
+      } },
+      error: null,
+    });
+    const lookup = vi.spyOn(app.get(UserRepository), 'findByEmail');
+    const response = await app.inject({
+      method: 'POST',
+      url: '/auth/oauth/exchange',
+      payload: { providerToken: 'unconfirmed-provider-session-fixture' },
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(JSON.parse(response.payload)).not.toHaveProperty('accessToken');
+    expect(lookup).not.toHaveBeenCalled();
+  });
+
+  it('denies a provider error before looking up an account', async () => {
+    const { auth } = app.get<SupabaseClient<Database>>(SUPABASE_CLIENT);
+    vi.spyOn(auth, 'getUser').mockResolvedValueOnce({
+      data: { user: null },
+      error: new AuthError('Provider session rejected', 401),
+    });
+    const lookup = vi.spyOn(app.get(UserRepository), 'findByEmail');
+    const response = await app.inject({
+      method: 'POST',
+      url: '/auth/oauth/exchange',
+      payload: { providerToken: 'rejected-provider-session-fixture' },
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(JSON.parse(response.payload)).not.toHaveProperty('accessToken');
+    expect(lookup).not.toHaveBeenCalled();
   });
 
   it('POST /auth/link-phone/send and POST /auth/link-phone/verify links mobile number to account', async () => {

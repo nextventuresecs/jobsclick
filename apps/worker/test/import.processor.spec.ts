@@ -6,7 +6,6 @@ import type { Database, UserRow, JobSeekerProfileRow } from '@indian-job-portal/
 import {
   ImportProcessor,
   normalizeIndianPhone,
-  extractAadhaarLast4,
   getField,
   BulkImportJobData,
 } from '../src/processors/import.processor.js';
@@ -182,16 +181,6 @@ describe('ImportProcessor - Hardened Bulk Candidate Ingestion', () => {
       expect(normalizeIndianPhone('')).toBeNull();
     });
 
-    it('extracts only the last 4 digits of Aadhaar and never returns full numbers (Hard Invariant #8)', () => {
-      expect(extractAadhaarLast4('1234 5678 9012')).toBe('9012');
-      expect(extractAadhaarLast4('1234-5678-9012')).toBe('9012');
-      expect(extractAadhaarLast4('123456789012')).toBe('9012');
-      expect(extractAadhaarLast4('9012')).toBe('9012');
-      expect(extractAadhaarLast4('12')).toBeUndefined();
-      expect(extractAadhaarLast4('')).toBeUndefined();
-      expect(extractAadhaarLast4(undefined)).toBeUndefined();
-    });
-
     it('extracts fields flexibly across case variations and aliases', () => {
       const record1 = { 'Student Name': 'Rohan', mobile: '9876543210', aadhaar_number: '123456789012' };
       expect(getField(record1, 'name', 'full_name', 'Student Name')).toBe('Rohan');
@@ -310,7 +299,7 @@ describe('ImportProcessor - Hardened Bulk Candidate Ingestion', () => {
   });
 
   describe('Verification Criterion 3: Relational Creation of Users & Job Seeker Profiles', () => {
-    it('atomically creates users with status=invited and links job_seeker_profiles with masked Aadhaar (Hard Invariants #1, #2, #3 & #8)', async () => {
+    it('creates invited profiles and ignores Aadhaar in legacy queued rosters', async () => {
       const mockSupabase = createMockSupabase();
       const processor = new ImportProcessor(mockSupabase);
 
@@ -349,7 +338,7 @@ describe('ImportProcessor - Hardened Bulk Candidate Ingestion', () => {
       expect(profile1).toBeDefined();
       expect(profile1.full_name).toBe('Sunita Rao');
       expect(profile1.seeker_type).toBe('student');
-      expect(profile1.aadhaar_last_four).toBe('1098'); // Only last 4 digits!
+      expect(profile1.aadhaar_last_four).toBeNull();
       expect(profile1.aadhaar_verified).toBe(false);
       expect(profile1.source).toBe('MP Employment Exchange');
 

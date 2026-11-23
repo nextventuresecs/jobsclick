@@ -1,3 +1,5 @@
+import type { InvitePreview } from './institutionApi';
+
 export interface ParsedRow {
   readonly rowNumber: number;
   readonly studentName: string;
@@ -20,6 +22,8 @@ export interface BulkUploadState {
   selectedFile: File | null;
   setSelectedFile: (f: File | null) => void;
   isUploading: boolean;
+  isSchedulingWave: boolean;
+  invitePreview: InvitePreview | null;
   uploadStatusText: string;
   activeBatchId: string | null;
   batchStatus: 'idle' | 'uploading' | 'queued' | 'processing' | 'completed' | 'failed';

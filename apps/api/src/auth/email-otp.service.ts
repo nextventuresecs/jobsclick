@@ -1,11 +1,11 @@
 import {
   Injectable,
-  Logger,
   BadRequestException,
   HttpException,
   HttpStatus,
   Inject,
   Optional,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import crypto from 'node:crypto';
 import { isTestEnv } from '@indian-job-portal/validation';
@@ -24,7 +24,7 @@ export interface VerifyEmailOtpResult {
 
 export interface EmailOtpRedisClient {
   get(key: string): Promise<string | null>;
-  set(key: string, val: string, mode?: string, ttl?: number): Promise<unknown>;
+  set(key: string, val: string, mode?: string, ttl?: number, condition?: 'NX'): Promise<unknown>;
   incr(key: string): Promise<number>;
   expire(key: string, ttl: number): Promise<number>;
   del(key: string): Promise<number>;
@@ -32,7 +32,6 @@ export interface EmailOtpRedisClient {
 
 @Injectable()
 export class EmailOtpService {
-  private readonly logger = new Logger(EmailOtpService.name);
   private readonly redisClient?: EmailOtpRedisClient;
 
   constructor(
@@ -50,19 +49,16 @@ export class EmailOtpService {
     const otpKey = `otp:email:${normalizedEmail}`;
 
     if (this.redisClient) {
-      // 1. Cooldown check (60 seconds)
-      const inCooldown = await this.redisClient.get(cooldownKey);
-      if (inCooldown) {
-        throw new BadRequestException('Please wait 60 seconds before requesting another code');
-      }
-
-      // 2. Daily limit check (max 5 requests per 24 hours)
       const dailyCount = parseInt((await this.redisClient.get(dailyKey)) || '0', 10);
       if (dailyCount >= 5) {
         throw new HttpException(
           'Too many OTP requests. Daily limit of 5 exceeded for this email.',
           HttpStatus.TOO_MANY_REQUESTS,
         );
+      }
+      // Reserve one dispatch per address so a failed attempt cannot delete a concurrent code.
+      if (!await this.redisClient.set(cooldownKey, '1', 'EX', 60, 'NX')) {
+        throw new BadRequestException('Please wait 60 seconds before requesting another code');
       }
     }
 
@@ -73,8 +69,6 @@ export class EmailOtpService {
     if (this.redisClient) {
       // Store OTP with 300s TTL
       await this.redisClient.set(otpKey, code, 'EX', ttlSeconds);
-      // Set cooldown with 60s TTL
-      await this.redisClient.set(cooldownKey, '1', 'EX', 60);
       // Increment daily count
       const count = await this.redisClient.incr(dailyKey);
       if (count === 1) {
@@ -116,10 +110,11 @@ export class EmailOtpService {
       to: normalizedEmail,
       subject,
       html,
-    });
+    }).catch(() => null);
 
-    if (!dispatchResult.success) {
-      this.logger.error(`Failed to dispatch email OTP to ${normalizedEmail}: ${dispatchResult.error}`);
+    if (!dispatchResult?.success) {
+      await this.redisClient?.del(otpKey);
+      throw new ServiceUnavailableException({ code: 'EMAIL_OTP_DELIVERY_FAILED' });
     }
 
     const isTest = isTestEnv();

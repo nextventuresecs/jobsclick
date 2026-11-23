@@ -1,6 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { randomUUID } from 'node:crypto';
 import * as Sentry from '@sentry/node';
 import type { Job } from 'bullmq';
+import { WorkerEmailService } from '../src/email/email.service.js';
+import { WorkerSmsService } from '../src/sms/sms.service.js';
 import {
   wrapBullMQProcessor,
   handleWorkerJobFailure,
@@ -143,7 +146,8 @@ describe('Worker Sentry Telemetry & BullMQ Alert Hygiene Suite', () => {
   });
 
   describe('3. Monorepo Zero-PII Invariant Scrubbing on Worker Failures', () => {
-    it('redacts full 12-digit Aadhaar, phone numbers, and OTPs on wire when job fails permanently', async () => {
+    it('excludes job input and preserves operational metadata on permanent failures', async () => {
+      const otpSecret = randomUUID();
       const mockJob = {
         id: 'job_pii_fail_42',
         name: 'generate-pdf',
@@ -151,10 +155,13 @@ describe('Worker Sentry Telemetry & BullMQ Alert Hygiene Suite', () => {
         opts: { attempts: 3 },
         data: {
           seekerId: 'seeker_123',
+          fullName: 'Synthetic Candidate Name',
+          city: 'Synthetic Candidate City',
+          skills: ['Synthetic Candidate Skill'],
           candidatePhone: '9876543210',
           aadhaarNumber: '1234 5678 9012',
           meta: {
-            otpSecret: '887766',
+            otpSecret,
             bearerToken: 'Bearer eyJhbGciOiJIUzI1NiJ9.test.sig',
           },
         },
@@ -171,34 +178,68 @@ describe('Worker Sentry Telemetry & BullMQ Alert Hygiene Suite', () => {
       expect(rawWire).not.toContain('+919876543210');
       expect(rawWire).not.toContain('eyJhbGciOiJIUzI1NiJ9');
 
-      // Verify redaction tokens appear
       expect(rawWire).toContain('[PHONE_REDACTED]');
-      expect(rawWire).toContain('[REDACTED_PII]');
+      expect(rawWire).not.toContain('Synthetic Candidate Name');
+      expect(rawWire).not.toContain('Synthetic Candidate City');
+      expect(rawWire).not.toContain('Synthetic Candidate Skill');
+      expect(rawWire).not.toContain('job_data');
+      expect(rawWire).not.toContain('seeker_123');
+      expect(rawWire).not.toContain('1234 5678 9012');
+      expect(rawWire).not.toContain(otpSecret);
+      expect(rawWire).toContain('attempts_made');
+      expect(rawWire).toContain('job_pii_fail_42');
+    });
 
-      // Verify deep scrubbing on the structured event payload
-      interface EventPayload {
-        extra: {
-          job_data: {
-            candidatePhone: string;
-            aadhaarNumber: string;
-            meta: {
-              otpSecret: string;
-              bearerToken: string;
-            };
-          };
-        };
+    it('does not leak broadcast recipient phones from job.data.recipients into Sentry on permanent batch failure', async () => {
+      const recipientPhone = `987${Math.floor(1000000 + Math.random() * 9000000)}`;
+      const mockBroadcastJob = {
+        id: 'job_bcast_exhausted_99',
+        name: 'broadcast-queue',
+        attemptsMade: 3,
+        opts: { attempts: 3 },
+        data: {
+          recipients: [
+            { businessProfileId: 'biz_sec_1', phone: recipientPhone, idempotencyKey: 'idemp_sec_1' },
+          ],
+        },
+      } as unknown as Job;
+
+      const batchError = new Error('Broadcast gateway permanently refused dispatch');
+      handleWorkerJobFailure('broadcast-queue', mockBroadcastJob, batchError);
+
+      await Sentry.flush(1000);
+
+      const bcastEnvelopes = capturedEnvelopes.filter((env) => JSON.stringify(env).includes('job_bcast_exhausted_99'));
+      expect(bcastEnvelopes.length).toBeGreaterThan(0);
+      const bcastWire = JSON.stringify(bcastEnvelopes);
+      expect(bcastWire).not.toContain(recipientPhone);
+      expect(bcastWire).toContain('job_bcast_exhausted_99');
+      expect(bcastWire).toContain('attempts_made');
+    });
+
+    it('omits provider response bodies from delivery error telemetry', async () => {
+      const privateMarker = randomUUID();
+      vi.stubEnv('NODE_ENV', 'production');
+      vi.stubEnv('RESEND_API_KEY', 're_synthetic_test_fixture');
+      vi.stubGlobal('fetch', vi.fn(async () => new Response(privateMarker, { status: 422 })));
+      try {
+        const email = await new WorkerEmailService().sendEmail({
+          to: 'roster@example.com',
+          subject: 'Fixture',
+          text: 'Fixture',
+        });
+        const sms = await new WorkerSmsService().sendInviteSms({ phone: '9123456780' });
+        expect(email.success).toBe(false);
+        expect(sms.success).toBe(false);
+        await Sentry.flush(1000);
+        const rawWire = JSON.stringify(capturedEnvelopes);
+        expect(rawWire).toContain('Resend email delivery failed: 422');
+        expect(rawWire).toContain('MSG91 Invite delivery failed: 422');
+        expect(rawWire).not.toContain(privateMarker);
+      } finally {
+        vi.unstubAllGlobals();
+        vi.unstubAllEnvs();
       }
-
-      const eventEnvelope = capturedEnvelopes.find((env) => {
-        const items = (env as [unknown, Array<[{ type?: string }, unknown]>])[1];
-        return Array.isArray(items) && items.some((item) => item[0]?.type === 'event');
-      }) as [unknown, Array<[unknown, EventPayload]>];
-      expect(eventEnvelope).toBeDefined();
-      const eventPayload = eventEnvelope[1][0][1];
-      expect(eventPayload.extra.job_data.candidatePhone).toBe('[REDACTED_PII]');
-      expect(eventPayload.extra.job_data.aadhaarNumber).toBe('[REDACTED_PII]');
-      expect(eventPayload.extra.job_data.meta.otpSecret).toBe('[REDACTED_PII]');
-      expect(eventPayload.extra.job_data.meta.bearerToken).toBe('[REDACTED_PII]');
     });
 
     it('worker Sentry.logger.info emits scrubbed log records', async () => {
