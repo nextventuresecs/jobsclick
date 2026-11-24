@@ -130,10 +130,10 @@ export function InstitutionWorkspace() {
       )}
 
       {/* TAB 2: CMS TAB EDITOR (INT-02 & AC #1) */}
-      {activeTab === 'cms' && <InstitutionCmsEditor institutionId={institution.id} />}
+      {activeTab === 'cms' && <InstitutionCmsEditor institutionId={institution.slug || institution.id} />}
 
       {/* TAB 3: INQUIRIES & LEADS (INT-03 & AC #2) */}
-      {activeTab === 'inquiries' && <InstitutionCmsEditor institutionId={institution.id} />}
+      {activeTab === 'inquiries' && <InstitutionCmsEditor institutionId={institution.slug || institution.id} />}
 
       {/* TAB 4: PROFILE */}
       {activeTab === 'profile' && (

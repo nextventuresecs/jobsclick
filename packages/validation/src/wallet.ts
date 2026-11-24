@@ -88,18 +88,22 @@ export const CREDIT_PACKS: Record<string, CreditPackDefinition> = {
   },
 };
 
-export const createPaymentOrderSchema = z.object({
-  packId: z.string().min(1, 'Credit pack ID is required'),
-  billingName: z.string().optional(),
-  billingEmail: z.string().email('Invalid email address').optional(),
-  billingPhone: z.string().optional(),
-  billingAddress: z.string().optional(),
-  billingGstin: z
-    .string()
-    .regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, 'Invalid GSTIN format')
-    .optional()
-    .or(z.literal('')),
-});
+export const createPaymentOrderSchema = z
+  .object({
+    packId: z.string().min(1, 'Credit pack ID is required'),
+    termsVersion: z.string().min(1, 'termsVersion is required'),
+    billingStateCode: z.string().optional(),
+    billingName: z.string().optional(),
+    billingEmail: z.string().email('Invalid email address').optional(),
+    billingPhone: z.string().optional(),
+    billingAddress: z.string().optional(),
+    billingGstin: z
+      .string()
+      .regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, 'Invalid GSTIN format')
+      .optional()
+      .or(z.literal('')),
+  })
+  .strict();
 
 export const paymentStatusSchema = z.enum([
   'created',
@@ -111,11 +115,13 @@ export const paymentStatusSchema = z.enum([
 
 export type PaymentStatus = z.infer<typeof paymentStatusSchema>;
 
-export const verifyPaymentSchema = z.object({
-  razorpayOrderId: z.string().min(1, 'Razorpay order ID is required'),
-  razorpayPaymentId: z.string().min(1, 'Razorpay payment ID is required'),
-  razorpaySignature: z.string().min(1, 'Razorpay signature is required'),
-});
+export const verifyPaymentSchema = z
+  .object({
+    razorpayOrderId: z.string().min(1, 'Razorpay order ID is required'),
+    razorpayPaymentId: z.string().min(1, 'Razorpay payment ID is required'),
+    razorpaySignature: z.string().min(1, 'Razorpay signature is required'),
+  })
+  .strict();
 
 export const razorpayWebhookEventSchema = z.object({
   event: z.string(),
@@ -165,6 +171,7 @@ export const SPONSORSHIP_TIERS = {
     nameHi: 'छोटा परिसर स्तर',
     maxStudents: 2000,
     ratePerStudentInr: 150,
+    ratePaise: 15000,
   },
   Medium: {
     tier: 'Medium' as const,
@@ -173,6 +180,7 @@ export const SPONSORSHIP_TIERS = {
     minStudents: 2001,
     maxStudents: 10000,
     ratePerStudentInr: 100,
+    ratePaise: 10000,
   },
   Large: {
     tier: 'Large' as const,
@@ -180,10 +188,77 @@ export const SPONSORSHIP_TIERS = {
     nameHi: 'बड़ा परिसर स्तर',
     minStudents: 10001,
     ratePerStudentInr: 70,
+    ratePaise: 7000,
   },
 } as const;
 
 export const sponsorshipTierSchema = z.enum(['Small', 'Medium', 'Large']);
+
+export interface SponsorshipOrderSnapshot {
+  institutionId: string;
+  tier: SponsorshipTier;
+  ratePaise: number;
+  studentCap: number;
+  subtotalPaise: number;
+  gstPaise: number;
+  totalPaise: number;
+  termDays: number;
+  pricingVersion: string;
+}
+
+export const sponsorshipOrderSnapshotSchema = z.object({
+  institutionId: z.string().uuid(),
+  tier: sponsorshipTierSchema,
+  ratePaise: z.number().int().positive(),
+  studentCap: z.number().int().positive(),
+  subtotalPaise: z.number().int().positive(),
+  gstPaise: z.number().int().nonnegative(),
+  totalPaise: z.number().int().positive(),
+  termDays: z.number().int().positive().default(365),
+  pricingVersion: z.string().default('2026.1'),
+});
+
+export function computeSponsorshipQuote(
+  institutionId: string,
+  students: number,
+  termDays = 365,
+  pricingVersion = '2026.1',
+): SponsorshipOrderSnapshot {
+  if (!Number.isInteger(students) || students < 1) {
+    throw new Error('Student count must be a positive integer');
+  }
+
+  let tier: SponsorshipTier;
+  let ratePaise: number;
+
+  if (students <= SPONSORSHIP_TIERS.Small.maxStudents) {
+    tier = 'Small';
+    ratePaise = SPONSORSHIP_TIERS.Small.ratePaise;
+  } else if (students <= SPONSORSHIP_TIERS.Medium.maxStudents) {
+    tier = 'Medium';
+    ratePaise = SPONSORSHIP_TIERS.Medium.ratePaise;
+  } else {
+    tier = 'Large';
+    ratePaise = SPONSORSHIP_TIERS.Large.ratePaise;
+  }
+
+  const subtotalPaise = students * ratePaise;
+  // Always integral because subtotal is a multiple of 100
+  const gstPaise = Math.round((subtotalPaise * 18) / 100);
+  const totalPaise = subtotalPaise + gstPaise;
+
+  return {
+    institutionId,
+    tier,
+    ratePaise,
+    studentCap: students,
+    subtotalPaise,
+    gstPaise,
+    totalPaise,
+    termDays,
+    pricingVersion,
+  };
+}
 
 export const sponsorshipQuoteSchema = z.object({
   institutionId: z.string(),
@@ -200,6 +275,31 @@ export const sponsorshipQuoteSchema = z.object({
   activeSponsoredCount: z.number().int().nonnegative(),
 });
 
+export const sponsorshipQuoteInputSchema = z
+  .object({
+    institutionId: z.string().optional(),
+    declaredStudentCount: z.number().int().positive('declaredStudentCount must be positive').optional(),
+  })
+  .strict();
+
+export const createSponsorshipOrderSchema = z
+  .object({
+    institutionId: z.string().optional(),
+    termsVersion: z.string().min(1, 'termsVersion is required'),
+    billingStateCode: z.string().min(1, 'billingStateCode is required'),
+    declaredStudentCount: z.number().int().positive('declaredStudentCount must be positive').optional(),
+    billingName: z.string().optional(),
+    billingEmail: z.string().email('Invalid email address').optional(),
+    billingPhone: z.string().optional(),
+    billingAddress: z.string().optional(),
+    billingGstin: z
+      .string()
+      .regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, 'Invalid GSTIN format')
+      .optional()
+      .or(z.literal('')),
+  })
+  .strict();
+
 export const activateSponsorshipSchema = z.object({
   paymentReference: z.string().optional(),
   studentCountOverride: z.number().int().positive().optional(),
@@ -209,5 +309,89 @@ export const activateSponsorshipSchema = z.object({
 
 export type SponsorshipTier = z.infer<typeof sponsorshipTierSchema>;
 export type SponsorshipQuote = z.infer<typeof sponsorshipQuoteSchema>;
+export type SponsorshipQuoteInput = z.infer<typeof sponsorshipQuoteInputSchema>;
+export type CreateSponsorshipOrderInput = z.infer<typeof createSponsorshipOrderSchema>;
 export type ActivateSponsorshipInput = z.infer<typeof activateSponsorshipSchema>;
 
+// GSTIN format and Modulo-36 Luhn-variant checksum validator
+const GSTIN_CODES = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+const GSTIN_REGEX = /^[0-3][0-9][A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]$/;
+
+export function isValidGstin(gstin?: string | null): boolean {
+  if (!gstin || typeof gstin !== 'string') return false;
+  const clean = gstin.trim().toUpperCase();
+  if (clean.length !== 15) return false;
+  if (clean === '23AAAAA0000A1Z5') return false; // reject placeholder
+  if (!GSTIN_REGEX.test(clean)) return false;
+
+  let total = 0;
+  for (let i = 0; i < 14; i++) {
+    const ch = clean.charAt(i);
+    const charIndex = GSTIN_CODES.indexOf(ch);
+    if (charIndex === -1) return false;
+
+    const factor = i % 2 !== 0 ? 2 : 1;
+    const product = charIndex * factor;
+    total += Math.floor(product / 36) + (product % 36);
+  }
+
+  const remainder = total % 36;
+  const checkIndex = (36 - remainder) % 36;
+  const expectedChar = GSTIN_CODES.charAt(checkIndex);
+
+  return clean.charAt(14) === expectedChar;
+}
+
+export function deriveFinancialYear(date: Date = new Date()): string {
+  const kolkataDateStr = date.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' });
+  const kolkataDate = new Date(kolkataDateStr);
+  const year = kolkataDate.getFullYear();
+  const month = kolkataDate.getMonth() + 1; // 1-12
+
+  if (month >= 4) {
+    const startYr = String(year % 100).padStart(2, '0');
+    const endYr = String((year + 1) % 100).padStart(2, '0');
+    return `${startYr}${endYr}`;
+  } else {
+    const startYr = String((year - 1) % 100).padStart(2, '0');
+    const endYr = String(year % 100).padStart(2, '0');
+    return `${startYr}${endYr}`;
+  }
+}
+
+export interface InvoiceTaxCalculation {
+  taxablePaise: number;
+  cgstPaise: number;
+  sgstPaise: number;
+  igstPaise: number;
+  totalPaise: number;
+}
+
+export function computeInvoiceTax(
+  totalPaise: number,
+  buyerStateCode: string,
+  supplierStateCode = '27',
+): InvoiceTaxCalculation {
+  const taxablePaise = Math.round((totalPaise * 100) / 118);
+  const taxPaise = totalPaise - taxablePaise;
+
+  if (buyerStateCode === supplierStateCode) {
+    const cgstPaise = Math.floor(taxPaise / 2);
+    const sgstPaise = taxPaise - cgstPaise;
+    return {
+      taxablePaise,
+      cgstPaise,
+      sgstPaise,
+      igstPaise: 0,
+      totalPaise,
+    };
+  } else {
+    return {
+      taxablePaise,
+      cgstPaise: 0,
+      sgstPaise: 0,
+      igstPaise: taxPaise,
+      totalPaise,
+    };
+  }
+}

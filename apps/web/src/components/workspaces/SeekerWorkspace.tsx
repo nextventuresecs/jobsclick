@@ -28,6 +28,8 @@ export function SeekerWorkspace() {
     updateField,
     handleSaveProfile,
     handlePrint,
+    handleDownloadPdf,
+    isDownloadingPdf,
   } = useSeekerWorkspace();
 
   return (
@@ -98,6 +100,8 @@ export function SeekerWorkspace() {
               updateField={updateField}
               onSubmit={handleSaveProfile}
               onCancel={() => setIsEditing(false)}
+              onDownloadPdf={handleDownloadPdf}
+              isDownloadingPdf={isDownloadingPdf}
             />
           )}
         </div>
@@ -108,6 +112,8 @@ export function SeekerWorkspace() {
         <SeekerDigitalCvPreview
           profile={profile}
           onPrint={handlePrint}
+          onDownloadPdf={handleDownloadPdf}
+          isDownloadingPdf={isDownloadingPdf}
         />
       )}
     </div>

@@ -1,4 +1,5 @@
 import { Injectable, Logger, OnModuleDestroy, ServiceUnavailableException } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { Queue, ConnectionOptions, Job, type JobsOptions } from 'bullmq';
 import IORedis from 'ioredis';
 import IORedisMock from 'ioredis-mock';
@@ -6,6 +7,7 @@ import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter.js';
 import { FastifyAdapter } from '@bull-board/fastify';
 import { getTracePropagationHeaders } from '../config/sentry.js';
+import { isStrictEnv } from '../config/env.js';
 
 export const QUEUE_NAMES = {
   BULK_IMPORT: 'bulk-import',
@@ -42,6 +44,7 @@ export interface LiveQueueStatusResponse {
 
 @Injectable()
 export class QueueService implements OnModuleDestroy {
+  private readonly logger = new Logger(QueueService.name);
   public readonly isMock: boolean;
   public readonly connection: IORedis;
   public readonly bulkImportQueue: Queue;
@@ -60,7 +63,14 @@ export class QueueService implements OnModuleDestroy {
   };
 
   constructor() {
-    this.isMock = process.env['NODE_ENV'] === 'test' || Boolean(process.env['VITEST']) || process.env['USE_MOCK_REDIS'] === 'true';
+    if (isStrictEnv()) {
+      if (process.env['USE_MOCK_REDIS'] === '1' || process.env['USE_MOCK_REDIS'] === 'true' || Boolean(process.env['VITEST'])) {
+        throw new Error('Mock Redis and test runners are strictly forbidden in strict/production environments');
+      }
+      this.isMock = false;
+    } else {
+      this.isMock = process.env['NODE_ENV'] === 'test' || Boolean(process.env['VITEST']) || process.env['USE_MOCK_REDIS'] === 'true';
+    }
     const redisUrl = process.env['REDIS_URL'] || 'redis://localhost:6379';
 
     if (this.isMock) {
@@ -70,7 +80,7 @@ export class QueueService implements OnModuleDestroy {
       this.connection = new IORedis(redisUrl, {
         maxRetriesPerRequest: null,
         enableReadyCheck: false,
-        tls: isTls ? { rejectUnauthorized: false } : undefined,
+        tls: isTls ? {} : undefined,
         retryStrategy(times) {
           return Math.min(times * 200, 5000);
         },
@@ -154,13 +164,11 @@ export class QueueService implements OnModuleDestroy {
     return data;
   }
 
-  private readonly logger = new Logger(QueueService.name);
-
   private async enqueue(queue: Queue, name: string, data: object, options: JobsOptions = DEFAULT_JOB_OPTIONS): Promise<Job> {
     try {
       return await queue.add(name, data, options);
     } catch {
-      this.logger.error('BullMQ did not acknowledge publication to ' + queue.name);
+      this.logger.error(`BullMQ did not acknowledge publication to ${queue.name}`);
       throw new ServiceUnavailableException({ code: 'QUEUE_UNAVAILABLE' });
     }
   }
@@ -172,12 +180,13 @@ export class QueueService implements OnModuleDestroy {
     csvContent?: string;
     storagePath?: string;
     shouldSimulateFailure?: boolean;
+    institutionId?: string | null;
     _traceContext?: { sentryTrace?: string; baggage?: string; traceId?: string };
   }) {
     const jobData = this.enrichJobData(data);
     if (this.isMock) {
       this.mockCounters[QUEUE_NAMES.BULK_IMPORT].waiting++;
-      return { id: `mock_${Date.now()}`, name: 'bulk-import', data: jobData } as unknown as Job;
+      return { id: randomUUID(), name: 'bulk-import', data: jobData } as unknown as Job;
     }
     return this.enqueue(this.bulkImportQueue, 'bulk-import', jobData);
   }
@@ -191,11 +200,15 @@ export class QueueService implements OnModuleDestroy {
     _traceContext?: { sentryTrace?: string; baggage?: string; traceId?: string };
   }) {
     const jobData = this.enrichJobData(data);
+    const uniqueJobId = `wave-${data.waveId}-${randomUUID()}`;
     if (this.isMock) {
       this.mockCounters[QUEUE_NAMES.INVITE_WAVE].waiting++;
-      return { id: `mock_${Date.now()}`, name: 'invite-wave', data: jobData } as unknown as Job;
+      return { id: uniqueJobId, name: 'invite-wave', data: jobData } as unknown as Job;
     }
-    return this.enqueue(this.inviteWaveQueue, 'invite-wave', jobData);
+    return this.enqueue(this.inviteWaveQueue, 'invite-wave', jobData, {
+      ...DEFAULT_JOB_OPTIONS,
+      jobId: uniqueJobId,
+    });
   }
 
   async publishPdfJob(data: {
@@ -211,11 +224,12 @@ export class QueueService implements OnModuleDestroy {
     const jobData = this.enrichJobData(data);
     if (this.isMock) {
       this.mockCounters[QUEUE_NAMES.PDF_GENERATOR].waiting++;
-      return { id: `mock_${Date.now()}`, name: 'generate-pdf', data: jobData } as unknown as Job;
+      return { id: randomUUID(), name: 'generate-pdf', data: jobData } as unknown as Job;
     }
     return this.enqueue(this.pdfGeneratorQueue, 'generate-pdf', jobData, {
       ...DEFAULT_JOB_OPTIONS,
-      deduplication: { id: 'resume-' + data.seekerId },
+      // All requests for a seeker write the same private object. BullMQ releases this key at terminal state.
+      deduplication: { id: `resume-${data.seekerId}` },
     });
   }
 
@@ -236,7 +250,7 @@ export class QueueService implements OnModuleDestroy {
     const jobData = this.enrichJobData(data);
     if (this.isMock) {
       this.mockCounters[QUEUE_NAMES.BROADCAST].waiting++;
-      return { id: `mock_${Date.now()}`, name: 'broadcast-batch', data: jobData } as unknown as Job;
+      return { id: randomUUID(), name: 'broadcast-batch', data: jobData } as unknown as Job;
     }
     return this.enqueue(this.broadcastQueue, 'broadcast-batch', jobData);
   }
@@ -246,12 +260,12 @@ export class QueueService implements OnModuleDestroy {
     candidateId?: string;
     _traceContext?: { sentryTrace?: string; baggage?: string; traceId?: string };
   }): Promise<Job> {
-    const jobName = `search-alerts-${Date.now()}`;
+    const jobName = `search-alerts-${randomUUID()}`;
     const jobData = this.enrichJobData(data);
     if (this.isMock) {
       this.mockCounters[QUEUE_NAMES.ALERTS].waiting++;
     }
-    return this.enqueue(this.alertsQueue, jobName, jobData, {});
+    return this.alertsQueue.add(jobName, jobData);
   }
 
   async getLiveQueueMetrics(): Promise<LiveQueueStatusResponse> {

@@ -11,8 +11,6 @@ import type {
 } from '../../../data/sampleWorkspaces';
 import {
   filterStudentsMultiSelect,
-  maskContactNumber,
-  maskEmailAddress,
 } from './studentUtils';
 import {
   Users,
@@ -274,9 +272,9 @@ export function PlacementDashboard({
     if (!newCompanyName.trim()) return;
 
     const newTieUp: CorporateTieUpData = {
-      id: `tieup-${Date.now()}`,
+      id: crypto.randomUUID(),
       institutionId: institution.id,
-      employerId: `comp-${Date.now()}`,
+      employerId: crypto.randomUUID(),
       companyName: newCompanyName.trim(),
       sector: newSector.trim() || 'Manufacturing',
       partnershipStatus: 'mou_signed',
@@ -361,7 +359,7 @@ export function PlacementDashboard({
     const nowStr = new Date().toISOString().split('T')[0] ?? '2026-10-21';
 
     const newApps: PlacementApplicationRecord[] = targetStudents.map((st) => ({
-      id: `app-pl-${Date.now()}-${st.id}`,
+      id: crypto.randomUUID(),
       studentId: st.id,
       studentName: st.studentName,
       rollNumber: st.rollNumber,
@@ -851,12 +849,12 @@ export function PlacementDashboard({
                             </div>
                           </td>
                           <td className="py-3.5 px-4">
-                            <div className="space-y-0.5" title={t('contactMaskedTooltip')}>
+                            <div className="space-y-0.5">
                               <span className="font-mono text-gray-600 block text-[11px]">
-                                {maskContactNumber(st.phone)}
+                                {st.phone || '—'}
                               </span>
                               <span className="font-mono text-gray-400 block text-[10px]">
-                                {maskEmailAddress(st.email)}
+                                {st.email || '—'}
                               </span>
                             </div>
                           </td>
@@ -1373,12 +1371,12 @@ export function PlacementDashboard({
                           </div>
                         </td>
                         <td className="py-2.5 px-3">
-                          <div className="space-y-0.5" title={t('contactMaskedTooltip')}>
+                          <div className="space-y-0.5">
                             <span className="font-mono text-gray-600 block text-[10px]">
-                              {maskContactNumber(st.phone)}
+                              {st.phone || '—'}
                             </span>
                             <span className="font-mono text-gray-400 block text-[9px]">
-                              {maskEmailAddress(st.email)}
+                              {st.email || '—'}
                             </span>
                           </div>
                         </td>

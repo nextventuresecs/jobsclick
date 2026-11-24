@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { useApp } from '../../context/AppContext';
-import type { ClientRole } from '@indian-job-portal/validation';
+import { type ClientRole } from '@indian-job-portal/validation';
+import { isStrictEnv } from '@/lib/client-env';
 import {
   X,
   UserCheck,
@@ -31,7 +32,7 @@ export function RoleSwitcherModal() {
     logout,
   } = useApp();
 
-  if (!isRoleSwitcherOpen || process.env.NODE_ENV === 'production') return null;
+  if (!isRoleSwitcherOpen || isStrictEnv()) return null;
 
   const rolesList: readonly RoleOption[] = [
     {

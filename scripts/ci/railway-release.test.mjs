@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { test } from 'node:test';
-import { probeHttpHealth, workerIsReady, waitForStaging } from './railway-release.mjs';
+import { deployRelease, probeHttpHealth, workerIsReady, waitForStaging } from './railway-release.mjs';
 
 const deployments = { api: 'api-id', web: 'web-id', worker: 'worker-id' };
 const healthy = Object.fromEntries(Object.entries(deployments).map(([service, id]) => [service, { id, status: 'SUCCESS' }]));
@@ -71,8 +71,27 @@ test('production requires the healthy SHA from staging, and build inputs use the
   for (const job of [staging, production]) {
     assert.match(job, /github\.event_name == 'workflow_dispatch'/);
   }
-  assert.match(workflow, /service: \[api, worker, web\]/);
+  assert.match(production, /inputs\.promote_to_production/);
+  assert.match(workflow, /promote_to_production:\s*description:[^\n]+\s*type: boolean\s*default: false/);
+  assert.match(staging, /needs: \[verify, db-security-gate, db-integration, container-build\]/);
+  assert.equal(workflow.match(/context: \$\{\{ steps\.source\.outputs\.path \}\}/g)?.length, 3);
   assert.match(workflow, /context: \$\{\{ steps\.source\.outputs\.path \}\}/);
+});
+
+test('submits the three configured Railway service names from the exported source', async () => {
+  const commands = [];
+  const sha = 'a'.repeat(40);
+  const cwd = resolve('source-fixture');
+  await deployRelease('production', cwd, sha, async (file, args, options) => {
+    assert.equal(file, 'railway');
+    assert.equal(options.cwd, cwd);
+    commands.push(args);
+    return { stdout: JSON.stringify({ deploymentId: '12345678-1234-4234-8234-123456789012' }) };
+  }, { RAILWAY_TOKEN: 'fixture' });
+  assert.deepEqual(commands, ['api', 'worker', 'web'].map(service => [
+    'up', '.', '--path-as-root', '--service', service, '--environment', 'production',
+    '--detach', '--json', '--message', `GitHub commit ${sha}`,
+  ]));
 });
 
 test('exports the selected commit without modified or untracked workspace files', (t) => {

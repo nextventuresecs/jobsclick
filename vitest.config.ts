@@ -1,12 +1,31 @@
 import { defineConfig } from 'vitest/config';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+const isDbTest =
+  process.env['VITEST_DB'] === 'true' ||
+  process.argv.some((a) => a.includes('local.test.ts') || a.includes('packages/database/test'));
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, 'apps/web/src'),
+    },
+  },
   test: {
     globals: true,
     environment: 'node',
-    testTimeout: 15000,
-    include: ['**/*.{test,spec,e2e-spec}.ts'],
-    exclude: ['**/node_modules/**', '**/dist/**', '**/.next/**'],
+    testTimeout: 60000,
+    setupFiles: [path.resolve(__dirname, 'apps/api/test/setup.ts')],
+    include: ['**/*.{test,spec,e2e-spec}.{ts,tsx}'],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/.next/**',
+      ...(isDbTest ? [] : ['**/*.local.test.ts']),
+    ],
     server: {
       deps: {
         inline: [

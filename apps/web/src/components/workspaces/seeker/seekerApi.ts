@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs';
 import type { SeekerProfileData, ApplicationData } from '../../../data/sampleWorkspaces';
 
 interface ApiCandidateAppRow {
@@ -85,13 +86,13 @@ export async function fetchSeekerApplications(
       jobId: a.jobId,
       jobTitle: a.jobTitle || 'Verified Technical Vacancy',
       companyName: a.companyName || 'Verified MSME Enterprise',
-      companyId: a.companyId || 'comp-01',
+      companyId: a.companyId || '',
       candidateId: a.applicantId,
       candidateName: a.applicantProfile?.fullName || 'Candidate',
       candidateEducation: 'Trade Certified',
       candidateExperience: 'Vocational Experience',
       candidateSkills: a.applicantProfile?.skills || [],
-      appliedDate: a.createdAt?.split('T')[0] ?? '2026-10-16',
+      appliedDate: a.createdAt?.split('T')[0] ?? '',
       status: a.status || 'applied',
     }));
   } catch {
@@ -115,12 +116,43 @@ export async function saveSeekerProfile(
       },
       body: JSON.stringify(payload),
     });
-    if (res.ok) {
-      const saved = await res.json();
-      return { success: true, completenessScore: saved?.completenessScore };
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      const message = errData?.message || `Failed to save seeker profile (${res.status} ${res.statusText})`;
+      const error = new Error(message);
+      Sentry.captureException(error, { extra: { apiUrl, status: res.status } });
+      throw error;
     }
-  } catch {
-    // Offline fallback
+    const saved = await res.json();
+    return { success: true, completenessScore: saved?.completenessScore };
+  } catch (err) {
+    Sentry.captureException(err, { extra: { apiUrl, userId } });
+    throw err;
   }
-  return { success: false };
+}
+
+export async function requestSeekerPdfUrl(): Promise<string> {
+  for (let attempt = 0; attempt < 16; attempt++) {
+    const response = await fetch('/api/profiles/seeker/me/pdf', { cache: 'no-store' });
+    if (response.status === 202) {
+      if (attempt < 15) await new Promise((resolve) => setTimeout(resolve, 2000));
+      continue;
+    }
+    if (!response.ok) throw new Error('RESUME_UNAVAILABLE');
+    const result: { downloadUrl?: string } = await response.json();
+    if (!result.downloadUrl) throw new Error('RESUME_UNAVAILABLE');
+    return result.downloadUrl;
+  }
+  throw new Error('RESUME_PENDING');
+}
+
+export async function downloadSeekerPdfApi(candidateName?: string): Promise<void> {
+  const targetUrl = await requestSeekerPdfUrl();
+  const anchor = document.createElement('a');
+  anchor.href = targetUrl;
+  const name = (candidateName || 'Candidate').trim().replace(/[^a-zA-Z0-9]/g, '-');
+  anchor.download = `${name}-Resume.pdf`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
 }

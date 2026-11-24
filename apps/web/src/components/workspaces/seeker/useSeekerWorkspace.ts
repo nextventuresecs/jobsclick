@@ -10,7 +10,7 @@ import type {
 import type { JobItem } from '../../../data/sampleJobs';
 import { mapApiJobToJobItem, type ApiJobPayload } from '../../../lib/job-mapper';
 import { jobSeekerProfileSchema } from '@indian-job-portal/validation';
-import { fetchSeekerProfile, fetchSeekerApplications, saveSeekerProfile } from './seekerApi';
+import { fetchSeekerProfile, fetchSeekerApplications, saveSeekerProfile, downloadSeekerPdfApi } from './seekerApi';
 import { useSeekerProfileFormState } from './useSeekerProfileFormState';
 
 const defaultEmptySeekerProfile: SeekerProfileData = {
@@ -51,6 +51,7 @@ export function useSeekerWorkspace() {
   const [creditsBalance, setCreditsBalance] = useState<number | null>(null);
   const [isOnboardingComplete, setIsOnboardingComplete] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const { formData, updateField, syncFromProfile } = useSeekerProfileFormState(profile);
 
@@ -59,18 +60,16 @@ export function useSeekerWorkspace() {
   // Mount effect to fetch remote profile, applications, credit balance, & live recommendations
   useEffect(() => {
     let isMounted = true;
-    const apiUrl =
-      process.env['NEXT_PUBLIC_API_URL'] ||
-      process.env['API_URL'] ||
-      'http://localhost:3001';
-    const authHeader = accessToken
-      ? `Bearer ${accessToken}`
-      : `Bearer jwt_session_${user?.id || 'usr_seeker_77'}_${Date.now()}`;
-    const userId = user?.id || 'usr_seeker_77';
-
     if (!user?.id && !accessToken) {
       return () => { isMounted = false; };
     }
+
+    const apiUrl =
+      process.env.NEXT_PUBLIC_API_URL ||
+      process.env.API_URL ||
+      'http://localhost:3001';
+    const authHeader = accessToken ? `Bearer ${accessToken}` : '';
+    const userId = user?.id || '';
 
     const loadRecommendations = (category?: string) => {
       const categoryParam = category ? `?category=${encodeURIComponent(category)}` : '';
@@ -112,9 +111,10 @@ export function useSeekerWorkspace() {
       setApplications(mappedApps);
     });
 
-    // 3. Fetch Credit Ledger Balance
-    fetch(`${apiUrl}/wallet/balance`, {
-      headers: { Authorization: authHeader, 'x-user-id': userId },
+    // 3. Fetch Credit Ledger Balance via BFF
+    fetch('/api/wallet/balance', {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
     })
       .then((res) => (res.ok ? res.json() : null))
       .then((balanceData) => {
@@ -166,58 +166,89 @@ export function useSeekerWorkspace() {
       return;
     }
 
+    if (!accessToken || !user?.id) {
+      addToast({
+        type: 'error',
+        title: 'Authentication Required',
+        message: 'You must be logged in to save your profile.',
+      });
+      return;
+    }
+
     const apiUrl =
-      process.env['NEXT_PUBLIC_API_URL'] ||
-      process.env['API_URL'] ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      process.env.API_URL ||
       'http://localhost:3001';
-    const authHeader = accessToken
-      ? `Bearer ${accessToken}`
-      : `Bearer jwt_session_${user?.id || 'usr_seeker_77'}_${Date.now()}`;
-    const userId = user?.id || 'usr_seeker_77';
+    const authHeader = `Bearer ${accessToken}`;
+    const userId = user.id;
 
-    const saveResult = await saveSeekerProfile(apiUrl, authHeader, userId, validationResult.data);
-    const completeness = saveResult.completenessScore ?? 100;
+    try {
+      const saveResult = await saveSeekerProfile(apiUrl, authHeader, userId, validationResult.data);
+      const completeness = saveResult.completenessScore ?? 100;
 
-    setProfile({
-      ...profile,
-      name: formData.formName,
-      seekerType: formData.formSeekerType,
-      gender: formData.formGender,
-      dob: formData.formDob,
-      address: formData.formAddress,
-      city: formData.formCity,
-      district: formData.formDistrict,
-      state: formData.formState,
-      pincode: formData.formPincode,
-      qualification: formData.formQualification,
-      institution: formData.formInstitution,
-      graduationYear: formData.formGraduationYear,
-      experienceYears: Number(formData.formExperienceYears),
-      currentRole: formData.formCurrentRole,
-      skills: skillsArray.length > 0 ? skillsArray : profile.skills,
-      languages: languagesArray.length > 0 ? languagesArray : profile.languages,
-      preferredLocations: locationsArray.length > 0 ? locationsArray : profile.preferredLocations,
-      willingToRelocate: formData.formWillingToRelocate,
-      bio: formData.formBio,
-      aadhaarLastFour: formData.formAadhaarLastFour,
-      aadhaarVerified: Boolean(formData.formAadhaarLastFour),
-      apaarId: formData.formApaarId,
-      dpdpConsentGiven: formData.formDpdpConsent,
-      completionPercentage: completeness,
-      isOnboardingComplete: true,
-    });
+      setProfile((prev) => ({
+        ...prev,
+        name: formData.formName,
+        seekerType: formData.formSeekerType,
+        gender: formData.formGender,
+        dob: formData.formDob,
+        address: formData.formAddress,
+        city: formData.formCity,
+        district: formData.formDistrict,
+        state: formData.formState,
+        pincode: formData.formPincode,
+        qualification: formData.formQualification,
+        institution: formData.formInstitution,
+        graduationYear: formData.formGraduationYear,
+        experienceYears: Number(formData.formExperienceYears),
+        currentRole: formData.formCurrentRole,
+        skills: skillsArray.length > 0 ? skillsArray : prev.skills,
+        languages: languagesArray.length > 0 ? languagesArray : prev.languages,
+        preferredLocations: locationsArray.length > 0 ? locationsArray : prev.preferredLocations,
+        willingToRelocate: formData.formWillingToRelocate,
+        bio: formData.formBio,
+        aadhaarLastFour: formData.formAadhaarLastFour,
+        aadhaarVerified: prev.aadhaarVerified ?? false,
+        apaarId: formData.formApaarId,
+        dpdpConsentGiven: formData.formDpdpConsent,
+        completionPercentage: completeness,
+        isOnboardingComplete: true,
+      }));
 
-    setIsOnboardingComplete(true);
-    setIsEditing(false);
-    addToast({
-      type: 'success',
-      title: t('toastProfileSaved'),
-      message: t('toastProfileSavedDesc'),
-    });
+      setIsOnboardingComplete(true);
+      setIsEditing(false);
+      addToast({
+        type: 'success',
+        title: t('toastProfileSaved'),
+        message: t('toastProfileSavedDesc'),
+      });
+    } catch (err) {
+      addToast({
+        type: 'error',
+        title: 'Failed to Save Profile',
+        message: err instanceof Error ? err.message : 'Unable to save profile.',
+      });
+    }
   };
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!user?.id || isDownloadingPdf) return;
+
+    setIsDownloadingPdf(true);
+    addToast({ type: 'info', title: t('downloadPdf'), message: t('resumePreparing') });
+    try {
+      await downloadSeekerPdfApi(profile.name);
+      addToast({ type: 'success', title: t('downloadPdf'), message: t('resumeReady') });
+    } catch (error) {
+      const pending = error instanceof Error && error.message === 'RESUME_PENDING';
+      addToast({ type: 'error', title: t('downloadPdf'), message: t(pending ? 'resumePending' : 'resumeUnavailable') });
+    } finally {
+      setIsDownloadingPdf(false);
+    }
   };
 
   return {
@@ -234,5 +265,7 @@ export function useSeekerWorkspace() {
     updateField,
     handleSaveProfile,
     handlePrint,
+    handleDownloadPdf,
+    isDownloadingPdf,
   };
 }

@@ -82,25 +82,25 @@ export async function waitForStaging({
   throw new Error(`Timed out waiting for staging health (${waitingOn.join(', ') || 'stable health'})`);
 }
 
-function httpsOrigin(setting, path) {
-  const url = new URL(process.env[setting] ?? '');
+function httpsOrigin(env, setting, path) {
+  const url = new URL(env[setting] ?? '');
   if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash || url.pathname !== '/') {
     throw new Error(`${setting} must be an HTTPS origin`);
   }
   return new URL(path, url);
 }
 
-async function deployRelease(environment, cwd, sha) {
-  if (!['staging', 'production'].includes(environment) || !cwd || !/^[a-f\d]{40}$/i.test(sha ?? '') || !process.env.RAILWAY_TOKEN) {
+export async function deployRelease(environment, cwd, sha, execute = run, env = process.env) {
+  if (!['staging', 'production'].includes(environment) || !cwd || !/^[a-f\d]{40}$/i.test(sha ?? '') || !env.RAILWAY_TOKEN) {
     throw new Error('Release requires an environment, exported source directory, commit SHA, and Railway project token');
   }
   const urls = environment === 'staging' ? {
-    api: httpsOrigin('STAGING_API_URL', '/health'),
-    web: httpsOrigin('STAGING_WEB_URL', '/api/health'),
+    api: httpsOrigin(env, 'STAGING_API_URL', '/health'),
+    web: httpsOrigin(env, 'STAGING_WEB_URL', '/api/health'),
   } : null;
   const railway = async (args, label, timeout = 30_000) => {
     try {
-      const { stdout } = await run('railway', args, { cwd, timeout, maxBuffer: 2 * 1024 * 1024 });
+      const { stdout } = await execute('railway', args, { cwd, env, timeout, maxBuffer: 2 * 1024 * 1024 });
       return stdout;
     } catch {
       throw new Error(`Railway command failed: ${label}`);
@@ -109,7 +109,7 @@ async function deployRelease(environment, cwd, sha) {
   const deployments = {};
   for (const service of services) {
     const output = await railway([
-      'up', '.', '--path-as-root', '--service', `indian-job-portal-${service}`, '--environment', environment,
+      'up', '.', '--path-as-root', '--service', service, '--environment', environment,
       '--detach', '--json', '--message', `GitHub commit ${sha}`,
     ], `submit ${service}`, 180_000);
     const { deploymentId } = JSON.parse(output);
@@ -125,7 +125,7 @@ async function deployRelease(environment, cwd, sha) {
     deployments,
     readLatest: async (service) => {
       const output = await railway([
-        'deployment', 'list', '--service', `indian-job-portal-${service}`, '--environment', environment,
+        'deployment', 'list', '--service', service, '--environment', environment,
         '--limit', '1', '--json',
       ], `read ${service} deployment status`);
       return JSON.parse(output)[0];

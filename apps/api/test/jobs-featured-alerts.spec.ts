@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import crypto from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import fs from 'node:fs';
@@ -6,6 +7,9 @@ import path from 'node:path';
 import { AppModule } from '../src/app.module.js';
 import { WalletService } from '../src/wallet/wallet.service.js';
 import { JobRepository } from '../src/database/repositories/job.repository.js';
+import { UserRepository } from '../src/database/repositories/user.repository.js';
+import { JwtService } from '../src/auth/jwt.service.js';
+import { OtpRedisService } from '../src/auth/otp-redis.service.js';
 import { alertsProcessor } from '../../worker/src/processors/alerts.processor.js';
 import type { Job } from 'bullmq';
 
@@ -13,15 +17,24 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
   let app: NestFastifyApplication;
   let walletService: WalletService;
   let jobRepository: JobRepository;
+  let userRepo: UserRepository;
+  let jwtService: JwtService;
+  let otpRedis: OtpRedisService;
 
-  const employerId = `emp_t21_${Date.now()}`;
-  const otherEmployerId = `emp_other_${Date.now()}`;
-  const candidateId = `cand_t21_${Date.now()}`;
+  let employerId: string;
+  let otherEmployerId: string;
+  let candidateId: string;
+  let employerToken: string;
+  let otherEmployerToken: string;
+  let candidateToken: string;
 
-  let organicJobId: string;
+  let organicJobSlug: string;
   let featuredJobId: string;
+  let featuredJobSlug: string;
 
   beforeAll(async () => {
+    process.env['ENABLE_P2_FEATURED_PROMOTIONS'] = 'true';
+    process.env['ENABLE_P2_JOB_ALERTS'] = 'true';
     const scratchFile = path.resolve(process.cwd(), '.scratch/db-persistence.json');
     if (fs.existsSync(scratchFile)) {
       try {
@@ -41,6 +54,55 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
 
     walletService = app.get(WalletService);
     jobRepository = app.get(JobRepository);
+    userRepo = app.get(UserRepository);
+    jwtService = app.get(JwtService);
+    otpRedis = app.get(OtpRedisService);
+
+    employerId = crypto.randomUUID();
+    otherEmployerId = crypto.randomUUID();
+    candidateId = crypto.randomUUID();
+
+    await userRepo.save({
+      id: employerId,
+      phone: '98' + Math.floor(10000000 + Math.random() * 90000000),
+      role: 'employer',
+      status: 'active',
+      source: 'seed',
+      created_by: null,
+      updated_by: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    await userRepo.save({
+      id: otherEmployerId,
+      phone: '98' + Math.floor(10000000 + Math.random() * 90000000),
+      role: 'employer',
+      status: 'active',
+      source: 'seed',
+      created_by: null,
+      updated_by: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    await userRepo.save({
+      id: candidateId,
+      phone: '98' + Math.floor(10000000 + Math.random() * 90000000),
+      role: 'job_seeker',
+      status: 'active',
+      source: 'seed',
+      created_by: null,
+      updated_by: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+
+    await otpRedis.setAuthState(employerId, { role: 'employer', status: 'active', tokenVersion: 0 });
+    await otpRedis.setAuthState(otherEmployerId, { role: 'employer', status: 'active', tokenVersion: 0 });
+    await otpRedis.setAuthState(candidateId, { role: 'job_seeker', status: 'active', tokenVersion: 0 });
+
+    employerToken = await jwtService.signAccessToken(employerId, 0, { role: 'employer', status: 'active' });
+    otherEmployerToken = await jwtService.signAccessToken(otherEmployerId, 0, { role: 'employer', status: 'active' });
+    candidateToken = await jwtService.signAccessToken(candidateId, 0, { role: 'job_seeker', status: 'active' });
   });
 
   afterAll(async () => {
@@ -52,7 +114,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       const res = await app.inject({
         method: 'POST',
         url: '/jobs',
-        headers: { 'x-user-id': employerId, 'x-user-role': 'employer' },
+        headers: { Authorization: `Bearer ${employerToken}` },
         payload: {
           title: 'Senior CNC Lathe Operator',
           description: 'Automotive gearbox manufacturer looking for skilled CNC operator.',
@@ -71,13 +133,14 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       expect(data.id).toBeDefined();
       expect(data.isPromoted).toBe(false);
       featuredJobId = data.id;
+      featuredJobSlug = data.slug;
     });
 
     it('rejects promotion when employer has insufficient credits (Hard Invariant #7)', async () => {
       const res = await app.inject({
         method: 'POST',
         url: `/jobs/${featuredJobId}/promote`,
-        headers: { 'x-user-id': employerId, 'x-user-role': 'employer' },
+        headers: { Authorization: `Bearer ${employerToken}` },
         payload: {
           durationDays: 7,
         },
@@ -92,7 +155,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       const res = await app.inject({
         method: 'POST',
         url: `/jobs/${featuredJobId}/promote`,
-        headers: { 'x-user-id': otherEmployerId, 'x-user-role': 'employer' },
+        headers: { Authorization: `Bearer ${otherEmployerToken}` },
         payload: {
           durationDays: 7,
         },
@@ -113,7 +176,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       const res = await app.inject({
         method: 'POST',
         url: `/jobs/${featuredJobId}/promote`,
-        headers: { 'x-user-id': employerId, 'x-user-role': 'employer' },
+        headers: { Authorization: `Bearer ${employerToken}` },
         payload: {
           durationDays: 7,
         },
@@ -138,7 +201,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
         const createRes = await app.inject({
           method: 'POST',
           url: '/jobs',
-          headers: { 'x-user-id': employerId, 'x-user-role': 'employer' },
+          headers: { Authorization: `Bearer ${employerToken}` },
           payload: {
             title: `Concurrent Tech Position ${i}`,
             description: 'Testing concurrency safety in job promotion.',
@@ -159,7 +222,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
         app.inject({
           method: 'POST',
           url: `/jobs/${id}/promote`,
-          headers: { 'x-user-id': employerId, 'x-user-role': 'employer' },
+          headers: { Authorization: `Bearer ${employerToken}` },
           payload: { durationDays: 7 },
         }),
       );
@@ -192,7 +255,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       const createRes = await app.inject({
         method: 'POST',
         url: '/jobs',
-        headers: { 'x-user-id': employerId, 'x-user-role': 'employer' },
+        headers: { Authorization: `Bearer ${employerToken}` },
         payload: {
           title: 'Rollback Failure Test Job',
           description: 'Testing atomicity rollback.',
@@ -220,7 +283,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
         const promoteRes = await app.inject({
           method: 'POST',
           url: `/jobs/${failJobId}/promote`,
-          headers: { 'x-user-id': employerId, 'x-user-role': 'employer' },
+          headers: { Authorization: `Bearer ${employerToken}` },
           payload: { durationDays: 7 },
         });
 
@@ -242,7 +305,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       const res = await app.inject({
         method: 'POST',
         url: '/jobs',
-        headers: { 'x-user-id': employerId, 'x-user-role': 'employer' },
+        headers: { Authorization: `Bearer ${employerToken}` },
         payload: {
           title: 'Junior CNC Machinist',
           description: 'Entry level CNC milling machinist position.',
@@ -257,7 +320,8 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       });
 
       expect(res.statusCode).toBe(201);
-      organicJobId = JSON.parse(res.payload).id;
+      const parsedOrganic = JSON.parse(res.payload);
+      organicJobSlug = parsedOrganic.slug;
     });
 
     it('pins promoted job to top of matching search results', async () => {
@@ -271,8 +335,8 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       expect(data.jobs.length).toBeGreaterThanOrEqual(2);
 
       // Featured job must be pinned at index 0 despite organic job being created later
-      const featuredIdx = data.jobs.findIndex((j: { id: string }) => j.id === featuredJobId);
-      const organicIdx = data.jobs.findIndex((j: { id: string }) => j.id === organicJobId);
+      const featuredIdx = data.jobs.findIndex((j: { slug: string }) => j.slug === featuredJobSlug);
+      const organicIdx = data.jobs.findIndex((j: { slug: string }) => j.slug === organicJobSlug);
 
       expect(featuredIdx).toBe(0);
       expect(organicIdx).toBeGreaterThan(featuredIdx);
@@ -288,7 +352,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       expect(res.statusCode).toBe(200);
       const data = JSON.parse(res.payload);
       // Indore featured job must not appear in Bengaluru search
-      expect(data.jobs.some((j: { id: string }) => j.id === featuredJobId)).toBe(false);
+      expect(data.jobs.some((j: { slug: string }) => j.slug === featuredJobSlug)).toBe(false);
     });
 
     it('expired featured job falls back to standard chronological ranking', async () => {
@@ -304,12 +368,12 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       expect(res.statusCode).toBe(200);
       const data = JSON.parse(res.payload);
 
-      const featuredJobInList = data.jobs.find((j: { id: string }) => j.id === featuredJobId);
+      const featuredJobInList = data.jobs.find((j: { slug: string }) => j.slug === featuredJobSlug);
       expect(featuredJobInList.isPromoted).toBe(false);
 
       // Organic job was created more recently, so it should rank first now
-      const featuredIdx = data.jobs.findIndex((j: { id: string }) => j.id === featuredJobId);
-      const organicIdx = data.jobs.findIndex((j: { id: string }) => j.id === organicJobId);
+      const featuredIdx = data.jobs.findIndex((j: { slug: string }) => j.slug === featuredJobSlug);
+      const organicIdx = data.jobs.findIndex((j: { slug: string }) => j.slug === organicJobSlug);
       expect(organicIdx).toBeLessThan(featuredIdx);
     });
 
@@ -317,7 +381,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       const res = await app.inject({
         method: 'POST',
         url: '/jobs',
-        headers: { 'x-user-id': employerId, 'x-user-role': 'employer' },
+        headers: { Authorization: `Bearer ${employerToken}` },
         payload: {
           title: 'Circuit Hardware Technician',
           description: 'Assembly line technician for electronic components.',
@@ -342,18 +406,19 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
 
       expect(searchRes.statusCode).toBe(200);
       const searchData = JSON.parse(searchRes.payload);
-      expect(searchData.jobs.some((j: { id: string }) => j.id === createdJob.id)).toBe(true);
+      expect(searchData.jobs.some((j: { slug: string }) => j.slug === createdJob.slug)).toBe(true);
     });
 
     it('ensures featured jobs appear on Page 1 even when offset and limit pagination is applied', async () => {
       // Create 8 jobs in unique city with staggered timestamps
       const uniqueCity = `Jabalpur_${Date.now()}`;
       const jabalpurJobIds: string[] = [];
+      const jabalpurJobSlugs: string[] = [];
       for (let i = 0; i < 8; i++) {
         const createRes = await app.inject({
           method: 'POST',
           url: '/jobs',
-          headers: { 'x-user-id': employerId, 'x-user-role': 'employer' },
+          headers: { Authorization: `Bearer ${employerToken}` },
           payload: {
             title: `Logistics Dispatcher Grade ${i}`,
             description: 'Warehouse dispatch and inventory management.',
@@ -366,11 +431,14 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
             skills: ['Inventory', 'Logistics'],
           },
         });
-        jabalpurJobIds.push(JSON.parse(createRes.payload).id);
+        const createdJobPayload = JSON.parse(createRes.payload);
+        jabalpurJobIds.push(createdJobPayload.id);
+        jabalpurJobSlugs.push(createdJobPayload.slug);
       }
 
       // Promote the 1st job created (which in standard chronological DESC order would be at the bottom / row 8)
       const olderJobId = jabalpurJobIds[0]!;
+      const olderJobSlug = jabalpurJobSlugs[0]!;
       await walletService.recordTransaction({
         userId: employerId,
         amount: 100,
@@ -381,7 +449,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       const promoteRes = await app.inject({
         method: 'POST',
         url: `/jobs/${olderJobId}/promote`,
-        headers: { 'x-user-id': employerId, 'x-user-role': 'employer' },
+        headers: { Authorization: `Bearer ${employerToken}` },
         payload: { durationDays: 7 },
       });
       expect(promoteRes.statusCode).toBe(201);
@@ -398,7 +466,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       expect(page1Data.total).toBe(8);
 
       // The promoted job MUST be at index 0 of Page 1 despite being an older record
-      expect(page1Data.jobs[0].id).toBe(olderJobId);
+      expect(page1Data.jobs[0].slug).toBe(olderJobSlug);
       expect(page1Data.jobs[0].isPromoted).toBe(true);
     });
   });
@@ -408,7 +476,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       const res = await app.inject({
         method: 'POST',
         url: '/jobs/alerts',
-        headers: { 'x-user-id': candidateId, 'x-user-role': 'job_seeker' },
+        headers: { Authorization: `Bearer ${candidateToken}` },
         payload: {
           title: 'Indore Manufacturing Openings',
           filters: {
@@ -431,7 +499,7 @@ describe('Ticket T-21: Featured Job Promotions & Search Alerts (JOB-05, JOB-06)'
       const res = await app.inject({
         method: 'GET',
         url: '/jobs/alerts',
-        headers: { 'x-user-id': candidateId, 'x-user-role': 'job_seeker' },
+        headers: { Authorization: `Bearer ${candidateToken}` },
       });
 
       expect(res.statusCode).toBe(200);

@@ -2,7 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Navbar } from '../../components/layout/Navbar';
 import { Footer } from '../../components/layout/Footer';
-import { SAMPLE_COMPANIES, CompanyItem } from '../../data/sampleCompanies';
+import type { CompanyItem } from '../../data/sampleCompanies';
 import { Button } from '@indian-job-portal/ui';
 import {
   MapPin,
@@ -25,7 +25,7 @@ export default async function CompaniesDirectoryPage({ searchParams }: CompanyPa
   const sector = searchParams?.sector?.trim() || '';
   const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
 
-  let companies: CompanyItem[] = [...SAMPLE_COMPANIES];
+  let companies: CompanyItem[] = [];
 
 interface RawBusinessRecord {
   readonly id: string;
@@ -45,32 +45,32 @@ interface RawBusinessRecord {
   readonly activeJobsCount?: number;
 }
 
-  try {
-    const res = await fetch(`${apiUrl}/profiles/business`, {
-      next: { revalidate: 60 },
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        companies = (data as readonly RawBusinessRecord[]).map((b) => ({
-          id: b.id,
-          name: b.name || b.companyName || 'Verified Enterprise',
-          sector: b.sector || 'Manufacturing',
-          enterpriseSize: b.companySize || b.enterpriseSize || 'Small',
-          ownershipType: b.ownershipType || 'Private Limited',
-          address: b.address || 'Industrial Area',
-          city: b.city || 'India',
-          district: b.district || 'National',
-          state: b.state || 'India',
-          description: b.description || 'Registered MSME employer.',
-          udyamNumber: b.udyamNumber || '',
-          verified: b.verified ?? true,
-          activeJobsCount: b.activeJobsCount || 1,
-        }));
-      }
+  const res = await fetch(`${apiUrl}/profiles/business`, {
+    next: { revalidate: 60 },
+  });
+  if (!res.ok) {
+    if (res.status >= 500) {
+      throw new Error(`Business directory service error (${res.status})`);
     }
-  } catch {
-    // Graceful fallback to SAMPLE_COMPANIES
+  } else {
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      companies = (data as readonly RawBusinessRecord[]).map((b) => ({
+        id: b.id,
+        name: b.name || b.companyName || 'Verified Enterprise',
+        sector: b.sector || 'Manufacturing',
+        enterpriseSize: b.companySize || b.enterpriseSize || 'Small',
+        ownershipType: b.ownershipType || 'Private Limited',
+        address: b.address || 'Industrial Area',
+        city: b.city || 'India',
+        district: b.district || 'National',
+        state: b.state || 'India',
+        description: b.description || 'Registered MSME employer.',
+        udyamNumber: b.udyamNumber || '',
+        verified: Boolean(b.verified),
+        activeJobsCount: b.activeJobsCount || 0,
+      }));
+    }
   }
 
   const filteredCompanies = companies.filter((c) => {

@@ -1,16 +1,28 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { OtpRedisService } from '../src/auth/otp-redis.service.js';
 import { RateLimitService } from '../src/auth/rate-limit.service.js';
-import type { Redis } from '@upstash/redis';
+import { RateLimitException } from '../src/common/rate-limit.exception.js';
 
-describe('Senior Architect: RateLimitService & Redis Session Persistence (STF-03)', () => {
+describe('RateLimitService & Redis Session Persistence (AUTH-03, PR #97 B4)', () => {
   let otpRedisService: OtpRedisService;
   let rateLimitService: RateLimitService;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.restoreAllMocks();
     otpRedisService = new OtpRedisService();
+    await otpRedisService.waitForReady();
     rateLimitService = new RateLimitService(otpRedisService);
+    await otpRedisService.client.del(
+      'auth:cooldown:9876543201',
+      'auth:daily:9876543202',
+      'auth:ip_rate:198.51.100.42',
+    );
+  });
+
+  afterEach(async () => {
+    if (otpRedisService) {
+      await otpRedisService.onModuleDestroy();
+    }
   });
 
   describe('Fallback Rate Limiting via OtpRedisService', () => {
@@ -50,39 +62,44 @@ describe('Senior Architect: RateLimitService & Redis Session Persistence (STF-03
     });
   });
 
-  describe('@upstash/ratelimit Engine Integration', () => {
-    it('uses Upstash Ratelimit algorithms when custom Upstash Redis client is injected', async () => {
-      // Mock Upstash Redis REST client executing lua evalsha scripts
-      const mockUpstashRedis = {
-        sadd: vi.fn().mockResolvedValue(1),
-        evalsha: vi.fn().mockResolvedValue([1, 19, Date.now() + 60000]),
-        eval: vi.fn().mockResolvedValue([1, 19, Date.now() + 60000]),
-      } as unknown as Redis;
+  describe('Atomic checkAndIncrementOtpLimits', () => {
+    it('returns 429 RateLimitException when cooldown is active', async () => {
+      vi.spyOn(otpRedisService, 'checkAndIncrementOtpLimits').mockResolvedValue({
+        allowed: false,
+        reason: 'COOLDOWN',
+        retryAfter: 45,
+        uniqueMember: 'test_member',
+      });
 
-      const upstashLimiter = new RateLimitService(otpRedisService, mockUpstashRedis);
-
-      const ipResult = await upstashLimiter.checkIpRateLimit('203.0.113.19');
-      expect(ipResult.allowed).toBe(true);
-      expect(ipResult.remaining).toBeGreaterThanOrEqual(1);
-
-      const cooldownResult = await upstashLimiter.checkCooldown('9876543203');
-      expect(cooldownResult.allowed).toBe(true);
-
-      const dailyResult = await upstashLimiter.checkDailyLimit('9876543203');
-      expect(dailyResult.allowed).toBe(true);
+      await expect(
+        rateLimitService.checkAndIncrementOtpLimits('9876543210', '192.168.1.1'),
+      ).rejects.toThrowError(RateLimitException);
     });
 
-    it('gracefully falls back to OtpRedisService if Upstash client throws a network error', async () => {
-      const throwingRedis = {
-        sadd: vi.fn().mockRejectedValue(new Error('Connection reset by peer')),
-        evalsha: vi.fn().mockRejectedValue(new Error('Upstash REST API timeout')),
-        eval: vi.fn().mockRejectedValue(new Error('Upstash REST API timeout')),
-      } as unknown as Redis;
+    it('returns 429 RateLimitException when daily limit is reached', async () => {
+      vi.spyOn(otpRedisService, 'checkAndIncrementOtpLimits').mockResolvedValue({
+        allowed: false,
+        reason: 'DAILY',
+        retryAfter: 86400,
+        uniqueMember: 'test_member',
+      });
 
-      const resilientLimiter = new RateLimitService(otpRedisService, throwingRedis);
+      await expect(
+        rateLimitService.checkAndIncrementOtpLimits('9876543210', '192.168.1.1'),
+      ).rejects.toThrowError(RateLimitException);
+    });
 
-      const res = await resilientLimiter.checkIpRateLimit('192.0.2.10');
-      expect(res.allowed).toBe(true);
+    it('returns 429 RateLimitException with generic message when IP limit is reached', async () => {
+      vi.spyOn(otpRedisService, 'checkAndIncrementOtpLimits').mockResolvedValue({
+        allowed: false,
+        reason: 'IP',
+        retryAfter: 3600,
+        uniqueMember: 'test_member',
+      });
+
+      await expect(
+        rateLimitService.checkAndIncrementOtpLimits('9876543210', '192.168.1.1'),
+      ).rejects.toThrowError(RateLimitException);
     });
   });
 

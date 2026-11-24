@@ -3,6 +3,27 @@ import { WorkerEmailService } from '../src/email/email.service.js';
 import { WorkerSmsService } from '../src/sms/sms.service.js';
 
 describe('WorkerEmailService & WorkerSmsService', () => {
+  it('does not count unconfigured email or allowlist-blocked SMS as sent', async () => {
+    vi.stubEnv('APP_ENV', 'staging');
+    vi.stubEnv('RESEND_API_KEY', undefined);
+    vi.stubEnv('STAGING_EMAIL_ALLOWLIST', 'seeker@example.com');
+    vi.stubEnv('STAGING_SMS_ALLOWLIST', '9000000001');
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    try {
+      const email = await new WorkerEmailService().sendAlertDigest('seeker@example.com', [], 'fixture');
+      const sms = await new WorkerSmsService().sendInviteSms({ phone: '9000000002' });
+      expect(email.success).toBe(false);
+      expect(email.messageId).toBeUndefined();
+      expect(sms).toMatchObject({ success: false, blocked_by_allowlist: true });
+      expect(sms.messageId).toBeUndefined();
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    }
+  });
+
   it('WorkerEmailService dispatches job alert digest with bilingual copy and list unsubscribe header', async () => {
     const emailService = new WorkerEmailService();
     const result = await emailService.sendAlertDigest(
@@ -64,7 +85,7 @@ describe('WorkerEmailService & WorkerSmsService', () => {
 
       const mockFetch = vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ message: 'req_live_sms_12345' }),
+        json: async () => ({ type: 'success', message: 'req_live_sms_12345' }),
       });
       vi.stubGlobal('fetch', mockFetch);
 
@@ -84,6 +105,10 @@ describe('WorkerEmailService & WorkerSmsService', () => {
       );
       expect(res.success).toBe(true);
       expect(res.messageId).toBe('req_live_sms_12345');
+      mockFetch.mockResolvedValueOnce(Response.json({ type: 'error', message: 'Fixture provider rejection' }));
+      const rejected = await smsService.sendInviteSms({ phone: '8888899999', language: 'en' });
+      expect(rejected.success).toBe(false);
+      expect(rejected.messageId).toBeUndefined();
     } finally {
       process.env['MSG91_AUTH_KEY'] = originalAuthKey;
       process.env['SMS_GATEWAY_MODE'] = originalGatewayMode;

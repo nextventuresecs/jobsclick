@@ -1,7 +1,7 @@
 import { Injectable, ForbiddenException, InternalServerErrorException, Inject } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, BusinessProfileRow, JobRow, ApplicationRow } from '@indian-job-portal/database';
-import { DistrictReportItem } from '@indian-job-portal/validation';
+import { DistrictReportItem, isTestEnv, isStrictEnv } from '@indian-job-portal/validation';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../database/supabase.provider.js';
 
 /**
@@ -57,11 +57,7 @@ export function applyStatisticalDisclosureControl(items: DistrictReportItem[]): 
 @Injectable()
 export class ReportsService {
   private persistentStore = PersistentDatabaseStore.getInstance();
-  private isTestMode =
-    process.env['NODE_ENV'] !== 'production' &&
-    (process.env['NODE_ENV'] === 'test' ||
-      !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
-      process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key');
+  private isTestMode = isTestEnv();
 
   constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>) {}
 
@@ -91,7 +87,7 @@ export class ReportsService {
           return applyStatisticalDisclosureControl(rawItems);
         }
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
         // Fall back to local persistent store calculation in non-production

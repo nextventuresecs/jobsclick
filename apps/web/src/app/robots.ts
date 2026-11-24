@@ -1,15 +1,32 @@
-import type { MetadataRoute } from 'next';
-
-export const dynamic = 'force-dynamic';
+import { MetadataRoute } from 'next';
+import { getAppEnv } from '@indian-job-portal/validation';
 
 export default function robots(): MetadataRoute.Robots {
-  const env = (process.env['APP_ENV'] || process.env['NEXT_PUBLIC_APP_ENV'] || process.env['NODE_ENV'])?.trim().toLowerCase();
-  if (env === 'staging') return { rules: { userAgent: '*', allow: '/' } };
-  if (env && env !== 'production') return { rules: { userAgent: '*', disallow: '/' } };
+  const appEnv = getAppEnv();
+  if (appEnv === 'staging') {
+    return { rules: { userAgent: '*', allow: '/' } };
+  }
 
-  const baseUrl = process.env['NEXT_PUBLIC_APP_URL'] || process.env['WEB_URL'] || '';
+  if (appEnv !== 'production') {
+    return {
+      rules: {
+        userAgent: '*',
+        disallow: '/',
+      },
+    };
+  }
+
+  const baseUrl =
+    process.env['NEXT_PUBLIC_APP_URL'] ||
+    process.env['WEB_URL'] ||
+    '';
+
   return {
-    rules: { userAgent: '*', allow: '/', disallow: ['/workspace/', '/api/', '/monitoring/'] },
-    ...(baseUrl ? { sitemap: `${baseUrl}/sitemap.xml` } : {}),
+    rules: {
+      userAgent: '*',
+      allow: '/',
+      disallow: ['/workspace/', '/api/', '/monitoring/'],
+    },
+    sitemap: `${baseUrl}/sitemap.xml`,
   };
 }

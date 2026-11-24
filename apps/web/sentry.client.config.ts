@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/nextjs';
 import { scrubVerificationUrls } from '@indian-job-portal/validation';
+import { getClientAppEnv } from './src/lib/client-env';
 import {
   sanitizeSentryEvent,
   sanitizeBreadcrumb,
@@ -17,6 +18,10 @@ const SENTRY_DSN = process.env.NEXT_PUBLIC_SENTRY_DSN || process.env.SENTRY_DSN;
 if (SENTRY_DSN) {
   const options = {
     dsn: SENTRY_DSN,
+    environment:
+      process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ||
+      process.env.SENTRY_ENVIRONMENT ||
+      getClientAppEnv(),
     tracesSampler: contextualTracesSampler,
     tracePropagationTargets: SENTRY_TRACE_PROPAGATION_TARGETS,
     release:
@@ -52,6 +57,7 @@ if (SENTRY_DSN) {
   };
 
   Sentry.init(options as Parameters<typeof Sentry.init>[0]);
+  // Replay metadata uses event processors instead of the error and transaction hooks.
   Sentry.addEventProcessor((event) => event.type === 'replay_event' ? sanitizeSentryEvent(event) : event);
 }
 

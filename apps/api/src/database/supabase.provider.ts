@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@indian-job-portal/database';
+import { isStrictEnv } from '@indian-job-portal/validation';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -51,7 +52,7 @@ export class PersistentDatabaseStore {
   };
 
   private constructor() {
-    if (process.env['NODE_ENV'] === 'production') {
+    if (isStrictEnv()) {
       this.filePath = '';
       return;
     }
@@ -94,7 +95,7 @@ export class PersistentDatabaseStore {
   }
 
   private load(): void {
-    if (process.env['NODE_ENV'] === 'production') {
+    if (isStrictEnv()) {
       throw new Error(
         'PersistentDatabaseStore file loading is prohibited in production mode. Supabase PostgreSQL must be the sole authority.',
       );
@@ -129,7 +130,7 @@ export class PersistentDatabaseStore {
   }
 
   public save(): void {
-    if (process.env['NODE_ENV'] === 'production') {
+    if (isStrictEnv()) {
       throw new Error(
         'PersistentDatabaseStore file persistence is disabled in production. Supabase PostgreSQL must be the sole source of truth.',
       );
@@ -157,7 +158,7 @@ export class PersistentDatabaseStore {
   }
 
   public getTable<T = unknown>(table: keyof DatabasePersistenceState): Record<string, T> {
-    if (process.env['NODE_ENV'] === 'production') {
+    if (isStrictEnv()) {
       throw new Error(
         `PersistentDatabaseStore read operation on "${table}" is prohibited in production mode. Supabase PostgreSQL must be the sole authority.`,
       );
@@ -178,7 +179,7 @@ export class PersistentDatabaseStore {
   }
 
   public setRow<T = unknown>(table: keyof DatabasePersistenceState, id: string, row: T): void {
-    if (process.env['NODE_ENV'] === 'production') {
+    if (isStrictEnv()) {
       throw new Error(
         `PersistentDatabaseStore write operation on "${table}" is prohibited in production mode. Supabase PostgreSQL must be the sole authority.`,
       );
@@ -188,7 +189,7 @@ export class PersistentDatabaseStore {
   }
 
   public deleteRow(table: keyof DatabasePersistenceState, id: string): void {
-    if (process.env['NODE_ENV'] === 'production') {
+    if (isStrictEnv()) {
       throw new Error(
         `PersistentDatabaseStore delete operation on "${table}" is prohibited in production mode. Supabase PostgreSQL must be the sole authority.`,
       );
@@ -198,7 +199,7 @@ export class PersistentDatabaseStore {
   }
 
   public clearTable(table: keyof DatabasePersistenceState): void {
-    if (process.env['NODE_ENV'] === 'production') {
+    if (isStrictEnv()) {
       throw new Error(
         `PersistentDatabaseStore clear operation on "${table}" is prohibited in production mode. Supabase PostgreSQL must be the sole authority.`,
       );
@@ -209,10 +210,19 @@ export class PersistentDatabaseStore {
 }
 
 export function createSupabaseClient(): SupabaseClient<Database> {
-  const url = process.env['SUPABASE_URL'] || 'http://localhost:54321';
-  const key = process.env['SUPABASE_SERVICE_ROLE_KEY'] || 'dummy-service-role-key';
+  const url = process.env['SUPABASE_URL'];
+  const key = process.env['SUPABASE_SERVICE_ROLE_KEY'];
 
-  return createClient<Database>(url, key, {
+  if (isStrictEnv()) {
+    if (!url || !url.trim() || url.includes('localhost') || url.includes('127.0.0.1')) {
+      throw new Error('SUPABASE_URL must be set and cannot point to localhost in production/staging');
+    }
+    if (!key || !key.trim() || key === 'dummy-service-role-key' || key.toLowerCase().includes('dummy')) {
+      throw new Error('SUPABASE_SERVICE_ROLE_KEY must be set and cannot be a dummy value in production/staging');
+    }
+  }
+
+  return createClient<Database>(url || 'http://localhost:54321', key || 'dummy-service-role-key', {
     auth: {
       persistSession: false,
       autoRefreshToken: false,
@@ -226,10 +236,19 @@ export function createSupabaseClient(): SupabaseClient<Database> {
  * on every query as a true defense-in-depth second lock (Hard Invariant #5, PRN-03).
  */
 export function createUserScopedSupabaseClient(jwt?: string): SupabaseClient<Database> {
-  const url = process.env['SUPABASE_URL'] || 'http://localhost:54321';
-  const anonKey = process.env['SUPABASE_ANON_KEY'] || process.env['SUPABASE_PUBLISHABLE_KEY'] || process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'] || 'dummy-anon-key';
+  const url = process.env['SUPABASE_URL'];
+  const anonKey = process.env['SUPABASE_ANON_KEY'] || process.env['SUPABASE_PUBLISHABLE_KEY'] || process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'];
 
-  return createClient<Database>(url, anonKey, {
+  if (isStrictEnv()) {
+    if (!url || !url.trim() || url.includes('localhost') || url.includes('127.0.0.1')) {
+      throw new Error('SUPABASE_URL must be set and cannot point to localhost in production/staging');
+    }
+    if (!anonKey || !anonKey.trim() || anonKey.toLowerCase().includes('dummy')) {
+      throw new Error('SUPABASE_ANON_KEY must be set and cannot be a dummy value in production/staging');
+    }
+  }
+
+  return createClient<Database>(url || 'http://localhost:54321', anonKey || 'dummy-anon-key', {
     auth: {
       persistSession: false,
       autoRefreshToken: false,

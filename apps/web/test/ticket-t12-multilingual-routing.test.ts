@@ -91,4 +91,48 @@ describe('Ticket T-12: Multilingual Hindi Routing & SEO (/hi/...)', () => {
     expect(linkHeader).toContain('hreflang="en"');
     expect(linkHeader).toContain('https://jobsclick.live/jobs');
   });
+
+  it('redirects unauthenticated requests to /hi/workspace to login gate', async () => {
+    const request = new NextRequest('https://jobsclick.live/hi/workspace');
+    const response = await middleware(request);
+
+    expect([301, 302, 307, 308]).toContain(response.status);
+    const location = response.headers.get('location');
+    expect(location).toBe('https://jobsclick.live/?authRequired=1');
+  });
+
+  it('redirects unauthenticated requests to /workspace to login gate unchanged', async () => {
+    const request = new NextRequest('https://jobsclick.live/workspace');
+    const response = await middleware(request);
+
+    expect([301, 302, 307, 308]).toContain(response.status);
+    const location = response.headers.get('location');
+    expect(location).toBe('https://jobsclick.live/?authRequired=1');
+  });
+
+  it('sets X-Robots-Tag noindex header when APP_ENV is not production', async () => {
+    const prevAppEnv = process.env['APP_ENV'];
+    const prevNodeEnv = process.env['NODE_ENV'];
+    try {
+      (process.env as Record<string, string | undefined>)['NODE_ENV'] = 'production';
+      process.env['APP_ENV'] = 'staging';
+
+      const request = new NextRequest('https://staging.jobsclick.live/hi/jobs');
+      const response = await middleware(request);
+
+      expect(response.headers.get('X-Robots-Tag')).toBe('noindex, nofollow');
+    } finally {
+      const envRef = process.env as Record<string, string | undefined>;
+      if (prevAppEnv !== undefined) {
+        envRef['APP_ENV'] = prevAppEnv;
+      } else {
+        delete envRef['APP_ENV'];
+      }
+      if (prevNodeEnv !== undefined) {
+        envRef['NODE_ENV'] = prevNodeEnv;
+      } else {
+        delete envRef['NODE_ENV'];
+      }
+    }
+  });
 });

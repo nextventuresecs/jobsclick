@@ -7,16 +7,17 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
 import {
   InstitutionCmsInput,
   CreateInstitutionInquiryInput,
   UpdateInquiryStatusInput,
   institutionCmsSchema,
+  generatePublicSlug,
 } from '@indian-job-portal/validation';
 import type { InstitutionProfileRow, InstitutionInquiryRow } from '@indian-job-portal/database';
 import { ProfileRepository } from '../database/repositories/profile.repository.js';
 import { InquiryRepository } from '../database/repositories/inquiry.repository.js';
+import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
 
 export const DEFAULT_INSTITUTION_CMS: InstitutionCmsInput = {
   courses: [
@@ -162,6 +163,27 @@ export const DEFAULT_INSTITUTION_CMS: InstitutionCmsInput = {
   updatedAt: new Date().toISOString(),
 };
 
+function sanitizeObjectKeysForPublic(obj: unknown): unknown {
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeObjectKeysForPublic);
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const res: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+      if (k === 'id') {
+        res['slug'] = v;
+      } else if (k === 'phone' || k === 'email') {
+        // Strip direct phone/email
+        continue;
+      } else {
+        res[k] = sanitizeObjectKeysForPublic(v);
+      }
+    }
+    return res;
+  }
+  return obj;
+}
+
 @Injectable()
 export class InstitutionCmsService {
   private readonly logger = new Logger(InstitutionCmsService.name);
@@ -173,25 +195,24 @@ export class InstitutionCmsService {
   ) {}
 
   /**
-   * Public retrieval of Institution CMS Tabs data (INT-02)
+   * Public retrieval of Institution CMS Tabs data by public_slug (INT-02 / ID-02)
    */
-  async getCmsData(institutionId: string): Promise<InstitutionCmsInput> {
-    const profile = await this.profileRepository.findInstitutionProfileById(institutionId);
+  async getCmsData(slug: string): Promise<unknown> {
+    const profile = await this.profileRepository.findInstitutionProfileByPublicSlug(slug);
     if (!profile) {
-      // Fallback to sensible defaults
-      return DEFAULT_INSTITUTION_CMS;
+      throw new NotFoundException('Institution profile not found');
     }
 
+    let rawCms = DEFAULT_INSTITUTION_CMS;
     if (profile.cms_data && Object.keys(profile.cms_data).length > 0) {
       try {
-        return institutionCmsSchema.parse(profile.cms_data);
+        rawCms = institutionCmsSchema.parse(profile.cms_data);
       } catch {
-        // Fall back to default if stored JSON does not match schema
-        return DEFAULT_INSTITUTION_CMS;
+        rawCms = DEFAULT_INSTITUTION_CMS;
       }
     }
 
-    return DEFAULT_INSTITUTION_CMS;
+    return sanitizeObjectKeysForPublic(rawCms);
   }
 
   /**
@@ -207,6 +228,7 @@ export class InstitutionCmsService {
     const updatedProfile: InstitutionProfileRow = {
       id,
       user_id: userId,
+      public_slug: existing?.public_slug || generatePublicSlug(),
       institution_name: existing?.institution_name || 'Institution Campus',
       institution_type: existing?.institution_type || 'iti',
       affiliation: existing?.affiliation || null,
@@ -256,12 +278,20 @@ export class InstitutionCmsService {
     inquiryId: string;
     message: string;
   }> {
-    const id = `inq_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    let institution = await this.profileRepository.findInstitutionProfileByPublicSlug(input.institutionId);
+    if (!institution) {
+      institution = await this.profileRepository.findInstitutionProfileById(input.institutionId);
+    }
+    if (!institution) {
+      throw new NotFoundException('Institution not found');
+    }
+
+    const id = randomUUID();
     const now = new Date().toISOString();
 
     const row: InstitutionInquiryRow = {
       id,
-      institution_id: input.institutionId,
+      institution_id: institution.id,
       student_name: input.studentName,
       student_phone: input.studentPhone,
       student_email: input.studentEmail || null,
@@ -295,8 +325,10 @@ export class InstitutionCmsService {
     }
 
     const inquiries = await this.inquiryRepository.findInquiriesByInstitutionId(profile.id);
+
     await this.auditInquiryAccess(userId, 'INSTITUTION_INQUIRIES_VIEWED', {
       institutionId: profile.id,
+      count: inquiries.length,
       inquiryIds: inquiries.map((inquiry) => inquiry.id),
     });
     return inquiries;
@@ -337,7 +369,12 @@ export class InstitutionCmsService {
 
     return updated;
   }
-  private async auditInquiryAccess(userId: string, action: string, meta: Record<string, unknown>): Promise<void> {
+
+  private async auditInquiryAccess(
+    userId: string,
+    action: 'INSTITUTION_INQUIRIES_VIEWED' | 'INSTITUTION_INQUIRY_STATUS_UPDATE_REQUESTED',
+    meta: Record<string, unknown>,
+  ): Promise<void> {
     try {
       await this.auditLogRepo.append({
         id: randomUUID(),
@@ -347,7 +384,7 @@ export class InstitutionCmsService {
         created_at: new Date().toISOString(),
       });
     } catch {
-      this.logger.error('Could not persist inquiry audit event ' + action);
+      this.logger.error(`Could not persist inquiry audit event ${action}`);
       throw new ServiceUnavailableException({ code: 'AUDIT_LOG_UNAVAILABLE' });
     }
   }

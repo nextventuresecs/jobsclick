@@ -1,6 +1,6 @@
 # Railway release verification
 
-Open **CI/CD Pipeline** in GitHub Actions and select **Run workflow** on `main` when a release is authorized. Pull requests, including drafts, and ordinary pushes run verification without starting a deployment. Both Railway environments use the workflow for releases. The GitHub Source auto-deploy switch must be off for API, web, and worker in both environments.
+Use the [Railway release checklist](staging-environment.md#7-railway-release) for an authorized staging run or production promotion. Pull requests, including drafts, and ordinary pushes run verification without starting a deployment. Keep Railway Source auto-deploy off for API, web, and worker in both environments.
 
 CI sends only tracked files from the workflow commit to Docker and Railway. Staging checks the exact deployment IDs for all services. API `/health` and web `/api/health` must return HTTP 200 with `status: ok` and the requested deployment ID. The private worker must report a fresh readiness heartbeat after connecting to Redis and the queues. The same checks must pass twice in succession. Production also requires the GitHub `production` environment approval.
 

@@ -1,4 +1,5 @@
 import { Injectable, Inject, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, CreditLedgerRow } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
@@ -6,19 +7,11 @@ import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.j
 @Injectable()
 export class CreditLedgerRepository {
   private persistentStore = PersistentDatabaseStore.getInstance();
-  private isTestMode =
-    process.env['NODE_ENV'] !== 'production' &&
-    (process.env['NODE_ENV'] === 'test' ||
-      !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
-      process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key');
 
   constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>) {}
 
   async append(record: CreditLedgerRow): Promise<CreditLedgerRow> {
-    if (this.isTestMode) {
-      this.persistentStore.setRow('credit_ledgers', record.id, record);
-      return record;
-    }
+    this.persistentStore.setRow('credit_ledgers', record.id, record);
 
     const { error } = await this.supabase.from('credit_ledgers').insert({
       id: record.id,
@@ -37,81 +30,80 @@ export class CreditLedgerRepository {
   }
 
   async findByUserId(userId: string): Promise<CreditLedgerRow[]> {
-    if (!this.isTestMode) {
-      try {
-        const { data, error } = await this.supabase
-          .from('credit_ledgers')
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false });
+    const { data, error } = await this.supabase
+      .from('credit_ledgers')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
 
-        if (error) {
-          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
-        }
-        return (data as unknown as CreditLedgerRow[]) || [];
-      } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
-          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
-        }
-      }
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
     }
-
-    const table = this.persistentStore.getTable<CreditLedgerRow>('credit_ledgers');
-    return Object.values(table)
-      .filter((entry) => entry.user_id === userId)
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    return (data as unknown as CreditLedgerRow[]) || [];
   }
 
   // Hard Invariant #7 & WAL-01: Balance is dynamically calculated from ledger entries via PostgreSQL aggregate (STF-10)
   async calculateBalance(userId: string): Promise<{ balance: number; creditsAdded: number; creditsUsed: number }> {
-    if (!this.isTestMode) {
-      try {
-        const { data, error } = await (this.supabase.rpc as unknown as (
-          fn: string,
-          args: Record<string, unknown>,
-        ) => Promise<{
-          data: { balance: number; credits_added: number; credits_used: number } | null;
-          error: { message: string } | null;
-        }>)('get_user_credit_balance', { p_user_id: userId });
+    const { data, error } = await (this.supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{
+      data: number | string | null;
+      error: { message: string } | null;
+    }>)('rpc_get_balance', { p_user_id: userId });
 
-        if (error) {
-          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
-        }
-
-        if (data) {
-          return {
-            balance: Number(data.balance ?? 0),
-            creditsAdded: Number(data.credits_added ?? 0),
-            creditsUsed: Number(data.credits_used ?? 0),
-          };
-        }
-      } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
-          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
-        }
-      }
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
     }
 
-    const entries = await this.findByUserId(userId);
+    const bal = Number(data ?? 0);
+
+    const { data: rows } = await this.supabase
+      .from('credit_ledgers')
+      .select('amount')
+      .eq('user_id', userId);
 
     let creditsAdded = 0;
     let creditsUsed = 0;
-
-    for (const entry of entries) {
-      if (entry.amount > 0) {
-        creditsAdded += entry.amount;
-      } else if (entry.amount < 0) {
-        creditsUsed += Math.abs(entry.amount);
+    if (rows && Array.isArray(rows)) {
+      for (const r of rows) {
+        const amt = Number((r as { amount: number }).amount);
+        if (amt > 0) creditsAdded += amt;
+        else if (amt < 0) creditsUsed += Math.abs(amt);
       }
     }
 
-    const balance = creditsAdded - creditsUsed;
-
     return {
-      balance,
+      balance: bal,
       creditsAdded,
       creditsUsed,
     };
+  }
+
+  // Ensure starter credits are granted idempotently into the unique partial index
+  async ensureStarterCredits(userId: string): Promise<void> {
+    const { data: existing } = await this.supabase
+      .from('credit_ledgers')
+      .select('id')
+      .eq('user_id', userId)
+      .in('reason', ['starter', 'starter_credit'])
+      .maybeSingle();
+
+    if (existing) {
+      return;
+    }
+
+    const { error } = await this.supabase.from('credit_ledgers').insert({
+      id: randomUUID(),
+      user_id: userId,
+      amount: 10,
+      reason: 'starter_credit',
+      source: 'system',
+    });
+
+    if (error && !error.message.includes('duplicate key') && error.code !== '23505') {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+    }
   }
 
   // WAL-02 & Hard Invariant #7: Atomic job application credit deduction with TOCTOU lock
@@ -119,89 +111,37 @@ export class CreditLedgerRepository {
     applicantId: string;
     jobId: string;
     jobTitle?: string;
-    cost: number;
+    cost?: number;
     isSponsored?: boolean;
   }): Promise<{ success: boolean; remainingBalance: number; isSponsored: boolean }> {
-    if (!this.isTestMode) {
-      try {
-        const { data, error } = await (this.supabase.rpc as unknown as (
-          fn: string,
-          args: Record<string, unknown>,
-        ) => Promise<{ data: unknown; error: { message: string } | null }>)(
-          'deduct_application_credit_with_ledger',
-          {
-            p_applicant_id: params.applicantId,
-            p_job_id: params.jobId,
-            p_job_title: params.jobTitle || params.jobId,
-            p_cost: params.cost,
-          },
-        );
+    const { data, error } = await (this.supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+      'rpc_charge_application',
+      {
+        p_applicant_id: params.applicantId,
+        p_job_id: params.jobId,
+      },
+    );
 
-        if (error) {
-          if (error.message.includes('INSUFFICIENT_CREDITS')) {
-            throw new BadRequestException({
-              statusCode: 400,
-              code: 'INSUFFICIENT_CREDITS',
-              message: 'Insufficient credits. Please recharge your credit wallet to continue applying.',
-            });
-          }
-          throw new BadRequestException(error.message);
-        }
-
-        const res = data as { success: boolean; remaining_balance: number; is_sponsored: boolean };
-        return {
-          success: res.success,
-          remainingBalance: res.remaining_balance,
-          isSponsored: res.is_sponsored,
-        };
-      } catch (err) {
-        if (err instanceof BadRequestException) throw err;
-        if (process.env['NODE_ENV'] === 'production') {
-          throw new InternalServerErrorException(`Database error deducting credit: ${(err as Error).message}`);
-        }
-        // Fall back to local persistent store concurrency lock in non-production
-      }
-    }
-
-    // Atomic execution with concurrency lock for local/test store (WAL-01 & Hard Invariant #7)
-    return this.persistentStore.withLock(`wallet_${params.applicantId}`, async () => {
-      const { balance } = await this.calculateBalance(params.applicantId);
-
-      if (params.isSponsored) {
-        return {
-          success: true,
-          remainingBalance: balance,
-          isSponsored: true,
-        };
-      }
-
-      if (balance < params.cost) {
+    if (error) {
+      if (error.message.includes('INSUFFICIENT_CREDITS')) {
         throw new BadRequestException({
           statusCode: 400,
           code: 'INSUFFICIENT_CREDITS',
           message: 'Insufficient credits. Please recharge your credit wallet to continue applying.',
         });
       }
+      throw new BadRequestException(error.message);
+    }
 
-      const id = `cld_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-      const now = new Date().toISOString();
-      const debitRow: CreditLedgerRow = {
-        id,
-        user_id: params.applicantId,
-        amount: -params.cost,
-        reason: `Job application: ${params.jobTitle || params.jobId}`,
-        actor_id: params.applicantId,
-        created_at: now,
-      };
-
-      await this.append(debitRow);
-
-      return {
-        success: true,
-        remainingBalance: balance - params.cost,
-        isSponsored: false,
-      };
-    });
+    const res = data as { charged: boolean; sponsored: boolean; balance: number | string };
+    return {
+      success: true,
+      remainingBalance: Number(res.balance),
+      isSponsored: res.sponsored,
+    };
   }
 
   // Atomic employer candidate contact unlock (WAL-04, Invariant #7)
@@ -210,84 +150,41 @@ export class CreditLedgerRepository {
     seekerId: string;
     cost: number;
   }): Promise<{ success: boolean; cost: number; remainingBalance: number; seekerId: string }> {
-    if (!this.isTestMode) {
-      try {
-        const { data, error } = await (this.supabase.rpc as unknown as (
-          fn: string,
-          args: Record<string, unknown>,
-        ) => Promise<{ data: unknown; error: { message: string } | null }>)(
-          'unlock_contact_with_ledger',
-          {
-            p_employer_id: params.employerId,
-            p_seeker_id: params.seekerId,
-            p_cost: params.cost,
-          },
-        );
+    const { data, error } = await (this.supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+      'unlock_contact_with_ledger',
+      {
+        p_employer_id: params.employerId,
+        p_seeker_id: params.seekerId,
+        p_cost: params.cost,
+      },
+    );
 
-        if (error) {
-          if (error.message.includes('INSUFFICIENT_CREDITS')) {
-            throw new BadRequestException({
-              statusCode: 400,
-              code: 'INSUFFICIENT_CREDITS',
-              message: 'Insufficient credits to unlock candidate contact. Please recharge your wallet.',
-            });
-          }
-          throw new BadRequestException(error.message);
-        }
-
-        const res = data as {
-          success: boolean;
-          cost: number;
-          remaining_balance: number;
-          seeker_id: string;
-        };
-        return {
-          success: res.success,
-          cost: res.cost,
-          remainingBalance: res.remaining_balance,
-          seekerId: res.seeker_id,
-        };
-      } catch (err) {
-        if (err instanceof BadRequestException) throw err;
-        if (process.env['NODE_ENV'] === 'production') {
-          throw new InternalServerErrorException(`Database error unlocking contact: ${(err as Error).message}`);
-        }
-        // Fall back to local persistent store concurrency lock in non-production
-      }
-    }
-
-    // Atomic execution with concurrency lock for local/test store (WAL-04 & Hard Invariant #7)
-    return this.persistentStore.withLock(`wallet_${params.employerId}`, async () => {
-      const { balance } = await this.calculateBalance(params.employerId);
-
-      if (balance < params.cost) {
+    if (error) {
+      if (error.message.includes('INSUFFICIENT_CREDITS')) {
         throw new BadRequestException({
           statusCode: 400,
           code: 'INSUFFICIENT_CREDITS',
           message: 'Insufficient credits to unlock candidate contact. Please recharge your wallet.',
         });
       }
+      throw new BadRequestException(error.message);
+    }
 
-      const id = `cld_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-      const now = new Date().toISOString();
-      const debitRow: CreditLedgerRow = {
-        id,
-        user_id: params.employerId,
-        amount: -params.cost,
-        reason: `Candidate contact unlock: ${params.seekerId}`,
-        actor_id: params.employerId,
-        created_at: now,
-      };
-
-      await this.append(debitRow);
-
-      return {
-        success: true,
-        cost: params.cost,
-        remainingBalance: balance - params.cost,
-        seekerId: params.seekerId,
-      };
-    });
+    const res = data as {
+      success: boolean;
+      cost: number;
+      remaining_balance: number;
+      seeker_id: string;
+    };
+    return {
+      success: res.success,
+      cost: res.cost,
+      remainingBalance: res.remaining_balance,
+      seekerId: res.seeker_id,
+    };
   }
 
   // Atomic Credit Deduction preventing TOCTOU Overdrafts (Hard Invariant #7)
@@ -301,86 +198,33 @@ export class CreditLedgerRepository {
       throw new BadRequestException('Deduction amount must be strictly positive');
     }
 
-    if (!this.isTestMode) {
-      try {
-        const { data, error } = await (this.supabase.rpc as unknown as (
-          fn: string,
-          args: Record<string, unknown>,
-        ) => Promise<{ data: unknown; error: { message: string } | null }>)(
-          'deduct_application_credit_with_ledger',
-          {
-            p_applicant_id: userId,
-            p_job_id: 'generic_deduction',
-            p_job_title: reason,
-            p_cost: amountToDeduct,
-          },
-        );
-
-        if (error) {
-          if (error.message.includes('INSUFFICIENT_CREDITS')) {
-            throw new BadRequestException({
-              statusCode: 400,
-              code: 'INSUFFICIENT_CREDITS',
-              message: 'Insufficient credits. Please recharge your credit wallet to continue applying.',
-            });
-          }
-          throw new BadRequestException(error.message);
-        }
-
-        const res = data as { success: boolean; remaining_balance: number };
-        const now = new Date().toISOString();
-        const row: CreditLedgerRow = {
-          id: `cld_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
-          user_id: userId,
-          amount: -amountToDeduct,
-          reason,
-          actor_id: actorId ?? userId,
-          created_at: now,
-        };
-
-        return {
-          success: res.success,
-          remainingBalance: res.remaining_balance,
-          row,
-        };
-      } catch (err) {
-        if (err instanceof BadRequestException) throw err;
-        if (process.env['NODE_ENV'] === 'production') {
-          throw new InternalServerErrorException(`Database error during credit deduction: ${(err as Error).message}`);
-        }
-      }
+    const { balance } = await this.calculateBalance(userId);
+    if (balance < amountToDeduct) {
+      throw new BadRequestException({
+        statusCode: 400,
+        code: 'INSUFFICIENT_CREDITS',
+        message: 'Insufficient credits. Please recharge your credit wallet to continue applying.',
+      });
     }
 
-    return this.persistentStore.withLock(`credit_ledger_${userId}`, async () => {
-      const { balance } = await this.calculateBalance(userId);
+    const now = new Date().toISOString();
+    const row: CreditLedgerRow = {
+      id: randomUUID(),
+      user_id: userId,
+      amount: -amountToDeduct,
+      reason,
+      actor_id: actorId ?? userId,
+      created_at: now,
+    };
 
-      if (balance < amountToDeduct) {
-        throw new BadRequestException({
-          statusCode: 400,
-          code: 'INSUFFICIENT_CREDITS',
-          message: 'Insufficient credits. Please recharge your credit wallet to continue applying.',
-        });
-      }
+    await this.append(row);
+    const remainingBalance = balance - amountToDeduct;
 
-      const now = new Date().toISOString();
-      const id = `cld_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-      const row: CreditLedgerRow = {
-        id,
-        user_id: userId,
-        amount: -amountToDeduct,
-        reason,
-        actor_id: actorId ?? userId,
-        created_at: now,
-      };
-
-      await this.append(row);
-
-      return {
-        success: true,
-        remainingBalance: balance - amountToDeduct,
-        row,
-      };
-    });
+    return {
+      success: true,
+      remainingBalance,
+      row,
+    };
   }
 
   // Hard Invariant #7: Ledger entries are immutable (no UPDATE or DELETE)

@@ -1,0 +1,27 @@
+=========================================================================================================
+🛡️  MODULE 4: WALLET, RAZORPAY & SPONSORSHIPS — ATTACKER SECURITY VERIFICATION SUITE
+=========================================================================================================
+Timestamp: 2026-11-23T11:45:20.528Z
+Database: PostgreSQL (Real Catalog & Storage Engines)
+Total Vectors Tested: 14
+---------------------------------------------------------------------------------------------------------
+ID | Attack Vector Description                                              | Expected | Actual   | Status
+---|------------------------------------------------------------------------|----------|----------|-------
+ 1 | Anon key direct calls to rpc_* & private tables blocked                | 42501    | 42501    | PASS
+ 2 | Authenticated role direct calls to rpc_* & private tables blocked      | 42501    | 42501    | PASS
+ 3 | Forged webhooks (bad sig, wrong secret, altered bytes, missing event i | 400      | 400      | PASS
+ 4 | Replay same webhook event id x100 -> exactly 1 grant                   | 1 grant  | 1 grant  | PASS
+ 5 | Different event id, same payment reference x100 -> exactly 1 grant     | 1 grant  | 1 grant  | PASS
+ 6 | Webhook payload amount mismatch defeated by authoritative gateway fetc | 100 cred | 100 cred | PASS
+ 7 | ₹590 wallet payment attempting to claim sponsorship -> 0 sponsorship g | 0 spon   | 0 spon   | PASS
+ 8 | Reuse captured payment on another order -> rejected with 0 second gran | 1 grant  | 1 grant  | PASS
+ 9 | Other user's order on /wallet/recharge/verify rejected with 404        | 404      | 404      | PASS
+10 | Client direct update of institution_id / sponsorship_id raises FORBIDD | FORBIDDE | FORBIDDE | PASS
+11 | Free-text college name receives 0 sponsorship coverage (standard 1 cre | Charged  | Charged  | PASS
+12 | 50 concurrent settles of one order -> exactly 1 credit grant (49 alrea | 1 grant  | 1 grant  | PASS
+13 | 50 concurrent application charges at balance 1 -> exactly 1 success, b | 1 succes | 1 succes | PASS
+14 | Forged role (?role=platform_admin, legacy cookie, unauthenticated role | 401/403  | 401/403  | PASS
+---------------------------------------------------------------------------------------------------------
+Summary: 14/14 Vectors Passed, 0 Failed.
+✅ ALL 14 ATTACK VECTORS BLOCKED: Zero unearned grants, zero negative balances, zero privilege leaks.
+=========================================================================================================

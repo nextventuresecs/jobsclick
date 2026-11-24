@@ -11,12 +11,16 @@ interface ApplicantDetailModalProps {
   readonly applicant: ApplicationData | null;
   readonly onClose: () => void;
   readonly onUpdateStatus: (id: string, status: ApplicationStatus) => void;
+  readonly onSendInterviewInvite?: (id: string) => void | Promise<void>;
+  readonly isSendingInvite?: boolean;
 }
 
 export function ApplicantDetailModal({
   applicant,
   onClose,
   onUpdateStatus,
+  onSendInterviewInvite,
+  isSendingInvite,
 }: ApplicantDetailModalProps) {
   const t = useTranslations('EmployerWorkspace');
 
@@ -56,12 +60,12 @@ export function ApplicantDetailModal({
         <div className="grid grid-cols-2 gap-4 text-xs">
           <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-100">
             <span className="text-gray-400 uppercase tracking-wider font-semibold text-[10px]">{t('contactMobile')}</span>
-            <p className="font-mono text-gray-900 font-bold mt-1">+91 ••••• ••829</p>
+            <p className="font-mono text-gray-900 font-bold mt-1">+91 ••••• •••••</p>
             <span className="text-[10px] text-emerald-600 font-medium">{t('maskedPerInvariant')}</span>
           </div>
           <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-100">
             <span className="text-gray-400 uppercase tracking-wider font-semibold text-[10px]">{t('emailAddress')}</span>
-            <p className="font-mono text-gray-900 font-bold mt-1">••••••••••@••••.in</p>
+            <p className="font-mono text-gray-900 font-bold mt-1">••••••••••@••••••••</p>
             <span className="text-[10px] text-emerald-600 font-medium">{t('inAppChatOnly')}</span>
           </div>
           <div className="bg-gray-50 p-3.5 rounded-xl border border-gray-100">
@@ -95,6 +99,18 @@ export function ApplicantDetailModal({
           <Button type="button" variant="outline" size="sm" onClick={onClose}>
             {t('btnClose')}
           </Button>
+          {onSendInterviewInvite && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isSendingInvite}
+              onClick={() => onSendInterviewInvite(applicant.id)}
+              className="text-orange-600 border-orange-200 hover:bg-orange-50 font-medium"
+            >
+              {isSendingInvite ? t('sendingInvite') : t('sendInterviewInvite')}
+            </Button>
+          )}
           {applicant.status === 'applied' && (
             <Button
               type="button"

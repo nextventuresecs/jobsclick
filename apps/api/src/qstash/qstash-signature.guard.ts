@@ -1,6 +1,7 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { Receiver } from '@upstash/qstash';
 import { FastifyRequest } from 'fastify';
+import { isTestEnv } from '@indian-job-portal/validation';
 
 /** Fastify request augmented with rawBody from our custom content-type parser. */
 interface FastifyRequestWithRawBody extends FastifyRequest {
@@ -10,10 +11,7 @@ interface FastifyRequestWithRawBody extends FastifyRequest {
 @Injectable()
 export class QstashSignatureGuard implements CanActivate {
   private receiver: Receiver | null = null;
-  private isTestMode =
-    process.env['NODE_ENV'] === 'test' ||
-    !process.env['QSTASH_CURRENT_SIGNING_KEY'] ||
-    process.env['QSTASH_CURRENT_SIGNING_KEY'] === 'sig_dummy_current_key';
+  private isTestMode = isTestEnv();
 
   constructor() {
     const currentKey = process.env['QSTASH_CURRENT_SIGNING_KEY'];
@@ -31,7 +29,7 @@ export class QstashSignatureGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<FastifyRequestWithRawBody>();
     const signature = request.headers['upstash-signature'] as string | undefined;
 
-    // Test bypass / mock verification
+    // Test bypass / mock verification (Strictly test environment only)
     if (this.isTestMode) {
       if (signature === 'test_invalid_signature') {
         throw new UnauthorizedException('Invalid QStash signature');
@@ -44,7 +42,7 @@ export class QstashSignatureGuard implements CanActivate {
     }
 
     if (!this.receiver) {
-      return true;
+      throw new UnauthorizedException('QStash signature receiver is not configured');
     }
 
     try {
