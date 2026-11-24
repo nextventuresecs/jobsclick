@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nextjs';
+import { scrubVerificationUrls } from '@indian-job-portal/validation';
 import {
   sanitizeSentryEvent,
   sanitizeBreadcrumb,
@@ -44,12 +45,14 @@ if (SENTRY_DSN) {
       Sentry.replayIntegration({
         maskAllText: true,
         blockAllMedia: true,
+        beforeAddRecordingEvent: scrubVerificationUrls,
       }),
     ],
     debug: false,
   };
 
   Sentry.init(options as Parameters<typeof Sentry.init>[0]);
+  Sentry.addEventProcessor((event) => event.type === 'replay_event' ? sanitizeSentryEvent(event) : event);
 }
 
 export {};

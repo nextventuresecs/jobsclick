@@ -3,7 +3,6 @@ import { Worker, Queue, ConnectionOptions } from 'bullmq';
 import IORedis from 'ioredis';
 import IORedisMock from 'ioredis-mock';
 import { validateEnv, EnvConfig } from './config/env.js';
-import { getWorkerHealthStatus } from './health.js';
 import {
   initSentry,
   captureException,
@@ -85,6 +84,8 @@ export interface WorkerInstanceRegistry {
   broadcastQueue: Queue;
   alertsQueue: Queue;
   connection: IORedis;
+  waitUntilReady: () => Promise<void>;
+  isRunning: () => boolean;
   close: () => Promise<void>;
 }
 
@@ -193,6 +194,10 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
 
   workers.forEach(({ name, instance }) => {
     instance.on('completed', (job, result) => {
+      if (name === QUEUE_NAMES.BULK_IMPORT) {
+        console.log(`[Worker - ${name}] Job ${job.id} COMPLETED successfully.`);
+        return;
+      }
       console.log(`[Worker - ${name}] Job ${job.id} COMPLETED successfully.`, typeof result === 'object' ? JSON.stringify(result) : result);
     });
 
@@ -241,6 +246,11 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
     broadcastQueue,
     alertsQueue,
     connection,
+    waitUntilReady: async () => {
+      await Promise.all(workers.map(({ instance }) => instance.waitUntilReady()));
+      await connection.ping();
+    },
+    isRunning: () => connection.status === 'ready' && workers.every(({ instance }) => instance.isRunning()),
     close,
   };
 }
@@ -252,21 +262,20 @@ async function main() {
   initSentry(env.SENTRY_DSN);
   console.log(`[Worker - BullMQ Mode] Starting worker cluster in ${env.NODE_ENV} mode...`);
 
-  try {
-    activeRegistry = startWorkerCluster(env);
-    console.log(`[Worker - BullMQ Mode] Successfully connected to queues: ${Object.values(QUEUE_NAMES).join(', ')}`);
-  } catch (err) {
-    const error = err instanceof Error ? err : new Error(String(err));
-    console.error(`[Worker Startup Error] ${error.message}`);
-    captureException(error);
-  }
+  const registry = startWorkerCluster(env);
+  activeRegistry = registry;
+  await registry.waitUntilReady();
+  console.log('[Worker - BullMQ Mode] Workers and Redis are ready');
 
-  setInterval(() => {
-    const health = getWorkerHealthStatus();
-    console.log(`[Worker Heartbeat] ${health.timestamp} - Status: ${health.status}, Uptime: ${health.uptime.toFixed(1)}s (BullMQ workers active)`);
-  }, 10000);
+  const heartbeat = () => {
+    console.log(registry.isRunning() ? '[Worker Readiness] ready' : '[Worker Readiness] unavailable');
+  };
+  heartbeat();
+  const readinessTimer = setInterval(heartbeat, 10_000);
 
   const shutdown = async () => {
+    clearInterval(readinessTimer);
+    console.log('[Worker Readiness] unavailable');
     if (activeRegistry) {
       await activeRegistry.close();
     }
@@ -279,5 +288,11 @@ async function main() {
 
 // Only auto-run main if not required/imported as module in tests
 if (process.env['NODE_ENV'] !== 'test' && !process.env['VITEST']) {
-  main();
+  void main().catch(async (err: unknown) => {
+    const error = err instanceof Error ? err : new Error(String(err));
+    console.error('[Worker Startup Error]', error.message);
+    captureException(error);
+    await activeRegistry?.close();
+    process.exit(1);
+  });
 }

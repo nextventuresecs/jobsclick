@@ -14,6 +14,8 @@ This document records confirmed client decisions and deployment targets that ove
   - Public ingress is exposed only for `apps/web` and `apps/api`.
   - Background worker `apps/worker` has no public HTTP port.
 
+The [Railway release runbook](../runbooks/staging-release.md) describes the manual release workflow, exact-deployment staging checks, production approval, and staging indexing controls.
+
 ## 2. Scope & Features
 - **MVP + Full Extras + Hindi:** All user-facing copy in English and Hindi (`next-intl`), with Hindi rendering support in PDF resumes (`@fontsource/noto-sans-devanagari`).
 - **Database:** Supabase / PostgreSQL with Row-Level Security (RLS) as second lock.

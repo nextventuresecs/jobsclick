@@ -304,8 +304,7 @@ describe('ImportProcessor - Hardened Bulk Candidate Ingestion', () => {
       expect(mockSupabase._users).toHaveLength(3);
 
       // Verify error report details
-      expect(result.errorCsvContent).toContain('Duplicate mobile number inside file');
-      expect(result.errorCsvContent).toContain('Mobile number already exists in database');
+      expect(result).not.toHaveProperty('errorCsvContent');
     });
   });
 
@@ -500,7 +499,7 @@ describe('ImportProcessor - Hardened Bulk Candidate Ingestion', () => {
       expect(run2.status).toBe('completed');
       expect(run2.validRows).toBe(0);
       expect(run2.errorRows).toBe(2);
-      expect(run2.errorCsvContent).toContain('Mobile number already exists in database');
+      expect(run2).not.toHaveProperty('errorCsvContent');
 
       // Database user & profile count remains exactly 2 (zero rogue duplicate rows created)
       expect(mockSupabase._users).toHaveLength(2);

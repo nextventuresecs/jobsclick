@@ -1,14 +1,16 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Header } from '@nestjs/common';
 import { captureException } from '../config/sentry.js';
 
 @Controller('health')
 export class HealthController {
   @Get()
+  @Header('Cache-Control', 'no-store')
   check() {
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
+      deploymentId: process.env['RAILWAY_DEPLOYMENT_ID'],
     };
   }
 

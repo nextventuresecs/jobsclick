@@ -9,6 +9,13 @@ const nextConfig = {
     // Required in Next.js 14 to enable instrumentation.ts lifecycle hooks
     instrumentationHook: true,
   },
+  async headers() {
+    const env = (process.env.APP_ENV || process.env.NEXT_PUBLIC_APP_ENV || process.env.NODE_ENV || '').trim().toLowerCase();
+    return env === 'staging' ? [{
+      source: '/:path*',
+      headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
+    }] : [];
+  },
   images: {
     dangerouslyAllowSVG: false,
     contentDispositionType: 'attachment',

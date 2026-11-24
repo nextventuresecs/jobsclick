@@ -1,0 +1,34 @@
+# Dependencies and build output, including inside workspaces.
+**/node_modules
+**/.pnpm-store
+**/.next
+**/dist
+**/build
+**/out
+**/coverage
+**/.cache
+**/*.tsbuildinfo
+
+# Source-control metadata and private configuration.
+**/.git
+**/.env*
+!**/.env.example
+**/.idea
+**/.vscode
+**/.superpowers
+
+# Local service state, scratch files, and diagnostics.
+**/.scratch
+**/scratch
+**/*.rdb
+**/*.aof
+**/appendonlydir
+**/supabase/.temp
+**/supabase/.branches
+**/*.log
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/pnpm-debug.log*
+**/.DS_Store
+**/Thumbs.db

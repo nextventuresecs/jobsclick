@@ -36,8 +36,7 @@ Duplicate User,9876543210,`;
       expect(result.errorRows).toBe(2);
       expect(result.status).toBe('completed');
       expect(result.createdUserCount).toBe(2);
-      expect(result.errorCsvContent).toContain('Invalid Indian 10-digit mobile number format');
-      expect(result.errorCsvContent).toContain('Duplicate mobile number inside file');
+      expect(result).not.toHaveProperty('errorCsvContent');
     });
 
     it('masks full Aadhaar numbers to last 4 digits only and never stores full Aadhaar (Hard Invariant #8)', async () => {
@@ -60,7 +59,7 @@ Deepak Joshi,9876543212,999988881234`;
       expect(result.validRows).toBe(1);
       expect(result.createdUserCount).toBe(1);
       // Ensure result errorCsvContent does not leak full Aadhaar
-      expect(result.errorCsvContent).toBeFalsy();
+      expect(result).not.toHaveProperty('errorCsvContent');
     });
 
     it('simulates retry failures on attempts 1 and 2, and succeeds on attempt 3', async () => {
@@ -162,8 +161,7 @@ Deepak Joshi,9876543212,999988881234`;
       expect(result.status).toBe('completed');
       expect(result.createdUserCount).toBe(49990);
       expect(progressUpdateCount).toBeGreaterThanOrEqual(99); // Triggered at least 50k / 500 = 100 times
-      expect(result.errorCsvContent).toContain('Invalid Indian 10-digit mobile number format');
-      expect(result.errorCsvContent).toContain('Duplicate mobile number inside file');
+      expect(result).not.toHaveProperty('errorCsvContent');
       // Verify AC: Completes in under 30 minutes (1800s); in practice, Node.js streams it in < 15s
       expect(durationSeconds).toBeLessThan(1800);
     }, 30000); // 30s timeout for test runner

@@ -22,7 +22,6 @@ export interface BulkImportJobResult {
   validRows: number;
   errorRows: number;
   status: 'completed' | 'failed';
-  errorCsvContent?: string;
   createdUserCount: number;
 }
 
@@ -388,10 +387,9 @@ export class ImportProcessor {
     await flushChunk();
 
     // Generate Error CSV Report if any invalid rows were found (BULK-02)
-    let errorCsvContent: string | undefined;
     let errorPath: string | undefined;
     if (errors.length > 0) {
-      errorCsvContent =
+      const errorCsvContent =
         'row,phone,reason\n' +
         errors
           .map(
@@ -437,7 +435,6 @@ export class ImportProcessor {
       validRows: validCount,
       errorRows: errors.length,
       status: 'completed',
-      errorCsvContent,
       createdUserCount: validCount,
     };
   }

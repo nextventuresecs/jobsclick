@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
@@ -23,15 +23,18 @@ describe('HealthController (e2e)', () => {
     await app.close();
   });
 
-  it('/health (GET)', async () => {
+  it('/health (GET) identifies the deployment and disables caching', async () => {
+    vi.stubEnv('RAILWAY_DEPLOYMENT_ID', 'api-deploy-fixture');
     const response = await app.inject({
       method: 'GET',
       url: '/health',
-    });
+    }).finally(() => vi.unstubAllEnvs());
+    expect(response.headers['cache-control']).toBe('no-store');
 
     expect(response.statusCode).toBe(200);
     const payload = JSON.parse(response.payload);
     expect(payload.status).toBe('ok');
+    expect(payload.deploymentId).toBe('api-deploy-fixture');
     expect(payload.timestamp).toBeDefined();
   });
 

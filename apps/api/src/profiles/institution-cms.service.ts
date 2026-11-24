@@ -3,7 +3,11 @@ import {
   NotFoundException,
   ForbiddenException,
   Inject,
+  Logger,
+  ServiceUnavailableException,
 } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
 import {
   InstitutionCmsInput,
   CreateInstitutionInquiryInput,
@@ -160,9 +164,12 @@ export const DEFAULT_INSTITUTION_CMS: InstitutionCmsInput = {
 
 @Injectable()
 export class InstitutionCmsService {
+  private readonly logger = new Logger(InstitutionCmsService.name);
+
   constructor(
     @Inject(ProfileRepository) private readonly profileRepository: ProfileRepository,
     @Inject(InquiryRepository) private readonly inquiryRepository: InquiryRepository,
+    @Inject(AuditLogRepository) private readonly auditLogRepo: AuditLogRepository,
   ) {}
 
   /**
@@ -287,7 +294,12 @@ export class InstitutionCmsService {
       return [];
     }
 
-    return this.inquiryRepository.findInquiriesByInstitutionId(profile.id);
+    const inquiries = await this.inquiryRepository.findInquiriesByInstitutionId(profile.id);
+    await this.auditInquiryAccess(userId, 'INSTITUTION_INQUIRIES_VIEWED', {
+      institutionId: profile.id,
+      inquiryIds: inquiries.map((inquiry) => inquiry.id),
+    });
+    return inquiries;
   }
 
   /**
@@ -313,11 +325,30 @@ export class InstitutionCmsService {
       throw new ForbiddenException('Unauthorized to modify inquiries of other institutions');
     }
 
+    await this.auditInquiryAccess(userId, 'INSTITUTION_INQUIRY_STATUS_UPDATE_REQUESTED', {
+      institutionId: profile.id,
+      inquiryId,
+      status,
+    });
     const updated = await this.inquiryRepository.updateInquiryStatus(inquiryId, status);
     if (!updated) {
       throw new NotFoundException('Failed to update inquiry status');
     }
 
     return updated;
+  }
+  private async auditInquiryAccess(userId: string, action: string, meta: Record<string, unknown>): Promise<void> {
+    try {
+      await this.auditLogRepo.append({
+        id: randomUUID(),
+        actor_id: userId,
+        action,
+        meta,
+        created_at: new Date().toISOString(),
+      });
+    } catch {
+      this.logger.error('Could not persist inquiry audit event ' + action);
+      throw new ServiceUnavailableException({ code: 'AUDIT_LOG_UNAVAILABLE' });
+    }
   }
 }

@@ -1,10 +1,14 @@
 name: CI/CD Pipeline
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+
+env:
+  RAILWAY_CLI_VERSION: '5.71.0'
 
 jobs:
   verify:
@@ -57,55 +61,85 @@ jobs:
     name: Build Container Images
     needs: verify
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [api, worker, web]
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build API Docker Image
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify release gate and source export
+        if: matrix.service == 'api'
+        run: node --test scripts/ci/railway-release.test.mjs
+      - name: Export tracked source
+        id: source
+        run: node scripts/ci/export-release-source.mjs
+      - uses: docker/setup-buildx-action@v3
+      - name: Verify Docker ignores local artifacts
+        if: matrix.service == 'api'
+        run: node --test scripts/ci/docker-context.test.mjs
+      - name: Build container
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: apps/api/Dockerfile
+          context: ${{ steps.source.outputs.path }}
+          file: ${{ steps.source.outputs.path }}/apps/${{ matrix.service }}/Dockerfile
           push: false
-          tags: indian-job-portal-api:latest
-
-      - name: Build Worker Docker Image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: apps/worker/Dockerfile
-          push: false
-          tags: indian-job-portal-worker:latest
 
   deploy-staging:
     name: Deploy to Staging
     needs: [verify, container-build]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 45
+    outputs:
+      healthy_sha: ${{ steps.health.outputs.healthy_sha }}
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Deploy to Staging Environment
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Export tracked source
+        id: source
+        run: node scripts/ci/export-release-source.mjs
+      - name: Install Railway CLI
+        run: npm install -g "@railway/cli@$RAILWAY_CLI_VERSION"
+      - name: Deploy and verify Railway staging services
+        id: health
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_STAGING_TOKEN }}
+          SOURCE_PATH: ${{ steps.source.outputs.path }}
+          STAGING_API_URL: ${{ vars.STAGING_API_URL || 'https://api-staging.jobsclick.live' }}
+          STAGING_WEB_URL: ${{ vars.STAGING_WEB_URL || 'https://staging.jobsclick.live' }}
+        shell: bash
         run: |
-          echo "Deploying container build to Staging environment..."
+          node scripts/ci/railway-release.mjs staging "$SOURCE_PATH" "$GITHUB_SHA"
+          printf 'healthy_sha=%s\n' "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
 
   deploy-production:
     name: Deploy to Production
     needs: [deploy-staging]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: >-
+      github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' &&
+      needs.deploy-staging.result == 'success' && needs.deploy-staging.outputs.healthy_sha == github.sha
     runs-on: ubuntu-latest
     environment: production
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Deploy to Production Environment
-        run: |
-          echo "Deploying container build to Production environment..."
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Export tracked source
+        id: source
+        run: node scripts/ci/export-release-source.mjs
+      - name: Install Railway CLI
+        run: npm install -g "@railway/cli@$RAILWAY_CLI_VERSION"
+      - name: Deploy Services to Railway (Production)
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_PROD_TOKEN }}
+          SOURCE_PATH: ${{ steps.source.outputs.path }}
+        run: node scripts/ci/railway-release.mjs production "$SOURCE_PATH" "$GITHUB_SHA"
