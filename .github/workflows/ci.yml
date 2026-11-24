@@ -86,7 +86,7 @@ jobs:
 
       - name: Start Supabase Local Stack
         run: |
-          supabase start
+          supabase start --exclude mailpit
           supabase status -o env >> $GITHUB_ENV
 
       - name: Run ESLint
@@ -157,7 +157,7 @@ jobs:
 
       - name: Start Supabase Stack & Reset DB
         run: |
-          supabase start
+          supabase start --exclude mailpit
           supabase db reset
 
       - name: Verify Generated Database Types Freshness
@@ -242,7 +242,7 @@ jobs:
 
       - name: Start Supabase Stack & Apply Migrations
         run: |
-          supabase start
+          supabase start --exclude mailpit
           supabase db reset
 
       - name: Build Dependent Packages
