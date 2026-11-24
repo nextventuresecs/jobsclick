@@ -199,6 +199,7 @@ Before deploying or promoting changes to staging, perform this verification:
   - `curl https://staging.jobsclick.live/robots.txt` returns `Allow: /` for `User-agent: *` and omits the sitemap directive.
   - `curl https://staging.jobsclick.live/sitemap.xml` returns empty sitemap.
 - [ ] **Sentry Telemetry:**
+  - To generate a staging API event, send `POST /health/test-error` with an active admin session. The endpoint is rate-limited. Use `GET /health` and `GET /health/uptime` for public probes.
   - Verify events in Sentry console display tag `environment: staging`.
   - Access `/api/sentry-test` without credentials -> Returns HTTP 401 Unauthorized.
 

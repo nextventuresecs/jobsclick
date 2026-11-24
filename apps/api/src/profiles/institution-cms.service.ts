@@ -3,8 +3,8 @@ import {
   NotFoundException,
   ForbiddenException,
   Inject,
-  Optional,
   Logger,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import {
@@ -191,7 +191,7 @@ export class InstitutionCmsService {
   constructor(
     @Inject(ProfileRepository) private readonly profileRepository: ProfileRepository,
     @Inject(InquiryRepository) private readonly inquiryRepository: InquiryRepository,
-    @Optional() @Inject(AuditLogRepository) private readonly auditLogRepo?: AuditLogRepository,
+    @Inject(AuditLogRepository) private readonly auditLogRepo: AuditLogRepository,
   ) {}
 
   /**
@@ -326,24 +326,11 @@ export class InstitutionCmsService {
 
     const inquiries = await this.inquiryRepository.findInquiriesByInstitutionId(profile.id);
 
-    if (this.auditLogRepo) {
-      try {
-        await this.auditLogRepo.append({
-          id: randomUUID(),
-          actor_id: userId,
-          action: 'INSTITUTION_INQUIRIES_VIEWED',
-          meta: {
-            institutionId: profile.id,
-            count: inquiries.length,
-            inquiryIds: inquiries.map((i) => i.id),
-          },
-          created_at: new Date().toISOString(),
-        });
-      } catch (err) {
-        this.logger.error('Failed to log audit for institution inquiries read', err);
-      }
-    }
-
+    await this.auditInquiryAccess(userId, 'INSTITUTION_INQUIRIES_VIEWED', {
+      institutionId: profile.id,
+      count: inquiries.length,
+      inquiryIds: inquiries.map((inquiry) => inquiry.id),
+    });
     return inquiries;
   }
 
@@ -370,11 +357,35 @@ export class InstitutionCmsService {
       throw new ForbiddenException('Unauthorized to modify inquiries of other institutions');
     }
 
+    await this.auditInquiryAccess(userId, 'INSTITUTION_INQUIRY_STATUS_UPDATE_REQUESTED', {
+      institutionId: profile.id,
+      inquiryId,
+      status,
+    });
     const updated = await this.inquiryRepository.updateInquiryStatus(inquiryId, status);
     if (!updated) {
       throw new NotFoundException('Failed to update inquiry status');
     }
 
     return updated;
+  }
+
+  private async auditInquiryAccess(
+    userId: string,
+    action: 'INSTITUTION_INQUIRIES_VIEWED' | 'INSTITUTION_INQUIRY_STATUS_UPDATE_REQUESTED',
+    meta: Record<string, unknown>,
+  ): Promise<void> {
+    try {
+      await this.auditLogRepo.append({
+        id: randomUUID(),
+        actor_id: userId,
+        action,
+        meta,
+        created_at: new Date().toISOString(),
+      });
+    } catch {
+      this.logger.error(`Could not persist inquiry audit event ${action}`);
+      throw new ServiceUnavailableException({ code: 'AUDIT_LOG_UNAVAILABLE' });
+    }
   }
 }

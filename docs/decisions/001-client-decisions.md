@@ -17,6 +17,7 @@ This document records confirmed client decisions and deployment targets that ove
 ## 2. Scope & Features
 - **Release verification:** GitHub Actions runs CI on pushes and pull requests. An authorized manual run on `main` verifies staging deployment identities before production can request approval. The [staging runbook](../runbooks/staging-environment.md#7-railway-release) covers the staging-only test and promotion.
 - **Web fonts:** Builds use locked Inter and Noto Sans Devanagari packages for English and Hindi without a Google Fonts request at build time.
+- **Queue and privacy checks (BULK-02/03, JS-03, INT-03):** Live queue publication must be acknowledged, and pending resume jobs coalesce per seeker. Bulk-import queue results omit contact data, and inquiry contact access requires an audit write. Sentry telemetry strips email-verification URL tokens and restricts the API test endpoint to staging admins.
 - **MVP + Full Extras + Hindi:** All user-facing copy in English and Hindi (`next-intl`), with Hindi rendering support in PDF resumes (`@fontsource/noto-sans-devanagari`).
 - **Database:** Supabase / PostgreSQL with Row-Level Security (RLS) as second lock.
 - **OAuth (AUTH-01, AUTH-05):** The API issues a session only after Supabase Auth confirms the provider session and its email. Existing account matching must agree with the confirmed email.

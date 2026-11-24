@@ -1,6 +1,6 @@
-import { Injectable, OnModuleDestroy } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, ServiceUnavailableException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { Queue, ConnectionOptions, Job } from 'bullmq';
+import { Queue, ConnectionOptions, Job, type JobsOptions } from 'bullmq';
 import IORedis from 'ioredis';
 import IORedisMock from 'ioredis-mock';
 import { createBullBoard } from '@bull-board/api';
@@ -44,6 +44,7 @@ export interface LiveQueueStatusResponse {
 
 @Injectable()
 export class QueueService implements OnModuleDestroy {
+  private readonly logger = new Logger(QueueService.name);
   public readonly isMock: boolean;
   public readonly connection: IORedis;
   public readonly bulkImportQueue: Queue;
@@ -163,6 +164,15 @@ export class QueueService implements OnModuleDestroy {
     return data;
   }
 
+  private async enqueue(queue: Queue, name: string, data: object, options: JobsOptions = DEFAULT_JOB_OPTIONS): Promise<Job> {
+    try {
+      return await queue.add(name, data, options);
+    } catch {
+      this.logger.error(`BullMQ did not acknowledge publication to ${queue.name}`);
+      throw new ServiceUnavailableException({ code: 'QUEUE_UNAVAILABLE' });
+    }
+  }
+
   async publishBulkImportJob(data: {
     batchId: string;
     source: string;
@@ -178,16 +188,7 @@ export class QueueService implements OnModuleDestroy {
       this.mockCounters[QUEUE_NAMES.BULK_IMPORT].waiting++;
       return { id: randomUUID(), name: 'bulk-import', data: jobData } as unknown as Job;
     }
-    try {
-      return await this.bulkImportQueue.add('bulk-import', jobData, DEFAULT_JOB_OPTIONS);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      if (message.includes('cmsgpack') || message.includes('lua')) {
-        this.mockCounters[QUEUE_NAMES.BULK_IMPORT].waiting++;
-        return { id: randomUUID(), name: 'bulk-import', data: jobData } as unknown as Job;
-      }
-      throw err;
-    }
+    return this.enqueue(this.bulkImportQueue, 'bulk-import', jobData);
   }
 
   async publishInviteWaveJob(data: {
@@ -204,19 +205,10 @@ export class QueueService implements OnModuleDestroy {
       this.mockCounters[QUEUE_NAMES.INVITE_WAVE].waiting++;
       return { id: uniqueJobId, name: 'invite-wave', data: jobData } as unknown as Job;
     }
-    try {
-      return await this.inviteWaveQueue.add('invite-wave', jobData, {
-        ...DEFAULT_JOB_OPTIONS,
-        jobId: uniqueJobId,
-      });
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      if (message.includes('cmsgpack') || message.includes('lua')) {
-        this.mockCounters[QUEUE_NAMES.INVITE_WAVE].waiting++;
-        return { id: uniqueJobId, name: 'invite-wave', data: jobData } as unknown as Job;
-      }
-      throw err;
-    }
+    return this.enqueue(this.inviteWaveQueue, 'invite-wave', jobData, {
+      ...DEFAULT_JOB_OPTIONS,
+      jobId: uniqueJobId,
+    });
   }
 
   async publishPdfJob(data: {
@@ -234,16 +226,11 @@ export class QueueService implements OnModuleDestroy {
       this.mockCounters[QUEUE_NAMES.PDF_GENERATOR].waiting++;
       return { id: randomUUID(), name: 'generate-pdf', data: jobData } as unknown as Job;
     }
-    try {
-      return await this.pdfGeneratorQueue.add('generate-pdf', jobData, DEFAULT_JOB_OPTIONS);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      if (message.includes('cmsgpack') || message.includes('lua')) {
-        this.mockCounters[QUEUE_NAMES.PDF_GENERATOR].waiting++;
-        return { id: randomUUID(), name: 'generate-pdf', data: jobData } as unknown as Job;
-      }
-      throw err;
-    }
+    return this.enqueue(this.pdfGeneratorQueue, 'generate-pdf', jobData, {
+      ...DEFAULT_JOB_OPTIONS,
+      // All requests for a seeker write the same private object. BullMQ releases this key at terminal state.
+      deduplication: { id: `resume-${data.seekerId}` },
+    });
   }
 
   async publishBroadcastJob(data: {
@@ -265,16 +252,7 @@ export class QueueService implements OnModuleDestroy {
       this.mockCounters[QUEUE_NAMES.BROADCAST].waiting++;
       return { id: randomUUID(), name: 'broadcast-batch', data: jobData } as unknown as Job;
     }
-    try {
-      return await this.broadcastQueue.add('broadcast-batch', jobData, DEFAULT_JOB_OPTIONS);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err);
-      if (message.includes('cmsgpack') || message.includes('lua')) {
-        this.mockCounters[QUEUE_NAMES.BROADCAST].waiting++;
-        return { id: randomUUID(), name: 'broadcast-batch', data: jobData } as unknown as Job;
-      }
-      throw err;
-    }
+    return this.enqueue(this.broadcastQueue, 'broadcast-batch', jobData);
   }
 
   async publishAlertsJob(data: {

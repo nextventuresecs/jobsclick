@@ -99,12 +99,50 @@ export function shouldDropTransaction(transactionName?: string): boolean {
   );
 }
 
+const EMAIL_VERIFICATION_URL_SUFFIX = /(\/auth\/verify-email\/?)[?#][^\s"'<>]*/gi;
+
+function scrubVerificationUrl(value: string): string {
+  return value.replace(EMAIL_VERIFICATION_URL_SUFFIX, '$1');
+}
+
+/** Strip verification URLs in telemetry while preserving the shape of Sentry and Replay records. */
+export function scrubVerificationUrls<T extends object>(payload: T): T {
+  const remaining: object[] = [payload];
+  const visited = new WeakSet<object>();
+  while (remaining.length) {
+    const current = remaining.pop()!;
+    if (visited.has(current)) continue;
+    visited.add(current);
+    const fields = current as Record<string, unknown>;
+    for (const [key, value] of Object.entries(fields)) {
+      if (typeof value === 'string') {
+        const cleaned = key === 'url.query' || key === 'http.query'
+          ? scrubQueryString(value)
+          : scrubVerificationUrl(value);
+        if (cleaned !== value) fields[key] = cleaned;
+      } else if (value && typeof value === 'object') {
+        remaining.push(value);
+      }
+    }
+  }
+  return payload;
+}
+
+function scrubQueryString(query: string): string {
+  return query.replace(/(^|[?&])([^?&=]+)=([^&#]*)/g, (entry, separator: string, key: string) => {
+    const decodedKey = new URLSearchParams(`${key}=`).keys().next().value ?? key;
+    return SENSITIVE_KEY_PATTERNS.some((pattern) => pattern.test(decodedKey))
+      ? `${separator}${key}=[REDACTED]`
+      : entry;
+  });
+}
+
 /**
  * Sanitize a string against known PII patterns
  */
 export function sanitizeString(val: string): string {
   if (!val || typeof val !== 'string') return val;
-  return val
+  return scrubVerificationUrl(val)
     .replace(BEARER_TOKEN_REGEX, 'Bearer [TOKEN_REDACTED]')
     .replace(INDIAN_PHONE_REGEX, '[PHONE_REDACTED]')
     .replace(AADHAAR_REGEX, '[AADHAAR_REDACTED]')
@@ -148,7 +186,7 @@ export function deepScrubPii<T>(input: T, depth = 0): T {
  * Universal Breadcrumb sanitizer
  */
 export function sanitizeBreadcrumb<T extends object>(breadcrumb: T): T | null {
-  const b = breadcrumb as Record<string, unknown>;
+  const b = scrubVerificationUrls(breadcrumb) as Record<string, unknown>;
   if (b['category'] === 'ui.click' && b['data'] && typeof b['data'] === 'object') {
     const target = String((b['data'] as Record<string, unknown>)['target'] || '');
     if (/password|pin|otp|aadhaar/i.test(target)) {
@@ -174,7 +212,7 @@ export function sanitizeSentryEvent<T extends object>(
   event: T,
   hint?: { originalException?: unknown }
 ): T | null {
-  const ev = event as Record<string, unknown>;
+  const ev = scrubVerificationUrls(event) as Record<string, unknown>;
 
   if (hint?.originalException && typeof hint.originalException === 'string') {
     hint.originalException = sanitizeString(hint.originalException);
@@ -208,7 +246,15 @@ export function sanitizeSentryEvent<T extends object>(
     }
     if (req['query_string']) {
       if (typeof req['query_string'] === 'string') {
-        req['query_string'] = sanitizeString(req['query_string']);
+        req['query_string'] = sanitizeString(scrubQueryString(req['query_string']));
+      } else if (Array.isArray(req['query_string'])) {
+        req['query_string'] = req['query_string'].map((entry: unknown) => {
+          if (!Array.isArray(entry) || typeof entry[0] !== 'string') return deepScrubPii(entry);
+          const key = new URLSearchParams(`${entry[0]}=`).keys().next().value ?? entry[0];
+          return SENSITIVE_KEY_PATTERNS.some((pattern) => pattern.test(key))
+            ? [entry[0], '[REDACTED]']
+            : deepScrubPii(entry);
+        });
       } else {
         req['query_string'] = deepScrubPii(req['query_string']);
       }
@@ -307,7 +353,7 @@ export function sanitizeLogRecord<T extends SentryLogInput>(logRecord: T): T {
   if (result['attributes'] && typeof result['attributes'] === 'object') {
     result['attributes'] = deepScrubPii(result['attributes']);
   }
-  return result as T;
+  return scrubVerificationUrls(result) as T;
 }
 
 /**

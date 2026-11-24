@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/nextjs';
+import { scrubVerificationUrls } from '@indian-job-portal/validation';
 import { getClientAppEnv } from './src/lib/client-env';
 import {
   sanitizeSentryEvent,
@@ -49,12 +50,15 @@ if (SENTRY_DSN) {
       Sentry.replayIntegration({
         maskAllText: true,
         blockAllMedia: true,
+        beforeAddRecordingEvent: scrubVerificationUrls,
       }),
     ],
     debug: false,
   };
 
   Sentry.init(options as Parameters<typeof Sentry.init>[0]);
+  // Replay metadata uses event processors instead of the error and transaction hooks.
+  Sentry.addEventProcessor((event) => event.type === 'replay_event' ? sanitizeSentryEvent(event) : event);
 }
 
 export {};

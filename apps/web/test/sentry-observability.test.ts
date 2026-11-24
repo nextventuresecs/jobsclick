@@ -37,6 +37,24 @@ vi.mock('next/headers', () => ({
 
 describe('Sentry Observability & Zero-PII Suite', () => {
   describe('Edge-Level Data Scrubbing & Zero-PII Policy', () => {
+    it('scrubs verification URLs and split query strings across Sentry events', () => {
+      const token = 'ab'.repeat(32);
+      const url = `https://example.test/auth/verify-email?%74oken=${token}&source=email`;
+      const event: Event = {
+        request: { url, query_string: `%74oken=${token}&source=email`, headers: { Referer: url } },
+        breadcrumbs: [{ category: 'navigation', data: { from: url, to: '/home?sort=new' } }],
+        contexts: { trace: { trace_id: 'trace-fixture', span_id: 'span-fixture', data: { 'url.full': url } } },
+        extra: { recording: { href: `/en/auth/verify-email#token=${token}` } },
+        transaction: `GET ${url}`,
+      };
+      const result = sanitizeSentryEvent(event);
+      expect(JSON.stringify(result)).not.toContain(token);
+      expect(result?.request?.url).toBe('https://example.test/auth/verify-email');
+      expect(result?.request?.query_string).toBe('%74oken=[REDACTED]&source=email');
+      expect(result?.breadcrumbs?.[0]?.data?.to).toBe('/home?sort=new');
+      expect(result?.contexts?.trace?.trace_id).toBe('trace-fixture');
+    });
+
     it('sanitizes Indian phone numbers, Aadhaar, email, and Bearer tokens in raw strings', () => {
       const rawText =
         'Applicant +919876543210 with Aadhaar 1234 5678 9012 and email jobseeker@example.com used Bearer eyJhbGciOiJIUzI1NiJ9.test.sig';

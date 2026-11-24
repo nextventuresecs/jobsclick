@@ -297,6 +297,37 @@ describe('BULK-01–03 Tenant Isolation & Single BullMQ Queue', () => {
     }
   });
 
+  it('marks a newly persisted import failed when the broker rejects publication', async () => {
+    const service = app.get(BulkService);
+    const originalClient: unknown = Reflect.get(service, 'supabase');
+    const publish = vi.spyOn(app.get(QueueService), 'publishBulkImportJob').mockRejectedValue(new Error('Broker unavailable'));
+    const update = vi.fn(() => batches);
+    const batches = {
+      insert: vi.fn(() => batches), select: () => batches, update,
+      eq: vi.fn(() => batches), single: async () => ({ data: { id: batchId }, error: null }),
+    };
+    const institution = {
+      select: () => institution, or: () => institution, limit: () => institution,
+      maybeSingle: async () => ({ data: null, error: null }),
+    };
+    Object.assign(service, {
+      supabase: { from: (table: string) => table === 'bulk_import_batches' ? batches : institution },
+      isTestMode: false,
+    });
+
+    try {
+      await expect(service.processBulkImport(
+        { source: 'Fixture', entityType: 'student' }, 'name,phone\nSynthetic Candidate,9876543210',
+        { id: 'institution-a', role: 'intermediary' } as AuthenticatedUser,
+      )).rejects.toMatchObject({ status: 503 });
+      expect(update).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed', failure_reason: 'QUEUE_UNAVAILABLE' }));
+      expect(batches.eq).toHaveBeenCalledWith('status', 'queued');
+    } finally {
+      publish.mockRestore();
+      Object.assign(service, { supabase: originalClient, isTestMode: true });
+    }
+  });
+
   it('scheduleInviteWave marks wave as failed in DB and throws ServiceUnavailableException when publishInviteWaveJob fails', async () => {
     const service = app.get(BulkService);
     const queueService = app.get(QueueService);

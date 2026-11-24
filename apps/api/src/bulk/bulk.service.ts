@@ -244,7 +244,7 @@ export class BulkService {
         throw new BadRequestException(`Failed to create batch record: ${insertError?.message}`);
       }
 
-      await this.queueService.publishBulkImportJob({
+      await this.enqueuePersistedImport({
         batchId: batch.id,
         source: input.source,
         entityType: input.entityType,
@@ -352,7 +352,7 @@ export class BulkService {
       throw new BadRequestException(`Failed to create batch record: ${insertError?.message}`);
     }
 
-    await this.queueService.publishBulkImportJob({
+    await this.enqueuePersistedImport({
       batchId: batch.id,
       source: input.source,
       entityType: input.entityType,
@@ -361,6 +361,24 @@ export class BulkService {
     });
 
     return this.toBatchRecord(batch);
+  }
+
+  private async enqueuePersistedImport(data: Parameters<QueueService['publishBulkImportJob']>[0]): Promise<void> {
+    try {
+      await this.queueService.publishBulkImportJob(data);
+    } catch {
+      try {
+        const { error } = await this.supabase
+          .from('bulk_import_batches')
+          .update({ status: 'failed' as TaskStatus, failure_reason: 'QUEUE_UNAVAILABLE' })
+          .eq('id', data.batchId)
+          .eq('status', 'queued');
+        if (error) this.logger.error(`Could not record queue failure for batch ${data.batchId}`);
+      } catch {
+        this.logger.error(`Could not record queue failure for batch ${data.batchId}`);
+      }
+      throw new ServiceUnavailableException({ code: 'QUEUE_UNAVAILABLE', batchId: data.batchId });
+    }
   }
 
   async executeImportBatchJob(

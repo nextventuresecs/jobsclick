@@ -20,14 +20,12 @@ export interface BulkImportJobData {
 
 export interface BulkImportJobResult {
   batchId: string;
-  source: string;
   entityType: 'student' | 'employer';
   totalRows: number;
   processedRows: number;
   validRows: number;
   errorRows: number;
   status: 'completed' | 'failed';
-  errorCsvContent?: string;
   createdUserCount: number;
 }
 
@@ -105,13 +103,29 @@ export class ImportProcessor {
     job: Job<BulkImportJobData>,
     streamOverride?: Readable,
   ): Promise<BulkImportJobResult> {
+    // Test fixture for checking BullMQ retry behavior.
+    if (job.data.shouldSimulateFailure && job.attemptsMade < 2) {
+      throw new Error(`Simulated transient import processing error for retry check (attempt ${job.attemptsMade + 1})`);
+    }
+
+    try {
+      return await this.processImport(job, streamOverride);
+    } catch {
+      // BullMQ retains thrown errors. Parser and provider errors can contain roster data.
+      throw new Error('BULK_IMPORT_PROCESSING_FAILED');
+    }
+  }
+
+  private async processImport(
+    job: Job<BulkImportJobData>,
+    streamOverride?: Readable,
+  ): Promise<BulkImportJobResult> {
     const {
       batchId,
       source,
       entityType = 'student',
       csvContent,
       storagePath,
-      shouldSimulateFailure,
       institutionId: jobInstitutionId,
     } = job.data;
 
@@ -130,11 +144,6 @@ export class ImportProcessor {
       } catch {
         // best-effort
       }
-    }
-
-    // Retry test simulation: if job requests simulated failure, fail until attempt 3
-    if (shouldSimulateFailure && job.attemptsMade < 2) {
-      throw new Error(`Simulated transient import processing error for retry check (attempt ${job.attemptsMade + 1})`);
     }
 
     // 1. Establish streaming input source (never buffer entire 50k+ row files in memory)
@@ -300,8 +309,8 @@ export class ImportProcessor {
                         p_profile_ids: chunkProfileIds,
                       },
                     );
-                  } catch (claimErr) {
-                    console.warn(`[ImportProcessor] Failed to claim sponsorship seats for chunk:`, claimErr);
+                  } catch {
+                    console.warn('[ImportProcessor] Failed to claim sponsorship seats for import chunk');
                   }
                 }
               } catch {
@@ -367,8 +376,8 @@ export class ImportProcessor {
                     source: item.source,
                     name: item.name,
                   });
-                } catch (emailErr) {
-                  console.error(`[ImportProcessor] Failed to send welcome email to ${item.email}:`, emailErr);
+                } catch {
+                  console.error(`[ImportProcessor] Failed to send welcome email for row ${item.row}`);
                 }
               }
             }
@@ -507,10 +516,9 @@ export class ImportProcessor {
     await flushChunk();
 
     // Generate Error CSV Report if any invalid rows were found (BULK-02)
-    let errorCsvContent: string | undefined;
     let errorPath: string | undefined;
-    if (errors.length > 0) {
-      errorCsvContent =
+    if (errors.length > 0 && this.supabase) {
+      const errorCsvContent =
         'row,phone,reason\n' +
         errors
           .map(
@@ -519,15 +527,13 @@ export class ImportProcessor {
           )
           .join('\n');
       errorPath = `bulk-imports/${batchId}-errors.csv`;
-      if (this.supabase) {
-        try {
-          await this.supabase.storage.from('private').upload(errorPath, errorCsvContent, {
-            contentType: 'text/csv',
-            upsert: true,
-          });
-        } catch {
-          // best-effort
-        }
+      try {
+        await this.supabase.storage.from('private').upload(errorPath, errorCsvContent, {
+          contentType: 'text/csv',
+          upsert: true,
+        });
+      } catch {
+        // best-effort
       }
     }
 
@@ -538,6 +544,7 @@ export class ImportProcessor {
           .from('bulk_import_batches')
           .update({
             status: 'completed',
+            failure_reason: null,
             total_rows: totalRows,
             processed_rows: totalRows,
             valid_rows: validCount,
@@ -557,14 +564,12 @@ export class ImportProcessor {
 
     return {
       batchId,
-      source,
       entityType,
       totalRows,
       processedRows: totalRows,
       validRows: validCount,
       errorRows: errors.length,
       status: 'completed',
-      errorCsvContent,
       createdUserCount: validCount,
     };
   }

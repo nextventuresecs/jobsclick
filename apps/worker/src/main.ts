@@ -312,6 +312,10 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
 
   workers.forEach(({ name, instance }) => {
     instance.on('completed', (job, result) => {
+      if (name === QUEUE_NAMES.BULK_IMPORT) {
+        console.log(`[Worker - ${name}] Job ${job.id} COMPLETED successfully.`);
+        return;
+      }
       console.log(`[Worker - ${name}] Job ${job.id} COMPLETED successfully.`, typeof result === 'object' ? JSON.stringify(result) : result);
     });
 

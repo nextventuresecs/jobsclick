@@ -423,6 +423,55 @@ describe('Candidate Contact Visibility Policy & Audit Invariants (E2E)', () => {
   });
 
   describe('4. Inquiries & Admin Audit Verification (Zero Contact PII in Logs)', () => {
+    const inquiry = {
+      id: 'inq_1',
+      institution_id: 'inst_a',
+      student_name: 'Fixture Candidate',
+      student_phone: '+919826099999',
+      student_email: 'candidate@example.test',
+      status: 'new',
+    };
+    const inquiryUrl = '/profiles/institution/inquiries';
+    const institutionHeaders = { 'x-user-id': 'usr_inst_a', 'x-user-role': 'institution' };
+
+    it.each(['GET', 'PUT'] as const)('blocks inquiry contacts on %s when audit persistence fails', async (method) => {
+      store.setRow('institution_inquiries', inquiry.id, inquiry);
+      const audit = vi.spyOn(auditLogRepo, 'append').mockRejectedValue(new Error('Audit database unavailable'));
+      try {
+        const res = await app.inject({
+          method,
+          url: method === 'GET' ? inquiryUrl : `${inquiryUrl}/${inquiry.id}/status`,
+          headers: institutionHeaders,
+          ...(method === 'PUT' ? { payload: { status: 'admitted' } } : {}),
+        });
+        expect(res.statusCode).toBe(503);
+        expect(res.json()).toMatchObject({ code: 'AUDIT_LOG_UNAVAILABLE' });
+        expect(res.body).not.toContain(inquiry.student_phone);
+        expect(res.body).not.toContain(inquiry.student_email);
+        expect(res.body).not.toContain('Audit database unavailable');
+        expect(store.getTable('institution_inquiries')[inquiry.id]).toMatchObject({ status: 'new' });
+      } finally {
+        audit.mockRestore();
+      }
+    });
+
+    it('audits the contact disclosure from an inquiry status update', async () => {
+      store.setRow('institution_inquiries', inquiry.id, inquiry);
+      const res = await app.inject({
+        method: 'PUT',
+        url: `${inquiryUrl}/${inquiry.id}/status`,
+        headers: institutionHeaders,
+        payload: { status: 'contacted' },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toMatchObject({ status: 'contacted', student_email: inquiry.student_email });
+      expect(await auditLogRepo.findAll()).toContainEqual(expect.objectContaining({
+        action: 'INSTITUTION_INQUIRY_STATUS_UPDATE_REQUESTED',
+        actor_id: 'usr_inst_a',
+        meta: { institutionId: 'inst_a', inquiryId: inquiry.id, status: 'contacted' },
+      }));
+    });
+
     it('records INSTITUTION_INQUIRIES_VIEWED when inquiries are read', async () => {
       store.setRow('institution_inquiries', 'inq_1', {
         id: 'inq_1',

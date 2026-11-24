@@ -82,6 +82,7 @@ testContainer.createTestingModule = (metadata: ModuleMetadata) => {
     testPath.includes('jwt-guard.spec') ||
     testPath.includes('jwt-guard-hardening.spec') ||
     testPath.includes('auth-multichannel.e2e-spec.ts') ||
+    testPath.includes('health.e2e-spec.ts') ||
     testPath.includes('session-invalidation-p0-8.spec');
 
   if (!isLockdown && metadata) {

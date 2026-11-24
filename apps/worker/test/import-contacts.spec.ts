@@ -31,6 +31,7 @@ describe('BULK-02 contact-only CSV ingestion (email or mobile)', () => {
       phone: null,
       role: 'job_seeker',
       status: 'invited',
+      source: 'Indore Engineering College',
     });
     expect(mockEmailService.sendBulkOnboardingWelcomeEmail).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -58,5 +59,56 @@ describe('BULK-02 contact-only CSV ingestion (email or mobile)', () => {
 
     expect(result.validRows).toBe(1);
     expect(result.errorRows).toBe(2);
+  });
+
+  it('keeps rejected contacts in the private report and out of results and logs', async () => {
+    const database = createMockSupabase();
+    const email = 'candidate@example.test';
+    const phone = '9876543210';
+    const batchId = '00000000-0000-0000-0000-000000000003';
+    const emailService = new WorkerEmailService();
+    vi.spyOn(emailService, 'sendBulkOnboardingWelcomeEmail')
+      .mockRejectedValue(new Error(`Provider rejected ${email} (${phone})`));
+    const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const processor = new ImportProcessor(database, emailService);
+
+    try {
+      const result = await processor.process({
+        data: {
+          batchId,
+          source: 'Fixture College',
+          csvContent: `email,phone\n${email},${phone}\n${email},${phone}\n${email},12345`,
+        },
+        attemptsMade: 0,
+      } as Job<BulkImportJobData>);
+
+      expect(result).toEqual({
+        batchId,
+        entityType: 'student',
+        totalRows: 3,
+        processedRows: 3,
+        validRows: 1,
+        errorRows: 2,
+        status: 'completed',
+        createdUserCount: 1,
+      });
+      expect(database._storageFiles.get(`bulk-imports/${batchId}-errors.csv`)).toContain(phone);
+      expect(log).toHaveBeenCalled();
+      const output = JSON.stringify(log.mock.calls.map((call) => call.map(String)));
+      expect(output).not.toContain(email);
+      expect(output).not.toContain(phone);
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  it('does not expose raw CSV parser errors to BullMQ', async () => {
+    const processor = new ImportProcessor(null);
+    const job = {
+      data: { batchId: 'fixture-batch', source: 'Fixture College', csvContent: 'email\n"candidate@example.test"x' },
+      attemptsMade: 0,
+    } as Job<BulkImportJobData>;
+
+    await expect(processor.process(job)).rejects.toThrow(/^BULK_IMPORT_PROCESSING_FAILED$/);
   });
 });
