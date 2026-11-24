@@ -12,7 +12,7 @@ This runbook defines the architecture, environment variables, security tripwires
 | **API Host** | `https://api-staging.jobsclick.live` | `https://api.jobsclick.live` |
 | **Supabase Project Ref** | `afxgvtfaofpnlhdsexnp` | (Separate Production Ref) |
 | **Forbidden Old Ref** | `aspahsnclunutwiqliau` (Strictly Blocked by Tripwire) | N/A |
-| **Search Indexing** | Disabled (`Disallow: /`, `noindex, nofollow`, empty sitemap) | Enabled |
+| **Search Indexing** | Disabled (`noindex, nofollow`, empty sitemap). Crawling is allowed so search engines can read the header. | Enabled |
 
 ---
 
@@ -196,8 +196,16 @@ Before deploying or promoting changes to staging, perform this verification:
   - Boot API with `WEB_URL=https://jobsclick.live` -> Boot must abort with domain tripwire error.
 - [ ] **SEO & Indexing Prevention:**
   - `curl -I https://staging.jobsclick.live/` returns `X-Robots-Tag: noindex, nofollow`.
-  - `curl https://staging.jobsclick.live/robots.txt` returns `Disallow: /`.
+  - `curl https://staging.jobsclick.live/robots.txt` returns `Allow: /` for `User-agent: *` and omits the sitemap directive.
   - `curl https://staging.jobsclick.live/sitemap.xml` returns empty sitemap.
 - [ ] **Sentry Telemetry:**
   - Verify events in Sentry console display tag `environment: staging`.
   - Access `/api/sentry-test` without credentials -> Returns HTTP 401 Unauthorized.
+
+## 7. Railway release
+
+Confirm the approved application and database migrations are in place, Railway GitHub auto-deploy is disabled, and the staging API and web HTTPS origins are configured. The release workflow does not apply migrations to staging or production.
+
+For an authorized staging-only run, select **CI/CD Pipeline → Run workflow** on `main` and leave **Request production approval after staging passes** unchecked. The workflow runs tests, database gates, and Docker builds before uploading the exact Git commit to Railway. The API, web, and worker must pass two consecutive health checks for their exact deployment IDs. The worker probe reads its Redis and BullMQ readiness heartbeat from deployment logs.
+
+After the staging-only run, verify Google sign-in and page hydration, OTP and phone linking, Excel onboarding, private resume generation, and notification provider acknowledgements. Verify Upstash Redis and QStash through the staging flows. To request production promotion later, start a separately authorized run for the reviewed `main` commit with the production option checked. That run checks staging again and waits for the GitHub `production` approval.

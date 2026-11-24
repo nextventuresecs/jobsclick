@@ -17,7 +17,7 @@ describe('Task 8: Staging Indexing Prevention Suite', () => {
   });
 
   describe('1. robots.txt Route Handler', () => {
-    it('returns Disallow: / in staging when APP_ENV=staging', () => {
+    it('allows crawling to discover noindex when APP_ENV=staging', () => {
       (process.env as Record<string, string | undefined>)['NODE_ENV'] = 'production';
       process.env['APP_ENV'] = 'staging';
 
@@ -25,13 +25,13 @@ describe('Task 8: Staging Indexing Prevention Suite', () => {
       expect(config).toEqual({
         rules: {
           userAgent: '*',
-          disallow: '/',
+          allow: '/',
         },
       });
       expect(config.sitemap).toBeUndefined();
     });
 
-    it('returns Disallow: / in staging when only NODE_ENV=staging', () => {
+    it('allows crawling to discover noindex when only NODE_ENV=staging', () => {
       (process.env as Record<string, string | undefined>)['NODE_ENV'] = 'staging';
       delete process.env['APP_ENV'];
 
@@ -39,7 +39,7 @@ describe('Task 8: Staging Indexing Prevention Suite', () => {
       expect(config).toEqual({
         rules: {
           userAgent: '*',
-          disallow: '/',
+          allow: '/',
         },
       });
       expect(config.sitemap).toBeUndefined();

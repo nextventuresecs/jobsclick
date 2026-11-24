@@ -5,6 +5,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
 import { UserRepository } from '../src/database/repositories/user.repository.js';
+import { ProfileRepository } from '../src/database/repositories/profile.repository.js';
 import { OtpRedisService } from '../src/auth/otp-redis.service.js';
 
 describe('AdminController RBAC & Authentication (STF-02)', () => {
@@ -20,6 +21,7 @@ describe('AdminController RBAC & Authentication (STF-02)', () => {
   const msmeAdminId = crypto.randomUUID();
   const adminId = crypto.randomUUID();
   const targetUserId = crypto.randomUUID();
+  const broadcastSector = `RBAC ${employerId}`;
 
   async function createAuthToken(sub: string, role: string): Promise<string> {
     const key = new TextEncoder().encode(secret);
@@ -70,20 +72,43 @@ describe('AdminController RBAC & Authentication (STF-02)', () => {
     await otpRedis.setAuthState(msmeAdminId, { role: 'msme_admin', status: 'active', tokenVersion: 0 }, 3600);
     await otpRedis.setAuthState(adminId, { role: 'admin', status: 'active', tokenVersion: 0 }, 3600);
 
-    // Seed target user for status update tests
+    // Persist token subjects because dispatch records a ledger entry for the actor.
     const userRepo = app.get(UserRepository);
-    const targetPhone = '98' + Math.floor(10000000 + Math.random() * 90000000);
-    await userRepo.save({
-      id: targetUserId,
-      phone: targetPhone,
-      email: `target_${targetUserId}@example.com`,
-      role: 'job_seeker',
-      status: 'active',
-      source: 'web',
-      created_by: null,
-      updated_by: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+    const now = new Date().toISOString();
+    const users = [
+      [seekerId, 'job_seeker'],
+      [employerId, 'employer'],
+      [msmeAdminId, 'msme_admin'],
+      [adminId, 'admin'],
+      [targetUserId, 'job_seeker'],
+    ] as const;
+    for (const [id, role] of users) {
+      await userRepo.save({
+        id,
+        phone: id === employerId || id === targetUserId ? `98${crypto.randomInt(10000000, 99000000)}` : null,
+        email: `rbac_${id}@example.test`,
+        role,
+        status: 'active',
+        source: 'web',
+        created_by: null,
+        updated_by: null,
+        created_at: now,
+        updated_at: now,
+      });
+    }
+
+    await app.get(ProfileRepository).saveBusinessProfile({
+      id: crypto.randomUUID(),
+      user_id: employerId,
+      company_name: 'RBAC Broadcast Fixture',
+      ownership_type: 'private_limited',
+      company_size: 'micro',
+      sector: broadcastSector,
+      city: 'Bhopal',
+      district: 'Bhopal',
+      is_msme: true,
+      created_at: now,
+      updated_at: now,
     });
   });
 
@@ -460,7 +485,7 @@ describe('AdminController RBAC & Authentication (STF-02)', () => {
   describe('POST /admin/broadcast/dispatch', () => {
     const url = '/admin/broadcast/dispatch';
     const payload = {
-      filters: { district: 'Bhopal' },
+      filters: { district: 'Bhopal', sector: broadcastSector },
       templateId: 'DLT_MSME_NOTICE_EN',
       variables: { message: 'Dispatch test notice' },
       confirmationToken: 'CONFIRM_DISPATCH_RBAC_TOKEN',
@@ -500,7 +525,8 @@ describe('AdminController RBAC & Authentication (STF-02)', () => {
       });
       expect(res.statusCode).toBe(201);
       const data = JSON.parse(res.payload);
-      expect(data.campaignId).toBeDefined();
+      expect(data).toMatchObject({ campaignId: expect.any(String), recipientCount: 1 });
+      expect(data.estimatedCostPaise).toBeGreaterThan(0);
     });
 
     it('allows admin role with 201', async () => {
@@ -515,7 +541,8 @@ describe('AdminController RBAC & Authentication (STF-02)', () => {
       });
       expect(res.statusCode).toBe(201);
       const data = JSON.parse(res.payload);
-      expect(data.campaignId).toBeDefined();
+      expect(data).toMatchObject({ campaignId: expect.any(String), recipientCount: 1 });
+      expect(data.estimatedCostPaise).toBeGreaterThan(0);
     });
   });
 

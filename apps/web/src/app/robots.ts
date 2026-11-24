@@ -1,8 +1,13 @@
 import { MetadataRoute } from 'next';
-import { isProduction } from '@indian-job-portal/validation';
+import { getAppEnv } from '@indian-job-portal/validation';
 
 export default function robots(): MetadataRoute.Robots {
-  if (!isProduction()) {
+  const appEnv = getAppEnv();
+  if (appEnv === 'staging') {
+    return { rules: { userAgent: '*', allow: '/' } };
+  }
+
+  if (appEnv !== 'production') {
     return {
       rules: {
         userAgent: '*',

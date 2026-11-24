@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Header } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { captureException } from '../config/sentry.js';
 import { Public } from '../auth/decorators/public.decorator.js';
@@ -8,11 +8,13 @@ import { Public } from '../auth/decorators/public.decorator.js';
 @Controller('health')
 export class HealthController {
   @Get()
+  @Header('Cache-Control', 'no-store')
   check() {
     return {
       status: 'ok',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
+      deploymentId: process.env['RAILWAY_DEPLOYMENT_ID'],
     };
   }
 

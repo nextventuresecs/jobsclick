@@ -15,6 +15,7 @@ describe('BULK-03 invitation recipient isolation (P0-6 Fix)', () => {
       not: vi.fn(() => query),
       update: () => query,
       single: async () => ({ data: { id: 'wave-1', batch_id: batchId, status: 'dispatched' }, error: null }),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { status: 'processing' }, error: null }),
       limit: async () => ({
         data: [
           { id: 'inv-1', phone: '9876543210' },
@@ -32,7 +33,8 @@ describe('BULK-03 invitation recipient isolation (P0-6 Fix)', () => {
       updateProgress: vi.fn(),
     } as unknown as Job<InviteWaveJobData>);
 
-    expect(result.sentCount).toBe(2);
+    expect(result).toMatchObject({ sentCount: 2, status: 'completed' });
+    expect(query.maybeSingle).toHaveBeenCalledOnce();
     expect(sendInviteSms).toHaveBeenCalledTimes(2);
     expect(from).not.toHaveBeenCalledWith('users');
     expect(from).toHaveBeenCalledWith('invitations');
@@ -50,6 +52,7 @@ describe('BULK-03 invitation recipient isolation (P0-6 Fix)', () => {
       not: vi.fn(() => query),
       update: () => query,
       single: async () => ({ data: { id: 'wave-2', batch_id: batchId, status: 'dispatched' }, error: null }),
+      maybeSingle: vi.fn().mockResolvedValue({ data: { status: 'processing' }, error: null }),
       limit: async () => ({ data: [], error: null }),
     };
     const from = vi.fn(() => query);
@@ -61,7 +64,8 @@ describe('BULK-03 invitation recipient isolation (P0-6 Fix)', () => {
       updateProgress: vi.fn(),
     } as unknown as Job<InviteWaveJobData>);
 
-    expect(result.sentCount).toBe(0);
+    expect(result).toMatchObject({ sentCount: 0, status: 'completed' });
+    expect(query.maybeSingle).toHaveBeenCalledOnce();
     expect(sendInviteSms).not.toHaveBeenCalled();
   });
 });

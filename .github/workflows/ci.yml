@@ -1,6 +1,12 @@
 name: CI/CD Pipeline
 
 on:
+  workflow_dispatch:
+    inputs:
+      promote_to_production:
+        description: Request production approval after staging passes
+        type: boolean
+        default: false
   push:
     branches: ['**']
   pull_request:
@@ -9,6 +15,9 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  RAILWAY_CLI_VERSION: '5.71.0'
 
 jobs:
   verify:
@@ -91,6 +100,11 @@ jobs:
 
       - name: Run Test Suite
         run: pnpm test
+
+      - name: Verify worker readiness against Redis
+        env:
+          RUN_LIVE_REDIS: 'true'
+        run: pnpm exec vitest run apps/worker/test/health.test.ts
 
   db-security-gate:
     name: Database Security & Migration Gate
@@ -246,30 +260,44 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify release gate and source export
+        run: node --test scripts/ci/railway-release.test.mjs
+
+      - name: Export tracked source
+        id: source
+        run: node scripts/ci/export-release-source.mjs
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
+      - name: Verify Docker ignores local artifacts
+        run: node --test scripts/ci/docker-context.test.mjs
 
       - name: Build API Docker Image
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: apps/api/Dockerfile
+          context: ${{ steps.source.outputs.path }}
+          file: ${{ steps.source.outputs.path }}/apps/api/Dockerfile
           push: false
           tags: indian-job-portal-api:latest
 
       - name: Build Worker Docker Image
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: apps/worker/Dockerfile
+          context: ${{ steps.source.outputs.path }}
+          file: ${{ steps.source.outputs.path }}/apps/worker/Dockerfile
           push: false
           tags: indian-job-portal-worker:latest
 
       - name: Build Web Docker Image
         uses: docker/build-push-action@v5
         with:
-          context: .
-          file: apps/web/Dockerfile
+          context: ${{ steps.source.outputs.path }}
+          file: ${{ steps.source.outputs.path }}/apps/web/Dockerfile
           push: false
           tags: indian-job-portal-web:latest
           build-args: |
@@ -282,102 +310,56 @@ jobs:
   deploy-staging:
     name: Deploy to Staging
     needs: [verify, db-security-gate, db-integration, container-build]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: staging
+    timeout-minutes: 45
+    outputs:
+      healthy_sha: ${{ steps.health.outputs.healthy_sha }}
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Apply Migrations to Staging Database
-        env:
-          STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
-          STAGING_PROJECT_REF: ${{ secrets.STAGING_PROJECT_REF }}
-        run: |
-          pnpm db:bootstrap:staging
-
+      - name: Export tracked source
+        id: source
+        run: node scripts/ci/export-release-source.mjs
       - name: Install Railway CLI
-        run: npm install -g @railway/cli@3.3.4
-
-      - name: Deploy Services to Railway (Staging)
+        run: npm install -g "@railway/cli@$RAILWAY_CLI_VERSION"
+      - name: Deploy and verify Railway staging services
+        id: health
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_STAGING_TOKEN }}
+          SOURCE_PATH: ${{ steps.source.outputs.path }}
+          STAGING_API_URL: ${{ vars.STAGING_API_URL || 'https://api-staging.jobsclick.live' }}
+          STAGING_WEB_URL: ${{ vars.STAGING_WEB_URL || 'https://staging.jobsclick.live' }}
+        shell: bash
         run: |
-          railway up --service indian-job-portal-api --detach
-          railway up --service indian-job-portal-worker --detach
-          railway up --service indian-job-portal-web --detach
+          node scripts/ci/railway-release.mjs staging "$SOURCE_PATH" "$GITHUB_SHA"
+          printf 'healthy_sha=%s\n' "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
 
   deploy-production:
     name: Deploy to Production
     needs: [deploy-staging]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: >-
+      github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.promote_to_production &&
+      needs.deploy-staging.result == 'success' && needs.deploy-staging.outputs.healthy_sha == github.sha
     runs-on: ubuntu-latest
     environment: production
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
+      - name: Export tracked source
+        id: source
+        run: node scripts/ci/export-release-source.mjs
       - name: Install Railway CLI
-        run: npm install -g @railway/cli@3.3.4
-
+        run: npm install -g "@railway/cli@$RAILWAY_CLI_VERSION"
       - name: Deploy Services to Railway (Production)
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_PROD_TOKEN }}
-        run: |
-          railway up --service indian-job-portal-api --detach
-          railway up --service indian-job-portal-worker --detach
-          railway up --service indian-job-portal-web --detach
+          SOURCE_PATH: ${{ steps.source.outputs.path }}
+        run: node scripts/ci/railway-release.mjs production "$SOURCE_PATH" "$GITHUB_SHA"
