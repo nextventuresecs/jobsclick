@@ -3,6 +3,11 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --font-inter: 'Inter Variable';
+    --font-devanagari: 'Noto Sans Devanagari Variable';
+  }
+
   :lang(hi) {
     font-family: var(--font-devanagari), 'Noto Sans Devanagari', 'Nirmala UI', system-ui, sans-serif;
     letter-spacing: 0 !important;

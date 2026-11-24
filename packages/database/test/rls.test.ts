@@ -155,7 +155,7 @@ describe('Database Row Level Security (RLS) & Audit Policies', () => {
     it('defines foreign key and lookup indexes in migration DDL', () => {
       const migrationPath = path.resolve(
         __dirname,
-        '../supabase/migrations/20261026000000_audit_remediation_indexes.sql'
+        '../../../supabase/migrations/20261026000000_audit_remediation_indexes.sql'
       );
       expect(fs.existsSync(migrationPath)).toBe(true);
       const sql = fs.readFileSync(migrationPath, 'utf-8');
@@ -172,7 +172,7 @@ describe('Database Row Level Security (RLS) & Audit Policies', () => {
     it('defines unlock_contact_with_ledger with advisory lock and dynamic balance check', () => {
       const migrationPath = path.resolve(
         __dirname,
-        '../supabase/migrations/20261026200000_atomic_contact_unlock_procedure.sql'
+        '../../../supabase/migrations/20261026200000_atomic_contact_unlock_procedure.sql'
       );
       expect(fs.existsSync(migrationPath)).toBe(true);
       const sql = fs.readFileSync(migrationPath, 'utf-8');

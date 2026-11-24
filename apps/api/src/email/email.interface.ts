@@ -12,6 +12,7 @@ export interface SendEmailResult {
   success: boolean;
   messageId?: string;
   error?: string;
+  blocked_by_allowlist?: boolean;
 }
 
 export interface IEmailService {

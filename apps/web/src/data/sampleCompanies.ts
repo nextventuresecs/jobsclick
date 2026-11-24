@@ -1,5 +1,6 @@
 export interface CompanyItem {
   readonly id: string;
+  readonly slug?: string;
   readonly name: string;
   readonly sector: string;
   readonly enterpriseSize: 'Micro' | 'Small' | 'Medium' | 'Large';
@@ -11,6 +12,7 @@ export interface CompanyItem {
   readonly description: string;
   readonly udyamNumber: string;
   readonly verified: boolean;
+  readonly udyamVerified?: boolean;
   readonly activeJobsCount: number;
   readonly phone?: string;
   readonly email?: string;

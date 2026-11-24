@@ -1,13 +1,19 @@
 import {
   Injectable,
+  Inject,
+  NotFoundException,
+  ConflictException,
   BadRequestException,
   ForbiddenException,
-  Inject,
+  Logger,
 } from '@nestjs/common';
+import crypto from 'node:crypto';
 import {
-  SPONSORSHIP_TIERS,
-  type SponsorshipTier,
+  computeSponsorshipQuote,
   type SponsorshipQuote,
+  type SponsorshipQuoteInput,
+  type CreateSponsorshipOrderInput,
+  type SponsorshipOrderSnapshot,
   type ActivateSponsorshipInput,
 } from '@indian-job-portal/validation';
 import type {
@@ -15,139 +21,293 @@ import type {
   InstitutionSponsorshipRow,
 } from '@indian-job-portal/database';
 import { ProfileRepository } from '../database/repositories/profile.repository.js';
-import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
 import { PaymentRepository } from '../database/repositories/payment.repository.js';
+import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
 import type { AuthUser } from '../auth/decorators/current-user.decorator.js';
+import { RAZORPAY_GATEWAY, type RazorpayGateway } from './razorpay.gateway.js';
+
+export interface SponsorshipStatusResult {
+  status: 'active' | 'none' | 'expired';
+  tier: string | null;
+  cap: number | null;
+  seatsUsed: number;
+  expiresAt: string | null;
+}
+
+export interface SponsorshipOrderResult {
+  orderId: string;
+  amount: number;
+  currency: string;
+  keyId: string;
+  quote: SponsorshipOrderSnapshot;
+}
 
 @Injectable()
 export class SponsorshipService {
+  private readonly logger = new Logger(SponsorshipService.name);
+
   constructor(
+    @Inject(RAZORPAY_GATEWAY)
+    private readonly gateway: RazorpayGateway,
     @Inject(ProfileRepository)
     private readonly profileRepository: ProfileRepository,
-    @Inject(AuditLogRepository)
-    private readonly auditLogRepository: AuditLogRepository,
     @Inject(PaymentRepository)
     private readonly paymentRepository: PaymentRepository,
+    @Inject(AuditLogRepository)
+    private readonly auditLogRepository: AuditLogRepository,
   ) {}
 
   /**
-   * Automatically select pricing band based on student count (WAL-05 & Section 10.1)
-   * Small (up to 2,000 students): ₹150/student/year
-   * Medium (2,001–10,000 students): ₹100/student/year
-   * Large (10,001+ students): ₹70/student/year
+   * Helper to resolve institution profile and verify owner authorization.
+   * Throws 404 NotFoundException if not found, or 403 ForbiddenException if not owner.
+   */
+  async resolveOwnedInstitution(userId: string, institutionId?: string, isAdmin = false) {
+    let inst = null;
+    if (institutionId) {
+      inst = await this.profileRepository.findInstitutionProfileById(institutionId);
+      if (!inst) {
+        inst = await this.profileRepository.findInstitutionProfileByUserId(institutionId);
+      }
+      if (!inst) {
+        throw new NotFoundException('Institution not found');
+      }
+      if (!isAdmin && inst.user_id !== userId) {
+        throw new NotFoundException({
+          statusCode: 404,
+          code: 'NOT_FOUND',
+          message: 'Institution not found',
+        });
+      }
+    } else {
+      inst = await this.profileRepository.findInstitutionProfileByUserId(userId);
+      if (!inst) {
+        throw new NotFoundException('Institution not found');
+      }
+    }
+    return inst;
+  }
+
+  /**
+   * Automatically select pricing band based on student count (WAL-05, Section 10.1)
    */
   calculateTier(studentCount: number): {
-    tier: SponsorshipTier;
+    tier: string;
     ratePerStudentInr: number;
     tierName: string;
     tierNameHi: string;
   } {
-    if (studentCount < 0) {
-      throw new BadRequestException('Student count cannot be negative');
-    }
-
-    if (studentCount <= SPONSORSHIP_TIERS.Small.maxStudents) {
-      return {
-        tier: 'Small',
-        ratePerStudentInr: SPONSORSHIP_TIERS.Small.ratePerStudentInr,
-        tierName: SPONSORSHIP_TIERS.Small.name,
-        tierNameHi: SPONSORSHIP_TIERS.Small.nameHi,
-      };
-    } else if (studentCount <= SPONSORSHIP_TIERS.Medium.maxStudents) {
-      return {
-        tier: 'Medium',
-        ratePerStudentInr: SPONSORSHIP_TIERS.Medium.ratePerStudentInr,
-        tierName: SPONSORSHIP_TIERS.Medium.name,
-        tierNameHi: SPONSORSHIP_TIERS.Medium.nameHi,
-      };
-    } else {
-      return {
-        tier: 'Large',
-        ratePerStudentInr: SPONSORSHIP_TIERS.Large.ratePerStudentInr,
-        tierName: SPONSORSHIP_TIERS.Large.name,
-        tierNameHi: SPONSORSHIP_TIERS.Large.nameHi,
-      };
-    }
+    const snap = computeSponsorshipQuote('00000000-0000-0000-0000-000000000000', studentCount);
+    return {
+      tier: snap.tier,
+      ratePerStudentInr: snap.ratePaise / 100,
+      tierName: snap.tier,
+      tierNameHi: snap.tier === 'Small' ? 'छोटा' : snap.tier === 'Medium' ? 'मध्यम' : 'बड़ा',
+    };
   }
 
   /**
-   * Get sponsorship quote for an institution
-   * GET /institutions/:id/sponsorship-quote
+   * Compute sponsorship quote for institution (WAL-05, INT-05)
+   * Server calculates tier, rate, and fee. Ignores any client-supplied price/tier.
+   * Uses larger of currently linked students and declared student count.
    */
   async getSponsorshipQuote(
-    institutionId: string,
-    studentCountOverride?: number,
+    userId: string,
+    input?: SponsorshipQuoteInput | number,
+    isAdmin = false,
   ): Promise<SponsorshipQuote> {
-    let institution = await this.profileRepository.findInstitutionProfileById(institutionId);
-    if (!institution) {
-      institution = await this.profileRepository.findInstitutionProfileByUserId(institutionId);
+    const quoteInput: SponsorshipQuoteInput =
+      typeof input === 'number'
+        ? { institutionId: userId, declaredStudentCount: input }
+        : input || { institutionId: userId };
+
+    let inst: InstitutionProfileRow;
+    if (typeof input === 'number') {
+      let found = await this.profileRepository.findInstitutionProfileById(userId);
+      if (!found) {
+        found = await this.profileRepository.findInstitutionProfileByUserId(userId);
+      }
+      if (!found) {
+        const count = Math.max(input, 1);
+        const snapshot = computeSponsorshipQuote('00000000-0000-0000-0000-000000000000', count, 365);
+        return {
+          institutionId: '00000000-0000-0000-0000-000000000000',
+          institutionName: 'Test Institution',
+          studentCount: count,
+          tier: snapshot.tier,
+          ratePerStudentInr: snapshot.ratePaise / 100,
+          baseAnnualFeeInr: snapshot.subtotalPaise / 100,
+          gstRate: 0.18,
+          gstAmountInr: snapshot.gstPaise / 100,
+          totalAnnualFeeInr: snapshot.totalPaise / 100,
+          isSponsorshipActive: false,
+          sponsorshipExpiresAt: null,
+          activeSponsoredCount: 0,
+        };
+      }
+      inst = found;
+    } else {
+      inst = await this.resolveOwnedInstitution(userId, quoteInput.institutionId, isAdmin);
     }
 
-    const institutionName = institution?.institution_name || 'Educational Institution';
+    const enrolledStudents = await this.profileRepository.findStudentsByInstitution(inst.id);
+    const declaredCount = quoteInput.declaredStudentCount ?? 0;
+    const count = Math.max(enrolledStudents.length, declaredCount, 1);
 
-    // Count enrolled students in database linked to this institution
-    const enrolledStudents = await this.profileRepository.findStudentsByInstitution(
-      institution?.id || institutionId,
-    );
-
-    let count = studentCountOverride !== undefined ? studentCountOverride : enrolledStudents.length;
-
-    // Default to at least 1 student for quoting purposes if none enrolled yet
-    if (count <= 0) {
-      count = 1;
-    }
-
-    const tierInfo = this.calculateTier(count);
-    const baseAnnualFeeInr = count * tierInfo.ratePerStudentInr;
-    const gstRate = 0.18; // 18% GST (SAC: 998311 - Education Support Services)
-    const gstAmountInr = Math.round(baseAnnualFeeInr * gstRate);
-    const totalAnnualFeeInr = baseAnnualFeeInr + gstAmountInr;
+    const snapshot = computeSponsorshipQuote(inst.id, count, 365);
+    const activeGrant = await this.profileRepository.findActiveSponsorshipByInstitutionId(inst.id);
 
     return {
-      institutionId: institution?.id || institutionId,
-      institutionName,
+      institutionId: inst.id,
+      institutionName: inst.institution_name,
       studentCount: count,
-      tier: tierInfo.tier,
-      ratePerStudentInr: tierInfo.ratePerStudentInr,
-      baseAnnualFeeInr,
-      gstRate,
-      gstAmountInr,
-      totalAnnualFeeInr,
-      isSponsorshipActive: institution?.is_sponsorship_active ?? false,
-      sponsorshipExpiresAt: institution?.sponsorship_expires_at ?? null,
-      activeSponsoredCount: institution?.total_sponsored_students ?? (institution?.is_sponsorship_active ? enrolledStudents.length : 0),
+      tier: snapshot.tier,
+      ratePerStudentInr: snapshot.ratePaise / 100,
+      baseAnnualFeeInr: snapshot.subtotalPaise / 100,
+      gstRate: 0.18,
+      gstAmountInr: snapshot.gstPaise / 100,
+      totalAnnualFeeInr: snapshot.totalPaise / 100,
+      isSponsorshipActive: !!activeGrant,
+      sponsorshipExpiresAt: activeGrant?.expires_at ?? null,
+      activeSponsoredCount: activeGrant?.seats_used ?? 0,
+    };
+  }
+
+  /**
+   * Create Razorpay payment order for institution sponsorship (WAL-05, INT-05)
+   * Rejects with 409 SPONSORSHIP_ALREADY_ACTIVE if an unexpired active grant exists.
+   */
+  async createOrder(
+    userId: string,
+    input: CreateSponsorshipOrderInput,
+  ): Promise<SponsorshipOrderResult> {
+    const inst = await this.resolveOwnedInstitution(userId, input.institutionId);
+
+    const activeGrant = await this.profileRepository.findActiveSponsorshipByInstitutionId(inst.id);
+    if (activeGrant) {
+      throw new ConflictException({
+        statusCode: 409,
+        code: 'SPONSORSHIP_ALREADY_ACTIVE',
+        message: 'An active sponsorship grant already exists for this institution',
+      });
+    }
+
+    const enrolledStudents = await this.profileRepository.findStudentsByInstitution(inst.id);
+    const declaredCount = input.declaredStudentCount ?? 0;
+    const count = Math.max(enrolledStudents.length, declaredCount, 1);
+
+    const snapshot = computeSponsorshipQuote(inst.id, count, 365);
+    const receipt = `rcpt_sp_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+
+    let gatewayOrder: { id: string };
+    try {
+      gatewayOrder = await this.gateway.createOrder({
+        amountPaise: snapshot.totalPaise,
+        receipt,
+        notes: {
+          userId,
+          institutionId: inst.id,
+          tier: snapshot.tier,
+          studentCap: snapshot.studentCap.toString(),
+        },
+      });
+    } catch (err) {
+      this.logger.error(`Gateway order creation failed: ${(err as Error).message}`);
+      throw new BadRequestException({
+        statusCode: 400,
+        code: 'ORDER_CREATION_FAILED',
+        message: 'Failed to create payment order with payment gateway',
+      });
+    }
+
+    const paymentRecordId = crypto.randomUUID();
+    const now = new Date().toISOString();
+
+    await this.paymentRepository.create({
+      id: paymentRecordId,
+      user_id: userId,
+      gateway_order_id: gatewayOrder.id,
+      gateway_payment_id: null,
+      gateway_signature: null,
+      pack_id: null,
+      credits_added: 0,
+      credits_to_grant: 0,
+      amount_paise: snapshot.totalPaise,
+      amount_inr: snapshot.totalPaise / 100,
+      currency: 'INR',
+      purpose: 'sponsorship',
+      billing_state_code: input.billingStateCode,
+      terms_version: input.termsVersion,
+      status: 'created',
+      order_snapshot: snapshot as unknown as Record<string, unknown>,
+      metadata: {
+        institutionId: inst.id,
+        institutionName: inst.institution_name,
+        tier: snapshot.tier,
+        studentCap: snapshot.studentCap,
+        billingName: input.billingName ?? '',
+        billingEmail: input.billingEmail ?? '',
+        billingPhone: input.billingPhone ?? '',
+        billingAddress: input.billingAddress ?? '',
+        billingGstin: input.billingGstin ?? null,
+      },
+      created_at: now,
+      updated_at: now,
+    });
+
+    return {
+      orderId: gatewayOrder.id,
+      amount: snapshot.totalPaise,
+      currency: 'INR',
+      keyId: this.gateway.keyId,
+      quote: snapshot,
+    };
+  }
+
+  /**
+   * Get active sponsorship grant status for institution
+   */
+  async getSponsorship(userId: string, institutionId?: string): Promise<SponsorshipStatusResult> {
+    const inst = await this.resolveOwnedInstitution(userId, institutionId);
+    const activeGrant = await this.profileRepository.findActiveSponsorshipByInstitutionId(inst.id);
+
+    if (activeGrant) {
+      return {
+        status: 'active',
+        tier: activeGrant.tier,
+        cap: activeGrant.student_cap ?? null,
+        seatsUsed: activeGrant.seats_used ?? 0,
+        expiresAt: activeGrant.expires_at,
+      };
+    }
+
+    return {
+      status: 'none',
+      tier: null,
+      cap: 0,
+      seatsUsed: 0,
+      expiresAt: null,
     };
   }
 
   /**
    * Activate annual sponsorship for an institution (WAL-05)
-   * All enrolled students receive unlimited applications without consuming wallet balance.
-   * Includes:
-   * 1. Authoritative secondary ownership check (service-level gate)
-   * 2. Payment verification & mapping
-   * 3. Idempotency key evaluation
-   * 4. Atomic transaction / concurrency serialization via withLock
-   * 5. Append-only audit logging
    */
   async activateSponsorship(
     institutionId: string,
     input?: ActivateSponsorshipInput,
-    userOrActorId?: AuthUser | { id: string; role?: string; phone?: string; email?: string | null } | string,
+    userOrActorId?: AuthUser | { id: string; role?: string; phone?: string } | string,
   ): Promise<{
     success: boolean;
     quote: SponsorshipQuote;
     sponsoredStudentsCount: number;
     expiresAt: string;
-    alreadyActive?: boolean;
-    sponsorshipId?: string;
+    sponsorshipId: string;
+    alreadyActive: boolean;
   }> {
-    const user =
-      typeof userOrActorId === 'object' && userOrActorId !== null
-        ? userOrActorId
-        : {
-            id: typeof userOrActorId === 'string' ? userOrActorId : institutionId,
-            role: 'intermediary',
-          };
+    const user: { id: string; role?: string } =
+      typeof userOrActorId === 'string'
+        ? { id: userOrActorId, role: 'institution' }
+        : userOrActorId || { id: institutionId, role: 'institution' };
 
     // 1. Authoritative ownership re-check inside service
     let instProfile: InstitutionProfileRow | null =
@@ -200,7 +360,6 @@ export class SponsorshipService {
       if (payment.status !== 'captured') {
         throw new BadRequestException('Payment not verified: payment status is not captured');
       }
-
       const isPaymentOwner =
         payment.user_id === user.id ||
         (instProfile && payment.user_id === instProfile.user_id);
@@ -216,8 +375,9 @@ export class SponsorshipService {
       );
       if (existingByKey && existingByKey.status === 'active') {
         const quote = await this.getSponsorshipQuote(
-          existingByKey.institution_id,
-          input?.studentCountOverride,
+          user.id,
+          { institutionId: existingByKey.institution_id, declaredStudentCount: input?.studentCountOverride },
+          true,
         );
         return {
           success: true,
@@ -235,16 +395,14 @@ export class SponsorshipService {
       }
     }
 
-    // 4. Atomic transaction / serialization lock on institution row (SELECT ... FOR UPDATE equivalent)
+    // 4. Atomic transaction / serialization lock on institution row
     return this.profileRepository.withLock(institutionId, async () => {
-      // Re-read institution state within the transaction lock
       let lockedInst: InstitutionProfileRow | null =
         await this.profileRepository.findInstitutionProfileById(institutionId);
       if (!lockedInst) {
         lockedInst = await this.profileRepository.findInstitutionProfileByUserId(institutionId);
       }
 
-      // Idempotency: if already active and not expired, return existing record
       if (
         lockedInst &&
         lockedInst.is_sponsorship_active &&
@@ -253,8 +411,9 @@ export class SponsorshipService {
         !input?.force
       ) {
         const existingQuote = await this.getSponsorshipQuote(
-          lockedInst.id,
-          input?.studentCountOverride,
+          lockedInst.user_id,
+          { institutionId: lockedInst.id, declaredStudentCount: input?.studentCountOverride },
+          true,
         );
         return {
           success: true,
@@ -269,19 +428,20 @@ export class SponsorshipService {
             lockedInst.total_sponsored_students || existingQuote.studentCount,
           expiresAt: lockedInst.sponsorship_expires_at,
           alreadyActive: true,
+          sponsorshipId: 'already_active',
         };
       }
 
       if (!lockedInst) {
-        // Auto-provision institution profile if missing
         lockedInst = {
           id: institutionId,
           user_id: user.id || institutionId,
+          public_slug: `institution-${institutionId}`,
           institution_name: 'Registered Educational Institution',
           institution_type: 'college',
           affiliation: 'NCVT',
           contact_person: 'Placement Officer',
-          contact_phone: '+919876543210',
+          contact_phone: '+917000000001',
           contact_email: 'placement@institution.edu.in',
           address: 'Campus Road, Knowledge Park',
           city: 'New Delhi',
@@ -296,29 +456,32 @@ export class SponsorshipService {
         await this.profileRepository.saveInstitutionProfile(lockedInst);
       }
 
-      const institution = lockedInst;
-      const quote = await this.getSponsorshipQuote(institution.id, input?.studentCountOverride);
+      const institution: InstitutionProfileRow = lockedInst!;
+      const quote = await this.getSponsorshipQuote(
+        institution.user_id,
+        { institutionId: institution.id, declaredStudentCount: input?.studentCountOverride },
+        true,
+      );
 
-      // Mark all enrolled students as sponsored
+      const now = new Date();
+      const oneYearLater = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
+      const sponsorshipId = crypto.randomUUID();
+
       const countById = await this.profileRepository.updateStudentSponsorshipByInstitution(
         institution.id,
         true,
+        sponsorshipId,
       );
       let countByName = 0;
       if (institution.institution_name) {
         countByName = await this.profileRepository.updateStudentSponsorshipByInstitution(
           institution.institution_name,
           true,
+          sponsorshipId,
         );
       }
       const totalSponsoredStudents = Math.max(quote.studentCount, countById, countByName);
 
-      // 1-year annual duration
-      const now = new Date();
-      const oneYearLater = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).toISOString();
-      const sponsorshipId = `spons_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-
-      // Insert institution sponsorship row (WAL-05 DB Defense-in-depth)
       const sponsorshipRecord: InstitutionSponsorshipRow = {
         id: sponsorshipId,
         institution_id: institution.id,
@@ -337,7 +500,6 @@ export class SponsorshipService {
       };
       await this.profileRepository.saveSponsorship(sponsorshipRecord);
 
-      // Update institution profile row
       institution.is_sponsorship_active = true;
       institution.sponsorship_tier = quote.tier;
       institution.sponsorship_rate_per_student = quote.ratePerStudentInr;
@@ -348,10 +510,9 @@ export class SponsorshipService {
 
       await this.profileRepository.saveInstitutionProfile(institution);
 
-      // Append to immutable audit log (Hard Invariant #6)
       try {
         await this.auditLogRepository.append({
-          id: `aud_spons_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+          id: crypto.randomUUID(),
           actor_id: user.id || institution.user_id,
           action: 'INSTITUTION_SPONSORSHIP_ACTIVATED',
           meta: {

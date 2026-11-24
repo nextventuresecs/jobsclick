@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import * as Sentry from '@sentry/nextjs';
 import { useTranslations } from 'next-intl';
 import { useApp } from '../../../context/AppContext';
 import {
@@ -39,8 +40,8 @@ interface InstitutionCmsEditorProps {
 
 export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProps) {
   const t = useTranslations('InstitutionWorkspace');
-  const { addToast } = useApp();
-  const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:3001';
+  const { addToast, accessToken } = useApp();
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
   const [activeSubTab, setActiveSubTab] = useState<
     'courses' | 'subjects' | 'fees' | 'departments' | 'faculty' | 'paste-ai' | 'inquiries'
@@ -136,10 +137,9 @@ export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProp
   useEffect(() => {
     async function loadData() {
       try {
-        const token = localStorage.getItem('token') || '';
         const [cmsRes, inqRes] = await Promise.all([
           fetchInstitutionCms(apiUrl, institutionId),
-          token ? fetchInstitutionInquiries(apiUrl, token) : Promise.resolve([]),
+          accessToken ? fetchInstitutionInquiries(apiUrl, accessToken) : Promise.resolve([]),
         ]);
 
         if (cmsRes) {
@@ -160,13 +160,21 @@ export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProp
       }
     }
     loadData();
-  }, [apiUrl, institutionId]);
+  }, [apiUrl, institutionId, accessToken]);
 
   // Handle Save CMS
   const handleSaveCms = async () => {
+    if (!accessToken) {
+      addToast({
+        type: 'error',
+        title: 'Authentication Required',
+        message: 'Please log in to save institution CMS content.',
+      });
+      return;
+    }
+
     setIsSaving(true);
     try {
-      const token = localStorage.getItem('token') || '';
       const payload: InstitutionCmsInput = {
         courses,
         subjects,
@@ -177,17 +185,18 @@ export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProp
         updatedAt: new Date().toISOString(),
       };
 
-      await updateInstitutionCms(apiUrl, token, payload);
+      await updateInstitutionCms(apiUrl, accessToken, payload);
       addToast({
         type: 'success',
         title: t('toastCmsSaved'),
         message: t('toastCmsSavedDesc'),
       });
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err);
       addToast({
-        type: 'info',
-        title: t('toastCmsSaved'),
-        message: 'Changes saved locally. Public tabs updated.',
+        type: 'error',
+        title: 'Save Failed',
+        message: err instanceof Error ? err.message : 'Failed to update institution CMS content.',
       });
     } finally {
       setIsSaving(false);
@@ -215,7 +224,7 @@ export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProp
         const cFee = parts[2] ? parseInt(parts[2].replace(/\D/g, ''), 10) || 15000 : 15000;
 
         newCourses.push({
-          id: `c-ai-${Date.now()}-${index}`,
+          id: crypto.randomUUID(),
           name: cName,
           code: `CRS-${index + 1}`,
           duration: cDuration,
@@ -225,7 +234,7 @@ export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProp
         });
 
         newFees.push({
-          id: `f-ai-${Date.now()}-${index}`,
+          id: crypto.randomUUID(),
           courseName: cName,
           tuitionFee: cFee,
           developmentFee: 1500,
@@ -260,9 +269,17 @@ export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProp
 
   // Update Inquiry Status
   const handleStatusChange = async (inquiryId: string, newStatus: InquiryStatus) => {
+    if (!accessToken) {
+      addToast({
+        type: 'error',
+        title: 'Authentication Required',
+        message: 'Please log in to update inquiry status.',
+      });
+      return;
+    }
+
     try {
-      const token = localStorage.getItem('token') || '';
-      await updateInquiryStatus(apiUrl, token, inquiryId, newStatus);
+      await updateInquiryStatus(apiUrl, accessToken, inquiryId, newStatus);
       setInquiries((prev) =>
         prev.map((inq) => (inq.id === inquiryId ? { ...inq, status: newStatus } : inq)),
       );
@@ -271,10 +288,13 @@ export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProp
         title: 'Lead Status Updated',
         message: `Inquiry status changed to ${newStatus}.`,
       });
-    } catch {
-      setInquiries((prev) =>
-        prev.map((inq) => (inq.id === inquiryId ? { ...inq, status: newStatus } : inq)),
-      );
+    } catch (err) {
+      Sentry.captureException(err);
+      addToast({
+        type: 'error',
+        title: 'Update Failed',
+        message: err instanceof Error ? err.message : 'Failed to update inquiry status.',
+      });
     }
   };
 
@@ -341,7 +361,7 @@ export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProp
               type="button"
               onClick={() => {
                 const newCourse: CourseItem = {
-                  id: `c-${Date.now()}`,
+                  id: crypto.randomUUID(),
                   name: 'New Vocational Discipline',
                   code: 'VOC-01',
                   duration: '1 Year',
@@ -482,7 +502,7 @@ export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProp
               type="button"
               onClick={() => {
                 const newSub: SubjectItem = {
-                  id: `s-${Date.now()}`,
+                  id: crypto.randomUUID(),
                   courseName: courses[0]?.name || 'General Engineering',
                   name: 'New Technical Subject',
                   code: 'SUB-101',
@@ -579,7 +599,7 @@ export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProp
               type="button"
               onClick={() => {
                 const newFee: FeeItem = {
-                  id: `f-${Date.now()}`,
+                  id: crypto.randomUUID(),
                   courseName: courses[0]?.name || 'Course Name',
                   tuitionFee: 15000,
                   developmentFee: 2000,
@@ -724,7 +744,7 @@ export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProp
               type="button"
               onClick={() => {
                 const newDept: DepartmentItem = {
-                  id: `d-${Date.now()}`,
+                  id: crypto.randomUUID(),
                   name: 'New Academic Department',
                   hodName: 'Department HOD',
                   contactEmail: '',
@@ -832,7 +852,7 @@ export function InstitutionCmsEditor({ institutionId }: InstitutionCmsEditorProp
               type="button"
               onClick={() => {
                 const newFac: FacultyItem = {
-                  id: `fac-${Date.now()}`,
+                  id: crypto.randomUUID(),
                   name: 'Faculty Member Name',
                   designation: 'Instructor',
                   department: departments[0]?.name || 'Technical Wing',

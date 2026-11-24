@@ -37,7 +37,8 @@ export function BulkUploadStep1({
           </Button>
           <input
             type="file"
-            accept=".csv,text/csv"
+            accept=".csv,.xlsx"
+            disabled={s.isUploading}
             id="csv-file-picker"
             className="hidden"
             onChange={(e) => {
@@ -55,7 +56,7 @@ export function BulkUploadStep1({
             <Upload className="w-4 h-4" />
             <span>{t('btnBulkUploadCsv')}</span>
           </label>
-          <Button type="button" variant="outline" size="sm" onClick={onParseCsv} className="inline-flex items-center gap-1.5">
+          <Button type="button" variant="outline" size="sm" onClick={onParseCsv} disabled={!s.rawCsvText.trim() || s.isUploading} className="inline-flex items-center gap-1.5">
             <span>{t('btnParseValidate')}</span>
           </Button>
         </div>

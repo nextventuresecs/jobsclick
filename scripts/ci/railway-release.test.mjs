@@ -1,0 +1,123 @@
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { test } from 'node:test';
+import { deployRelease, probeHttpHealth, workerIsReady, waitForStaging } from './railway-release.mjs';
+
+const deployments = { api: 'api-id', web: 'web-id', worker: 'worker-id' };
+const healthy = Object.fromEntries(Object.entries(deployments).map(([service, id]) => [service, { id, status: 'SUCCESS' }]));
+
+function fixture(snapshots, probe = async () => true) {
+  let round = 0;
+  return {
+    deployments,
+    readLatest: async (service) => snapshots[round]?.[service],
+    probe,
+    pause: async () => { round++; },
+    attempts: snapshots.length,
+  };
+}
+
+test('waits for the exact three deploys and requires two healthy rounds', async () => {
+  const old = { ...healthy, api: { id: 'previous-id', status: 'SUCCESS' } };
+  const building = { ...healthy, api: { id: 'api-id', status: 'BUILDING' } };
+  let calls = 0;
+  await waitForStaging(fixture([old, building, healthy, healthy, healthy], async () => ++calls !== 1));
+  assert.equal(calls, 9);
+});
+
+test('fails on a crashed deployment even if the public probes would pass', async () => {
+  await assert.rejects(waitForStaging(fixture([
+    { ...healthy, worker: { id: 'worker-id', status: 'CRASHED' } },
+  ])), /worker.*CRASHED/);
+});
+
+test('fails if the deployment is superseded during verification', async () => {
+  await assert.rejects(waitForStaging(fixture([
+    healthy,
+    { ...healthy, web: { id: 'new-id', status: 'SUCCESS' } },
+  ])), /web.*superseded/);
+});
+
+test('times out when one service never passes its probe', async () => {
+  await assert.rejects(waitForStaging(fixture([healthy, healthy], async (service) => service !== 'worker')), /Timed out.*worker/);
+});
+
+test('requires the HTTP response to identify the expected deployment', async () => {
+  const url = new URL('https://example.test/health');
+  const response = (deploymentId, status = 200) => async () => Response.json({ status: 'ok', deploymentId }, { status });
+  assert.equal(await probeHttpHealth(url, 'new-id', response('old-id')), false);
+  assert.equal(await probeHttpHealth(url, 'new-id', response('new-id', 503)), false);
+  assert.equal(await probeHttpHealth(url, 'new-id', response('new-id')), true);
+});
+
+test('requires a fresh ready heartbeat in the exact worker deployment log', () => {
+  const now = Date.parse('2026-11-23T12:00:00Z');
+  const message = '[Worker Readiness] ready';
+  const log = (age, text = message) => JSON.stringify({ message: text, timestamp: new Date(now - age).toISOString() });
+  assert.equal(workerIsReady(log(5_000), now), true);
+  assert.equal(workerIsReady(log(60_000), now), false);
+  assert.equal(workerIsReady(`${log(5_000)}\n${log(1_000, '[Worker Readiness] unavailable')}`, now), false);
+});
+
+test('production requires the healthy SHA from staging, and build inputs use the export', () => {
+  const workflow = readFileSync('.github/workflows/ci.yml', 'utf8');
+  const production = workflow.split('  deploy-production:')[1];
+  assert.match(production, /needs: \[deploy-staging\]/);
+  assert.match(production, /needs\.deploy-staging\.outputs\.healthy_sha == github\.sha/);
+  const staging = workflow.split('  deploy-staging:')[1].split('  deploy-production:')[0];
+  for (const job of [staging, production]) {
+    assert.match(job, /github\.event_name == 'workflow_dispatch'/);
+  }
+  assert.match(production, /inputs\.promote_to_production/);
+  assert.match(workflow, /promote_to_production:\s*description:[^\n]+\s*type: boolean\s*default: false/);
+  assert.match(staging, /needs: \[verify, db-security-gate, db-integration, container-build\]/);
+  assert.equal(workflow.match(/context: \$\{\{ steps\.source\.outputs\.path \}\}/g)?.length, 3);
+  assert.match(workflow, /context: \$\{\{ steps\.source\.outputs\.path \}\}/);
+});
+
+test('submits the three configured Railway service names from the exported source', async () => {
+  const commands = [];
+  const sha = 'a'.repeat(40);
+  const cwd = resolve('source-fixture');
+  await deployRelease('production', cwd, sha, async (file, args, options) => {
+    assert.equal(file, 'railway');
+    assert.equal(options.cwd, cwd);
+    commands.push(args);
+    return { stdout: JSON.stringify({ deploymentId: '12345678-1234-4234-8234-123456789012' }) };
+  }, { RAILWAY_TOKEN: 'fixture' });
+  assert.deepEqual(commands, ['api', 'worker', 'web'].map(service => [
+    'up', '.', '--path-as-root', '--service', service, '--environment', 'production',
+    '--detach', '--json', '--message', `GitHub commit ${sha}`,
+  ]));
+});
+
+test('exports the selected commit without modified or untracked workspace files', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'release-export-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+  git('init', '--quiet');
+  writeFileSync(join(root, 'app.txt'), 'committed');
+  git('add', 'app.txt');
+  git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.test',
+    '-c', `core.hooksPath=${join(root, 'no-hooks')}`, 'commit', '--quiet', '--no-gpg-sign', '-m', 'fixture');
+  const commit = git('rev-parse', 'HEAD');
+  writeFileSync(join(root, 'app.txt'), 'local modification');
+  writeFileSync(join(root, 'dump.rdb'), 'synthetic local state');
+  const githubOutput = join(root, 'github-output');
+
+  execFileSync(process.execPath, [resolve('scripts/ci/export-release-source.mjs')], {
+    cwd: root,
+    env: {
+      ...process.env,
+      GITHUB_SHA: commit,
+      GITHUB_OUTPUT: githubOutput,
+      RUNNER_TEMP: root,
+    },
+  });
+  const exported = readFileSync(githubOutput, 'utf8').trim().slice('path='.length);
+  assert.deepEqual(readdirSync(exported), ['app.txt']);
+  assert.equal(readFileSync(join(exported, 'app.txt'), 'utf8'), 'committed');
+});

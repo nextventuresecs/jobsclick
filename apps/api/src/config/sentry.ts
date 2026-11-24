@@ -10,6 +10,7 @@ import {
   deepScrubPii,
   contextualTracesSampler,
   SENTRY_IGNORE_ERRORS,
+  getAppEnv,
 } from '@indian-job-portal/validation';
 
 export interface RequestTraceContext {
@@ -92,6 +93,10 @@ export function getTracePropagationHeaders(): {
 
 let isInitialized = false;
 
+export function getSentryEnvironment(): string {
+  return process.env['SENTRY_ENVIRONMENT'] || getAppEnv();
+}
+
 /**
  * Initialize Sentry for NestJS / Fastify with DPDP and Indian Job Portal Zero-PII Invariants
  */
@@ -108,7 +113,8 @@ export function initSentry(dsn?: string): void {
 
     const options: Sentry.NodeOptions = {
       dsn: resolvedDsn,
-      environment: process.env['NODE_ENV'] || 'development',
+      environment: getSentryEnvironment(),
+      ...(process.env['SENTRY_RELEASE'] ? { release: process.env['SENTRY_RELEASE'] } : {}),
       integrations: [
         Sentry.consoleLoggingIntegration({ levels: ['log', 'warn', 'error'] }),
       ],

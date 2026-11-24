@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { Navbar } from '../../../components/layout/Navbar';
 import { Footer } from '../../../components/layout/Footer';
 import { Button } from '@indian-job-portal/ui';
+import { uploadBulkRoster } from '@/lib/bulk-upload';
 import {
   Upload,
   Download,
@@ -28,14 +29,9 @@ interface ParsedCompanyRow {
   readonly district: string;
   readonly email: string;
   readonly isValidPhone: boolean;
+  readonly isValidEmail: boolean;
+  readonly isValidContact: boolean;
 }
-
-const SAMPLE_CSV = `company_name,phone,ownership_type,company_size,sector,address,city,district,email,logo_url
-Shree Ganesh Textiles,9876543210,Proprietorship,Micro,Textiles & Garments,"Plot 14, Sector C, Industrial Area",Indore,Indore,contact@shreetextiles.in,https://example.com/logo1.png
-Malwa Agro Processing Pvt Ltd,9876543211,Private Limited,Small,Food Processing,Gram Sanwer Road,Indore,Indore,admin@malwaagro.com,
-Mahakal Auto Components,9876543212,LLP,Micro,Manufacturing,"Plot 5, Nagziri Industrial Area",Ujjain,Ujjain,info@mahakalauto.in,
-Kalyan Precision Forgings,9876543213,Private Limited,Medium,Manufacturing,"Phase 2, Pithampur Industrial Belt",Dhar,Dhar,contact@kalyanforgings.in,
-Narmada Logistics & Warehousing,9876543214,Partnership,Small,Logistics & Supply,"Depot 8, AB Road",Dewas,Dewas,dispatch@narmadalogistics.com,`;
 
 // RFC-4180 compliant CSV line parser respecting quoted commas
 function parseCsvLine(line: string): string[] {
@@ -64,23 +60,50 @@ function parseCsvLine(line: string): string[] {
 
 export default function EmployerBulkOnboardPage() {
   const t = useTranslations('BulkOnboard');
-  const [sourceName, setSourceName] = useState('District Industries Centre (DIC) Indore');
-  const [coordinatorPhone, setCoordinatorPhone] = useState('9876543210');
-  const [csvText, setCsvText] = useState(SAMPLE_CSV);
+  const [sourceName, setSourceName] = useState('');
+  const [rosterFile, setRosterFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<{ file: File; text: string } | null>(null);
+  const [csvText, setCsvText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [batchResult, setBatchResult] = useState<{
     readonly batchId: string;
     readonly totalRows: number;
-    readonly validCount: number;
     readonly source: string;
     readonly createdAt: string;
   } | null>(null);
 
   // Parse CSV rows with RFC-4180 compliance
   const parseRows = (text: string): readonly ParsedCompanyRow[] => {
-    const lines = text.trim().split('\n');
+    const lines = text.trim().split(/\r?\n/).filter((l) => l.trim().length > 0);
     if (lines.length <= 1) return [];
+
+    const headerParts = parseCsvLine(lines[0] || '').map((h) =>
+      h.toLowerCase().trim().replace(/[\s_-]+/g, ''),
+    );
+
+    const emailIdx = headerParts.findIndex((h) => h === 'email' || h === 'emailid' || h === 'mail');
+    const phoneIdx = headerParts.findIndex(
+      (h) =>
+        h === 'phone' ||
+        h === 'mobile' ||
+        h === 'phonenumber' ||
+        h === 'contact' ||
+        h === 'mobileno' ||
+        h === 'phoneno',
+    );
+    const nameIdx = headerParts.findIndex(
+      (h) => h === 'companyname' || h === 'company' || h === 'enterprise' || h === 'name',
+    );
+    const ownershipIdx = headerParts.findIndex(
+      (h) => h === 'ownershiptype' || h === 'ownership',
+    );
+    const sizeIdx = headerParts.findIndex((h) => h === 'companysize' || h === 'size');
+    const sectorIdx = headerParts.findIndex((h) => h === 'sector' || h === 'industry');
+    const cityIdx = headerParts.findIndex((h) => h === 'city');
+    const districtIdx = headerParts.findIndex((h) => h === 'district');
+
+    const isExplicitHeader = emailIdx !== -1 || phoneIdx !== -1 || nameIdx !== -1;
 
     const rows: ParsedCompanyRow[] = [];
     for (let i = 1; i < lines.length; i++) {
@@ -88,83 +111,80 @@ export default function EmployerBulkOnboardPage() {
       if (!line) continue;
 
       const parts = parseCsvLine(line);
-      const companyName = parts[0]?.replace(/"/g, '') || 'Unnamed Company';
-      const rawPhone = parts[1]?.trim() || '';
+      const companyName = (
+        (isExplicitHeader && nameIdx !== -1 ? parts[nameIdx] : parts[0]) || 'Unnamed Company'
+      ).replace(/"/g, '').trim();
+      const rawPhone = (
+        (isExplicitHeader && phoneIdx !== -1 ? parts[phoneIdx] : parts[1]) || ''
+      ).trim();
+      const rawEmail = (
+        (isExplicitHeader && emailIdx !== -1 ? parts[emailIdx] : parts[8]) || ''
+      ).trim();
       const cleanPhone = rawPhone.replace(/\D/g, '');
-      const isValidPhone = /^[6-9]\d{9}$/.test(cleanPhone);
+      const isValidPhone = cleanPhone.length === 10 && /^[6-9]\d{9}$/.test(cleanPhone);
+      const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail.toLowerCase());
+      const isValidContact = isValidPhone || isValidEmail;
 
       rows.push({
         companyName,
         phone: rawPhone,
-        ownershipType: parts[2] || 'Private Limited',
-        companySize: parts[3] || 'Small',
-        sector: parts[4]?.replace(/"/g, '') || 'Manufacturing',
-        city: parts[6] || 'Indore',
-        district: parts[7] || 'Indore',
-        email: parts[8] || '',
+        ownershipType: (isExplicitHeader && ownershipIdx !== -1 ? parts[ownershipIdx] : parts[2]) || 'Private Limited',
+        companySize: (isExplicitHeader && sizeIdx !== -1 ? parts[sizeIdx] : parts[3]) || 'Small',
+        sector: (isExplicitHeader && sectorIdx !== -1 ? parts[sectorIdx] : parts[4])?.replace(/"/g, '') || 'Manufacturing',
+        city: (isExplicitHeader && cityIdx !== -1 ? parts[cityIdx] : parts[6]) || 'Indore',
+        district: (isExplicitHeader && districtIdx !== -1 ? parts[districtIdx] : parts[7]) || 'Indore',
+        email: rawEmail,
         isValidPhone,
+        isValidEmail,
+        isValidContact,
       });
     }
     return rows;
   };
 
-  const parsedRows = parseRows(csvText);
-  const validCount = parsedRows.filter((r) => r.isValidPhone).length;
+  const previewText = rosterFile ? (filePreview?.file === rosterFile ? filePreview.text : '') : csvText;
+  const parsedRows = parseRows(previewText);
+  const validCount = parsedRows.filter((r) => r.isValidContact).length;
   const invalidCount = parsedRows.length - validCount;
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const file = e.currentTarget.files?.[0];
     if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result;
-      if (typeof text === 'string') {
-        setCsvText(text);
-        setErrorMessage('');
-      }
-    };
-    reader.readAsText(file);
+    setRosterFile(file);
+    setCsvText('');
+    setFilePreview(null);
+    setErrorMessage('');
+    e.currentTarget.value = '';
+    if (/\.csv$/i.test(file.name) && file.size <= 256 * 1024) {
+      void file.text().then((text) => setFilePreview({ file, text })).catch(() => {});
+    }
   };
 
+  const hasRoster = Boolean(rosterFile) || parsedRows.length > 0;
   const handleSubmitBatch = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMessage('');
-    if (parsedRows.length === 0) {
-      setErrorMessage('Please upload or enter at least one valid enterprise row.');
-      return;
-    }
-
+    if (!sourceName.trim() || !hasRoster || isSubmitting) return;
     setIsSubmitting(true);
-    const apiUrl = process.env['NEXT_PUBLIC_API_URL'] || 'http://localhost:3001';
+    setErrorMessage('');
+    setBatchResult(null);
 
     try {
-      const res = await fetch(`${apiUrl}/bulk/batches`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          source: sourceName,
-          entityType: 'employer',
-          csvContent: csvText,
-        }),
+      const file = rosterFile ?? new File([csvText], 'roster.csv', { type: 'text/csv' });
+      const result = await uploadBulkRoster(sourceName, 'employer', file);
+      setBatchResult({
+        batchId: result.id,
+        totalRows: result.totalRows,
+        source: result.source,
+        createdAt: new Date().toLocaleTimeString(),
       });
-
-      if (res.ok) {
-        const data = await res.json();
-        setBatchResult({
-          batchId: data.batchId || `batch_emp_${Date.now()}`,
-          totalRows: parsedRows.length,
-          validCount,
-          source: sourceName,
-          createdAt: new Date().toLocaleTimeString(),
-        });
-      } else {
-        const errorData = await res.json().catch(() => null);
-        const err = errorData?.message || `Server returned error (${res.status})`;
-        setErrorMessage(`Failed to queue batch: ${err}`);
-      }
-    } catch {
-      setErrorMessage('Unable to connect to bulk processing API service. Please verify your connection.');
+      setRosterFile(null);
+      setFilePreview(null);
+      setCsvText('');
+    } catch (error) {
+      const code = error instanceof Error ? error.message : '';
+      setErrorMessage(code === 'BULK_AADHAAR_UNSUPPORTED' ? t('aadhaarColumnUnsupported')
+        : code === 'BULK_XLSX_INVALID' || code === 'BULK_FILE_FORMAT' ? t('invalidFile')
+        : t('uploadFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -298,18 +318,14 @@ export default function EmployerBulkOnboardPage() {
                 <p className="font-bold text-gray-900 mt-0.5 font-mono">{batchResult.totalRows}</p>
               </div>
               <div className="p-3 bg-white rounded-xl border border-emerald-100">
-                <span className="text-gray-500">{t('valid')} Phones</span>
-                <p className="font-bold text-emerald-700 mt-0.5 font-mono">{batchResult.validCount}</p>
-              </div>
-              <div className="p-3 bg-white rounded-xl border border-emerald-100">
                 <span className="text-gray-500">Initial State</span>
-                <p className="font-bold text-orange-600 mt-0.5">Invited (No SMS Sent)</p>
+                <p className="font-bold text-orange-600 mt-0.5">{t('queuedNoSms')}</p>
               </div>
             </div>
 
             <div className="pt-2 flex items-center justify-between">
               <span className="text-xs text-emerald-900">
-                Companies have been added to your cluster directory in invited status.
+                {t('queuedDescription')}
               </span>
               <Button
                 variant="outline"
@@ -347,26 +363,6 @@ export default function EmployerBulkOnboardPage() {
                 </p>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  {t('coordinatorLabel')}
-                </label>
-                <div className="flex rounded-xl border border-gray-300 shadow-2xs overflow-hidden focus-within:ring-2 focus-within:ring-brand-orange">
-                  <span className="inline-flex items-center px-3 bg-gray-50 border-r border-gray-300 text-gray-600 text-xs font-semibold">
-                    +91
-                  </span>
-                  <input
-                    type="tel"
-                    maxLength={10}
-                    value={coordinatorPhone}
-                    onChange={(e) => setCoordinatorPhone(e.target.value)}
-                    placeholder="9876543210"
-                    className="w-full px-3 py-2 text-sm font-mono text-gray-900 focus:outline-hidden"
-                    required
-                  />
-                </div>
-              </div>
-
               <div className="pt-2">
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
                   2. {t('uploadLabel')}
@@ -377,12 +373,13 @@ export default function EmployerBulkOnboardPage() {
                     {t('uploadClick')}
                   </span>
                   <span className="text-[11px] text-gray-500 mt-0.5">
-                    {t('uploadFormat')}
+                    {rosterFile?.name ?? t('uploadFormat')}
                   </span>
                   <input
                     type="file"
-                    accept=".csv, .xlsx, .xls"
+                    accept=".csv,.xlsx"
                     onChange={handleFileUpload}
+                    disabled={isSubmitting}
                     className="hidden"
                   />
                 </label>
@@ -393,11 +390,11 @@ export default function EmployerBulkOnboardPage() {
                 variant="primary"
                 size="md"
                 className="w-full justify-center font-semibold mt-2"
-                disabled={isSubmitting || parsedRows.length === 0}
+                disabled={isSubmitting || !sourceName.trim() || !hasRoster}
               >
                 {isSubmitting
                   ? '...'
-                  : `${t('queueButton')} (${parsedRows.length})`}
+                  : `${t('queueButton')}`}
               </Button>
             </form>
 
@@ -422,7 +419,7 @@ export default function EmployerBulkOnboardPage() {
                     {t('previewTitle')}
                   </h2>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    {t('previewDesc')}
+                    {rosterFile && !previewText ? t('filePreviewDeferred') : t('previewDesc')}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 text-xs">
@@ -442,6 +439,7 @@ export default function EmployerBulkOnboardPage() {
                   <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10 text-gray-600 font-semibold">
                     <tr>
                       <th className="py-2.5 px-3">{t('companyNameCol')}</th>
+                      <th className="py-2.5 px-3">{t('emailCol')}</th>
                       <th className="py-2.5 px-3">{t('phoneCol')}</th>
                       <th className="py-2.5 px-3">{t('sectorCol')}</th>
                       <th className="py-2.5 px-3">{t('cityCol')}</th>
@@ -450,13 +448,16 @@ export default function EmployerBulkOnboardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 font-normal">
-                    {parsedRows.map((row, idx) => (
+                    {parsedRows.slice(0, 20).map((row, idx) => (
                       <tr key={idx} className="hover:bg-gray-50/70">
                         <td className="py-2.5 px-3 font-medium text-gray-900 max-w-[180px] truncate">
                           {row.companyName}
                         </td>
                         <td className="py-2.5 px-3 font-mono text-gray-700">
-                          {row.phone}
+                          {row.email || '—'}
+                        </td>
+                        <td className="py-2.5 px-3 font-mono text-gray-700">
+                          {row.phone || '—'}
                         </td>
                         <td className="py-2.5 px-3 text-gray-600">
                           {row.sector}
@@ -468,12 +469,12 @@ export default function EmployerBulkOnboardPage() {
                           {row.companySize}
                         </td>
                         <td className="py-2.5 px-3 text-center">
-                          {row.isValidPhone ? (
-                            <span className="inline-flex items-center text-emerald-600" title="Valid mobile format">
+                          {row.isValidContact ? (
+                            <span className="inline-flex items-center text-emerald-600" title="Valid email or mobile number">
                               <CheckCircle2 className="w-4 h-4" />
                             </span>
                           ) : (
-                            <span className="inline-flex items-center text-red-500" title="Invalid Indian mobile number">
+                            <span className="inline-flex items-center text-red-500" title="Invalid contact (requires email or 10-digit Indian mobile)">
                               <AlertCircle className="w-4 h-4" />
                             </span>
                           )}
@@ -492,7 +493,8 @@ export default function EmployerBulkOnboardPage() {
                   <textarea
                     rows={6}
                     value={csvText}
-                    onChange={(e) => setCsvText(e.target.value)}
+                    onChange={(e) => { setCsvText(e.target.value); setRosterFile(null); setFilePreview(null); }}
+                    disabled={isSubmitting}
                     className="w-full p-2.5 font-mono text-xs border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-orange focus:outline-hidden bg-gray-50"
                   />
                 </div>

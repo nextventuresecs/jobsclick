@@ -99,11 +99,59 @@ describe('Session Cookie & JWT Infrastructure - Ticket T-05 (AUTH-05, AUTH-06)',
 
   describe('Secure Cookie Settings & Options', () => {
     it('defines secure, HttpOnly cookie configuration', () => {
-      expect(AUTH_COOKIE_NAME).toBe('auth_token');
+      expect(AUTH_COOKIE_NAME).toBe('jc_session');
       expect(AUTH_COOKIE_OPTIONS.httpOnly).toBe(true);
       expect(AUTH_COOKIE_OPTIONS.sameSite).toBe('lax');
       expect(AUTH_COOKIE_OPTIONS.path).toBe('/');
-      expect(AUTH_COOKIE_OPTIONS.maxAge).toBe(30 * 24 * 60 * 60); // 30 days
+      expect(AUTH_COOKIE_OPTIONS.maxAge).toBe(7 * 24 * 60 * 60); // 7 days
+    });
+
+    it('proves middleware, auth-session, and route handlers agree on cookie name and secure flag in production and staging', async () => {
+      const { getSessionCookieName, isSessionCookieSecure, getSessionCookieConfig } = await import('@indian-job-portal/validation');
+
+      // 1. Production Agreement
+      const prodEnv = { NODE_ENV: 'production' };
+      expect(getSessionCookieName(prodEnv)).toBe('__Host-jc_session');
+      expect(isSessionCookieSecure(prodEnv)).toBe(true);
+      expect(getSessionCookieConfig(prodEnv)).toEqual({
+        name: '__Host-jc_session',
+        secure: true,
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 7 * 24 * 60 * 60,
+      });
+
+      // 2. Staging Agreement (APP_ENV=staging)
+      const stagingEnv1 = { NODE_ENV: 'production', APP_ENV: 'staging' };
+      expect(getSessionCookieName(stagingEnv1)).toBe('__Host-jc_session');
+      expect(isSessionCookieSecure(stagingEnv1)).toBe(true);
+      expect(getSessionCookieConfig(stagingEnv1)).toEqual({
+        name: '__Host-jc_session',
+        secure: true,
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 7 * 24 * 60 * 60,
+      });
+
+      // 3. Staging Agreement (NODE_ENV=staging alone)
+      const stagingEnv2 = { NODE_ENV: 'staging' };
+      expect(getSessionCookieName(stagingEnv2)).toBe('__Host-jc_session');
+      expect(isSessionCookieSecure(stagingEnv2)).toBe(true);
+      expect(getSessionCookieConfig(stagingEnv2)).toEqual({
+        name: '__Host-jc_session',
+        secure: true,
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 7 * 24 * 60 * 60,
+      });
+
+      // 4. Test/Dev Agreement
+      const devEnv = { NODE_ENV: 'development' };
+      expect(getSessionCookieName(devEnv)).toBe('jc_session');
+      expect(isSessionCookieSecure(devEnv)).toBe(false);
     });
 
     it('AC-2: resolves server session from cookie token', async () => {

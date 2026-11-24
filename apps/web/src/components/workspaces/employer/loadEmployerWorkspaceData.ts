@@ -7,6 +7,15 @@ import {
   fetchJobApplications,
 } from './employerApi';
 
+function getIsoDate(dateStr?: string): string {
+  if (dateStr) {
+    const part = dateStr.split('T')[0];
+    if (part) return part;
+  }
+  const fallback = new Date().toISOString().split('T')[0];
+  return fallback || '';
+}
+
 interface LoaderParams {
   apiUrl: string;
   authHeader: string;
@@ -29,6 +38,7 @@ export function loadEmployerWorkspaceData({
     if (busProfile && isMounted && busProfile.companyName) {
       setCompany((prev) => ({
         ...prev,
+        slug: busProfile.slug || prev.slug,
         name: busProfile.companyName || prev.name,
         sector: busProfile.sector || prev.sector,
         address: busProfile.address || prev.address,
@@ -45,17 +55,17 @@ export function loadEmployerWorkspaceData({
   fetchEmployerJobs(apiUrl, authHeader, userId, company.id).then(async (jobsData) => {
     if (!isMounted || !jobsData?.jobs) return;
     const apiJobs: JobItem[] = jobsData.jobs.map((j: {
-      id: string; title: string; category: JobItem['category']; employmentType?: JobItem['employmentType'];
+      id: string; slug?: string; title: string; category: JobItem['category']; employmentType?: JobItem['employmentType'];
       experienceLevel?: JobItem['experienceLevel']; minPay?: number; maxPay?: number; openings?: number;
       city?: string; district?: string; state?: string; skills?: string[]; description?: string; createdAt?: string;
     }) => ({
-      id: j.id, title: j.title, companyName: company.name, companyId: company.id,
+      id: j.id, slug: j.slug, title: j.title, companyName: company.name, companyId: company.id, companySlug: company.slug,
       location: `${j.city || ''}, ${j.district || j.city || ''}`, district: j.district || j.city || '',
-      state: j.state || 'Maharashtra', category: j.category, employmentType: j.employmentType || 'Full-time',
+      state: j.state || company.state || '', category: j.category, employmentType: j.employmentType || 'Full-time',
       salaryMin: j.minPay || 0, salaryMax: j.maxPay || 0, openings: j.openings || 1,
       experienceLevel: j.experienceLevel || '1-2 Years', skills: j.skills || [], description: j.description || '',
       requirements: ['Vocational certificate or relevant technical experience', 'Factory compliance and safety standard adherence'],
-      postedDate: (j.createdAt?.split('T')[0] ?? '2026-10-16'), expiryDate: '2026-11-30', status: 'active',
+      postedDate: getIsoDate(j.createdAt), expiryDate: '', status: 'active',
       applicantCount: 0, isUrgent: false,
     }));
 
@@ -69,7 +79,7 @@ export function loadEmployerWorkspaceData({
           id: a.id, jobId: a.jobId, jobTitle: j.title, companyName: company.name, companyId: company.id,
           candidateId: a.applicantProfile?.seekerId || a.applicantId, candidateName: a.applicantProfile?.fullName || 'Candidate',
           candidateEducation: 'Trade Certified', candidateExperience: 'Vocational Experience',
-          candidateSkills: a.applicantProfile?.skills || [], appliedDate: (a.createdAt?.split('T')[0] ?? '2026-10-16'),
+          candidateSkills: a.applicantProfile?.skills || [], appliedDate: getIsoDate(a.createdAt),
           status: a.status,
         });
       }

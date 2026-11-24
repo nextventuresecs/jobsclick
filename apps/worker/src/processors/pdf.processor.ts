@@ -1,6 +1,7 @@
 import { Job } from 'bullmq';
 import { PdfGeneratorService, SeekerPdfData } from '../pdf/pdf-generator.js';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { isStrictEnv, isTestEnv } from '@indian-job-portal/validation';
 
 export interface PdfJobData extends SeekerPdfData {
   shouldSimulateFailure?: boolean;
@@ -19,11 +20,13 @@ export class PdfProcessor {
   private pdfService: PdfGeneratorService;
   private supabase: SupabaseClient | null = null;
 
-  constructor() {
+  constructor(storage?: SupabaseClient | null) {
     this.pdfService = new PdfGeneratorService();
     const supabaseUrl = process.env['SUPABASE_URL'];
     const supabaseKey = process.env['SUPABASE_SERVICE_ROLE_KEY'];
-    if (supabaseUrl && supabaseKey && supabaseKey !== 'dummy-service-role-key') {
+    if (storage !== undefined) {
+      this.supabase = storage;
+    } else if (!isTestEnv() && supabaseUrl && supabaseKey && supabaseKey !== 'dummy-service-role-key') {
       this.supabase = createClient(supabaseUrl, supabaseKey, {
         auth: { persistSession: false, autoRefreshToken: false },
       });
@@ -32,6 +35,7 @@ export class PdfProcessor {
 
   async process(job: Job<PdfJobData>): Promise<PdfJobResult> {
     const data = job.data;
+    if (!this.supabase && isStrictEnv()) throw new Error('Resume PDF storage is unavailable');
 
     // Retry test simulation: fail until attempt 3 if requested
     if (data.shouldSimulateFailure && job.attemptsMade < 2) {
@@ -63,7 +67,7 @@ export class PdfProcessor {
         });
 
       if (uploadError) {
-        console.warn(`[PdfProcessor] Supabase storage upload warning for ${data.seekerId}: ${uploadError.message}`);
+        throw new Error('Resume PDF storage upload failed');
       }
     }
 

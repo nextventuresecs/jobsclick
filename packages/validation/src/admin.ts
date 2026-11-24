@@ -4,6 +4,11 @@ export const adminUserStatusSchema = z.object({
   status: z.enum(['invited', 'active', 'disabled']),
 });
 
+export const adminUserRoleSchema = z.object({
+  role: z.enum(['job_seeker', 'employer', 'admin', 'msme_admin']),
+  reason: z.string().optional(),
+});
+
 export const auditLogSchema = z.object({
   action: z.string().min(2, 'Action name required'),
   meta: z.record(z.unknown()).default({}),
@@ -19,9 +24,20 @@ export const privacyRequestSchema = z.object({
 export const adminExportQuerySchema = z.object({
   entity: z.enum(['users', 'jobs', 'applications', 'institutions', 'audit_logs']).default('users'),
   format: z.enum(['json', 'csv']).default('json'),
+  includeContacts: z
+    .preprocess((val) => {
+      if (typeof val === 'string') {
+        const lower = val.trim().toLowerCase();
+        if (lower === 'true' || lower === '1') return true;
+        if (lower === 'false' || lower === '0' || lower === '') return false;
+      }
+      return val;
+    }, z.boolean())
+    .optional(),
 });
 
 export type AdminUserStatusInput = z.infer<typeof adminUserStatusSchema>;
+export type AdminUserRoleInput = z.infer<typeof adminUserRoleSchema>;
 export type AuditLogInput = z.infer<typeof auditLogSchema>;
 export type PrivacyRequestInput = z.infer<typeof privacyRequestSchema>;
 export type AdminExportQueryInput = z.infer<typeof adminExportQuerySchema>;

@@ -17,6 +17,7 @@ describe('Ticket T-19: PlacementController (e2e) - INT-04', () => {
   };
 
   beforeAll(async () => {
+    process.env['ENABLE_P2_PLACEMENT_PIPELINE'] = 'true';
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();

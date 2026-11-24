@@ -1,18 +1,22 @@
-import { Injectable, Inject, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, Inject, Optional, InternalServerErrorException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { isTestEnv, isStrictEnv } from '@indian-job-portal/validation';
 import type { Database, InstitutionInquiryRow } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
 
 @Injectable()
 export class InquiryRepository {
   private persistentStore = PersistentDatabaseStore.getInstance();
-  private isTestMode =
-    process.env['NODE_ENV'] !== 'production' &&
-    (process.env['NODE_ENV'] === 'test' ||
-      !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
-      process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key');
+  private isTestMode = isTestEnv();
 
-  constructor(@Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>) {}
+  constructor(
+    @Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient<Database>,
+    @Optional() isTestMode?: boolean,
+  ) {
+    if (isTestEnv() && typeof isTestMode === 'boolean') {
+      this.isTestMode = isTestMode;
+    }
+  }
 
   async saveInquiry(inquiry: InstitutionInquiryRow): Promise<InstitutionInquiryRow> {
     if (this.isTestMode) {
@@ -42,7 +46,7 @@ export class InquiryRepository {
         }
         return (data as unknown as InstitutionInquiryRow[]) || [];
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }
@@ -68,7 +72,7 @@ export class InquiryRepository {
         }
         return (data as unknown as InstitutionInquiryRow) || null;
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }

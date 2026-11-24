@@ -1,41 +1,69 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { isStaging, isTestEnv } from '@indian-job-portal/validation';
 import { captureException } from '../config/sentry.js';
+import { maskEmail } from '../common/mask.js';
 import type { IEmailService, SendEmailOptions, SendEmailResult } from './email.interface.js';
 
 @Injectable()
 export class EmailService implements IEmailService {
   private readonly logger = new Logger(EmailService.name);
   private readonly defaultFrom =
-    process.env['EMAIL_FROM'] || 'JobsClick <notifications@jobsclick.live>';
+    process.env['EMAIL_FROM'] || 'JobsClick <notifications@example.com>';
 
   async sendEmail(options: SendEmailOptions): Promise<SendEmailResult> {
-    const apiKey = process.env['RESEND_API_KEY'];
-    const isTestEnv =
-      process.env['NODE_ENV'] === 'test' || !apiKey || apiKey === 're_dummy_resend_api_key';
+    const apiKey = process.env['RESEND_API_KEY']?.trim();
+    const isMock = isTestEnv();
 
     const from = options.from || this.defaultFrom;
     const recipients = Array.isArray(options.to) ? options.to : [options.to];
 
-    if (isTestEnv) {
+    let activeRecipients = recipients;
+    if (isStaging()) {
+      const allowlistRaw = process.env['STAGING_EMAIL_ALLOWLIST'] || '';
+      const allowlist = allowlistRaw
+        .split(',')
+        .map((e) => e.trim().toLowerCase())
+        .filter(Boolean);
+
+      activeRecipients = recipients.filter((r) => allowlist.includes(r.trim().toLowerCase()));
+      if (activeRecipients.length === 0) {
+        this.logger.log(
+          `[Staging Email Gate] Email to ${recipients.map((r) => maskEmail(r)).join(', ')} skipped: blocked_by_allowlist`,
+        );
+        return {
+          success: false,
+          error: 'EMAIL_BLOCKED_BY_ALLOWLIST',
+          blocked_by_allowlist: true,
+        };
+      }
+    }
+
+    if (isMock) {
       this.logger.log(
-        `[Resend Email Mock] Dispatched email to ${recipients.join(', ')} | Subject: "${options.subject}" (Sender: ${from})`,
+        `[Resend Email Mock] Simulated dispatch to ${activeRecipients.length} recipients`,
       );
       return {
         success: true,
-        messageId: `mock_email_${Date.now()}`,
+        messageId: randomUUID(),
       };
+    }
+
+    if (!apiKey || apiKey === 're_dummy_resend_api_key') {
+      return { success: false, error: 'EMAIL_PROVIDER_UNAVAILABLE' };
     }
 
     try {
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
+        signal: AbortSignal.timeout(15_000),
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           from,
-          to: recipients,
+          to: activeRecipients,
           subject: options.subject,
           html: options.html,
           text: options.text,
@@ -45,24 +73,27 @@ export class EmailService implements IEmailService {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        this.logger.error(`[Resend API Error] HTTP ${response.status}: ${errorText}`);
-        captureException(new Error(`Resend email delivery failed: ${response.status} ${errorText}`));
+        await response.body?.cancel().catch(() => undefined);
+        this.logger.error(`[Resend API Error] HTTP ${response.status}`);
+        captureException(new Error(`Resend email delivery failed: ${response.status}`));
         return {
           success: false,
-          error: `Resend error: ${response.statusText}`,
+          error: `Resend error: HTTP ${response.status}`,
         };
       }
 
-      const data = (await response.json()) as { id?: string };
-      this.logger.log(`[Resend Live] Successfully sent email to ${recipients.join(', ')} (ID: ${data.id})`);
+      const data = (await response.json()) as { id?: unknown };
+      if (typeof data?.id !== 'string' || !data.id.trim()) {
+        return { success: false, error: 'EMAIL_PROVIDER_UNCONFIRMED' };
+      }
+      this.logger.log(`[Resend Live] Provider accepted email for ${activeRecipients.length} recipients`);
       return {
         success: true,
-        messageId: data.id || `resend_${Date.now()}`,
+        messageId: data.id,
       };
-    } catch (err) {
-      this.logger.error(`[Resend Network Exception] ${err}`);
-      captureException(err instanceof Error ? err : new Error(String(err)));
+    } catch {
+      this.logger.error('[Resend Network Exception] Email dispatch failed');
+      captureException(new Error('Resend email dispatch failed'));
       return {
         success: false,
         error: 'Network failure during email dispatch',
@@ -75,8 +106,9 @@ export class EmailService implements IEmailService {
     token: string,
     language: 'en' | 'hi' = 'en',
   ): Promise<SendEmailResult> {
-    const portalUrl = process.env['APP_URL'] || 'https://jobsclick.live';
-    const verifyLink = `${portalUrl}/auth/verify-email?token=${token}`;
+    const portalUrl = process.env['APP_URL'] || process.env['WEB_URL'] || 'http://localhost:3000';
+    const verifyLink = new URL('/auth/verify-email', portalUrl);
+    verifyLink.searchParams.set('token', token);
 
     const isHi = language === 'hi';
     const subject = isHi

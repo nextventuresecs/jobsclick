@@ -8,6 +8,7 @@ import {
   deepScrubPii,
   contextualTracesSampler,
   SENTRY_IGNORE_ERRORS,
+  getAppEnv,
 } from '@indian-job-portal/validation';
 
 export interface TraceContextPayload {
@@ -20,6 +21,10 @@ let isInitialized = false;
 
 function sanitizeWorkerLog(message: string): string {
   return sanitizeString(message);
+}
+
+export function getSentryEnvironment(): string {
+  return process.env['SENTRY_ENVIRONMENT'] || getAppEnv();
 }
 
 /**
@@ -38,7 +43,8 @@ export function initSentry(dsn?: string): void {
 
     const options: Sentry.NodeOptions = {
       dsn: resolvedDsn,
-      environment: process.env['NODE_ENV'] || 'development',
+      environment: getSentryEnvironment(),
+      ...(process.env['SENTRY_RELEASE'] ? { release: process.env['SENTRY_RELEASE'] } : {}),
       integrations: [
         Sentry.consoleLoggingIntegration({ levels: ['log', 'warn', 'error'] }),
       ],
@@ -138,7 +144,6 @@ export function handleWorkerJobFailure(
         scope.setTag('job_name', job?.name || 'unknown');
         scope.setExtra('attempts_made', attemptsMade);
         scope.setExtra('max_attempts', attempts);
-        scope.setExtra('job_data', deepScrubPii(job?.data));
 
         return Sentry.captureException(err);
       });
@@ -179,6 +184,16 @@ export function captureException(error: unknown, additionalContext?: Record<stri
       }
       return Sentry.captureException(error);
     });
+  }
+  return 'sentry_disabled_stub_id';
+}
+
+/**
+ * Standard Sentry captureMessage with PII scrubbing
+ */
+export function captureMessage(message: string, level: Sentry.SeverityLevel = 'info'): string {
+  if (process.env['SENTRY_DSN']) {
+    return Sentry.captureMessage(sanitizeWorkerLog(message), level);
   }
   return 'sentry_disabled_stub_id';
 }

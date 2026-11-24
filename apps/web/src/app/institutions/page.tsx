@@ -6,6 +6,7 @@ import {
   SAMPLE_INSTITUTIONS,
   InstitutionProfileData,
 } from '../../data/sampleWorkspaces';
+import { safeJsonLd } from '../../lib/safe-json-ld';
 import {
   Search,
   MapPin,
@@ -96,6 +97,7 @@ export default async function InstitutionsDirectoryPage({
     0
   );
 
+  const siteUrl = process.env['NEXT_PUBLIC_APP_URL'] || '';
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
@@ -117,7 +119,7 @@ export default async function InstitutionsDirectoryPage({
           addressRegion: inst.district,
           addressCountry: 'IN',
         },
-        url: `https://jobsclick.live/institution/${inst.id}`,
+        url: `${siteUrl}/institution/${inst.id}`,
       },
     })),
   };
@@ -155,7 +157,7 @@ export default async function InstitutionsDirectoryPage({
       {/* Structured SEO Schema */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
       />
 
       {/* Hero Header */}

@@ -1,11 +1,50 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { randomUUID } from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import type { UserRow } from '@indian-job-portal/database';
 import { AppModule } from '../src/app.module.js';
 import { USER_SCOPED_SUPABASE_FACTORY, createUserScopedSupabaseClient } from '../src/database/supabase.provider.js';
+import { UserRepository } from '../src/database/repositories/user.repository.js';
+import { JwtService } from '../src/auth/jwt.service.js';
+import { OtpRedisService } from '../src/auth/otp-redis.service.js';
 
 describe('T-02: Row-Level Security (RLS) & API Auth Guards (E2E)', () => {
   let app: NestFastifyApplication;
+  let userRepo: UserRepository;
+  let jwtService: JwtService;
+  let otpRedis: OtpRedisService;
+
+  let userA: { id: string; phone: string; token: string };
+  let userB: { id: string; phone: string; token: string };
+  let candidate: { id: string; phone: string; token: string };
+
+  async function createTestUser(role: UserRow['role']): Promise<{ id: string; phone: string; token: string }> {
+    const userId = randomUUID();
+    const phone = '98' + Math.floor(10000000 + Math.random() * 90000000);
+    await userRepo.save({
+      id: userId,
+      phone,
+      email: null,
+      role,
+      status: 'active',
+      source: 'seed',
+      created_by: null,
+      updated_by: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    });
+    await otpRedis.setAuthState(userId, {
+      role,
+      status: 'active',
+      tokenVersion: 0,
+    });
+    const token = await jwtService.signAccessToken(userId, 0, {
+      role,
+      status: 'active',
+    });
+    return { id: userId, phone, token };
+  }
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -18,6 +57,14 @@ describe('T-02: Row-Level Security (RLS) & API Auth Guards (E2E)', () => {
 
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
+
+    userRepo = app.get(UserRepository);
+    jwtService = app.get(JwtService);
+    otpRedis = app.get(OtpRedisService);
+
+    userA = await createTestUser('employer');
+    userB = await createTestUser('employer');
+    candidate = await createTestUser('job_seeker');
   });
 
   afterAll(async () => {
@@ -80,14 +127,11 @@ describe('T-02: Row-Level Security (RLS) & API Auth Guards (E2E)', () => {
   });
 
   it('prevents User A from modifying or deleting User B job (Enforced at API & Tenancy layers)', async () => {
-    const userB = 'usr_employer_b_owner';
-    const userA = 'usr_employer_a_intruder';
-
     // 1. User B creates a job posting
     const createRes = await app.inject({
       method: 'POST',
       url: '/jobs',
-      headers: { 'x-user-id': userB },
+      headers: { Authorization: `Bearer ${userB.token}`, 'x-user-id': userB.id },
       payload: {
         title: 'User B Exclusive Job',
         description: 'Only User B can edit this job',
@@ -107,7 +151,7 @@ describe('T-02: Row-Level Security (RLS) & API Auth Guards (E2E)', () => {
     const tamperRes = await app.inject({
       method: 'PUT',
       url: `/jobs/${job.id}`,
-      headers: { 'x-user-id': userA },
+      headers: { Authorization: `Bearer ${userA.token}`, 'x-user-id': userA.id },
       payload: {
         title: 'Tampered by User A',
       },
@@ -119,21 +163,17 @@ describe('T-02: Row-Level Security (RLS) & API Auth Guards (E2E)', () => {
     const deleteRes = await app.inject({
       method: 'DELETE',
       url: `/jobs/${job.id}`,
-      headers: { 'x-user-id': userA },
+      headers: { Authorization: `Bearer ${userA.token}`, 'x-user-id': userA.id },
     });
     expect([400, 403]).toContain(deleteRes.statusCode);
   });
 
   it('prevents User A from viewing User B private job applications', async () => {
-    const userB = 'usr_employer_b_owner';
-    const userA = 'usr_employer_a_intruder';
-    const candidate = 'usr_candidate_c';
-
     // 1. User B creates job
     const createJobRes = await app.inject({
       method: 'POST',
       url: '/jobs',
-      headers: { 'x-user-id': userB },
+      headers: { Authorization: `Bearer ${userB.token}`, 'x-user-id': userB.id },
       payload: {
         title: 'Confidential Executive Role',
         description: 'Applications are private to User B',
@@ -152,7 +192,7 @@ describe('T-02: Row-Level Security (RLS) & API Auth Guards (E2E)', () => {
     const applyRes = await app.inject({
       method: 'POST',
       url: `/jobs/${job.id}/apply`,
-      headers: { 'x-user-id': candidate },
+      headers: { Authorization: `Bearer ${candidate.token}`, 'x-user-id': candidate.id },
     });
     expect(applyRes.statusCode).toBe(201);
 
@@ -160,7 +200,7 @@ describe('T-02: Row-Level Security (RLS) & API Auth Guards (E2E)', () => {
     const intruderRes = await app.inject({
       method: 'GET',
       url: `/jobs/${job.id}/applications`,
-      headers: { 'x-user-id': userA },
+      headers: { Authorization: `Bearer ${userA.token}`, 'x-user-id': userA.id },
     });
     expect([400, 403]).toContain(intruderRes.statusCode);
   });

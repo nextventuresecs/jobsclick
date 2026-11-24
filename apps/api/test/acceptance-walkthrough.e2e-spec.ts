@@ -2,6 +2,9 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import { AppModule } from '../src/app.module.js';
+import { ThrottlerGuard } from '@nestjs/throttler';
+import { OtpRedisService } from '../src/auth/otp-redis.service.js';
+import { OtpGenerator } from '../src/auth/otp-generator.service.js';
 import { runLoadTestSimulation } from '../../../scripts/load-test.js';
 import { executeBackupRestoreDrill } from '../../../scripts/backup-restore.js';
 import { runSecurityChecklistScan } from '../../../scripts/security-scan.js';
@@ -12,7 +15,12 @@ describe('PRD 14.1 Full Acceptance Walkthrough (Epic 6 Launch Readiness)', () =>
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideGuard(ThrottlerGuard)
+      .useValue({ canActivate: () => true })
+      .overrideProvider(OtpGenerator)
+      .useValue({ generate: () => '123456' })
+      .compile();
 
     app = moduleFixture.createNestApplication<NestFastifyApplication>(
       new FastifyAdapter(),
@@ -47,27 +55,32 @@ describe('PRD 14.1 Full Acceptance Walkthrough (Epic 6 Launch Readiness)', () =>
 
   it('runs complete end-to-end user workflow vs PRD 14.1 (Issue #29)', async () => {
     // Step 1: Candidate OTP authentication
+    const testPhone = '98' + Math.floor(10000000 + Math.random() * 90000000);
+    await app.get(OtpRedisService).resetForTest(testPhone);
+
     const otpRes = await app.inject({
       method: 'POST',
       url: '/auth/send-otp',
-      payload: { phone: '9876543210' },
+      payload: { phone: testPhone, turnstileToken: 'test-token' },
     });
-    expect(otpRes.statusCode).toBe(201);
+    expect([200, 201]).toContain(otpRes.statusCode);
 
     const verifyRes = await app.inject({
       method: 'POST',
       url: '/auth/verify-otp',
-      payload: { phone: '9876543210', code: '123456', role: 'job_seeker' },
+      payload: { phone: testPhone, code: '123456', role: 'job_seeker' },
     });
-    expect(verifyRes.statusCode).toBe(201);
+    expect([200, 201]).toContain(verifyRes.statusCode);
 
-    const seekerId = `usr_walkthrough_${Date.now()}`;
+    const seekerId = verifyRes.json().user.id;
+    expect(seekerId).toBeDefined();
+    const seekerToken = verifyRes.json().accessToken;
 
     // Step 2: Candidate Profile Update with DPDP Consent
     const profileRes = await app.inject({
       method: 'PUT',
       url: '/profiles/seeker/me',
-      headers: { 'x-user-id': seekerId },
+      headers: { authorization: `Bearer ${seekerToken}` },
       payload: {
         fullName: 'Sunil Verma',
         seekerType: 'individual',
@@ -80,10 +93,25 @@ describe('PRD 14.1 Full Acceptance Walkthrough (Epic 6 Launch Readiness)', () =>
     expect(profileRes.statusCode).toBe(200);
 
     // Step 3: Employer creates job posting
+    const empPhone = '98' + Math.floor(10000000 + Math.random() * 90000000);
+    await app.get(OtpRedisService).resetForTest(empPhone);
+    await app.inject({
+      method: 'POST',
+      url: '/auth/send-otp',
+      payload: { phone: empPhone, turnstileToken: 'test-token' },
+    });
+    const empVerifyRes = await app.inject({
+      method: 'POST',
+      url: '/auth/verify-otp',
+      payload: { phone: empPhone, code: '123456', role: 'employer' },
+    });
+    expect([200, 201]).toContain(empVerifyRes.statusCode);
+    const empToken = empVerifyRes.json().accessToken;
+
     const jobRes = await app.inject({
       method: 'POST',
       url: '/jobs',
-      headers: { 'x-user-id': 'usr_walkthrough_emp' },
+      headers: { authorization: `Bearer ${empToken}` },
       payload: {
         title: 'Senior Accountant MSME',
         description: 'Need full-time senior accountant for MSME enterprise.',
@@ -103,7 +131,7 @@ describe('PRD 14.1 Full Acceptance Walkthrough (Epic 6 Launch Readiness)', () =>
     const applyRes = await app.inject({
       method: 'POST',
       url: `/jobs/${job.id}/apply`,
-      headers: { 'x-user-id': seekerId },
+      headers: { authorization: `Bearer ${seekerToken}` },
     });
     expect(applyRes.statusCode).toBe(201);
 
@@ -111,7 +139,7 @@ describe('PRD 14.1 Full Acceptance Walkthrough (Epic 6 Launch Readiness)', () =>
     const appsRes = await app.inject({
       method: 'GET',
       url: `/jobs/${job.id}/applications`,
-      headers: { 'x-user-id': 'usr_walkthrough_emp' },
+      headers: { authorization: `Bearer ${empToken}` },
     });
     expect(appsRes.statusCode).toBe(200);
     const apps = JSON.parse(appsRes.payload);

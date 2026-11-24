@@ -11,6 +11,7 @@ import {
   UsePipes,
   UseGuards,
   Inject,
+  NotFoundException,
 } from '@nestjs/common';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { JobsService } from './jobs.service.js';
@@ -27,6 +28,7 @@ import {
   createJobAlertSchema,
   PromoteJobInput,
   CreateJobAlertInput,
+  isUuid,
 } from '@indian-job-portal/validation';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard.js';
@@ -45,6 +47,13 @@ export class JobsController {
   async createJob(@CurrentUser() user: AuthUser, @Body() body: CreateJobInput) {
     const validated = createJobSchema.parse(body);
     return this.jobsService.createJob(user.id, validated);
+  }
+
+  // ID-02: Authenticated employer retrieves their job list carrying public_slug
+  @Roles('employer', 'admin')
+  @Get('employer/me')
+  async getEmployerJobs(@CurrentUser() user: AuthUser) {
+    return this.jobsService.getEmployerJobs(user.id);
   }
 
   @Public()
@@ -77,11 +86,16 @@ export class JobsController {
     return this.jobsService.getJobAlerts(user.id);
   }
 
+  // ID-02: Public job detail looked up exclusively by public_slug
+  // UUIDs are rejected with 404 (no redirect) to prevent confirming internal IDs.
   @Public()
-  @Get(':id')
+  @Get(':slug')
   @Header('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=59')
-  async getJobById(@Param('id') id: string) {
-    return this.jobsService.getJobById(id);
+  async getJobBySlug(@Param('slug') slug: string) {
+    if (isUuid(slug)) {
+      throw new NotFoundException('Job not found');
+    }
+    return this.jobsService.getJobBySlug(slug);
   }
 
   @Roles('employer', 'admin')
@@ -135,5 +149,15 @@ export class JobsController {
   ) {
     const validated = updateApplicationStatusSchema.parse(body);
     return this.jobsService.updateApplicationStatus(user.id, appId, validated.status, user.role);
+  }
+
+  // Interview Invite SMS Dispatch (Hard Invariant #1 & JOB-03)
+  @Roles('employer', 'admin')
+  @Post('applications/:appId/interview-invite')
+  async sendInterviewInvite(
+    @CurrentUser() user: AuthUser,
+    @Param('appId') appId: string,
+  ) {
+    return this.jobsService.sendInterviewInvite(user.id, appId, user.role);
   }
 }

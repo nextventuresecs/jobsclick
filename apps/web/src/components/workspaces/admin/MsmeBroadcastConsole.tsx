@@ -1,11 +1,14 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import * as Sentry from '@sentry/nextjs';
 import { useTranslations } from 'next-intl';
+import { useApp } from '../../../context/AppContext';
 import {
   Send,
   Radio,
   AlertTriangle,
+  AlertCircle,
   CheckCircle2,
   Users,
   Layers,
@@ -27,26 +30,7 @@ export interface DltTemplateOption {
   language: 'en' | 'hi';
 }
 
-const DEFAULT_TEMPLATES: DltTemplateOption[] = [
-  {
-    id: 'DLT_MSME_NOTICE_EN',
-    name: 'General Compliance Notice (English - GSM-7)',
-    templateText: '[Govt of India MSME Dept] Notice to {#companyName#}: {#message#} - District Industry Centre',
-    language: 'en',
-  },
-  {
-    id: 'DLT_MSME_NOTICE_HI',
-    name: 'सामान्य अनुपालन सूचना (हिंदी - Unicode UCS-2)',
-    templateText: '[भारत सरकार एमएसएमई विभाग] {#companyName#} के लिए सूचना: {#message#} - जिला उद्योग केंद्र',
-    language: 'hi',
-  },
-  {
-    id: 'DLT_MSME_SUBSIDY_ALERT_EN',
-    name: 'Cluster Subsidy Alert (English - GSM-7)',
-    templateText: '[MSME Alert] Subsidies available for {#sector#} units in {#district#}. Apply at msme.gov.in',
-    language: 'en',
-  },
-];
+const DEFAULT_TEMPLATES: DltTemplateOption[] = [];
 
 const DISTRICT_OPTIONS = [
   'All Districts',
@@ -86,8 +70,21 @@ export interface MsmeBroadcastConsoleProps {
   }) => Promise<{ campaignId: string }>;
 }
 
+interface CostPreviewResponse {
+  recipientCount: number;
+  encoding: string;
+  segmentCount: number;
+  graphemeCount: number;
+  costPerSmsPaise: number;
+  totalCostPaise: number;
+  totalCostInr: number;
+  previewText?: string;
+  audienceDigest?: string;
+}
+
 export function MsmeBroadcastConsole({ onDispatch }: MsmeBroadcastConsoleProps) {
   const t = useTranslations('MsmeBroadcast');
+  const { accessToken } = useApp();
 
   const [filters, setFilters] = useState<BroadcastFiltersState>({
     district: 'All Districts',
@@ -95,7 +92,7 @@ export function MsmeBroadcastConsole({ onDispatch }: MsmeBroadcastConsoleProps) 
     companySize: 'all',
   });
 
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('DLT_MSME_NOTICE_EN');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(DEFAULT_TEMPLATES[0]?.id || '');
   const [customNotice, setCustomNotice] = useState<string>(
     'Quarterly industrial subsidy filing window is now open until 30th of this month.',
   );
@@ -103,6 +100,50 @@ export function MsmeBroadcastConsole({ onDispatch }: MsmeBroadcastConsoleProps) 
   const [confirmInput, setConfirmInput] = useState('');
   const [isDispatching, setIsDispatching] = useState(false);
   const [dispatchSuccessId, setDispatchSuccessId] = useState<string | null>(null);
+  const [serverQuote, setServerQuote] = useState<CostPreviewResponse | null>(null);
+  const [isQuoteLoading, setIsQuoteLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Fetch real cost preview from server quote API
+  useEffect(() => {
+    let isMounted = true;
+    setIsQuoteLoading(true);
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
+    const reqBody = {
+      filters: {
+        district: filters.district === 'All Districts' ? undefined : filters.district,
+        sector: filters.sector === 'All Sectors' ? undefined : filters.sector,
+        companySize: filters.companySize === 'all' ? undefined : filters.companySize,
+      },
+      templateId: selectedTemplateId,
+      variables: { message: customNotice },
+    };
+
+    fetch(`${apiUrl}/admin/broadcast/preview`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      body: JSON.stringify(reqBody),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: CostPreviewResponse | null) => {
+        if (!isMounted || !data) return;
+        setServerQuote(data);
+      })
+      .catch((err) => {
+        Sentry.captureException(err);
+      })
+      .finally(() => {
+        if (isMounted) setIsQuoteLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [filters, selectedTemplateId, customNotice, accessToken]);
 
   // Selected DLT template
   const currentTemplate = useMemo(() => {
@@ -125,42 +166,34 @@ export function MsmeBroadcastConsole({ onDispatch }: MsmeBroadcastConsoleProps) 
       .replace('{#message#}', customNotice);
   }, [currentTemplate, filters, customNotice]);
 
-  // Encoding & Segment calculation
+  // Telecom encoding & Server-Backed Segment calculation
   const segmentCalculation = useMemo(() => {
     const text = interpolatedMessage;
-    // Check if Unicode (e.g. Hindi Devanagari)
     const isUnicode = /[^\u0000-\u007F]/.test(text) || currentTemplate.language === 'hi';
     const charCount = Array.from(text).length;
 
-    let segmentCount = 1;
-    if (isUnicode) {
-      segmentCount = charCount <= 70 ? 1 : Math.ceil(charCount / 67);
-    } else {
-      segmentCount = charCount <= 160 ? 1 : Math.ceil(charCount / 153);
+    if (serverQuote) {
+      return {
+        encoding: serverQuote.encoding,
+        isUnicode,
+        charCount,
+        segmentCount: serverQuote.segmentCount,
+        audienceCount: serverQuote.recipientCount,
+        costPerSegmentPaise: serverQuote.costPerSmsPaise || 20,
+        totalCostInr: serverQuote.totalCostInr,
+      };
     }
-
-    // Dynamic audience simulation based on selected filters
-    let baseAudience = 1240;
-    if (filters.district !== 'All Districts') baseAudience = Math.round(baseAudience / 5);
-    if (filters.sector !== 'All Sectors') baseAudience = Math.round(baseAudience / 3);
-    if (filters.companySize !== 'all') baseAudience = Math.round(baseAudience / 2);
-    const audienceCount = Math.max(12, baseAudience);
-
-    // Standard telco cost: 20 paise (₹0.20) per segment
-    const costPerSegmentPaise = 20;
-    const totalCostPaise = audienceCount * segmentCount * costPerSegmentPaise;
-    const totalCostInr = (totalCostPaise / 100).toFixed(2);
 
     return {
       encoding: isUnicode ? 'UCS-2 (Unicode Hindi)' : 'GSM-7 (Standard ASCII)',
       isUnicode,
       charCount,
-      segmentCount,
-      audienceCount,
-      costPerSegmentPaise,
-      totalCostInr,
+      segmentCount: 1,
+      audienceCount: 0,
+      costPerSegmentPaise: 20,
+      totalCostInr: 0,
     };
-  }, [interpolatedMessage, currentTemplate, filters]);
+  }, [interpolatedMessage, currentTemplate, serverQuote]);
 
   const handleOpenConfirmModal = () => {
     setConfirmInput('');
@@ -170,23 +203,28 @@ export function MsmeBroadcastConsole({ onDispatch }: MsmeBroadcastConsoleProps) 
   const handleExecuteDispatch = async () => {
     if (confirmInput.trim().toUpperCase() !== 'CONFIRM') return;
 
+    const confirmationToken = serverQuote?.audienceDigest
+      ? `CONFIRM_${serverQuote.audienceDigest.slice(0, 16)}`
+      : 'CONFIRM_DISPATCH_AUTHORIZED';
+
     setIsDispatching(true);
+    setErrorMsg(null);
     try {
       if (onDispatch) {
         const res = await onDispatch({
           filters,
           templateId: selectedTemplateId,
           variables: { message: customNotice },
-          confirmationToken: 'CONFIRM_DISPATCH_AUTHORIZED',
+          confirmationToken,
         });
         setDispatchSuccessId(res.campaignId);
       } else {
-        // Fallback local API invocation
-        const response = await fetch('/api/admin/broadcast/dispatch', {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const response = await fetch(`${apiUrl}/admin/broadcast/dispatch`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-user-role': 'msme_admin',
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           },
           body: JSON.stringify({
             filters: {
@@ -196,21 +234,26 @@ export function MsmeBroadcastConsole({ onDispatch }: MsmeBroadcastConsoleProps) 
             },
             templateId: selectedTemplateId,
             variables: { message: customNotice },
-            confirmationToken: 'CONFIRM_DISPATCH_AUTHORIZED',
+            confirmationToken,
+            expectedAudienceDigest: serverQuote?.audienceDigest,
           }),
         });
 
-        if (response.ok) {
-          const data = await response.json();
-          setDispatchSuccessId(data.campaignId || `camp_${Date.now()}`);
-        } else {
-          setDispatchSuccessId(`camp_${Date.now()}`);
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData?.message || `Broadcast dispatch failed (${response.status})`);
         }
+
+        const data = await response.json();
+        if (!data?.campaignId) {
+          throw new Error('Server response missing campaign ID');
+        }
+        setDispatchSuccessId(data.campaignId);
       }
       setIsModalOpen(false);
-    } catch {
-      // Graceful fallback for mock mode
-      setDispatchSuccessId(`camp_${Date.now()}`);
+    } catch (err) {
+      Sentry.captureException(err);
+      setErrorMsg(err instanceof Error ? err.message : 'Broadcast dispatch failed.');
       setIsModalOpen(false);
     } finally {
       setIsDispatching(false);
@@ -240,6 +283,16 @@ export function MsmeBroadcastConsole({ onDispatch }: MsmeBroadcastConsoleProps) 
             <span className="block text-emerald-700 font-mono mt-0.5">
               Campaign ID: {dispatchSuccessId} • Queued to BullMQ broadcast-queue
             </span>
+          </div>
+        </div>
+      )}
+
+      {errorMsg && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+          <div className="text-xs">
+            <span className="font-bold text-red-900">Broadcast Dispatch Failed</span>
+            <span className="block text-red-700 mt-0.5">{errorMsg}</span>
           </div>
         </div>
       )}
@@ -321,16 +374,21 @@ export function MsmeBroadcastConsole({ onDispatch }: MsmeBroadcastConsoleProps) 
               id="select-template"
               value={selectedTemplateId}
               onChange={(e) => setSelectedTemplateId(e.target.value)}
-              className="w-full text-xs rounded-lg border border-gray-300 p-2.5 bg-white focus:ring-2 focus:ring-orange-500"
+              disabled={DEFAULT_TEMPLATES.length === 0}
+              className="w-full text-xs rounded-lg border border-gray-300 p-2.5 bg-white focus:ring-2 focus:ring-orange-500 disabled:bg-gray-100 disabled:text-gray-500"
             >
-              {DEFAULT_TEMPLATES.map((tpl) => (
-                <option key={tpl.id} value={tpl.id}>
-                  {tpl.name} ({tpl.id})
-                </option>
-              ))}
+              {DEFAULT_TEMPLATES.length === 0 ? (
+                <option value="">No approved DLT broadcast templates</option>
+              ) : (
+                DEFAULT_TEMPLATES.map((tpl) => (
+                  <option key={tpl.id} value={tpl.id}>
+                    {tpl.name} ({tpl.id})
+                  </option>
+                ))
+              )}
             </select>
             <span className="text-[11px] text-gray-500 mt-1 block">
-              Registered Sender Header: <strong className="text-gray-700">INDIAN</strong> • TRAI Principle Entity Whitelisted
+              Registered Sender Header: <strong className="text-gray-700">JOBSCK</strong> • TRAI Principal Entity Active
             </span>
           </div>
 
@@ -437,10 +495,13 @@ export function MsmeBroadcastConsole({ onDispatch }: MsmeBroadcastConsoleProps) 
           <button
             type="button"
             onClick={handleOpenConfirmModal}
-            className="w-full mt-4 flex items-center justify-center gap-2 bg-[#F97316] hover:bg-[#EA580C] text-white font-bold py-3 px-4 rounded-xl shadow-sm transition-all cursor-pointer text-xs"
+            disabled={isQuoteLoading || isDispatching}
+            className={`w-full mt-4 flex items-center justify-center gap-2 bg-[#F97316] hover:bg-[#EA580C] text-white font-bold py-3 px-4 rounded-xl shadow-sm transition-all text-xs ${
+              isQuoteLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+            }`}
           >
             <Send className="w-4 h-4" />
-            <span>{t('dispatchButton')}</span>
+            <span>{isQuoteLoading ? 'Calculating Quote...' : t('dispatchButton')}</span>
           </button>
         </div>
       </div>

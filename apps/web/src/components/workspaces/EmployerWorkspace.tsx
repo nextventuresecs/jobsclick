@@ -26,6 +26,7 @@ export function EmployerWorkspace() {
     isEditingProfile, setIsEditingProfile, companyJobs, applicants,
     filteredApplicants, viewingApplicant, setViewingApplicant,
     handlePostJob, handleUpdateStatus, handleSaveProfile,
+    handleSendInterviewInvite, isSendingInvite,
     applicantSearch, setApplicantSearch, statusFilter, setStatusFilter,
     editFormData, postJobState,
   } = useEmployerWorkspace({ user, accessToken, addToast });
@@ -133,6 +134,8 @@ export function EmployerWorkspace() {
             applicant={viewingApplicant}
             onClose={() => setViewingApplicant(null)}
             onUpdateStatus={handleUpdateStatus}
+            onSendInterviewInvite={handleSendInterviewInvite}
+            isSendingInvite={isSendingInvite}
           />
         </>
       )}

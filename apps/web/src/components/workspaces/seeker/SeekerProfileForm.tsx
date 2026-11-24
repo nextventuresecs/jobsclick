@@ -3,7 +3,7 @@
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@indian-job-portal/ui';
-import { Save } from 'lucide-react';
+import { Save, Download } from 'lucide-react';
 import type { SeekerFormData } from './seekerFormTypes';
 import { SeekerDemographicsFields } from './SeekerDemographicsFields';
 import { SeekerKycAndEduFields } from './SeekerKycAndEduFields';
@@ -14,6 +14,8 @@ interface SeekerProfileFormProps {
   updateField: <K extends keyof SeekerFormData>(key: K, value: SeekerFormData[K]) => void;
   onSubmit: (e: React.FormEvent) => void;
   onCancel: () => void;
+  onDownloadPdf?: () => void;
+  isDownloadingPdf?: boolean;
 }
 
 export function SeekerProfileForm({
@@ -21,6 +23,8 @@ export function SeekerProfileForm({
   updateField,
   onSubmit,
   onCancel,
+  onDownloadPdf,
+  isDownloadingPdf,
 }: SeekerProfileFormProps) {
   const t = useTranslations('SeekerWorkspace');
 
@@ -32,6 +36,19 @@ export function SeekerProfileForm({
           <p className="text-xs text-gray-500">{t('formEditSubheading')}</p>
         </div>
         <div className="flex items-center gap-2">
+          {onDownloadPdf && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isDownloadingPdf}
+              onClick={onDownloadPdf}
+              className="inline-flex items-center gap-1.5"
+            >
+              <Download className="w-4 h-4 text-gray-600" />
+              <span>{isDownloadingPdf ? '...' : t('downloadPdf')}</span>
+            </Button>
+          )}
           <button
             type="button"
             onClick={onCancel}
@@ -51,6 +68,19 @@ export function SeekerProfileForm({
       <SeekerSkillsAndPrefsFields formData={formData} updateField={updateField} />
 
       <div className="pt-4 border-t border-gray-200 flex items-center justify-end gap-3">
+        {onDownloadPdf && (
+          <Button
+            type="button"
+            variant="outline"
+            size="md"
+            disabled={isDownloadingPdf}
+            onClick={onDownloadPdf}
+            className="inline-flex items-center gap-1.5"
+          >
+            <Download className="w-4 h-4 text-gray-600" />
+            <span>{isDownloadingPdf ? '...' : t('downloadPdf')}</span>
+          </Button>
+        )}
         <button
           type="button"
           onClick={onCancel}

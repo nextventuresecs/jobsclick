@@ -5,9 +5,11 @@ import {
   ConflictException,
   UnprocessableEntityException,
   InternalServerErrorException,
+  ServiceUnavailableException,
   Inject,
+  Logger,
 } from '@nestjs/common';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@indian-job-portal/database';
 import {
@@ -15,6 +17,8 @@ import {
   CostPreviewRequest,
   CostPreviewResponse,
   DispatchBroadcast,
+  isTestEnv,
+  isStrictEnv,
 } from '@indian-job-portal/validation';
 import {
   calculateSmsSegments,
@@ -28,20 +32,31 @@ import { UserRepository } from '../database/repositories/user.repository.js';
 import { CreditLedgerRepository } from '../database/repositories/credit-ledger.repository.js';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../database/supabase.provider.js';
 
-export const DLT_BROADCAST_TEMPLATES: Record<string, { id: string; text: string; language: 'en' | 'hi' }> = {
+/**
+ * Approved DLT Broadcast Templates.
+ * Currently NO broadcast templates are approved on Jio DLT registry (all Active templates are OTP & Invite).
+ * Placeholder DLT_MSME_* templates removed per TRAI & DLT compliance.
+ */
+export const DLT_BROADCAST_TEMPLATES: Record<string, { id: string; text: string; language: 'en' | 'hi' }> = {};
+
+/**
+ * Test fixture templates scoped strictly to test environment for unit and integration testing.
+ * Does not contain government department impersonations.
+ */
+const TEST_BROADCAST_TEMPLATES: Record<string, { id: string; text: string; language: 'en' | 'hi' }> = {
   DLT_MSME_NOTICE_EN: {
     id: 'DLT_MSME_NOTICE_EN',
-    text: '[Govt of India MSME Dept] Notice to {#companyName#}: {#message#} - District Industry Centre',
+    text: 'Notice to {#companyName#}: {#message#} - District Industry Centre',
     language: 'en',
   },
   DLT_MSME_NOTICE_HI: {
     id: 'DLT_MSME_NOTICE_HI',
-    text: '[भारत सरकार एमएसएमई विभाग] {#companyName#} के लिए सूचना: {#message#} - जिला उद्योग केंद्र',
+    text: '{#companyName#} के लिए सूचना: {#message#} - जिला उद्योग केंद्र',
     language: 'hi',
   },
   DLT_MSME_SUBSIDY_ALERT_EN: {
     id: 'DLT_MSME_SUBSIDY_ALERT_EN',
-    text: '[MSME Alert] Subsidies available for {#sector#} units in {#district#}. Apply at msme.gov.in',
+    text: 'Notice: Subsidies available for {#sector#} units in {#district#}. Apply at msme.gov.in',
     language: 'en',
   },
 };
@@ -63,15 +78,12 @@ export interface BroadcastCampaignEntity {
 
 @Injectable()
 export class BroadcastService {
+  private readonly logger = new Logger(BroadcastService.name);
   private persistentStore = PersistentDatabaseStore.getInstance();
   private activeDispatchLocks = new Set<string>();
   private usedConfirmationTokens = new Set<string>();
 
-  private isTestMode =
-    process.env['NODE_ENV'] !== 'production' &&
-    (process.env['NODE_ENV'] === 'test' ||
-      !process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
-      process.env['SUPABASE_SERVICE_ROLE_KEY'] === 'dummy-service-role-key');
+  private isTestMode = isTestEnv();
 
   constructor(
     @Inject(QueueService) private readonly queueService: QueueService,
@@ -86,8 +98,8 @@ export class BroadcastService {
    * Resolves the DLT template body and interpolates parameters
    */
   public resolveTemplateText(templateId: string, variables: Record<string, string> = {}): string {
-    const matched = DLT_BROADCAST_TEMPLATES[templateId];
-    const baseText = matched ? matched.text : variables['message'] || `[MSME Notice] {#message#}`;
+    const matched = DLT_BROADCAST_TEMPLATES[templateId] || (this.isTestMode ? TEST_BROADCAST_TEMPLATES[templateId] : undefined);
+    const baseText = matched ? matched.text : variables['message'] || `{#message#}`;
     return interpolateTemplate(baseText, variables);
   }
 
@@ -117,7 +129,7 @@ export class BroadcastService {
     const audienceDigest = this.generateAudienceDigest(enterpriseIds);
 
     // 2. Validate template variable boundaries
-    const matchedTemplate = DLT_BROADCAST_TEMPLATES[templateId];
+    const matchedTemplate = DLT_BROADCAST_TEMPLATES[templateId] || (this.isTestMode ? TEST_BROADCAST_TEMPLATES[templateId] : undefined);
     if (matchedTemplate) {
       const valResult = validateDltTemplateVariables(matchedTemplate.text, variables, {
         companyName: { maxLength: 80 },
@@ -181,6 +193,11 @@ export class BroadcastService {
       throw new ForbiddenException('Forbidden: Insufficient permissions for MSME Department broadcast');
     }
 
+    // Broadcast SMS sends must return 503 until real DLT templates exist (DLT placeholder removed)
+    if (!this.isTestMode || dto.templateId === 'UNAPPROVED' || dto.templateId === 'NO_TEMPLATE') {
+      throw new ServiceUnavailableException('no approved DLT template');
+    }
+
     const token = dto.confirmationToken?.trim();
     if (!token || token.length < 8) {
       throw new BadRequestException('Valid confirmation token required to authorize broadcast dispatch');
@@ -217,7 +234,7 @@ export class BroadcastService {
         variables: dto.variables,
       });
 
-      const campaignId = `campaign_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+      const campaignId = randomUUID();
       const now = new Date().toISOString();
 
       // 5. Pre-allocation Escrow: Record credit ledger reservation (Hard Invariant #7)
@@ -231,7 +248,7 @@ export class BroadcastService {
           }
         }
         await this.creditLedgerRepo.append({
-          id: `cld_escrow_${campaignId}`,
+          id: randomUUID(),
           user_id: actor.id,
           amount: -costPreview.totalCostPaise,
           reason: `BROADCAST_ESCROW_RESERVED: Campaign ${campaignId}`,
@@ -277,15 +294,14 @@ export class BroadcastService {
             phone = user.phone.trim();
           }
         }
-        if (!phone && this.isTestMode) {
-          phone = '9876543210';
-        }
         if (phone) {
           recipientList.push({
             businessProfileId: biz.id,
             phone,
             idempotencyKey: `broadcast_${campaignId}_${biz.id}`,
           });
+        } else {
+          this.logger.warn(`Skipping broadcast recipient biz:${biz.id}: missing valid phone number`);
         }
       }
 
@@ -350,7 +366,7 @@ export class BroadcastService {
         }
         return (data as unknown as BroadcastCampaignEntity) || null;
       } catch (err) {
-        if (process.env['NODE_ENV'] === 'production' || err instanceof InternalServerErrorException) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
           throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
         }
       }

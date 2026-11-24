@@ -9,7 +9,7 @@ export function createQuickStudent(
   passingYear: string
 ): StudentRecordData {
   return {
-    id: `stu-direct-${Date.now()}`,
+    id: crypto.randomUUID(),
     institutionId,
     studentName: name.trim(),
     rollNumber: roll.trim(),
@@ -32,7 +32,10 @@ export interface StudentMultiSelectFilters {
   readonly search?: string;
 }
 
-export function maskContactNumber(phone?: string | null): string {
+export function maskContactNumber(phone?: string | null, viewerRole?: string): string {
+  if (viewerRole === 'institution') {
+    return phone && phone.trim() ? phone.trim() : '—';
+  }
   if (!phone || !phone.trim()) {
     return '••••••••••';
   }
@@ -43,11 +46,14 @@ export function maskContactNumber(phone?: string | null): string {
   return '••••• •••••';
 }
 
-export function maskEmailAddress(email?: string | null): string {
-  if (!email || !email.trim()) {
-    return '•••••@••••.•••';
+export function maskEmailAddress(email?: string | null, viewerRole?: string): string {
+  if (viewerRole === 'institution') {
+    return email && email.trim() ? email.trim() : '—';
   }
-  return '•••••@••••.•••';
+  if (!email || !email.trim()) {
+    return '••••••@••••••';
+  }
+  return '••••••@••••••';
 }
 
 export function filterStudentsMultiSelect(

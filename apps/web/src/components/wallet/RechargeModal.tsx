@@ -5,46 +5,59 @@ import { useTranslations } from 'next-intl';
 import {
   CREDIT_PACKS,
   type CreditPackDefinition,
+  isValidGstin,
 } from '@indian-job-portal/validation';
 import {
-  CheckCircle,
   CreditCard,
-  ShieldCheck,
-  Download,
-  X,
+  CheckCircle2,
   AlertCircle,
+  ShieldCheck,
+  X,
   Sparkles,
   Receipt,
+  Download,
+  Loader2,
 } from 'lucide-react';
+import { useRazorpayCheckout, validateRazorpayKeyId } from './useRazorpayCheckout';
+import { invalidateWalletBalance } from './useWalletBalance';
 
-interface RechargeModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess?: (newBalance: number) => void;
-  currentBalance?: number;
-  user?: {
-    id: string;
-    phone?: string;
-    email?: string | null;
-    fullName?: string;
-    companyName?: string;
+export { validateRazorpayKeyId };
+
+export interface RechargeModalProps {
+  readonly isOpen: boolean;
+  readonly onClose: () => void;
+  readonly onSuccess?: (newBalance: number) => void;
+  readonly currentBalance?: number;
+  readonly user?: {
+    readonly id: string;
+    readonly phone?: string;
+    readonly email?: string | null;
+    readonly fullName?: string;
+    readonly companyName?: string;
   };
 }
 
-interface RazorpayInstance {
-  open: () => void;
-  on: (event: string, handler: (response: { error?: { description?: string } }) => void) => void;
-}
-
-interface RazorpayConstructor {
-  new (options: Record<string, unknown>): RazorpayInstance;
-}
-
-declare global {
-  interface Window {
-    Razorpay?: RazorpayConstructor;
-  }
-}
+// Indian GST State Codes (2-digit)
+export const INDIAN_GST_STATES: readonly { code: string; name: string }[] = [
+  { code: '01', name: 'Jammu and Kashmir' },
+  { code: '02', name: 'Himachal Pradesh' },
+  { code: '03', name: 'Punjab' },
+  { code: '04', name: 'Chandigarh' },
+  { code: '05', name: 'Uttarakhand' },
+  { code: '06', name: 'Haryana' },
+  { code: '07', name: 'Delhi' },
+  { code: '08', name: 'Rajasthan' },
+  { code: '09', name: 'Uttar Pradesh' },
+  { code: '10', name: 'Bihar' },
+  { code: '19', name: 'West Bengal' },
+  { code: '24', name: 'Gujarat' },
+  { code: '27', name: 'Maharashtra' },
+  { code: '29', name: 'Karnataka' },
+  { code: '32', name: 'Kerala' },
+  { code: '33', name: 'Tamil Nadu' },
+  { code: '36', name: 'Telangana' },
+  { code: '37', name: 'Andhra Pradesh' },
+];
 
 export const RechargeModal: React.FC<RechargeModalProps> = ({
   isOpen,
@@ -56,195 +69,118 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
   const t = useTranslations('wallet');
 
   const [selectedPackId, setSelectedPackId] = useState<string>('pack_growth');
-  const [billingName, setBillingName] = useState(user?.companyName || user?.fullName || '');
-  const [billingEmail, setBillingEmail] = useState(user?.email || '');
-  const [billingPhone, setBillingPhone] = useState(user?.phone || '');
-  const [billingAddress, setBillingAddress] = useState('');
-  const [billingGstin, setBillingGstin] = useState('');
-  const [showBilling, setShowBilling] = useState(false);
+  const [hasGstin, setHasGstin] = useState<boolean>(false);
+  const [billingGstin, setBillingGstin] = useState<string>('');
+  const [billingName, setBillingName] = useState<string>(
+    user?.companyName || user?.fullName || ''
+  );
+  const [billingEmail, setBillingEmail] = useState<string>(user?.email || '');
+  const [billingPhone, setBillingPhone] = useState<string>(user?.phone || '');
+  const [billingStateCode, setBillingStateCode] = useState<string>('27'); // Default to Maharashtra (SPACECRAFTZZ home state)
+  const [billingAddress, setBillingAddress] = useState<string>('');
+  const [termsAccepted, setTermsAccepted] = useState<boolean>(false);
+  const [formValidationMsg, setFormValidationMsg] = useState<string | null>(null);
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [completedPayment, setCompletedPayment] = useState<{
-    orderId: string;
-    paymentId: string;
-    creditsAdded: number;
-    newBalance: number;
-    invoiceNumber: string;
-    paymentRecordId: string;
-  } | null>(null);
+  const { state, error, completedOrder, startCheckout, reset } = useRazorpayCheckout();
 
   if (!isOpen) return null;
 
   const selectedPack: CreditPackDefinition =
     CREDIT_PACKS[selectedPackId] ?? CREDIT_PACKS['pack_growth']!;
 
-  // Load Razorpay Checkout SDK dynamically
-  const loadRazorpayScript = (): Promise<boolean> => {
-    return new Promise((resolve) => {
-      if (typeof window !== 'undefined' && window.Razorpay) {
-        return resolve(true);
+  const handleGstinChange = (raw: string) => {
+    const formatted = raw.toUpperCase().trim();
+    setBillingGstin(formatted);
+
+    // Auto-detect State Code from first two digits of GSTIN
+    if (formatted.length >= 2) {
+      const code = formatted.slice(0, 2);
+      if (INDIAN_GST_STATES.some((s) => s.code === code)) {
+        setBillingStateCode(code);
       }
-      const script = document.createElement('script');
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      script.async = true;
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  };
-
-  const handleCheckout = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // 1. Load Razorpay SDK
-      const scriptLoaded = await loadRazorpayScript();
-      if (!scriptLoaded) {
-        setError(t('paymentFailed'));
-        setIsLoading(false);
-        return;
-      }
-
-      // 2. Create order on backend API
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const orderRes = await fetch(`${apiUrl}/wallet/recharge/create-order`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          packId: selectedPack.id,
-          billingName: billingName || undefined,
-          billingEmail: billingEmail || undefined,
-          billingPhone: billingPhone || undefined,
-          billingAddress: billingAddress || undefined,
-          billingGstin: billingGstin.trim().toUpperCase() || undefined,
-        }),
-      });
-
-      if (!orderRes.ok) {
-        const errData = await orderRes.json().catch(() => ({}));
-        throw new Error(errData.message || t('paymentFailed'));
-      }
-
-      const orderData = await orderRes.json();
-
-      // 3. Launch Razorpay modal
-      const keyId =
-        orderData.keyId ||
-        process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ||
-        'rzp_test_dummy_key_id';
-
-      const options = {
-        key: keyId,
-        amount: orderData.amount, // in paise
-        currency: 'INR',
-        name: 'Indian Job Portal',
-        description: `${selectedPack.name} (${selectedPack.credits} Credits)`,
-        order_id: orderData.orderId,
-        prefill: {
-          name: billingName || user?.companyName || user?.fullName || 'Employer',
-          email: billingEmail || user?.email || '',
-          contact: billingPhone || user?.phone || '',
-        },
-        theme: {
-          color: '#0284c7', // Primary Sky-600
-        },
-        modal: {
-          ondismiss: () => {
-            setIsLoading(false);
-          },
-        },
-        handler: async (response: {
-          razorpay_order_id: string;
-          razorpay_payment_id: string;
-          razorpay_signature: string;
-        }) => {
-          try {
-            // 4. Verify payment with backend
-            const verifyRes = await fetch(`${apiUrl}/wallet/recharge/verify`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                razorpayOrderId: response.razorpay_order_id,
-                razorpayPaymentId: response.razorpay_payment_id,
-                razorpaySignature: response.razorpay_signature,
-              }),
-            });
-
-            if (!verifyRes.ok) {
-              const err = await verifyRes.json().catch(() => ({}));
-              throw new Error(err.message || t('paymentFailed'));
-            }
-
-            const verifiedData = await verifyRes.json();
-            const calculatedNewBalance = currentBalance + selectedPack.credits;
-
-            setCompletedPayment({
-              orderId: response.razorpay_order_id,
-              paymentId: response.razorpay_payment_id,
-              creditsAdded: selectedPack.credits,
-              newBalance: calculatedNewBalance,
-              invoiceNumber: verifiedData.invoice?.invoiceNumber || '',
-              paymentRecordId: verifiedData.payment?.id || response.razorpay_payment_id,
-            });
-
-            if (onSuccess) {
-              onSuccess(calculatedNewBalance);
-            }
-          } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : t('paymentFailed'));
-          } finally {
-            setIsLoading(false);
-          }
-        },
-      };
-
-      if (!window.Razorpay) {
-        throw new Error('Razorpay SDK failed to load. Please check your network connection.');
-      }
-
-      const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', (resp: { error?: { description?: string } }) => {
-        setError(resp.error?.description || t('paymentFailed'));
-        setIsLoading(false);
-      });
-      rzp.open();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : t('paymentFailed'));
-      setIsLoading(false);
     }
   };
 
+  const handleProceed = async () => {
+    setFormValidationMsg(null);
+
+    if (!termsAccepted) {
+      setFormValidationMsg(t('termsRequired'));
+      return;
+    }
+
+    if (hasGstin && billingGstin.trim()) {
+      if (!isValidGstin(billingGstin.trim())) {
+        setFormValidationMsg(t('invalidGstin'));
+        return;
+      }
+    }
+
+    const payload: Record<string, unknown> = {
+      packId: selectedPack.id,
+      termsVersion: 'v1.0',
+      billingStateCode: billingStateCode || undefined,
+      billingName: billingName.trim() || undefined,
+      billingEmail: billingEmail.trim() || undefined,
+      billingPhone: billingPhone.trim() || undefined,
+      billingAddress: billingAddress.trim() || undefined,
+      billingGstin: hasGstin && billingGstin.trim() ? billingGstin.trim() : undefined,
+    };
+
+    await startCheckout({
+      createOrderUrl: '/api/wallet/create-order',
+      createOrderPayload: payload,
+      verifyUrl: '/api/wallet/verify',
+      prefill: {
+        name: billingName || user?.companyName || user?.fullName,
+        email: billingEmail || user?.email || undefined,
+        contact: billingPhone || user?.phone,
+      },
+      initialBalance: currentBalance,
+      onSuccess: () => {
+        invalidateWalletBalance();
+        onSuccess?.(currentBalance + selectedPack.credits);
+      },
+    });
+  };
+
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
+
   const handleDownloadInvoice = () => {
-    if (!completedPayment) return;
+    if (!completedOrder) return;
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-    window.open(
-      `${apiUrl}/wallet/invoice/${completedPayment.paymentRecordId}/html`,
-      '_blank',
-    );
+    window.open(`${apiUrl}/wallet/invoice/${completedOrder.paymentId}/html`, '_blank');
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-8">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="wallet-recharge-title"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto"
+    >
+      <div className="relative w-full max-w-2xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
           <div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <h2
+              id="wallet-recharge-title"
+              className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2"
+            >
               <CreditCard className="w-5 h-5 text-sky-600 dark:text-sky-400" />
-              {t('title')}
+              <span>{t('title')}</span>
             </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-              {t('subtitle')}
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              <span>{t('subtitle')}</span>
             </p>
           </div>
           <button
-            onClick={onClose}
+            type="button"
+            onClick={handleClose}
+            aria-label={t('close')}
             className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition"
           >
             <X className="w-5 h-5" />
@@ -253,75 +189,100 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
 
         {/* Content */}
         <div className="p-6 space-y-6">
-          {error && (
-            <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 rounded-xl border border-red-200 dark:border-red-900 text-sm">
-              <AlertCircle className="w-5 h-5 flex-shrink-0" />
-              <span>{error}</span>
+          {/* Error Banner */}
+          {(error || formValidationMsg) && (
+            <div
+              role="alert"
+              className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 rounded-xl border border-red-200 dark:border-red-900 text-sm"
+            >
+              <AlertCircle className="w-5 h-5 shrink-0" />
+              <span>{formValidationMsg || error || t('paymentFailed')}</span>
             </div>
           )}
 
-          {/* Success State */}
-          {completedPayment ? (
+          {/* SUCCESS STATE */}
+          {state === 'success' && completedOrder ? (
             <div className="text-center py-8 space-y-6">
               <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto ring-8 ring-emerald-50 dark:ring-emerald-900/30">
-                <CheckCircle className="w-10 h-10" />
+                <CheckCircle2 className="w-10 h-10" />
               </div>
 
               <div>
                 <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
                   {t('paymentSuccess')}
                 </h3>
-                <p className="text-slate-600 dark:text-slate-300 mt-2">
-                  {t('creditsAdded', { count: completedPayment.creditsAdded })}
+                <p className="text-slate-600 dark:text-slate-300 mt-2 text-sm">
+                  {t('creditsAdded', { count: selectedPack.credits })}
                 </p>
               </div>
 
-              <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700 inline-block text-left text-sm space-y-1">
-                <div>
-                  <span className="text-slate-500 dark:text-slate-400">Order ID: </span>
+              <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200 dark:border-slate-700 inline-block text-left text-sm space-y-1.5 min-w-[280px]">
+                <div className="flex justify-between gap-4">
+                  <span className="text-slate-500 dark:text-slate-400">{t('orderIdLabel')}:</span>
                   <span className="font-mono font-medium text-slate-700 dark:text-slate-200">
-                    {completedPayment.orderId}
+                    {completedOrder.orderId}
                   </span>
                 </div>
-                <div>
-                  <span className="text-slate-500 dark:text-slate-400">Payment ID: </span>
+                <div className="flex justify-between gap-4">
+                  <span className="text-slate-500 dark:text-slate-400">{t('paymentIdLabel')}:</span>
                   <span className="font-mono font-medium text-slate-700 dark:text-slate-200">
-                    {completedPayment.paymentId}
+                    {completedOrder.paymentId}
                   </span>
                 </div>
-                {completedPayment.invoiceNumber && (
-                  <div>
-                    <span className="text-slate-500 dark:text-slate-400">Invoice #: </span>
-                    <span className="font-mono font-semibold text-sky-600 dark:text-sky-400">
-                      {completedPayment.invoiceNumber}
-                    </span>
-                  </div>
-                )}
-                <div>
-                  <span className="text-slate-500 dark:text-slate-400">Updated Balance: </span>
+                <div className="flex justify-between gap-4 pt-1 border-t border-slate-200 dark:border-slate-700">
+                  <span className="text-slate-500 dark:text-slate-400">{t('updatedBalance')}:</span>
                   <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                    {completedPayment.newBalance} Credits
+                    {currentBalance + selectedPack.credits} {t('credits')}
                   </span>
                 </div>
               </div>
 
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
                 <button
+                  type="button"
                   onClick={handleDownloadInvoice}
-                  className="w-full sm:w-auto px-6 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-medium rounded-xl flex items-center justify-center gap-2 transition shadow-sm"
+                  className="w-full sm:w-auto px-6 py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-medium rounded-xl flex items-center justify-center gap-2 transition shadow-xs text-sm"
                 >
                   <Download className="w-4 h-4" />
-                  {t('downloadInvoice')}
+                  <span>{t('downloadInvoice')}</span>
                 </button>
                 <button
-                  onClick={onClose}
-                  className="w-full sm:w-auto px-6 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium rounded-xl transition"
+                  type="button"
+                  onClick={handleClose}
+                  className="w-full sm:w-auto px-6 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium rounded-xl transition text-sm"
                 >
-                  {t('close')}
+                  <span>{t('close')}</span>
+                </button>
+              </div>
+            </div>
+          ) : state === 'pending_long' && completedOrder ? (
+            /* PENDING LONG STATE */
+            <div className="text-center py-8 space-y-6">
+              <div className="w-16 h-16 bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 rounded-full flex items-center justify-center mx-auto ring-8 ring-amber-50 dark:ring-amber-900/30">
+                <Loader2 className="w-8 h-8 animate-spin" />
+              </div>
+
+              <div>
+                <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
+                  {t('pendingLongTitle')}
+                </h3>
+                <p className="text-slate-600 dark:text-slate-300 mt-2 text-sm max-w-md mx-auto">
+                  {t('pendingLongDesc', { orderId: completedOrder.orderId })}
+                </p>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="px-6 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium rounded-xl transition text-sm"
+                >
+                  <span>{t('close')}</span>
                 </button>
               </div>
             </div>
           ) : (
+            /* MAIN SELECTION AND CHECKOUT VIEW */
             <>
               {/* Current Balance Banner */}
               <div className="flex items-center justify-between p-4 bg-sky-50 dark:bg-sky-950/40 rounded-xl border border-sky-100 dark:border-sky-900">
@@ -333,9 +294,9 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                 </span>
               </div>
 
-              {/* Credit Packs Selection */}
+              {/* Credit Packs Grid */}
               <div>
-                <label className="block text-sm font-semibold text-slate-800 dark:text-slate-200 mb-3">
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-3">
                   {t('selectPack')}
                 </label>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -346,7 +307,16 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                     return (
                       <div
                         key={pack.id}
+                        role="radio"
+                        aria-checked={isSelected}
+                        tabIndex={0}
                         onClick={() => setSelectedPackId(pack.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === ' ' || e.key === 'Enter') {
+                            e.preventDefault();
+                            setSelectedPackId(pack.id);
+                          }
+                        }}
                         className={`relative p-4 rounded-xl cursor-pointer border-2 transition-all flex flex-col justify-between ${
                           isSelected
                             ? 'border-sky-600 dark:border-sky-400 bg-sky-50/40 dark:bg-sky-950/30 shadow-md ring-2 ring-sky-600/10'
@@ -354,9 +324,9 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                         }`}
                       >
                         {pack.popular && (
-                          <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2.5 py-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[11px] font-bold rounded-full uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                          <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2.5 py-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] font-bold rounded-full uppercase tracking-wider flex items-center gap-1 shadow-xs">
                             <Sparkles className="w-3 h-3" />
-                            {t('popular')}
+                            <span>{t('popular')}</span>
                           </div>
                         )}
 
@@ -371,7 +341,7 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                             </span>
                           </div>
                           <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                            ₹{pricePerCredit} / credit
+                            ₹{pricePerCredit} / {t('credits')}
                           </div>
                         </div>
 
@@ -380,7 +350,7 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                             ₹{pack.totalAmountInr}
                           </div>
                           <div className="text-[11px] text-slate-400 dark:text-slate-500">
-                            (incl. 18% GST)
+                            {t('gst')}
                           </div>
                         </div>
                       </div>
@@ -389,25 +359,37 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                 </div>
               </div>
 
-              {/* Collapsible Billing Details */}
-              <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
-                <button
-                  type="button"
-                  onClick={() => setShowBilling(!showBilling)}
-                  className="w-full flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-800 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-750 transition"
-                >
-                  <span className="flex items-center gap-2">
+              {/* Ruling O1: Enterprise SaaS Style GST Toggle */}
+              <div className="p-4 bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-xl space-y-3">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={hasGstin}
+                    onChange={(e) => setHasGstin(e.target.checked)}
+                    className="w-4 h-4 text-sky-600 rounded border-slate-300 focus:ring-sky-500"
+                  />
+                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
                     <Receipt className="w-4 h-4 text-sky-600" />
-                    {t('billingDetails')}
+                    <span>{t('gstCheckbox')}</span>
                   </span>
-                  <span className="text-xs text-sky-600 dark:text-sky-400 font-semibold">
-                    {showBilling ? '▲ Hide' : '▼ Add GSTIN / Billing Address'}
-                  </span>
-                </button>
+                </label>
 
-                {showBilling && (
-                  <div className="p-4 space-y-3 bg-white dark:bg-slate-850">
+                {hasGstin && (
+                  <div className="pt-3 border-t border-slate-200 dark:border-slate-700 space-y-3 animate-in fade-in duration-150">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                          {t('billingGstin')}
+                        </label>
+                        <input
+                          type="text"
+                          value={billingGstin}
+                          onChange={(e) => handleGstinChange(e.target.value)}
+                          placeholder="27AABCU9603R1ZM"
+                          maxLength={15}
+                          className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white uppercase font-mono"
+                        />
+                      </div>
                       <div>
                         <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
                           {t('billingName')}
@@ -416,24 +398,12 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                           type="text"
                           value={billingName}
                           onChange={(e) => setBillingName(e.target.value)}
-                          placeholder="e.g. Acme Enterprises Pvt Ltd"
+                          placeholder="e.g. Acme Industries Pvt Ltd"
                           className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
                         />
                       </div>
-                      <div>
-                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                          {t('billingGstin')}
-                        </label>
-                        <input
-                          type="text"
-                          value={billingGstin}
-                          onChange={(e) => setBillingGstin(e.target.value.toUpperCase())}
-                          placeholder="e.g. 23AAAAA0000A1Z5"
-                          maxLength={15}
-                          className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white uppercase font-mono"
-                        />
-                      </div>
                     </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
@@ -460,17 +430,36 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                         />
                       </div>
                     </div>
-                    <div>
-                      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
-                        {t('billingAddress')}
-                      </label>
-                      <input
-                        type="text"
-                        value={billingAddress}
-                        onChange={(e) => setBillingAddress(e.target.value)}
-                        placeholder="Registered business address"
-                        className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
-                      />
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                          {t('billingState')}
+                        </label>
+                        <select
+                          value={billingStateCode}
+                          onChange={(e) => setBillingStateCode(e.target.value)}
+                          className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
+                        >
+                          {INDIAN_GST_STATES.map((s) => (
+                            <option key={s.code} value={s.code}>
+                              {s.code} - {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-1">
+                          {t('billingAddress')}
+                        </label>
+                        <input
+                          type="text"
+                          value={billingAddress}
+                          onChange={(e) => setBillingAddress(e.target.value)}
+                          placeholder="Registered Address"
+                          className="w-full px-3 py-2 text-sm border border-slate-300 dark:border-slate-700 rounded-lg dark:bg-slate-800 dark:text-white"
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
@@ -479,7 +468,9 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
               {/* Price Breakdown */}
               <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700 text-sm space-y-2">
                 <div className="flex justify-between text-slate-600 dark:text-slate-300">
-                  <span>{t('subtotal')} ({selectedPack.name})</span>
+                  <span>
+                    {t('subtotal')} ({selectedPack.name})
+                  </span>
                   <span>₹{selectedPack.priceInr.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-slate-600 dark:text-slate-300">
@@ -494,16 +485,61 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({
                 </div>
               </div>
 
-              {/* Action Button */}
-              <div className="space-y-3 pt-2">
+              {/* Versioned Terms Acceptance Checkbox */}
+              <div className="space-y-3 pt-1">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 text-sky-600 rounded border-slate-300 focus:ring-sky-500"
+                  />
+                  <span className="text-xs text-slate-600 dark:text-slate-400">
+                    {t('termsCheckbox')}
+                  </span>
+                </label>
+
+                {/* Ruling O7: Supplier Entity Notice */}
+                <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                  {t('supplierLegalNotice')}
+                </p>
+
+                {/* Action CTA Button */}
                 <button
                   type="button"
-                  onClick={handleCheckout}
-                  disabled={isLoading}
-                  className="w-full py-3.5 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white font-bold rounded-xl transition shadow-md flex items-center justify-center gap-2 text-base cursor-pointer"
+                  onClick={handleProceed}
+                  disabled={
+                    !termsAccepted ||
+                    state === 'creating' ||
+                    state === 'checkout' ||
+                    state === 'verifying' ||
+                    state === 'crediting'
+                  }
+                  className="w-full py-3.5 bg-sky-600 hover:bg-sky-700 disabled:opacity-50 text-white font-bold rounded-xl transition shadow-md flex items-center justify-center gap-2 text-base cursor-pointer disabled:cursor-not-allowed"
                 >
-                  <CreditCard className="w-5 h-5" />
-                  {isLoading ? t('processing') : `${t('proceedToPay')} (₹${selectedPack.totalAmountInr})`}
+                  {state === 'creating' ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>{t('processing')}</span>
+                    </>
+                  ) : state === 'verifying' ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>{t('verifyingPayment')}</span>
+                    </>
+                  ) : state === 'crediting' ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>{t('creditingWallet')}</span>
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="w-5 h-5" />
+                      <span>
+                        {t('proceedToPay')} (₹{selectedPack.totalAmountInr})
+                      </span>
+                    </>
+                  )}
                 </button>
 
                 <div className="flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400">
