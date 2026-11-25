@@ -98,6 +98,30 @@ jobs:
       - name: Build All Workspaces
         run: pnpm build
 
+      - name: Smoke test compiled API startup
+        shell: bash
+        env:
+          TURNSTILE_SECRET_KEY: test-turnstile-secret-key-fixture
+          MSG91_AUTH_KEY: test-msg91-auth-key-fixture
+          RAZORPAY_KEY_ID: rzp_test_fixture
+          RAZORPAY_KEY_SECRET: test_razorpay_key_secret_256bits_fixture
+          RAZORPAY_WEBHOOK_SECRET: test_razorpay_webhook_secret_256bits_fixture
+        run: |
+          PORT=3101 node apps/api/dist/main.js > "$RUNNER_TEMP/api-startup.log" 2>&1 &
+          api_pid=$!
+          trap 'kill "$api_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent --max-time 1 http://127.0.0.1:3101/health; then
+              exit 0
+            fi
+            if ! kill -0 "$api_pid" 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/api-startup.log"
+          exit 1
+
       - name: Run Test Suite
         run: pnpm test
 

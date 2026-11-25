@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger, Optional, ServiceUnavailableException } from '@nestjs/common';
 import IORedis from 'ioredis';
 import { maskPhone } from '../common/mask.js';
 import { normalizeIp } from '../common/ip-normalizer.js';
@@ -187,7 +187,7 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
   public readonly client: IORedis;
   private readonly pepper: string;
 
-  constructor(customClient?: IORedis) {
+  constructor(@Optional() customClient?: IORedis) {
     const pepper = process.env['OTP_PEPPER'];
     if (!pepper || pepper.trim().length < 32) {
       throw new Error('OTP_PEPPER environment variable must be set (min 32 chars)');

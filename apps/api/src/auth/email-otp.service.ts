@@ -30,6 +30,8 @@ export interface EmailOtpRedisClient {
   del(key: string): Promise<number>;
 }
 
+export const EMAIL_OTP_REDIS_OVERRIDE = Symbol('EMAIL_OTP_REDIS_OVERRIDE');
+
 @Injectable()
 export class EmailOtpService {
   private readonly redisClient?: EmailOtpRedisClient;
@@ -37,7 +39,7 @@ export class EmailOtpService {
   constructor(
     @Inject(EmailService) private readonly emailService: EmailService,
     @Optional() @Inject(OtpRedisService) private readonly otpRedisService?: OtpRedisService,
-    customRedisClient?: EmailOtpRedisClient,
+    @Optional() @Inject(EMAIL_OTP_REDIS_OVERRIDE) customRedisClient?: EmailOtpRedisClient,
   ) {
     this.redisClient = customRedisClient || (this.otpRedisService?.client as unknown as EmailOtpRedisClient);
   }
