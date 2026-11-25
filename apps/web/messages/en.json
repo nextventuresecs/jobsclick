@@ -20,6 +20,17 @@
     "failedTitle": "Sign-in could not be completed",
     "returnHome": "Return to Home"
   },
+  "AuthEntry": {
+    "choosePath": "Choose how to sign in",
+    "institution": "Institution Login",
+    "invited_student": "Invited Student",
+    "job_seeker": "Independent Job Seeker",
+    "employer": "Employer / MSME",
+    "institutionHint": "For placement officers and institution staff. Use the contact details registered with your institution account.",
+    "invited_studentHint": "Use the mobile number your institution used to invite you.",
+    "job_seekerHint": "Sign in or create an account to find jobs on your own.",
+    "employerHint": "Sign in or create an employer account to post jobs and hire."
+  },
   "Navigation": {
     "home": "Home",
     "findJobs": "Find Jobs",

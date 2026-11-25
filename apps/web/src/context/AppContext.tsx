@@ -20,6 +20,8 @@ export interface ToastMessage {
   readonly message?: string;
 }
 
+export type AuthEntry = 'job_seeker' | 'employer' | 'institution' | 'invited_student';
+
 export interface AppContextValue {
   readonly user: AuthenticatedUser | null;
   readonly currentUserRole: ClientRole | null;
@@ -27,10 +29,10 @@ export interface AppContextValue {
   readonly isAuthenticated: boolean;
   readonly isLoadingSession: boolean;
   readonly isAuthModalOpen: boolean;
-  readonly authModalDefaultRole: 'job_seeker' | 'employer';
+  readonly authModalDefaultEntry: AuthEntry;
   readonly isRoleSwitcherOpen: boolean;
   readonly toasts: readonly ToastMessage[];
-  readonly openAuthModal: (defaultRole?: 'job_seeker' | 'employer' | ClientRole) => void;
+  readonly openAuthModal: (entry?: AuthEntry | ClientRole) => void;
   readonly closeAuthModal: () => void;
   readonly openRoleSwitcher: () => void;
   readonly closeRoleSwitcher: () => void;
@@ -67,9 +69,7 @@ export function AppProvider({
   const [isLoadingSession, setIsLoadingSession] = useState<boolean>(!resolvedInitialUser);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isRoleSwitcherOpen, setIsRoleSwitcherOpen] = useState<boolean>(false);
-  const [authModalDefaultRole, setAuthModalDefaultRole] = useState<
-    'job_seeker' | 'employer'
-  >('job_seeker');
+  const [authModalDefaultEntry, setAuthModalDefaultEntry] = useState<AuthEntry>('job_seeker');
   const [toasts, setToasts] = useState<readonly ToastMessage[]>([]);
 
   const removeToast = useCallback((id: string) => {
@@ -123,9 +123,12 @@ export function AppProvider({
   }, [resolvedInitialUser, refreshSession]);
 
   const openAuthModal = useCallback(
-    (defaultRole: 'job_seeker' | 'employer' | ClientRole = 'job_seeker') => {
-      const normalized = defaultRole === 'employer' ? 'employer' : 'job_seeker';
-      setAuthModalDefaultRole(normalized);
+    (entry: AuthEntry | ClientRole = 'job_seeker') => {
+      const normalized =
+        entry === 'employer' || entry === 'institution' || entry === 'invited_student'
+          ? entry
+          : 'job_seeker';
+      setAuthModalDefaultEntry(normalized);
       setIsAuthModalOpen(true);
     },
     []
@@ -183,7 +186,7 @@ export function AppProvider({
       isAuthenticated,
       isLoadingSession,
       isAuthModalOpen,
-      authModalDefaultRole,
+      authModalDefaultEntry,
       isRoleSwitcherOpen,
       toasts,
       openAuthModal,
@@ -204,7 +207,7 @@ export function AppProvider({
       isAuthenticated,
       isLoadingSession,
       isAuthModalOpen,
-      authModalDefaultRole,
+      authModalDefaultEntry,
       isRoleSwitcherOpen,
       toasts,
       openAuthModal,

@@ -12,6 +12,9 @@ const PLACEHOLDER_REGEX = /change-?me|example|dummy|test|secret-key/i;
 export const envSchema = z.object({
   NODE_ENV: z.string().default('development'),
   APP_ENV: z.string().optional(),
+  ENABLE_P2_MSME_BROADCAST: z.string().optional(),
+  ENABLE_P2_JOB_ALERTS: z.string().optional(),
+  ENABLE_P2_PAYMENTS: z.string().optional(),
   STAGING_PROJECT_REF: z.string().optional(),
   APP_URL: z.string().default('http://localhost:3000'),
   WEB_URL: z.string().default('http://localhost:3000'),

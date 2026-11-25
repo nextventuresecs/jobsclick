@@ -2,28 +2,32 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAppContext } from '@/context/AppContext';
+import { useTranslations } from 'next-intl';
+import { useAppContext, type AuthEntry } from '@/context/AppContext';
 import { IndianPhoneSchema, SelfSignupRoleSchema, SendEmailOtpSchema } from '@indian-job-portal/validation';
 import { isStrictEnv, isTestEnv } from '@/lib/client-env';
 import { getSupabaseBrowserClient } from '@/lib/supabaseClient';
 import { Turnstile } from '@marsidev/react-turnstile';
 
+const AUTH_ENTRIES = ['job_seeker', 'invited_student', 'institution', 'employer'] as const;
 const DPDP_CONSENT_VERSION = 'v1.2-2026-10';
 
 export function AuthModal() {
   const router = useRouter();
+  const t = useTranslations('AuthEntry');
   const {
     isAuthModalOpen,
     closeAuthModal,
-    authModalDefaultRole,
+    authModalDefaultEntry,
     refreshSession,
     addToast,
   } = useAppContext();
 
-  const [selectedRole, setSelectedRole] = useState<'job_seeker' | 'employer'>(
-    authModalDefaultRole
-  );
-  const [authChannel, setAuthChannel] = useState<'phone' | 'email'>('phone');
+  const [entry, setEntry] = useState<AuthEntry>(authModalDefaultEntry);
+  const selectedRole = entry === 'employer' ? 'employer' : 'job_seeker';
+  const invitedStudent = entry === 'invited_student';
+  const [preferredChannel, setAuthChannel] = useState<'phone' | 'email'>('phone');
+  const authChannel = invitedStudent ? 'phone' : preferredChannel;
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
 
   // Never prefill live phone numbers or Udyam numbers (Fixes P1 live phone spam)
@@ -43,16 +47,16 @@ export function AuthModal() {
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
 
-  // Sync default role when modal opens
+  // Sync the requested sign-in path when the modal opens.
   useEffect(() => {
     if (isAuthModalOpen) {
-      setSelectedRole(authModalDefaultRole);
+      setEntry(authModalDefaultEntry);
       setStep('phone');
       setErrorMessage(null);
       setOtpDigits(['', '', '', '', '', '']);
       setTimeout(() => phoneInputRef.current?.focus(), 50);
     }
-  }, [isAuthModalOpen, authModalDefaultRole]);
+  }, [isAuthModalOpen, authModalDefaultEntry]);
 
   // Countdown timer for OTP resend
   useEffect(() => {
@@ -412,7 +416,7 @@ export function AuthModal() {
     >
       <div
         ref={modalRef}
-        className="relative w-full max-w-md overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-6 shadow-2xl sm:p-8"
+        className="relative max-h-full w-full max-w-md overflow-y-auto rounded-2xl border border-slate-200/80 bg-white p-6 shadow-2xl sm:p-8"
       >
         {/* Top Header */}
         <div className="flex items-start justify-between gap-4">
@@ -432,7 +436,7 @@ export function AuthModal() {
               className="mt-1 text-sm leading-relaxed text-slate-600"
             >
               {step === 'phone'
-                ? 'Fast, passwordless access with OTP verification.'
+                ? t(`${entry}Hint`)
                 : authChannel === 'email'
                 ? `Enter the 6-digit code sent to ${emailInput}`
                 : `Enter the 6-digit code sent to +91 ${normalizedPhone.slice(0, 2)}•••••${normalizedPhone.slice(-3)}`}
@@ -449,44 +453,31 @@ export function AuthModal() {
           </button>
         </div>
 
-        {/* Apple-style Segmented Control for Role Selection (Strictly Seeker or Employer) */}
         {step === 'phone' && (
           <>
-            <div
-              role="radiogroup"
-              aria-label="Select your account type"
-              className="mt-6 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1"
-            >
-              <button
-                type="button"
-                role="radio"
-                aria-checked={selectedRole === 'job_seeker'}
-                onClick={() => setSelectedRole('job_seeker')}
-                className={`rounded-lg py-2.5 text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-indigo-600 ${
-                  selectedRole === 'job_seeker'
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Job Seeker
-              </button>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={selectedRole === 'employer'}
-                onClick={() => setSelectedRole('employer')}
-                className={`rounded-lg py-2.5 text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-indigo-600 ${
-                  selectedRole === 'employer'
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Employer / MSME
-              </button>
-            </div>
+            <fieldset disabled={isSubmitting} className="mt-6 grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+              <legend className="sr-only">{t('choosePath')}</legend>
+              {AUTH_ENTRIES.map((path) => (
+                <label key={path} className="cursor-pointer">
+                  <input
+                    className="peer sr-only"
+                    type="radio"
+                    name="auth-entry"
+                    checked={entry === path}
+                    onChange={() => {
+                      setEntry(path);
+                      setErrorMessage(null);
+                    }}
+                  />
+                  <span className="flex h-full items-center justify-center rounded-lg px-2 py-2.5 text-center text-sm font-medium text-slate-600 peer-checked:bg-white peer-checked:text-slate-900 peer-checked:shadow-sm peer-focus-visible:ring-2 peer-focus-visible:ring-indigo-600">
+                    {t(path)}
+                  </span>
+                </label>
+              ))}
+            </fieldset>
 
             {/* Google OAuth Button */}
-            {process.env.NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN === 'true' && (
+            {!invitedStudent && process.env.NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN === 'true' && (
             <div className="mt-4">
               <button
                 type="button"
@@ -523,7 +514,7 @@ export function AuthModal() {
               </div>
               </div>
             )}
-            <div className="mt-4">
+            {!invitedStudent && <div className="mt-4">
               {/* Channel Switcher: Mobile vs Email */}
               <div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-100 p-1">
                 <button
@@ -555,7 +546,7 @@ export function AuthModal() {
                   Email Address
                 </button>
               </div>
-            </div>
+            </div>}
           </>
         )}
 

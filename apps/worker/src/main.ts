@@ -1,6 +1,7 @@
 import './instrument.js';
 import { Worker, Queue, ConnectionOptions } from 'bullmq';
 import IORedis from 'ioredis';
+import { isStaging } from '@indian-job-portal/validation';
 import IORedisMock from 'ioredis-mock';
 import { validateEnv, EnvConfig } from './config/env.js';
 import {
@@ -110,30 +111,36 @@ export interface WorkerInstanceRegistry {
   importWorker: Worker<BulkImportJobData, BulkImportJobResult>;
   inviteWorker: Worker<InviteWaveJobData, InviteWaveJobResult>;
   pdfWorker: Worker<PdfJobData, PdfJobResult>;
-  broadcastWorker: Worker<BroadcastBatchJobData, BroadcastBatchJobResult>;
-  alertsWorker: Worker<AlertsJobData, AlertsJobResult>;
-  reconcileWorker: Worker<ReconcileJobData, ReconcileJobResult>;
-  expireWorker: Worker<ExpireOrdersJobData, ExpireOrdersJobResult>;
-  refundWorker: Worker<RefundJobData, RefundJobResult>;
-  invoiceOutboxWorker: Worker<InvoiceOutboxJobData, InvoiceOutboxJobResult>;
+  broadcastWorker?: Worker<BroadcastBatchJobData, BroadcastBatchJobResult>;
+  alertsWorker?: Worker<AlertsJobData, AlertsJobResult>;
+  reconcileWorker?: Worker<ReconcileJobData, ReconcileJobResult>;
+  expireWorker?: Worker<ExpireOrdersJobData, ExpireOrdersJobResult>;
+  refundWorker?: Worker<RefundJobData, RefundJobResult>;
+  invoiceOutboxWorker?: Worker<InvoiceOutboxJobData, InvoiceOutboxJobResult>;
   importQueue: Queue;
   inviteQueue: Queue;
   pdfQueue: Queue;
-  broadcastQueue: Queue;
-  alertsQueue: Queue;
-  reconcileQueue: Queue;
-  expireQueue: Queue;
-  refundQueue: Queue;
-  invoiceOutboxQueue: Queue;
+  broadcastQueue?: Queue;
+  alertsQueue?: Queue;
+  reconcileQueue?: Queue;
+  expireQueue?: Queue;
+  refundQueue?: Queue;
+  invoiceOutboxQueue?: Queue;
   connection: IORedis;
   waitUntilReady: () => Promise<void>;
+  start: () => void;
   isRunning: () => boolean;
   close: () => Promise<void>;
 }
 
-export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): WorkerInstanceRegistry {
+export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis, autorun = true): WorkerInstanceRegistry {
   const connection = customConnection || getRedisConnection(env);
   const connOptions = connection as unknown as ConnectionOptions;
+
+  const staging = isStaging({ APP_ENV: env.APP_ENV, NODE_ENV: env.NODE_ENV });
+  const broadcastEnabled = !staging || env.ENABLE_P2_MSME_BROADCAST === 'true';
+  const alertsEnabled = !staging || env.ENABLE_P2_JOB_ALERTS === 'true';
+  const paymentsEnabled = !staging || env.ENABLE_P2_PAYMENTS === 'true';
 
   // Initialize Queues with standard 3x exponential retry options
   const importQueue = new Queue(QUEUE_NAMES.BULK_IMPORT, {
@@ -151,35 +158,35 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
     defaultJobOptions: DEFAULT_RETRY_OPTIONS,
   });
 
-  const broadcastQueue = new Queue(QUEUE_NAMES.BROADCAST, {
+  const broadcastQueue = broadcastEnabled ? new Queue(QUEUE_NAMES.BROADCAST, {
     connection: connOptions,
     defaultJobOptions: DEFAULT_RETRY_OPTIONS,
-  });
+  }) : undefined;
 
-  const alertsQueue = new Queue(QUEUE_NAMES.ALERTS, {
+  const alertsQueue = alertsEnabled ? new Queue(QUEUE_NAMES.ALERTS, {
     connection: connOptions,
     defaultJobOptions: DEFAULT_RETRY_OPTIONS,
-  });
+  }) : undefined;
 
-  const reconcileQueue = new Queue(QUEUE_NAMES.PAYMENTS_RECONCILE, {
+  const reconcileQueue = paymentsEnabled ? new Queue(QUEUE_NAMES.PAYMENTS_RECONCILE, {
     connection: connOptions,
     defaultJobOptions: PAYMENTS_JOB_OPTIONS,
-  });
+  }) : undefined;
 
-  const expireQueue = new Queue(QUEUE_NAMES.PAYMENTS_EXPIRE, {
+  const expireQueue = paymentsEnabled ? new Queue(QUEUE_NAMES.PAYMENTS_EXPIRE, {
     connection: connOptions,
     defaultJobOptions: PAYMENTS_JOB_OPTIONS,
-  });
+  }) : undefined;
 
-  const refundQueue = new Queue(QUEUE_NAMES.PAYMENTS_REFUND, {
+  const refundQueue = paymentsEnabled ? new Queue(QUEUE_NAMES.PAYMENTS_REFUND, {
     connection: connOptions,
     defaultJobOptions: PAYMENTS_JOB_OPTIONS,
-  });
+  }) : undefined;
 
-  const invoiceOutboxQueue = new Queue(QUEUE_NAMES.PAYMENTS_INVOICE_OUTBOX, {
+  const invoiceOutboxQueue = paymentsEnabled ? new Queue(QUEUE_NAMES.PAYMENTS_INVOICE_OUTBOX, {
     connection: connOptions,
     defaultJobOptions: PAYMENTS_JOB_OPTIONS,
-  });
+  }) : undefined;
 
   // 1. Bulk Import Processor Worker (Streaming CSV & User Creation)
   const importWorker = new Worker<BulkImportJobData, BulkImportJobResult>(
@@ -190,6 +197,7 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
     }),
     {
       connection: connOptions,
+      autorun,
       concurrency: 5,
     },
   );
@@ -203,6 +211,7 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
     }),
     {
       connection: connOptions,
+      autorun,
       concurrency: 5,
     },
   );
@@ -216,12 +225,13 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
     }),
     {
       connection: connOptions,
+      autorun,
       concurrency: 10,
     },
   );
 
   // 4. Broadcast Processor Worker (MSME Department Bulk SMS Dispatch)
-  const broadcastWorker = new Worker<BroadcastBatchJobData, BroadcastBatchJobResult>(
+  const broadcastWorker = broadcastEnabled ? new Worker<BroadcastBatchJobData, BroadcastBatchJobResult>(
     QUEUE_NAMES.BROADCAST,
     wrapBullMQProcessor(QUEUE_NAMES.BROADCAST, async (job) => {
       console.log(`[Worker - ${QUEUE_NAMES.BROADCAST}] Starting Job ${job.id} (Attempt ${job.attemptsMade + 1}/3)...`);
@@ -229,12 +239,13 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
     }),
     {
       connection: connOptions,
+      autorun,
       concurrency: 5,
     },
-  );
+  ) : undefined;
 
   // 5. Alerts Processor Worker (Saved Job Alerts & Daily Digest Email)
-  const alertsWorker = new Worker<AlertsJobData, AlertsJobResult>(
+  const alertsWorker = alertsEnabled ? new Worker<AlertsJobData, AlertsJobResult>(
     QUEUE_NAMES.ALERTS,
     wrapBullMQProcessor(QUEUE_NAMES.ALERTS, async (job) => {
       console.log(`[Worker - ${QUEUE_NAMES.ALERTS}] Starting Job ${job.id} (Attempt ${job.attemptsMade + 1}/3)...`);
@@ -242,12 +253,13 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
     }),
     {
       connection: connOptions,
+      autorun,
       concurrency: 5,
     },
-  );
+  ) : undefined;
 
   // 6. Payments Reconcile Processor Worker
-  const reconcileWorker = new Worker<ReconcileJobData, ReconcileJobResult>(
+  const reconcileWorker = paymentsEnabled ? new Worker<ReconcileJobData, ReconcileJobResult>(
     QUEUE_NAMES.PAYMENTS_RECONCILE,
     wrapBullMQProcessor(QUEUE_NAMES.PAYMENTS_RECONCILE, async (job) => {
       console.log(`[Worker - ${QUEUE_NAMES.PAYMENTS_RECONCILE}] Starting Job ${job.id}...`);
@@ -255,12 +267,13 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
     }),
     {
       connection: connOptions,
+      autorun,
       concurrency: 2,
     },
-  );
+  ) : undefined;
 
   // 7. Payments Expire Orders Processor Worker
-  const expireWorker = new Worker<ExpireOrdersJobData, ExpireOrdersJobResult>(
+  const expireWorker = paymentsEnabled ? new Worker<ExpireOrdersJobData, ExpireOrdersJobResult>(
     QUEUE_NAMES.PAYMENTS_EXPIRE,
     wrapBullMQProcessor(QUEUE_NAMES.PAYMENTS_EXPIRE, async (job) => {
       console.log(`[Worker - ${QUEUE_NAMES.PAYMENTS_EXPIRE}] Starting Job ${job.id}...`);
@@ -268,12 +281,13 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
     }),
     {
       connection: connOptions,
+      autorun,
       concurrency: 2,
     },
-  );
+  ) : undefined;
 
   // 8. Payments Refund Processor Worker
-  const refundWorker = new Worker<RefundJobData, RefundJobResult>(
+  const refundWorker = paymentsEnabled ? new Worker<RefundJobData, RefundJobResult>(
     QUEUE_NAMES.PAYMENTS_REFUND,
     wrapBullMQProcessor(QUEUE_NAMES.PAYMENTS_REFUND, async (job) => {
       console.log(`[Worker - ${QUEUE_NAMES.PAYMENTS_REFUND}] Starting Job ${job.id}...`);
@@ -281,12 +295,13 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
     }),
     {
       connection: connOptions,
+      autorun,
       concurrency: 5,
     },
-  );
+  ) : undefined;
 
   // 9. Payments Invoice Outbox Processor Worker
-  const invoiceOutboxWorker = new Worker<InvoiceOutboxJobData, InvoiceOutboxJobResult>(
+  const invoiceOutboxWorker = paymentsEnabled ? new Worker<InvoiceOutboxJobData, InvoiceOutboxJobResult>(
     QUEUE_NAMES.PAYMENTS_INVOICE_OUTBOX,
     wrapBullMQProcessor(QUEUE_NAMES.PAYMENTS_INVOICE_OUTBOX, async (job) => {
       console.log(`[Worker - ${QUEUE_NAMES.PAYMENTS_INVOICE_OUTBOX}] Starting Job ${job.id}...`);
@@ -294,9 +309,10 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
     }),
     {
       connection: connOptions,
+      autorun,
       concurrency: 5,
     },
-  );
+  ) : undefined;
 
   const workers = [
     { name: QUEUE_NAMES.BULK_IMPORT, instance: importWorker },
@@ -308,7 +324,7 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
     { name: QUEUE_NAMES.PAYMENTS_EXPIRE, instance: expireWorker },
     { name: QUEUE_NAMES.PAYMENTS_REFUND, instance: refundWorker },
     { name: QUEUE_NAMES.PAYMENTS_INVOICE_OUTBOX, instance: invoiceOutboxWorker },
-  ];
+  ].flatMap(({ name, instance }) => instance ? [{ name, instance }] : []);
 
   workers.forEach(({ name, instance }) => {
     instance.on('completed', (job, result) => {
@@ -332,24 +348,16 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
   const close = async () => {
     console.log('[Worker] Shutting down workers and queues...');
     await Promise.allSettled([
-      importWorker.close(),
-      inviteWorker.close(),
-      pdfWorker.close(),
-      broadcastWorker.close(),
-      alertsWorker.close(),
-      reconcileWorker.close(),
-      expireWorker.close(),
-      refundWorker.close(),
-      invoiceOutboxWorker.close(),
+      ...workers.map(({ instance }) => instance.close()),
       importQueue.close(),
       inviteQueue.close(),
       pdfQueue.close(),
-      broadcastQueue.close(),
-      alertsQueue.close(),
-      reconcileQueue.close(),
-      expireQueue.close(),
-      refundQueue.close(),
-      invoiceOutboxQueue.close(),
+      broadcastQueue?.close(),
+      alertsQueue?.close(),
+      reconcileQueue?.close(),
+      expireQueue?.close(),
+      refundQueue?.close(),
+      invoiceOutboxQueue?.close(),
     ]);
     if (typeof connection.quit === 'function') {
       try {
@@ -380,6 +388,12 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
     refundQueue,
     invoiceOutboxQueue,
     connection,
+    start: () => {
+      console.log('[Worker] Active queues:', workers.map(({ name }) => name).join(', '));
+      for (const { instance } of workers) {
+        void instance.run().catch((error: Error) => instance.emit('error', error));
+      }
+    },
     waitUntilReady: async () => {
       await Promise.all(workers.map(({ instance }) => instance.waitUntilReady()));
       await connection.ping();
@@ -389,111 +403,26 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis): 
   };
 }
 
-interface RepeatJobOptions {
-  repeat: {
-    every?: number;
-    pattern?: string;
-  };
-  jobId?: string;
-}
+export async function scheduleRepeatableJobs(
+  { reconcileQueue, expireQueue, invoiceOutboxQueue, broadcastQueue }: Pick<
+    WorkerInstanceRegistry, 'reconcileQueue' | 'expireQueue' | 'invoiceOutboxQueue' | 'broadcastQueue'
+  >,
+): Promise<void> {
+  const schedules = [
+    { queue: reconcileQueue, name: 'reconcile-periodic', every: 10 * 60_000, data: {} },
+    { queue: expireQueue, name: 'expire-periodic', every: 60 * 60_000, data: { olderThanHours: 48 } },
+    { queue: invoiceOutboxQueue, name: 'outbox-periodic', every: 60_000, data: { batchLimit: 20 } },
+    { queue: broadcastQueue, name: 'broadcast-watchdog', every: 15 * 60_000, data: { staleHours: 6 } },
+  ];
+  for (const { queue, name, every, data } of schedules) {
+    if (!queue) continue;
+    await queue.upsertJobScheduler(name, { every }, { name, data });
 
-interface QueueWithRepeatSchedule {
-  add: (name: string, data: Record<string, unknown>, opts: RepeatJobOptions) => Promise<unknown>;
-  upsertJobScheduler?: (
-    id: string,
-    repeat: { every: number },
-    template: { name: string; data: Record<string, unknown>; opts?: { jobId?: string } },
-  ) => Promise<unknown>;
-}
-
-export async function scheduleRepeatableJobs(registry: WorkerInstanceRegistry): Promise<void> {
-  const { reconcileQueue, expireQueue, invoiceOutboxQueue, broadcastQueue } = registry;
-
-  const recQueue = reconcileQueue as unknown as QueueWithRepeatSchedule;
-  const expQueue = expireQueue as unknown as QueueWithRepeatSchedule;
-  const outQueue = invoiceOutboxQueue as unknown as QueueWithRepeatSchedule;
-  const bcastQueue = broadcastQueue as unknown as QueueWithRepeatSchedule;
-
-  if (typeof recQueue.upsertJobScheduler === 'function') {
-    try {
-      await recQueue.upsertJobScheduler(
-        'reconcile-periodic',
-        { every: 10 * 60 * 1000 },
-        { name: 'reconcile-periodic', data: {}, opts: { jobId: 'reconcile-periodic' } },
-      );
-    } catch {
-      // Fallback to queue.add if scheduler lua execution is unavailable
+    // BullMQ 6 treated the former Queue.add({ repeat }) call as a one-off with this exact job ID.
+    const previous = await queue.getJobState(name);
+    if (previous === 'waiting' || previous === 'delayed') {
+      await queue.remove(name, { removeChildren: false });
     }
-  }
-  await recQueue.add(
-    'reconcile-periodic',
-    {},
-    {
-      repeat: { every: 10 * 60 * 1000 },
-      jobId: 'reconcile-periodic',
-    },
-  );
-
-  if (typeof expQueue.upsertJobScheduler === 'function') {
-    try {
-      await expQueue.upsertJobScheduler(
-        'expire-periodic',
-        { every: 60 * 60 * 1000 },
-        { name: 'expire-periodic', data: { olderThanHours: 48 }, opts: { jobId: 'expire-periodic' } },
-      );
-    } catch {
-      // Fallback to queue.add if scheduler lua execution is unavailable
-    }
-  }
-  await expQueue.add(
-    'expire-periodic',
-    { olderThanHours: 48 },
-    {
-      repeat: { every: 60 * 60 * 1000 },
-      jobId: 'expire-periodic',
-    },
-  );
-
-  if (typeof outQueue.upsertJobScheduler === 'function') {
-    try {
-      await outQueue.upsertJobScheduler(
-        'outbox-periodic',
-        { every: 60 * 1000 },
-        { name: 'outbox-periodic', data: { batchLimit: 20 }, opts: { jobId: 'outbox-periodic' } },
-      );
-    } catch {
-      // Fallback to queue.add if scheduler lua execution is unavailable
-    }
-  }
-  await outQueue.add(
-    'outbox-periodic',
-    { batchLimit: 20 },
-    {
-      repeat: { every: 60 * 1000 },
-      jobId: 'outbox-periodic',
-    },
-  );
-
-  if (bcastQueue) {
-    if (typeof bcastQueue.upsertJobScheduler === 'function') {
-      try {
-        await bcastQueue.upsertJobScheduler(
-          'broadcast-watchdog',
-          { every: 15 * 60 * 1000 },
-          { name: 'broadcast-watchdog', data: { staleHours: 6 }, opts: { jobId: 'broadcast-watchdog' } },
-        );
-      } catch {
-        // Fallback to queue.add if scheduler lua execution is unavailable
-      }
-    }
-    await bcastQueue.add(
-      'broadcast-watchdog',
-      { staleHours: 6 },
-      {
-        repeat: { every: 15 * 60 * 1000 },
-        jobId: 'broadcast-watchdog',
-      },
-    );
   }
 }
 
@@ -504,13 +433,15 @@ async function main() {
   initSentry(env.SENTRY_DSN);
   console.log(`[Worker - BullMQ Mode] Starting worker cluster in ${env.NODE_ENV} mode...`);
 
-  const registry = startWorkerCluster(env);
+  const registry = startWorkerCluster(env, undefined, false);
   activeRegistry = registry;
   await registry.waitUntilReady();
 
   if (env.NODE_ENV !== 'test') {
     await scheduleRepeatableJobs(registry);
   }
+
+  registry.start();
 
   const heartbeat = () => {
     console.log(registry.isRunning() ? '[Worker Readiness] ready' : '[Worker Readiness] unavailable');

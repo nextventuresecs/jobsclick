@@ -102,6 +102,16 @@ Railway staging and server runners support **both** runtime environment configur
 | `APP_URL` | `https://staging.jobsclick.live` | Monorepo config |
 | `EMAIL_FROM` | Sender address for invoices and notifications | Resend verified sender |
 
+The staging worker always consumes bulk imports, invitation waves, and resume PDF jobs. Configure the following worker variables as references to the matching staging API variables so producers and consumers agree. An unset flag or any value other than `true` leaves that consumer group off.
+
+| Worker variable | Staging Railway value | Consumers enabled |
+| :--- | :--- | :--- |
+| `ENABLE_P2_MSME_BROADCAST` | `${{api.ENABLE_P2_MSME_BROADCAST}}` | Broadcast jobs and watchdog |
+| `ENABLE_P2_JOB_ALERTS` | `${{api.ENABLE_P2_JOB_ALERTS}}` | Job alerts |
+| `ENABLE_P2_PAYMENTS` | `${{api.ENABLE_P2_PAYMENTS}}` | Payment reconciliation, expiration, refunds, and invoices |
+
+If the API flag is absent, omit its worker reference. After a reviewed staging release, confirm the active queues in the worker startup log and compare Upstash command usage across comparable idle periods.
+
 ---
 
 ## 4. External Services Configuration
