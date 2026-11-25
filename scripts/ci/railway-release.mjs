@@ -42,6 +42,22 @@ export function workerIsReady(output, now = Date.now()) {
   return latestReady > latestUnavailable && now - latestReady <= 45_000;
 }
 
+export async function probeWorkerReadiness(railway, environment, deploymentId, warn = console.warn) {
+  try {
+    const logs = await railway([
+      'logs', deploymentId, '--service', 'worker', '--environment', environment, '--deployment',
+      '--filter', '"[Worker Readiness]"', '--lines', '20', '--json',
+    ], 'read worker readiness');
+    return workerIsReady(logs);
+  } catch (error) {
+    // CLI diagnostics can contain connection details. Keep raw output out of CI logs.
+    warn(error instanceof SyntaxError
+      ? 'Railway returned invalid worker readiness logs. Retrying.'
+      : 'Could not read Railway worker readiness logs. Retrying.');
+    return false;
+  }
+}
+
 export async function waitForStaging({
   deployments,
   readLatest,
@@ -131,7 +147,7 @@ export async function deployRelease(environment, cwd, sha, execute = run, env = 
       return JSON.parse(output)[0];
     },
     probe: async (service, id) => service === 'worker'
-      ? workerIsReady(await railway(['logs', id, '--deployment', '--lines', '200', '--json'], 'read worker readiness'))
+      ? probeWorkerReadiness(railway, environment, id)
       : probeHttpHealth(urls[service], id),
   });
   console.log(`Railway staging passed health checks for ${sha}`);

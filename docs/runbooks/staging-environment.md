@@ -112,6 +112,10 @@ The staging worker always consumes bulk imports, invitation waves, and resume PD
 
 If the API flag is absent, omit its worker reference. After a reviewed staging release, confirm the active queues in the worker startup log and compare Upstash command usage across comparable idle periods.
 
+The worker heartbeat requires running consumers, a successful read-only Redis Lua probe, and no worker runtime errors in the last 30 seconds. In steady state it runs one probe per minute. The release gate reads heartbeat logs for the exact worker deployment in the staging environment and retries transient log-read errors within the health-check deadline.
+
+If the worker logs `ERR max requests limit exceeded`, restore command capacity on the existing Upstash database used by staging before rerunning the release. A live quota error takes precedence over a cached dashboard total. For an immediate upgrade, the account owner can add a payment method under **Account → Billing**. Upstash moves all free resources on that account to paid plans and briefly disconnects Redis clients during the transition. Keep the existing staging database and connection to preserve queued work. After capacity returns, verify that quota errors stop and the worker emits fresh `ready` heartbeats. [Upstash quota troubleshooting](https://upstash.com/docs/redis/troubleshooting/max_requests_limit) · [Upstash upgrade guide](https://upstash.com/docs/redis/howto/upgrade-database)
+
 ---
 
 ## 4. External Services Configuration
