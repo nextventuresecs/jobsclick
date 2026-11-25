@@ -3,6 +3,7 @@ import { Worker, Queue, ConnectionOptions } from 'bullmq';
 import IORedis from 'ioredis';
 import { isStaging } from '@indian-job-portal/validation';
 import IORedisMock from 'ioredis-mock';
+import { createWorkerReadiness } from './health.js';
 import { validateEnv, EnvConfig } from './config/env.js';
 import {
   initSentry,
@@ -130,6 +131,7 @@ export interface WorkerInstanceRegistry {
   waitUntilReady: () => Promise<void>;
   start: () => void;
   isRunning: () => boolean;
+  checkReadiness: () => Promise<boolean>;
   close: () => Promise<void>;
 }
 
@@ -326,6 +328,12 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis, a
     { name: QUEUE_NAMES.PAYMENTS_INVOICE_OUTBOX, instance: invoiceOutboxWorker },
   ].flatMap(({ name, instance }) => instance ? [{ name, instance }] : []);
 
+  const isRunning = () => connection.status === 'ready' && workers.every(({ instance }) => instance.isRunning());
+  // PING can succeed while Redis refuses the Lua commands BullMQ needs.
+  const readiness = createWorkerReadiness(isRunning, () =>
+    connection.eval("return redis.call('EXISTS', KEYS[1])", 1, importQueue.toKey('meta')),
+  );
+
   workers.forEach(({ name, instance }) => {
     instance.on('completed', (job, result) => {
       if (name === QUEUE_NAMES.BULK_IMPORT) {
@@ -340,6 +348,7 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis, a
     });
 
     instance.on('error', (err) => {
+      readiness.recordWorkerError();
       console.error(`[Worker - ${name}] Unhandled worker error: ${err.message}`);
       captureException(err);
     });
@@ -398,7 +407,8 @@ export function startWorkerCluster(env: EnvConfig, customConnection?: IORedis, a
       await Promise.all(workers.map(({ instance }) => instance.waitUntilReady()));
       await connection.ping();
     },
-    isRunning: () => connection.status === 'ready' && workers.every(({ instance }) => instance.isRunning()),
+    isRunning,
+    checkReadiness: readiness.check,
     close,
   };
 }
@@ -443,13 +453,16 @@ async function main() {
 
   registry.start();
 
-  const heartbeat = () => {
-    console.log(registry.isRunning() ? '[Worker Readiness] ready' : '[Worker Readiness] unavailable');
+  let shuttingDown = false;
+  const heartbeat = async () => {
+    const ready = await registry.checkReadiness();
+    if (!shuttingDown) console.log(ready ? '[Worker Readiness] ready' : '[Worker Readiness] unavailable');
   };
-  heartbeat();
-  const readinessTimer = setInterval(heartbeat, 10_000);
+  void heartbeat();
+  const readinessTimer = setInterval(() => void heartbeat(), 10_000);
 
   const shutdown = async () => {
+    shuttingDown = true;
     clearInterval(readinessTimer);
     console.log('[Worker Readiness] unavailable');
     if (activeRegistry) {

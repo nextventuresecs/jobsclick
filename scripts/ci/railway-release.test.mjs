@@ -4,7 +4,7 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { test } from 'node:test';
-import { deployRelease, probeHttpHealth, workerIsReady, waitForStaging } from './railway-release.mjs';
+import { deployRelease, probeHttpHealth, probeWorkerReadiness, workerIsReady, waitForStaging } from './railway-release.mjs';
 
 const deployments = { api: 'api-id', web: 'web-id', worker: 'worker-id' };
 const healthy = Object.fromEntries(Object.entries(deployments).map(([service, id]) => [service, { id, status: 'SUCCESS' }]));
@@ -60,6 +60,29 @@ test('requires a fresh ready heartbeat in the exact worker deployment log', () =
   assert.equal(workerIsReady(log(5_000), now), true);
   assert.equal(workerIsReady(log(60_000), now), false);
   assert.equal(workerIsReady(`${log(5_000)}\n${log(1_000, '[Worker Readiness] unavailable')}`, now), false);
+});
+
+test('scopes the readiness query and retries a failed log read through the staging gate', async () => {
+  const results = [new Error('fixture token should never be logged'), 'malformed log response',
+    { message: '[Worker Readiness] unavailable' }, { message: '[Worker Readiness] ready' },
+    { message: '[Worker Readiness] ready' }];
+  const commands = [];
+  const warnings = [];
+  const readLogs = async (args) => {
+    commands.push(args);
+    const result = results.shift();
+    if (result instanceof Error) throw result;
+    return typeof result === 'string' ? result : JSON.stringify({ ...result, timestamp: new Date().toISOString() });
+  };
+  await waitForStaging(fixture(Array(5).fill(healthy), async (service, id) =>
+    service !== 'worker' || probeWorkerReadiness(readLogs, 'staging', id, warning => warnings.push(warning))));
+  assert.equal(commands.length, 5);
+  assert.deepEqual(commands[0], [
+    'logs', 'worker-id', '--service', 'worker', '--environment', 'staging', '--deployment',
+    '--filter', '"[Worker Readiness]"', '--lines', '20', '--json',
+  ]);
+  assert.equal(warnings.length, 2);
+  assert.ok(warnings.every(warning => !warning.includes('fixture token')));
 });
 
 test('production requires the healthy SHA from staging, and build inputs use the export', () => {

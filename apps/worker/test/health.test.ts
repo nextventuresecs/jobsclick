@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import IORedis from 'ioredis';
 import { Queue } from 'bullmq';
-import { getWorkerHealthStatus, reportWorkerError } from '../src/health.js';
+import { createWorkerReadiness, getWorkerHealthStatus, reportWorkerError } from '../src/health.js';
 import { QUEUE_NAMES, scheduleRepeatableJobs, startWorkerCluster } from '../src/main.js';
 
 describe('Worker Health Check & Observability', () => {
@@ -17,6 +17,50 @@ describe('Worker Health Check & Observability', () => {
     expect(errId).toBeDefined();
   });
 
+  it('fails closed on a refused Redis command and probes again after recovery', async () => {
+    vi.useFakeTimers();
+    try {
+      const probe = vi.fn<() => Promise<unknown>>().mockRejectedValueOnce(new Error('ERR max requests limit exceeded'))
+        .mockResolvedValue(undefined);
+      const readiness = createWorkerReadiness(() => true, probe);
+      expect(await readiness.check()).toBe(false);
+      expect(await readiness.check()).toBe(false);
+      expect(probe).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(await readiness.check()).toBe(true);
+      expect(await readiness.check()).toBe(true);
+      expect(probe).toHaveBeenCalledTimes(2);
+
+      readiness.recordWorkerError();
+      expect(await readiness.check()).toBe(false);
+      await vi.advanceTimersByTimeAsync(29_999);
+      expect(await readiness.check()).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(await readiness.check()).toBe(true);
+      expect(probe).toHaveBeenCalledTimes(3);
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(await readiness.check()).toBe(true);
+      expect(probe).toHaveBeenCalledTimes(4);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('times out a hung command without piling up Redis requests', async () => {
+    vi.useFakeTimers();
+    try {
+      const probe = vi.fn(() => new Promise(() => {}));
+      const readiness = createWorkerReadiness(() => true, probe);
+      const checking = readiness.check();
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(await checking).toBe(false);
+      expect(await readiness.check()).toBe(false);
+      expect(probe).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it.skipIf(process.env['RUN_LIVE_REDIS'] !== 'true')('reports readiness after Redis and the workers connect', async () => {
     const redisUrl = process.env['REDIS_URL'];
     if (!redisUrl) throw new Error('A disposable test Redis connection is required');
@@ -25,6 +69,7 @@ describe('Worker Health Check & Observability', () => {
     try {
       await registry.waitUntilReady();
       expect(registry.isRunning()).toBe(true);
+      expect(await registry.checkReadiness()).toBe(true);
     } finally {
       await registry.close();
     }
