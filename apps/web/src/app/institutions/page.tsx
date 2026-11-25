@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import { InstitutionLoginButton } from '../../components/auth/InstitutionLoginButton';
 import { Navbar } from '../../components/layout/Navbar';
 import { Footer } from '../../components/layout/Footer';
 import {
@@ -15,7 +16,6 @@ import {
   ArrowRight,
   RotateCcw,
   Award,
-  Users,
   FileSpreadsheet,
 } from 'lucide-react';
 
@@ -178,13 +178,7 @@ export default async function InstitutionsDirectoryPage({
             </div>
 
             <div className="flex items-center gap-3 shrink-0">
-              <Link
-                href="/workspace"
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-brand-orange hover:bg-orange-600 text-white text-xs sm:text-sm font-semibold rounded-lg shadow-sm transition-colors"
-              >
-                <Users className="w-4 h-4" />
-                <span>Placement Officer Login</span>
-              </Link>
+              <InstitutionLoginButton />
             </div>
           </div>
 

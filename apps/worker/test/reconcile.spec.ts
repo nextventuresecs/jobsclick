@@ -1,6 +1,6 @@
 import pg from 'pg';
 import { randomUUID } from 'node:crypto';
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@indian-job-portal/database';
 import { ReconcileService } from '../src/payments/reconcile.processor.js';
@@ -268,51 +268,29 @@ describe('Payments Worker: Reconciliation, Expire & Outbox (WAL-03, Task 5)', ()
     expect(updatedOutbox.rows[0].done_at).not.toBeNull();
   });
 
-  it('scheduleRepeatableJobs: registers periodic reconcile, expire, and outbox jobs with correct intervals', async () => {
-    const addCalls: Array<{ name: string; data: unknown; opts: unknown }> = [];
-    const schedulerCalls: Array<{ id: string; repeat: unknown; template: unknown }> = [];
-
-    const mockQueue = {
-      add: async (name: string, data: unknown, opts: unknown) => {
-        addCalls.push({ name, data, opts });
-        return {};
-      },
-      upsertJobScheduler: async (id: string, repeat: unknown, template: unknown) => {
-        schedulerCalls.push({ id, repeat, template });
-        return {};
-      },
+  it('registers each enabled periodic job once with the correct schedule and payload', async () => {
+    const queue = {
+      add: vi.fn(),
+      upsertJobScheduler: vi.fn(),
+      getJobState: vi.fn().mockResolvedValue('completed'),
+      remove: vi.fn(),
     };
-
-    const mockRegistry = {
-      reconcileQueue: mockQueue,
-      expireQueue: mockQueue,
-      invoiceOutboxQueue: mockQueue,
+    const registry = {
+      reconcileQueue: queue, expireQueue: queue, invoiceOutboxQueue: queue, broadcastQueue: queue,
     } as unknown as Parameters<typeof scheduleRepeatableJobs>[0];
 
-    await scheduleRepeatableJobs(mockRegistry);
+    await scheduleRepeatableJobs(registry);
 
-    // Verify add calls match reviewer requirements exactly
-    expect(addCalls).toHaveLength(3);
-    expect(addCalls[0]).toEqual({
-      name: 'reconcile-periodic',
-      data: {},
-      opts: { repeat: { every: 10 * 60 * 1000 }, jobId: 'reconcile-periodic' },
-    });
-    expect(addCalls[1]).toEqual({
-      name: 'expire-periodic',
-      data: { olderThanHours: 48 },
-      opts: { repeat: { every: 60 * 60 * 1000 }, jobId: 'expire-periodic' },
-    });
-    expect(addCalls[2]).toEqual({
-      name: 'outbox-periodic',
-      data: { batchLimit: 20 },
-      opts: { repeat: { every: 60 * 1000 }, jobId: 'outbox-periodic' },
-    });
-
-    // Verify BullMQ v6 scheduler calls
-    expect(schedulerCalls).toHaveLength(3);
-    expect(schedulerCalls[0].repeat).toEqual({ every: 10 * 60 * 1000 });
-    expect(schedulerCalls[1].repeat).toEqual({ every: 60 * 60 * 1000 });
-    expect(schedulerCalls[2].repeat).toEqual({ every: 60 * 1000 });
+    expect(queue.upsertJobScheduler.mock.calls).toEqual([
+      ['reconcile-periodic', { every: 600_000 }, { name: 'reconcile-periodic', data: {} }],
+      ['expire-periodic', { every: 3_600_000 }, { name: 'expire-periodic', data: { olderThanHours: 48 } }],
+      ['outbox-periodic', { every: 60_000 }, { name: 'outbox-periodic', data: { batchLimit: 20 } }],
+      ['broadcast-watchdog', { every: 900_000 }, { name: 'broadcast-watchdog', data: { staleHours: 6 } }],
+    ]);
+    expect(queue.add).not.toHaveBeenCalled();
+    expect(queue.remove).not.toHaveBeenCalled();
+    queue.upsertJobScheduler.mockRejectedValueOnce(new Error('scheduler unavailable'));
+    await expect(scheduleRepeatableJobs(registry)).rejects.toThrow('scheduler unavailable');
+    expect(queue.add).not.toHaveBeenCalled();
   });
 });
