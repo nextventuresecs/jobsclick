@@ -30,7 +30,8 @@ Workflow and evidence records are in the [agent workflow](agentic-workflow.md), 
 | Local performance | One cold 360px run per public route and language, with 1.6 Mbps download, 150 ms latency and 4× CPU slowdown. The six runs recorded LCP between 0.90 and 1.26 seconds and initial layout shift up to 0.041. Lighthouse and real-device release measurements remain open. |
 | Isolated Postgres and Supabase | **53 passed** in 6 database files on disposable Supabase CLI 3.1.0 with tracked migrations. |
 | Isolated API and worker | **124 passed** in 15 files. Covered public job discovery, persistence, contact visibility, queue coalescing, health and controlled payment and sponsorship fixtures. |
-| Additional endpoint-adapted tests | **28 passed, 2 failed** across four files using only scratch endpoint overrides and a real-Redis worker retry. The existing mock path lacks Redis Lua `cmsgpack`. With real Redis, the cluster suite passed bulk import and showed two remaining fixture failures. Retry reported 4 where the assertion expected 3. Invite dispatch timed out after the worker rejected the batch with `INVITE_WAVE_BATCH_MISMATCH`. Repository worker code and tests were left as-is. |
+| Worker cluster follow-up (T-07, BULK-02/03) | **4 passed twice** directly on real Redis queues and disposable Supabase. BullMQ records failures on attempts one and two and completion on attempt three. The invite test seeds a matching dispatched wave, asserts the two intended recipients and recorded cost, and verifies that an adjacent batch stays pending. The SMS provider is mocked and the test deletes its own fixtures. Both fixes are in the integration tests. |
+| Additional endpoint-adapted API tests | **27 passed** in three files. Temporary endpoint overrides were applied in the scratch runner. The worker-cluster suite runs directly with configured loopback endpoints. |
 
 Disposable Supabase and Redis used ports 56321, 56322 and 56379. The test preload blocked outbound service hosts and the existing default local ports. The disposable project and Redis container were removed after the run.
 
@@ -44,4 +45,4 @@ Local evidence is in the [public browser and screenshot folder](../../.scratch/j
 
 ## Remaining engineering
 
-Full bilingual and accessibility coverage across role workspaces, employer and institution onboarding, nationwide location UI and persistence, server-side employment-type and district filters, full-flow Playwright and failure-state testing, Lighthouse and slow-network measurements, and automated palette and release gates remain open. The worker cluster failures are a separate test-maintenance issue. The local redesign has not completed the full release gate.
+Full bilingual and accessibility coverage across role workspaces, employer and institution onboarding, nationwide location UI and persistence, server-side employment-type and district filters, full-flow Playwright and failure-state testing, Lighthouse and slow-network measurements, and automated palette and release gates remain open. The local redesign has not completed the full release gate.
