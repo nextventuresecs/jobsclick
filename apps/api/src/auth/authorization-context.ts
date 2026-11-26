@@ -1,5 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import type { AuthUser } from './decorators/current-user.decorator.js';
+import { emitAuthorizationAuditEvent } from './authorization-audit.service.js';
 
 export type AuthorizationRole = AuthUser['role'] | 'institution';
 export type AuthorizationTenantType = 'business' | 'institution' | 'user' | 'platform' | 'worker';
@@ -124,6 +125,18 @@ export function requirePermission(ctx: AuthorizationContext, permission: string)
     return;
   }
   if (!verified.permissions.includes(permission)) {
+    emitAuthorizationAuditEvent({
+      requestId: verified.requestId,
+      actorId: verified.actorId,
+      actorType: verified.actorType,
+      role: verified.role,
+      tenantId: verified.tenant.id,
+      tenantType: verified.tenant.type,
+      action: `permission:${permission}`,
+      decision: 'deny',
+      reasonCode: 'MISSING_REQUIRED_PERMISSION',
+      policyId: 'ADR-0002-RBAC',
+    });
     throw new ForbiddenException(`Missing required permission: ${permission}`);
   }
 }
@@ -138,6 +151,18 @@ export function requireTenantScope(
 ): AuthorizationTenantScope {
   const verified = requireAuthorizationContext(ctx);
   if (!allowedTypes.includes(verified.tenant.type)) {
+    emitAuthorizationAuditEvent({
+      requestId: verified.requestId,
+      actorId: verified.actorId,
+      actorType: verified.actorType,
+      role: verified.role,
+      tenantId: verified.tenant.id,
+      tenantType: verified.tenant.type,
+      action: 'tenant:scope_check',
+      decision: 'deny',
+      reasonCode: 'INVALID_TENANT_SCOPE',
+      policyId: 'ADR-0002-TENANCY',
+    });
     throw new ForbiddenException(`Invalid tenant scope "${verified.tenant.type}" for operation`);
   }
   return verified.tenant;
@@ -149,6 +174,19 @@ export function assertTenantMatchOrAdmin(ctx: AuthorizationContext, targetTenant
     return;
   }
   if (!targetTenantId || verified.tenant.id !== targetTenantId) {
+    emitAuthorizationAuditEvent({
+      requestId: verified.requestId,
+      actorId: verified.actorId,
+      actorType: verified.actorType,
+      role: verified.role,
+      tenantId: verified.tenant.id,
+      tenantType: verified.tenant.type,
+      resourceId: targetTenantId || null,
+      action: 'tenant:ownership_check',
+      decision: 'deny',
+      reasonCode: 'CROSS_TENANT_ACCESS_DENIED',
+      policyId: 'ADR-0002-TENANCY',
+    });
     throw new ForbiddenException('Cross-tenant access denied');
   }
 }
