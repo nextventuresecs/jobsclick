@@ -319,7 +319,7 @@ jobs:
           tags: indian-job-portal-api:latest
 
       - name: Scan API Docker Image (Trivy)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.28.0
         with:
           image-ref: indian-job-portal-api:latest
           format: table
@@ -337,7 +337,7 @@ jobs:
           tags: indian-job-portal-worker:latest
 
       - name: Scan Worker Docker Image (Trivy)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.28.0
         with:
           image-ref: indian-job-portal-worker:latest
           format: table
@@ -361,7 +361,7 @@ jobs:
             NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
 
       - name: Scan Web Docker Image (Trivy)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.28.0
         with:
           image-ref: indian-job-portal-web:latest
           format: table
