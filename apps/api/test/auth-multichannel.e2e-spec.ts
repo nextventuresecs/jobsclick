@@ -7,6 +7,10 @@ import { AuthError, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT } from '../src/database/supabase.provider.js';
 import { UserRepository } from '../src/database/repositories/user.repository.js';
+import { EmailOtpService } from '../src/auth/email-otp.service.js';
+import { JwtService } from '../src/auth/jwt.service.js';
+import { SmsGateway } from '../src/auth/sms.service.js';
+import { TurnstileVerifier } from '../src/auth/turnstile.service.js';
 
 describe('Auth Multichannel Endpoints (E2E)', () => {
   let app: NestFastifyApplication;
@@ -37,8 +41,51 @@ describe('Auth Multichannel Endpoints (E2E)', () => {
 
   afterEach(() => vi.restoreAllMocks());
 
+  it.each([undefined, '', '   ', 'x'.repeat(2049), 'invalid-token'])(
+    'rejects an unusable email OTP challenge before dispatch',
+    async (turnstileToken) => {
+      const dispatch = vi.spyOn(app.get(EmailOtpService), 'sendOtp').mockResolvedValue({ success: true, ttlSeconds: 300 });
+      const response = await app.inject({
+        method: 'POST', url: '/auth/email/send-otp',
+        payload: { email: 'challenge@example.test', turnstileToken },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(dispatch).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(['lookup', 'create', 'activation reload'] as const)(
+    'rejects an email OTP session when the %s returns a different address',
+    async (stage) => {
+      const email = 'verified-address@example.test';
+      const repo = app.get(UserRepository);
+      const user = await repo.create({ email: 'different-address@example.test', role: 'job_seeker' });
+      const verify = vi.spyOn(app.get(EmailOtpService), 'verifyOtp').mockResolvedValue({ verified: true });
+      const lookup = vi.spyOn(repo, 'findByEmail').mockResolvedValue(stage === 'create' ? null : user);
+      const activation = vi.spyOn(repo, 'updateStatus');
+      if (stage === 'create') vi.spyOn(repo, 'create').mockResolvedValue(user);
+      if (stage === 'activation reload') {
+        lookup.mockResolvedValue({ ...user, email, status: 'invited' });
+        activation.mockResolvedValue({ ...user, email, status: 'active' });
+        vi.spyOn(repo, 'findById').mockResolvedValue(user);
+      }
+      const sign = vi.spyOn(app.get(JwtService), 'signAccessToken');
+      const response = await app.inject({
+        method: 'POST', url: '/auth/email/verify-otp',
+        payload: { email, code: '123456', role: 'job_seeker' },
+      });
+
+      expect(verify).toHaveBeenCalledWith(email, '123456');
+      expect(response.statusCode).toBe(401);
+      expect(JSON.parse(response.payload)).not.toHaveProperty('accessToken');
+      expect(sign).not.toHaveBeenCalled();
+      if (stage === 'lookup') expect(activation).not.toHaveBeenCalled();
+    },
+  );
+
   it('POST /auth/email/send-otp dispatches OTP and POST /auth/email/verify-otp creates user with requiresPhoneLink', async () => {
     const testEmail = `seeker_${Date.now()}@test-domain.ac.in`;
+    const challenge = vi.spyOn(app.get(TurnstileVerifier), 'verify');
 
     // 1. Send Email OTP
     const sendRes = await app.inject({
@@ -55,6 +102,7 @@ describe('Auth Multichannel Endpoints (E2E)', () => {
     const sendBody = JSON.parse(sendRes.payload);
     expect(sendBody.success).toBe(true);
     expect(sendBody).toHaveProperty('expiresInSeconds', 300);
+    expect(challenge).toHaveBeenCalledWith('turnstile_pass_token', expect.any(String), 'email_otp');
 
     // 2. Verify Email OTP
     const verifyRes = await app.inject({
@@ -184,6 +232,19 @@ describe('Auth Multichannel Endpoints (E2E)', () => {
     // Generate a unique 10-digit Indian phone (e.g., 9820000000 + random 5 digits)
     const randomSuffix = Math.floor(10000 + Math.random() * 90000);
     const validPhone = `98200${randomSuffix}`;
+    const lookup = vi.spyOn(app.get(UserRepository), 'findByPhone');
+    const sms = vi.spyOn(app.get(SmsGateway), 'sendOtp');
+    const challenge = vi.spyOn(app.get(TurnstileVerifier), 'verify');
+    for (const turnstileToken of [undefined, '', '   ', 'x'.repeat(2049), 'invalid-token']) {
+      const rejected = await app.inject({
+        method: 'POST', url: '/auth/link-phone/send',
+        headers: { authorization: `Bearer ${token}` },
+        payload: { phone: validPhone, turnstileToken },
+      });
+      expect(rejected.statusCode).toBe(400);
+    }
+    expect(lookup).not.toHaveBeenCalled();
+    expect(sms).not.toHaveBeenCalled();
 
     // 2. Request OTP to link phone
     const linkSendRes = await app.inject({
@@ -202,6 +263,7 @@ describe('Auth Multichannel Endpoints (E2E)', () => {
     const linkSendBody = JSON.parse(linkSendRes.payload);
     expect(linkSendBody.success).toBe(true);
     expect(linkSendBody).toHaveProperty('expiresInSeconds', 300);
+    expect(challenge).toHaveBeenCalledWith('turnstile_pass_token', expect.any(String), 'link_phone');
 
     // 3. Verify OTP to link phone
     const linkVerifyRes = await app.inject({

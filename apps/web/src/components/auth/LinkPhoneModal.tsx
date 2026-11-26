@@ -2,10 +2,19 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppContext } from '@/context/AppContext';
-import { IndianPhoneSchema } from '@indian-job-portal/validation';
+import { IndianPhoneSchema, OTP_TURNSTILE_ACTIONS } from '@indian-job-portal/validation';
+import { Turnstile } from '@marsidev/react-turnstile';
+import { useTranslations } from 'next-intl';
 
 export function LinkPhoneModal() {
-  const { user, refreshSession, addToast } = useAppContext();
+  const { user } = useAppContext();
+  return user?.requiresPhoneLink ? <PhoneLinkForm key={user.id} /> : null;
+}
+
+function PhoneLinkForm() {
+  const { refreshSession, addToast } = useAppContext();
+  const t = useTranslations('Auth');
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [phoneInput, setPhoneInput] = useState<string>('');
   const [normalizedPhone, setNormalizedPhone] = useState<string>('');
@@ -13,20 +22,20 @@ export function LinkPhoneModal() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState<number>(0);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileGeneration, setTurnstileGeneration] = useState(0);
 
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   // Auto-focus when modal displays
   useEffect(() => {
-    if (user?.requiresPhoneLink) {
-      if (step === 'phone') {
-        setTimeout(() => phoneInputRef.current?.focus(), 50);
-      } else {
-        setTimeout(() => otpRefs.current[0]?.focus(), 50);
-      }
-    }
-  }, [user?.requiresPhoneLink, step]);
+    const timer = setTimeout(() => {
+      if (step === 'phone') phoneInputRef.current?.focus();
+      else otpRefs.current[0]?.focus();
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [step]);
 
   // Resend cooldown timer
   useEffect(() => {
@@ -37,16 +46,23 @@ export function LinkPhoneModal() {
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  // If user does not require phone linking, do not display
-  if (!user?.requiresPhoneLink) return null;
+  const resetTurnstile = () => {
+    setTurnstileToken('');
+    setTurnstileGeneration((generation) => generation + 1);
+  };
 
   const handleSendOtp = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (isSubmitting || (step === 'otp' && resendCooldown > 0)) return;
     setErrorMessage(null);
 
     const parsedPhone = IndianPhoneSchema.safeParse(phoneInput);
     if (!parsedPhone.success) {
       setErrorMessage(parsedPhone.error.issues[0]?.message ?? 'Enter a valid 10-digit mobile number.');
+      return;
+    }
+    if (!siteKey || !turnstileToken) {
+      setErrorMessage(t(siteKey ? 'securityVerificationRequired' : 'securityVerificationUnavailable'));
       return;
     }
 
@@ -57,26 +73,43 @@ export function LinkPhoneModal() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phone: parsedPhone.data,
-          turnstileToken: 'client_turnstile_pass',
+          turnstileToken,
         }),
       });
 
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setErrorMessage(body?.message || 'Unable to send OTP. Please check the number and try again.');
+        setErrorMessage(body?.code === 'OTP_CHALLENGE_FAILED'
+          ? t('securityVerificationRequired')
+          : body?.message || 'Unable to send OTP. Please check the number and try again.');
         return;
       }
 
       setNormalizedPhone(parsedPhone.data);
       setStep('otp');
-      setResendCooldown(30);
-      setTimeout(() => otpRefs.current[0]?.focus(), 50);
+      setResendCooldown(typeof body?.cooldownSeconds === 'number' ? body.cooldownSeconds : 60);
     } catch {
       setErrorMessage('Network error while requesting verification code.');
     } finally {
+      resetTurnstile();
       setIsSubmitting(false);
     }
   };
+
+  const challenge = siteKey ? (
+    <Turnstile
+      key={turnstileGeneration}
+      id="jc-link-phone-turnstile"
+      siteKey={siteKey}
+      onSuccess={setTurnstileToken}
+      onError={() => setTurnstileToken('')}
+      onExpire={resetTurnstile}
+      onTimeout={resetTurnstile}
+      options={{ action: OTP_TURNSTILE_ACTIONS.linkPhone, theme: 'light' }}
+    />
+  ) : (
+    <p role="alert" className="text-sm text-red-800">{t('securityVerificationUnavailable')}</p>
+  );
 
   const handleOtpDigitChange = (index: number, value: string) => {
     setErrorMessage(null);
@@ -226,9 +259,10 @@ export function LinkPhoneModal() {
               </div>
             </div>
 
+            {challenge}
             <button
               type="submit"
-              disabled={isSubmitting || phoneInput.length !== 10}
+              disabled={isSubmitting || phoneInput.length !== 10 || !turnstileToken}
               className="flex w-full items-center justify-center rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
             >
               {isSubmitting ? 'Sending verification code…' : 'Send Verification OTP'}
@@ -265,10 +299,12 @@ export function LinkPhoneModal() {
               </div>
             </div>
 
+            {challenge}
             <div className="flex items-center justify-between text-xs font-medium">
               <button
                 type="button"
                 onClick={() => {
+                  resetTurnstile();
                   setStep('phone');
                   setErrorMessage(null);
                 }}
@@ -279,7 +315,7 @@ export function LinkPhoneModal() {
 
               <button
                 type="button"
-                disabled={resendCooldown > 0 || isSubmitting}
+                disabled={resendCooldown > 0 || isSubmitting || !turnstileToken}
                 onClick={() => void handleSendOtp()}
                 className="text-indigo-600 hover:text-indigo-500 focus:outline-none focus:underline disabled:cursor-not-allowed disabled:text-slate-400"
               >

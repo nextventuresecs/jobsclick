@@ -147,31 +147,35 @@ export class UserRepository implements IUserRepository {
   }
 
   async findByEmail(email: string): Promise<UserRow | null> {
-    const normalized = email.trim().toLowerCase();
-    const { data, error } = await this.supabase
-      .from('users')
-      .select('*')
-      .ilike('email', normalized)
-      .maybeSingle();
-
-    if (error) {
-      throw new InternalServerErrorException('Database error: failed to lookup user by email');
-    }
-    return (data as UserRow) || null;
+    return this.findByCanonicalEmail('email', email);
   }
 
   async findByPendingEmail(pendingEmail: string): Promise<UserRow | null> {
-    const normalized = pendingEmail.trim().toLowerCase();
+    return this.findByCanonicalEmail('pending_email', pendingEmail);
+  }
+
+  private async findByCanonicalEmail(column: 'email' | 'pending_email', email: string): Promise<UserRow | null> {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) return null;
+
+    const exact = await this.supabase
+      .from('users')
+      .select('*')
+      .eq(column, normalized)
+      .maybeSingle();
+    if (exact.error) throw new InternalServerErrorException('Database error: failed to look up user email');
+    if (exact.data) return exact.data[column] === normalized ? exact.data : null;
+
+    // Existing rows may predate canonical writes. Escape the entire address as a literal.
+    const literal = normalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const { data, error } = await this.supabase
       .from('users')
       .select('*')
-      .ilike('pending_email', normalized)
+      .filter(column, 'imatch', `^[[:space:]]*${literal}[[:space:]]*$`)
       .maybeSingle();
 
-    if (error) {
-      throw new InternalServerErrorException('Database error: failed to lookup user by pending_email');
-    }
-    return (data as UserRow) || null;
+    if (error) throw new InternalServerErrorException('Database error: failed to look up user email');
+    return data?.[column]?.trim().toLowerCase() === normalized ? data : null;
   }
 
   async create(user: {
@@ -196,7 +200,7 @@ export class UserRepository implements IUserRepository {
     };
     if (user.phone) payload['phone'] = user.phone;
     if (user.email) {
-      payload['email'] = user.email.toLowerCase();
+      payload['email'] = user.email.trim().toLowerCase();
       payload['email_verified_at'] = new Date().toISOString();
     }
 

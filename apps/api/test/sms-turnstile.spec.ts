@@ -94,6 +94,18 @@ describe('Ticket T-06: MSG91 SMS Service & Turnstile Bot Challenge', () => {
     vi.unstubAllGlobals();
   });
 
+  it.each([
+    [{ success: true, action: 'link_phone' }, true],
+    [{ success: true, action: 'email_otp' }, false],
+    [{ success: true }, false],
+    [{ success: 'true', action: 'link_phone' }, false],
+    [{ success: false, 'error-codes': ['timeout-or-duplicate'] }, false],
+  ] as const)('requires Cloudflare to confirm success and the expected action', async (outcome, accepted) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json(outcome)));
+    const verifier = new CloudflareTurnstileVerifier();
+    await expect(verifier.verify('challenge-fixture', '192.0.2.45', 'link_phone')).resolves.toBe(accepted);
+  });
+
   describe('Msg91SmsGateway & DLT Template Routing', () => {
     it('routes English OTP requests to DLT_1001_OTP_EN template', async () => {
       expect(DLT_SMS_TEMPLATES['OTP_EN']?.templateId).toBe('1277179301139811147');

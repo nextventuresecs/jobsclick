@@ -185,6 +185,15 @@ export const verifyEmailSchema = z.object({
   token: z.string().min(1, 'Token is required'),
 });
 
+export const OTP_TURNSTILE_ACTIONS = {
+  emailOtp: 'email_otp',
+  linkPhone: 'link_phone',
+} as const;
+
+const RequiredTurnstileTokenSchema = z.string().trim()
+  .min(1, 'Cloudflare Turnstile token is required')
+  .max(2048);
+
 export const SendEmailOtpSchema = z.object({
   email: z
     .string()
@@ -194,7 +203,7 @@ export const SendEmailOtpSchema = z.object({
     .email('Valid email address is required'),
   role: SelfSignupRoleSchema.default('job_seeker'),
   language: z.enum(['en', 'hi']).default('en').optional(),
-  turnstileToken: z.string().min(1, 'Cloudflare Turnstile token is required').optional(),
+  turnstileToken: RequiredTurnstileTokenSchema,
 });
 
 export const VerifyEmailOtpSchema = z
@@ -221,7 +230,7 @@ export const OAuthExchangeSchema = z
 export const LinkPhoneSchema = z
   .object({
     phone: IndianPhoneSchema,
-    turnstileToken: z.string().optional(),
+    turnstileToken: RequiredTurnstileTokenSchema,
   })
   .strict();
 

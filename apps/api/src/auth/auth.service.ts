@@ -22,6 +22,7 @@ import {
   VerifyEmailOtpInput,
   OAuthExchangeInput,
   LinkPhoneInput,
+  OTP_TURNSTILE_ACTIONS,
   VerifyLinkPhoneInput,
   isTestEnv,
 } from '@indian-job-portal/validation';
@@ -445,12 +446,7 @@ export class AuthService {
     input: SendEmailOtpInput,
     clientIp?: string,
   ): Promise<{ success: boolean; message: string; expiresInSeconds: number; cooldownSeconds: number; codeForTest?: string }> {
-    if (input.turnstileToken) {
-      const isValid = await this.turnstileVerifier.verify(input.turnstileToken, clientIp);
-      if (!isValid) {
-        throw new BadRequestException('Bot challenge verification failed. Please try again.');
-      }
-    }
+    await this.requireOtpChallenge(input.turnstileToken, OTP_TURNSTILE_ACTIONS.emailOtp, clientIp);
 
     const language = (input as { language?: 'en' | 'hi' }).language || 'en';
     const result = await this.emailOtpService.sendOtp(input.email, language);
@@ -476,6 +472,7 @@ export class AuthService {
     let userRow = await this.userRepository.findByEmail(normalizedEmail);
 
     if (userRow) {
+      this.assertVerifiedEmailAccount(userRow, normalizedEmail);
       if (userRow.status === 'disabled' || (userRow.status as string) === 'suspended') {
         throw new ForbiddenException('Your account has been disabled. Contact support.');
       }
@@ -502,6 +499,7 @@ export class AuthService {
       });
     }
 
+    this.assertVerifiedEmailAccount(userRow, normalizedEmail);
     if (typeof this.userRepository.touchLastLogin === 'function') {
       const res = this.userRepository.touchLastLogin(userRow.id);
       if (res && typeof res.catch === 'function') {
@@ -548,6 +546,12 @@ export class AuthService {
     };
   }
 
+  private assertVerifiedEmailAccount(user: UserRow, verifiedEmail: string): void {
+    if (user.email?.trim().toLowerCase() !== verifiedEmail) {
+      throw new UnauthorizedException('Verified email does not match the account');
+    }
+  }
+
   /**
    * Exchanges an OAuth provider token for an authenticated user session.
    */
@@ -571,9 +575,7 @@ export class AuthService {
     let userRow = await this.userRepository.findByEmail(email);
 
     if (userRow) {
-      if (userRow.email?.trim().toLowerCase() !== email) {
-        throw new UnauthorizedException('Invalid or unverified OAuth provider token');
-      }
+      this.assertVerifiedEmailAccount(userRow, email);
       if (userRow.status === 'disabled' || (userRow.status as string) === 'suspended') {
         throw new ForbiddenException('Your account has been disabled. Contact support.');
       }
@@ -600,6 +602,7 @@ export class AuthService {
       });
     }
 
+    this.assertVerifiedEmailAccount(userRow, email);
     if (typeof this.userRepository.touchLastLogin === 'function') {
       const res = this.userRepository.touchLastLogin(userRow.id);
       if (res && typeof res.catch === 'function') {
@@ -653,12 +656,7 @@ export class AuthService {
     input: LinkPhoneInput,
     clientIp?: string,
   ): Promise<{ success: boolean; message: string; expiresInSeconds: number; cooldownSeconds: number; codeForTest?: string }> {
-    if (input.turnstileToken) {
-      const isValid = await this.turnstileVerifier.verify(input.turnstileToken, clientIp);
-      if (!isValid) {
-        throw new BadRequestException('Bot challenge verification failed. Please try again.');
-      }
-    }
+    await this.requireOtpChallenge(input.turnstileToken, OTP_TURNSTILE_ACTIONS.linkPhone, clientIp);
 
     const existing = await this.userRepository.findByPhone(input.phone);
     if (existing && existing.id !== userId) {
@@ -698,6 +696,12 @@ export class AuthService {
       cooldownSeconds: 60,
       codeForTest: isTest ? otpCode : undefined,
     };
+  }
+
+  private async requireOtpChallenge(token: string, action: string, clientIp?: string): Promise<void> {
+    if (!token?.trim() || !(await this.turnstileVerifier.verify(token, clientIp, action))) {
+      throw new BadRequestException({ code: 'OTP_CHALLENGE_FAILED' });
+    }
   }
 
   /**

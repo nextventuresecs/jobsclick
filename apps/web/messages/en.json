@@ -263,6 +263,8 @@
     "admin": "Platform Admin"
   },
   "Auth": {
+    "securityVerificationRequired": "Complete the security check before requesting a code.",
+    "securityVerificationUnavailable": "The security check is temporarily unavailable.",
     "sendOtp": "Send OTP",
     "verifyOtp": "Verify OTP",
     "mobileNumber": "Mobile Number",

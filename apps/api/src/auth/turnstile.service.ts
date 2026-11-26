@@ -2,14 +2,14 @@ import { Injectable, Logger } from '@nestjs/common';
 import { captureException } from '../config/sentry.js';
 
 export abstract class TurnstileVerifier {
-  abstract verify(token?: string, clientIp?: string): Promise<boolean>;
+  abstract verify(token?: string, clientIp?: string, expectedAction?: string): Promise<boolean>;
 }
 
 @Injectable()
 export class CloudflareTurnstileVerifier extends TurnstileVerifier {
   private readonly logger = new Logger(CloudflareTurnstileVerifier.name);
 
-  async verify(token?: string, clientIp?: string): Promise<boolean> {
+  async verify(token?: string, clientIp?: string, expectedAction?: string): Promise<boolean> {
     if (!token || !token.trim()) {
       return false;
     }
@@ -42,8 +42,8 @@ export class CloudflareTurnstileVerifier extends TurnstileVerifier {
         return false;
       }
 
-      const outcome = (await res.json().catch(() => ({ success: false }))) as { success?: boolean };
-      return Boolean(outcome.success);
+      const outcome = (await res.json().catch(() => null)) as { success?: unknown; action?: unknown } | null;
+      return outcome?.success === true && (expectedAction === undefined || outcome.action === expectedAction);
     } catch (err) {
       this.logger.error(`Turnstile verification network failure: ${err instanceof Error ? err.message : String(err)}`);
       captureException(err instanceof Error ? err : new Error(String(err)));

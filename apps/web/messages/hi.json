@@ -263,6 +263,8 @@
     "admin": "प्लेटफॉर्म एडमिन"
   },
   "Auth": {
+    "securityVerificationRequired": "कोड का अनुरोध करने से पहले सुरक्षा जाँच पूरी करें।",
+    "securityVerificationUnavailable": "सुरक्षा जाँच अभी उपलब्ध नहीं है।",
     "sendOtp": "ओटीपी भेजें",
     "verifyOtp": "ओटीपी सत्यापित करें",
     "mobileNumber": "मोबाइल नंबर",

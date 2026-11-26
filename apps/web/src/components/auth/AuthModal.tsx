@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppContext } from '@/context/AppContext';
-import { IndianPhoneSchema, SelfSignupRoleSchema, SendEmailOtpSchema } from '@indian-job-portal/validation';
+import { IndianPhoneSchema, OTP_TURNSTILE_ACTIONS, SelfSignupRoleSchema, SendEmailOtpSchema } from '@indian-job-portal/validation';
 import { isStrictEnv, isTestEnv } from '@/lib/client-env';
 import { getSupabaseBrowserClient } from '@/lib/supabaseClient';
 import { Turnstile } from '@marsidev/react-turnstile';
@@ -49,6 +49,8 @@ export function AuthModal() {
       setSelectedRole(authModalDefaultRole);
       setStep('phone');
       setErrorMessage(null);
+      setTurnstileToken('');
+      setTurnstileGeneration((generation) => generation + 1);
       setOtpDigits(['', '', '', '', '', '']);
       setTimeout(() => phoneInputRef.current?.focus(), 50);
     }
@@ -529,6 +531,7 @@ export function AuthModal() {
                 <button
                   type="button"
                   onClick={() => {
+                    if (authChannel !== 'phone') resetTurnstile();
                     setAuthChannel('phone');
                     setErrorMessage(null);
                   }}
@@ -543,6 +546,7 @@ export function AuthModal() {
                 <button
                   type="button"
                   onClick={() => {
+                    if (authChannel !== 'email') resetTurnstile();
                     setAuthChannel('email');
                     setErrorMessage(null);
                   }}
@@ -671,6 +675,7 @@ export function AuthModal() {
                   onError={() => resetTurnstile()}
                   onExpire={() => resetTurnstile()}
                   options={{
+                    action: authChannel === 'email' ? OTP_TURNSTILE_ACTIONS.emailOtp : undefined,
                     theme: 'light',
                     size: 'normal',
                   }}
@@ -748,6 +753,7 @@ export function AuthModal() {
                   onError={() => resetTurnstile()}
                   onExpire={() => resetTurnstile()}
                   options={{
+                    action: authChannel === 'email' ? OTP_TURNSTILE_ACTIONS.emailOtp : undefined,
                     theme: 'light',
                     size: 'normal',
                   }}
@@ -763,6 +769,7 @@ export function AuthModal() {
               <button
                 type="button"
                 onClick={() => {
+                  resetTurnstile();
                   setStep('phone');
                   setErrorMessage(null);
                 }}
