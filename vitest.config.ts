@@ -24,6 +24,7 @@ export default defineConfig({
       '**/node_modules/**',
       '**/dist/**',
       '**/.next/**',
+      '**/.scratch/**',
       ...(isDbTest ? [] : ['**/*.local.test.ts']),
     ],
     server: {
