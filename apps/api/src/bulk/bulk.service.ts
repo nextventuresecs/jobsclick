@@ -816,26 +816,38 @@ export class BulkService {
 
   async getQueueStatus(): Promise<{
     provider: string;
-    queues: Array<{ name: string; waiting: number; active: number; completed: number; failed: number }>;
+    status: 'healthy' | 'degraded' | 'unavailable';
+    queues: Array<{ name: string; waiting: number; active: number; completed: number; failed: number; delayed?: number; status?: string; error?: string }>;
     uiUrl?: string;
   }> {
     try {
       const liveMetrics = await this.queueService.getLiveQueueMetrics();
+      if (!this.isTestMode && liveMetrics.status === 'unavailable') {
+        throw new ServiceUnavailableException({ code: 'QUEUE_UNAVAILABLE' });
+      }
       return {
         provider: 'bullmq',
+        status: liveMetrics.status,
         queues: liveMetrics.queues,
         uiUrl: '/admin/queues/ui',
       };
-    } catch {
-      return {
-        provider: 'bullmq',
-        queues: [
-          { name: 'bulk-import', waiting: 0, active: 0, completed: this.memBatches.size, failed: 0 },
-          { name: 'invite-wave', waiting: 0, active: 0, completed: this.memWaves.size, failed: 0 },
-          { name: 'pdf-generator', waiting: 0, active: 0, completed: 0, failed: 0 },
-        ],
-        uiUrl: '/admin/queues/ui',
-      };
+    } catch (err) {
+      if (this.isTestMode) {
+        return {
+          provider: 'bullmq',
+          status: 'degraded',
+          queues: [
+            { name: 'bulk-import', waiting: 0, active: 0, completed: this.memBatches.size, failed: 0 },
+            { name: 'invite-wave', waiting: 0, active: 0, completed: this.memWaves.size, failed: 0 },
+            { name: 'pdf-generator', waiting: 0, active: 0, completed: 0, failed: 0 },
+          ],
+          uiUrl: '/admin/queues/ui',
+        };
+      }
+      if (err instanceof ServiceUnavailableException) {
+        throw err;
+      }
+      throw new ServiceUnavailableException({ code: 'QUEUE_UNAVAILABLE' });
     }
   }
 

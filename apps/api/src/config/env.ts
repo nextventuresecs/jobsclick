@@ -398,6 +398,27 @@ export function validateEnv(overrides?: Record<string, string | undefined>): Env
       errors.push(`API_URL must use HTTPS in production. Got: ${apiUrl}`);
     }
 
+    // QStash consistency check: if enabled or partially configured in production/staging,
+    // require complete non-placeholder signing & publish configuration + HTTPS API_URL.
+    const qstashToken = rawSource['QSTASH_TOKEN']?.trim();
+    const qstashCurrKey = rawSource['QSTASH_CURRENT_SIGNING_KEY']?.trim();
+    const qstashNextKey = rawSource['QSTASH_NEXT_SIGNING_KEY']?.trim();
+    const qstashEnabled = rawSource['ENABLE_QSTASH'] === 'true' || Boolean(qstashToken) || Boolean(qstashCurrKey);
+    if (qstashEnabled) {
+      if (!qstashToken || PLACEHOLDER_REGEX.test(qstashToken)) {
+        errors.push('QSTASH_TOKEN must be set and not a placeholder in production/staging when QStash is configured');
+      }
+      if (!qstashCurrKey || PLACEHOLDER_REGEX.test(qstashCurrKey)) {
+        errors.push('QSTASH_CURRENT_SIGNING_KEY must be set and not a placeholder in production/staging when QStash is configured');
+      }
+      if (qstashNextKey && PLACEHOLDER_REGEX.test(qstashNextKey)) {
+        errors.push('QSTASH_NEXT_SIGNING_KEY must not be a placeholder in production/staging');
+      }
+      if (!apiUrl || !apiUrl.startsWith('https://')) {
+        errors.push('API_URL must be set to an HTTPS origin when QStash is configured');
+      }
+    }
+
     // TRUSTED_PROXY_CIDRS: required in production/staging; must be valid CIDRs and reject 0.0.0.0/0 & ::/0
     const trustedProxiesRaw = rawSource['TRUSTED_PROXY_CIDRS'];
     if (!trustedProxiesRaw || !trustedProxiesRaw.trim()) {

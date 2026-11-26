@@ -37,6 +37,7 @@ jobs:
 
     env:
       NODE_ENV: test
+      RUN_LIVE_REDIS: 'true'
       REDIS_URL: redis://127.0.0.1:6379
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
       SUPABASE_URL: http://127.0.0.1:54321

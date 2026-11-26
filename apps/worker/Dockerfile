@@ -32,4 +32,7 @@ COPY --chown=workeruser:nodejs --from=builder /prod/worker ./
 
 USER workeruser
 
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD node -e "const fs=require('fs'),os=require('os'),p=require('path');const f=process.env.WORKER_READY_FILE||p.join(os.tmpdir(),'jobsclick-worker-ready');const s=fs.statSync(f);if(Date.now()-s.mtimeMs>45000)process.exit(1);" || exit 1
+
 CMD ["node", "dist/main.js"]
