@@ -1,6 +1,6 @@
 # ADR 0002: API-Enforced Authorization, Tenant Isolation and Database Access Hardening
 
-- **Status:** Approved with Pre-Launch Security Conditions (#127 resolved 2026-11-26 — Option 1 retained for MVP with P0 release blockers and phased evolution to Option 3)
+- **Status:** Approved with Pre-Launch Security Conditions (#131 resolved 2026-11-26 — Option 1 retained for MVP with P0 release blockers and phased evolution to Option 3)
 - **Date:** 2026-11-26
 - **Amends:** Hard invariant #5 in `AGENTS.md`; the "RLS = second lock" wording in `AGENTS.md`, `docs/decisions/001-client-decisions.md`, and `docs/PRD.md`; the RLS-enforced multi-tenancy claim in [ADR 0001](./0001-phase-2-architecture-and-security-hardening.md) §2 (item 4) and §6.1
 - **Decision:** Retain **Option 1** (API-enforced authorization + deny-all database access backstop) for MVP launch, enforce mandatory **P0** pre-launch gates, and evolve toward **Option 3** (API-enforced authorization with least-privilege database roles).

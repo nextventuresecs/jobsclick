@@ -1,6 +1,6 @@
 # ADR 0001: Phase 2 Architecture, Ledger Invariant, and Security Hardening
 
-- **Status:** Approved / Architecture Specification *(§2 item 4 and §6.1 amended by [ADR 0002](./0002-authorization-model-api-enforced-deny-all-rls.md) — #127)*
+- **Status:** Approved / Architecture Specification *(§2 item 4 and §6.1 amended by [ADR 0002](./0002-authorization-model-api-enforced-deny-all-rls.md) — #131)*
 - **Date:** 2026-10-26
 - **Context:** Indian Job Portal Platform (JobsClick) — Phase 2 FinTech Ledger, Razorpay Gateway, Featured Promotions Engine, and Institutional Placement Multi-Tenancy
 - **Requirement IDs:** PRN-06, WAL-01, WAL-02, WAL-03, WAL-04, WAL-05, INT-04, JOB-05, Hard Invariants #1, #5, #6, #7, #8
