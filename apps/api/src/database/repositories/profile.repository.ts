@@ -9,6 +9,11 @@ import type {
   InstitutionSponsorshipRow,
 } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
+import {
+  type AuthorizationContext,
+  requireAuthorizationContext,
+  assertTenantMatchOrAdmin,
+} from '../../auth/authorization-context.js';
 
 @Injectable()
 export class ProfileRepository {
@@ -136,6 +141,15 @@ export class ProfileRepository {
       }
     }
     return local;
+  }
+
+  async findStudentsByInstitutionScoped(
+    ctx: AuthorizationContext,
+    institutionId: string,
+  ): Promise<JobSeekerProfileRow[]> {
+    const verified = requireAuthorizationContext(ctx);
+    assertTenantMatchOrAdmin(verified, institutionId);
+    return this.findStudentsByInstitution(institutionId);
   }
 
   async markSeekerSponsored(

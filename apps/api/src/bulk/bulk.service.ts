@@ -7,6 +7,8 @@ import { parse as parseCsvSync } from 'csv-parse/sync';
 import { QstashService } from '../qstash/qstash.service.js';
 import { QueueService } from '../queue/queue.service.js';
 import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
+import { SUPABASE_CLIENT } from '../database/supabase.provider.js';
+import { createActorAuthorizationContext, requirePermission } from '../auth/authorization-context.js';
 import type { TaskStatus } from '@indian-job-portal/database';
 import { xlsxRosterToCsv } from './xlsx-roster.js';
 
@@ -91,7 +93,13 @@ export class BulkService {
     @Inject(QstashService) private readonly qstashService: QstashService,
     @Inject(QueueService) private readonly queueService: QueueService,
     @Optional() @Inject(AuditLogRepository) private readonly auditLogRepo?: AuditLogRepository,
+    @Optional() @Inject(SUPABASE_CLIENT) injectedSupabase?: SupabaseClient,
   ) {
+    if (injectedSupabase) {
+      this.supabase = injectedSupabase;
+      return;
+    }
+
     const url = process.env['SUPABASE_URL'];
     const key = process.env['SUPABASE_SERVICE_ROLE_KEY'];
 
@@ -862,12 +870,16 @@ export class BulkService {
     if (!actor?.id || !['admin', 'intermediary', 'msme_admin'].includes(actor.role)) {
       throw new ForbiddenException('BULK_ROLE_FORBIDDEN');
     }
+    const ctx = createActorAuthorizationContext(actor.id, actor.role);
+    requirePermission(ctx, 'bulk:write');
   }
 
   private requireInviter(actor?: AuthenticatedUser): void {
     if (!actor?.id || !['admin', 'intermediary'].includes(actor.role)) {
       throw new ForbiddenException('BULK_INVITE_FORBIDDEN');
     }
+    const ctx = createActorAuthorizationContext(actor.id, actor.role);
+    requirePermission(ctx, 'bulk:write');
   }
 
   private assertOwner(createdBy: string | null | undefined, actor?: AuthenticatedUser): void {

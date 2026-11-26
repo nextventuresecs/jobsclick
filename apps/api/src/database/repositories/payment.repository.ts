@@ -1,7 +1,12 @@
-import { Injectable, Inject, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, Inject, InternalServerErrorException, ForbiddenException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, PaymentRow } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT } from '../supabase.provider.js';
+import {
+  type AuthorizationContext,
+  requireAuthorizationContext,
+  isPlatformAdminContext,
+} from '../../auth/authorization-context.js';
 
 export type SettlePaymentStatus =
   | 'settled'
@@ -89,6 +94,25 @@ export class PaymentRepository {
       throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
     }
     return (data as unknown as PaymentRow) || null;
+  }
+
+  async findByIdOrOrderIdScoped(
+    ctx: AuthorizationContext,
+    paymentIdOrOrderId: string,
+  ): Promise<PaymentRow | null> {
+    const verified = requireAuthorizationContext(ctx);
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      paymentIdOrOrderId,
+    );
+    const payment = isUuid
+      ? (await this.findById(paymentIdOrOrderId)) || (await this.findByGatewayOrderId(paymentIdOrOrderId))
+      : await this.findByGatewayOrderId(paymentIdOrOrderId);
+
+    if (!payment) return null;
+    if (!isPlatformAdminContext(verified) && payment.user_id !== verified.actorId) {
+      throw new ForbiddenException('You are not authorized to access this payment resource');
+    }
+    return payment;
   }
 
   async findByGatewayPaymentId(paymentId: string): Promise<PaymentRow | null> {
