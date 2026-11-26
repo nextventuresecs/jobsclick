@@ -16,7 +16,7 @@ Spec: `docs/PRD.md` (v1.3) + `docs/decisions/001-client-decisions.md` (overrides
   - `packages/database` Supabase SQL migrations, RLS, generated types
   - `packages/validation` shared zod schemas (single source for form + API)
   - `packages/ui` shared components
-- Postgres/Supabase (API-enforced authz + deny-all RLS backstop; see `docs/adr/0002-authorization-model-api-enforced-deny-all-rls.md`), Supabase Storage, Supabase phone OTP with custom SMS hook (MSG91), Upstash Redis (`@upstash/ratelimit`, BullMQ), Cloudflare Turnstile, Resend, Sentry.
+- Postgres/Supabase (API-enforced authz + deny-all RLS/grant DB backstop; see `docs/adr/0002-authorization-model-api-enforced-deny-all-rls.md`), Supabase Storage, Supabase phone OTP with custom SMS hook (MSG91), Upstash Redis (`@upstash/ratelimit`, BullMQ), Cloudflare Turnstile, Resend, Sentry.
 - PDF: `@react-pdf/renderer` (no headless browser). Search: Postgres FTS. QR: `qrcode`.
 - Docker yes. Kubernetes no. Deployment platform: Railway. Terraform only if AWS chosen.
 
@@ -25,7 +25,7 @@ Spec: `docs/PRD.md` (v1.3) + `docs/decisions/001-client-decisions.md` (overrides
 2. Bulk import creates users in `invited` state. **No SMS at import.** Invites go out in batches with cost preview.
 3. Every bulk import row keeps `source`.
 4. OTP: Turnstile before send, per-number/device/IP limits, cool-down, daily cap, spend alert.
-5. Authorization is enforced in API guards and repository tenant scoping. The database is deny-all to `anon` and `authenticated` (RLS enabled on every table, no table grants), and sensitive mutations run only in `SECURITY DEFINER` functions callable by the service role. Verified in CI by `db:catalog:check` and `db:smoke:postgrest`. (Amended by ADR 0002, #127.)
+5. **Authorization and data isolation:** Authorization is deny-by-default and enforced by trusted server-side application components, validating actor, permissions, tenant membership, and resource relationships. Tenant-owned data uses explicitly scoped repositories/domain operations with server-derived tenant context (never trusting client-supplied identifiers alone). Direct access to private tables is denied to `anon` and `authenticated` via restricted grants and enabled RLS, exposing only approved public read views. Privileged DB credentials stay confined to server-side workloads, and sensitive financial/PII mutations use audited DB functions with restricted `EXECUTE`, pinned `search_path`, and invariant validation. Application-level authorization is the primary runtime tenant-isolation boundary (RLS does not isolate privileged traffic that bypasses it). Verified in CI by `db:catalog:check`, `db:smoke:postgrest`, authorization/cross-tenant regression tests, and credential exposure checks. (Amended by ADR 0002, #127.)
 6. Audit log (admin login, imports, exports, credit changes) is append-only, not editable by admins.
 7. Credit balances derive from ledger only (P2). Never store mutable balance as truth.
 8. Aadhaar: optional field, but **never store the full number**. Store last 4 digits + `verified` flag only (verified via licensed partner later). Never log it. APAAR ID optional. Show consent text before collecting either.
