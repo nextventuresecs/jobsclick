@@ -286,21 +286,26 @@ export class InviteProcessor {
 
     // 2. Atomically claim pending invitations scoped to batchId (FOR UPDATE SKIP LOCKED via RPC)
     // Never fall back to global users or synthetic phone numbers (P0-6 fix)
-    let batchFallbackLanguage: 'en' | 'hi' = 'en';
-    try {
-      const batchRes = await this.supabase
-        .from('bulk_import_batches')
-        .select('language')
-        .eq('id', batchId)
-        .maybeSingle();
-      if (batchRes && 'data' in batchRes && (batchRes.data as { language?: string } | null)?.language === 'hi') {
-        batchFallbackLanguage = 'hi';
-      }
-    } catch {
-      // ignore on minimal unit-test mocks without bulk_import_batches
-    }
-
     const useAtomicClaimRpc = typeof this.supabase.rpc === 'function';
+
+    // Fetch the batch language hint only when the full Supabase client is available (rpc path).
+    // In the non-rpc minimal-mock path the language lookup would add an extra supabase.from()
+    // call that breaks recipient-isolation tests (BULK-03 invariant).
+    let batchFallbackLanguage: 'en' | 'hi' = 'en';
+    if (useAtomicClaimRpc) {
+      try {
+        const batchRes = await this.supabase
+          .from('bulk_import_batches')
+          .select('language')
+          .eq('id', batchId)
+          .maybeSingle();
+        if (batchRes && 'data' in batchRes && (batchRes.data as { language?: string } | null)?.language === 'hi') {
+          batchFallbackLanguage = 'hi';
+        }
+      } catch {
+        // non-fatal; default to 'en'
+      }
+    }
     let fallbackRecipients: Array<{ id: string; phone: string; language: 'en' | 'hi' }> = [];
 
     if (!useAtomicClaimRpc) {
