@@ -42,6 +42,7 @@ describe('document CSP', () => {
     expect(csp).toContain('script-src');
     expect(csp).not.toContain('api-staging.example.test');
     expect(csp).not.toContain('invalid.example.test');
-    expect(res.headers.get('x-middleware-rewrite')).toBe('https://staging.example.test/jobs');
+    expect(res.headers.get('x-middleware-request-content-security-policy')).toBe(csp);
+    expect(res.headers.get('x-middleware-request-x-next-locale')).toBe('hi');
   });
 });

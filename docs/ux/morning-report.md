@@ -2,6 +2,14 @@
 
 Branch `codex/js-02-js-05-ux-workflow`. The unattended workflow and Phase 0 source audit are complete. The shared-button slice has local evidence. The full redesign and release gates remain open. No remote push, PR submission or deployment was performed. Staging services and the staging checkout were untouched.
 
+## AUTH-07 and location data follow-up
+
+- The production test reproduced English HTML on both Hindi routes when Next bound explicitly to loopback. Next normalized the absolute middleware rewrite hostname and passed the request through routing twice. Path-only rewrites now apply the first request's Hindi headers to the destination. The jobs page uses the message catalogs for its heading, search, filters and results labels. Its search, reset and filter links preserve the Hindi route.
+- The final production build, workspace typecheck and lint passed. Vitest passed 267 web tests across 37 files in two runs, including eight production-startup checks. Both routes returned HTTP 200 and Hindi headings with no cookie and with an English preference. Each also passed in a fresh Chrome profile. A loopback API fixture verified a part-time card, Hindi salary units and a Hindi job-detail link. Unprefixed `/jobs` passed the English check. Both catalogs contain the same 975 keys.
+- The production check used an isolated local build. Staging refs and the brand assets were unchanged. The service-backed monorepo suites, full bilingual audit and real-user release checks remain open. Employer-supplied listings can contain text in the language provided by the employer.
+- Official sources supplied a current citizen-report snapshot of the 36 states and UTs, a legacy OGD export with 785 district codes and a legacy India Post export with 19,300 PINs across 157,126 rows. Source checksums, dates, license and local file locations are in the [source record](../../data/geo/README.md).
+- The district export includes 205 local names in Devanagari and five blank local names. Comparing the official datasets left 38 postal state/district pairs without exact LGD matches. Production lookup requires fresher exports, reviewed Hindi names, authoritative crosswalk evidence and approval for any RLS or legacy-address migration.
+
 ## Completed
 
 - Updated the [agent workflow](agentic-workflow.md) to continue through ready work and queue only blocked decisions for the end. Required human approval still applies before adopting changes to RLS, auth/OTP, existing-data migrations, payments and DPDP consent.
@@ -27,7 +35,7 @@ Component screenshots: `C:/Users/jagta/AppData/Local/Temp/jobsclick-button-EsG3m
 
 ## Needs your help
 
-1. **Geo reference data.** Supply or authorize versions of the bilingual LGD state/district dataset and India Post PIN/post-office mappings with source and license. Approve institution roster use if available. If the product uses free-text institution submissions, settle who can approve and deduplicate them.
+1. **Geo reference data.** Official references are now available for offline validation. Production needs fresher district and PIN exports, reviewed Hindi display labels and an authoritative mapping for the 38 postal state/district pairs without exact LGD matches. Current OGD downloads can be supplied through an authorized account or by providing the files. Approve institution roster use if available and confirm who can approve and deduplicate free-text institution submissions. [Source and verification record](../../data/geo/README.md)
 2. **Sensitive changes and product decisions.** Review any later RLS, legacy-address migration, auth/OTP, payments or consent drafts before adoption. Confirm approved support details, marketing claims or assets that lack a source. Apply Undo, credit claims and optional location or voice features need proven product and privacy behavior before release.
 3. **Real-user release evidence.** Authorize an isolated preview if testers need remote access. Human task tests on low-end Android, TalkBack and Hindi read-aloud are pending. The verification record contains tasks, pass criteria and an observation sheet.
 

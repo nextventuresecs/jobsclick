@@ -9,6 +9,15 @@ const nextConfig = {
     // Required in Next.js 14 to enable instrumentation.ts lifecycle hooks
     instrumentationHook: true,
   },
+  async rewrites() {
+    // Keep the Hindi route in this request even when Next normalizes a bind hostname.
+    return {
+      beforeFiles: [
+        { source: '/hi', destination: '/' },
+        { source: '/hi/:path+', destination: '/:path+' },
+      ],
+    };
+  },
   images: {
     dangerouslyAllowSVG: false,
     contentDispositionType: 'attachment',

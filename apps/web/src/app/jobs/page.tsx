@@ -1,11 +1,12 @@
 import React from 'react';
 import Link from 'next/link';
+import { getLocale, getTranslations } from 'next-intl/server';
 import {
   CategoryBadge,
   getCategoryCardBorderClass,
   Button,
 } from '@indian-job-portal/ui';
-import type { JobCategory } from '@indian-job-portal/validation';
+import { employmentTypeSchema, type EmploymentType, type JobCategory } from '@indian-job-portal/validation';
 import { Navbar } from '../../components/layout/Navbar';
 import { Footer } from '../../components/layout/Footer';
 import type { JobItem } from '../../data/sampleJobs';
@@ -34,24 +35,33 @@ interface JobsPageProps {
   };
 }
 
-const CATEGORY_TABS: readonly {
-  readonly key: string;
-  readonly label: string;
-}[] = [
-  { key: '', label: 'All Sectors' },
-  { key: 'technology', label: 'Technology & Software' },
-  { key: 'manufacturing', label: 'Manufacturing & Trades' },
-  { key: 'sales_operations', label: 'Sales & Operations' },
-  { key: 'logistics_supply', label: 'Logistics & Supply Chain' },
-  { key: 'creative_services', label: 'Creative & Design' },
-  { key: 'healthcare_services', label: 'Healthcare & Services' },
+const CATEGORY_TABS = [
+  '', 'technology', 'manufacturing', 'sales_operations', 'logistics_supply',
+  'creative_services', 'healthcare_services',
 ] as const;
 
+const EMPLOYMENT_FILTERS = ['', 'Full-time', 'Apprenticeship', 'Contract', 'Shift-based'] as const;
+const EMPLOYMENT_LABELS = {
+  'Full-time': 'fullTime',
+  'Part-time': 'partTime',
+  Apprenticeship: 'apprenticeship',
+  Contract: 'contract',
+  'Shift-based': 'shiftBased',
+} as const satisfies Record<EmploymentType, string>;
+
 export default async function JobsListPage({ searchParams }: JobsPageProps) {
+  const [locale, t, categoryT] = await Promise.all([
+    getLocale(),
+    getTranslations('JobsPage'),
+    getTranslations('Categories'),
+  ]);
+  const jobsPath = locale === 'hi' ? '/hi/jobs' : '/jobs';
   const keyword = searchParams?.keyword?.trim() || '';
   const city = searchParams?.city?.trim() || '';
   const category = searchParams?.category?.trim() || '';
   const employmentType = searchParams?.employmentType?.trim() || '';
+  const selectedCategory = CATEGORY_TABS.find((key) => key === category);
+  const selectedEmployment = employmentTypeSchema.safeParse(employmentType);
   const minPay = searchParams?.minPay ? Number(searchParams.minPay) : 0;
   const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
 
@@ -101,25 +111,25 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
         <div className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-200 shadow-xs space-y-6">
           <div>
             <span className="text-xs font-bold uppercase tracking-wider text-brand-orange">
-              Pan-India Job Directory
+              {t('directoryLabel')}
             </span>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight mt-1">
-              Find Verified Opportunities Nationwide
+              {t('heading')}
             </h1>
             <p className="text-xs sm:text-sm text-gray-600 mt-1">
-              Direct hiring with verified MSMEs and enterprises. Contact privacy guaranteed.
+              {t('subheading')}
             </p>
           </div>
 
           {/* Search Inputs */}
-          <form action="/jobs" method="GET" className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+          <form action={jobsPath} method="GET" className="grid grid-cols-1 sm:grid-cols-12 gap-3">
             <div className="sm:col-span-5 flex items-center gap-2.5 px-3.5 py-2.5 bg-gray-50 rounded-xl border border-gray-200">
               <Search className="w-4 h-4 text-gray-400 shrink-0" />
               <input
                 type="text"
                 name="keyword"
                 defaultValue={keyword}
-                placeholder="Job title, skill (e.g. CNC, React, Sales, Logistics)..."
+                placeholder={t('searchPlaceholder')}
                 className="w-full bg-transparent text-sm text-gray-900 placeholder-gray-400 focus:outline-none"
               />
             </div>
@@ -130,7 +140,7 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
                 type="text"
                 name="city"
                 defaultValue={city}
-                placeholder="City (e.g. Bengaluru, Pune, Delhi, Mumbai)..."
+                placeholder={t('cityPlaceholder')}
                 className="w-full bg-transparent text-sm text-gray-900 placeholder-gray-400 focus:outline-none"
               />
             </div>
@@ -141,13 +151,13 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
 
             <div className="sm:col-span-3 flex items-center gap-2">
               <Button type="submit" variant="primary" size="md" className="flex-1 font-semibold">
-                Search Jobs
+                {t('searchJobs')}
               </Button>
               {(keyword || city || category || employmentType || minPay > 0) && (
                 <Link
-                  href="/jobs"
+                  href={jobsPath}
                   className="p-2.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600 transition-colors"
-                  title="Reset filters"
+                  title={t('resetFilters')}
                 >
                   <RotateCcw className="w-4 h-4" />
                 </Link>
@@ -159,28 +169,28 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
           <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100">
             <span className="text-xs font-semibold text-gray-500 mr-1 flex items-center gap-1">
               <SlidersHorizontal className="w-3.5 h-3.5" />
-              Sectors:
+              {t('sectorsLabel')}
             </span>
-            {CATEGORY_TABS.map((tab) => {
-              const isSelected = category === tab.key;
+            {CATEGORY_TABS.map((categoryKey) => {
+              const isSelected = category === categoryKey;
               const nextQuery = new URLSearchParams();
               if (keyword) nextQuery.set('keyword', keyword);
               if (city) nextQuery.set('city', city);
-              if (tab.key) nextQuery.set('category', tab.key);
+              if (categoryKey) nextQuery.set('category', categoryKey);
               if (employmentType) nextQuery.set('employmentType', employmentType);
               if (minPay > 0) nextQuery.set('minPay', String(minPay));
 
               return (
                 <Link
-                  key={tab.key}
-                  href={`/jobs?${nextQuery.toString()}`}
+                  key={categoryKey}
+                  href={`${jobsPath}?${nextQuery.toString()}`}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     isSelected
                       ? 'bg-brand-orange text-white shadow-xs font-semibold'
                       : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                   }`}
                 >
-                  {tab.label}
+                  {categoryKey ? categoryT(categoryKey) : t('allCategories')}
                 </Link>
               );
             })}
@@ -190,9 +200,9 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
           <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100">
             <span className="text-xs font-semibold text-gray-500 mr-1 flex items-center gap-1">
               <Briefcase className="w-3.5 h-3.5" />
-              Job Type:
+              {t('jobTypeLabel')}
             </span>
-            {['', 'Full-time', 'Apprenticeship', 'Contract', 'Shift-based'].map((type) => {
+            {EMPLOYMENT_FILTERS.map((type) => {
               const isSelected = employmentType === type;
               const nextQuery = new URLSearchParams();
               if (keyword) nextQuery.set('keyword', keyword);
@@ -204,14 +214,14 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
               return (
                 <Link
                   key={type || 'all'}
-                  href={`/jobs?${nextQuery.toString()}`}
+                  href={`${jobsPath}?${nextQuery.toString()}`}
                   className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
                     isSelected
                       ? 'bg-gray-900 text-white shadow-xs font-semibold'
                       : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
                   }`}
                 >
-                  {type || 'All Types'}
+                  {t(type ? EMPLOYMENT_LABELS[type] : 'allTypes')}
                 </Link>
               );
             })}
@@ -221,17 +231,24 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
         {/* Results Header */}
         <div className="flex flex-wrap items-center justify-between text-xs text-gray-500 px-1 gap-2">
           <span>
-            Showing <strong className="text-gray-900">{filteredJobs.length}</strong> verified opportunities
+            {t.rich('resultsCount', {
+              count: filteredJobs.length.toLocaleString(`${locale}-IN`),
+              strong: (count) => <strong className="text-gray-900">{count}</strong>,
+            })}
           </span>
           <div className="flex flex-wrap items-center gap-2">
             {category && (
               <span className="font-medium text-brand-orange bg-orange-50 px-2 py-0.5 rounded border border-orange-200">
-                Sector: {category.replace('_', ' ')}
+                {t('selectedSector', {
+                  sector: selectedCategory ? categoryT(selectedCategory) : category.replace('_', ' '),
+                })}
               </span>
             )}
             {employmentType && (
               <span className="font-medium text-gray-800 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
-                Type: {employmentType}
+                {t('selectedType', {
+                  type: selectedEmployment.success ? t(EMPLOYMENT_LABELS[selectedEmployment.data]) : employmentType,
+                })}
               </span>
             )}
             <SaveSearchAlertModal
@@ -247,6 +264,7 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {filteredJobs.map((job) => {
               const borderClass = getCategoryCardBorderClass(job.category as JobCategory);
+              const employment = employmentTypeSchema.safeParse(job.employmentType);
               return (
                 <div
                   key={job.id}
@@ -259,7 +277,7 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
                           <div className="mb-1.5">
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
                               <Sparkles className="w-3 h-3 text-amber-600 fill-amber-500" />
-                              Featured Opportunity
+                              {t('featuredBadge')}
                             </span>
                           </div>
                         )}
@@ -267,7 +285,7 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
                           {job.companyName}
                         </span>
                         <Link
-                          href={`/jobs/${job.id}`}
+                          href={`${jobsPath}/${job.id}`}
                           className="text-lg font-bold text-gray-900 hover:text-brand-orange transition-colors"
                         >
                           {job.title}
@@ -284,12 +302,15 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
                       <div className="flex items-center gap-1 font-semibold text-gray-900">
                         <IndianRupee className="w-3.5 h-3.5 text-emerald-600" />
                         <span>
-                          ₹{job.salaryMin.toLocaleString('en-IN')} - ₹{job.salaryMax.toLocaleString('en-IN')}/mo
+                          {t('monthlySalary', {
+                            min: job.salaryMin.toLocaleString(`${locale}-IN`),
+                            max: job.salaryMax.toLocaleString(`${locale}-IN`),
+                          })}
                         </span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Briefcase className="w-3.5 h-3.5 text-gray-400" />
-                        <span>{job.employmentType}</span>
+                        <span>{employment.success ? t(EMPLOYMENT_LABELS[employment.data]) : job.employmentType}</span>
                       </div>
                     </div>
 
@@ -316,9 +337,9 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
                       <Clock className="w-3 h-3" />
                       <span>{job.postedDate}</span>
                     </span>
-                    <Link href={`/jobs/${job.id}`}>
+                    <Link href={`${jobsPath}/${job.id}`}>
                       <Button variant="primary" size="sm" className="font-semibold">
-                        View Details & Apply
+                        {t('viewAndApply')}
                       </Button>
                     </Link>
                   </div>
@@ -329,13 +350,13 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
         ) : (
           <div className="bg-white rounded-2xl p-12 text-center border border-gray-200 max-w-lg mx-auto space-y-4">
             <Search className="w-12 h-12 text-gray-300 mx-auto" />
-            <h3 className="text-lg font-bold text-gray-900">No matching jobs found</h3>
+            <h3 className="text-lg font-bold text-gray-900">{t('emptyTitle')}</h3>
             <p className="text-xs text-gray-500">
-              Try broadening your keyword, searching for a different city, or clearing your active filters.
+              {t('emptyDescription')}
             </p>
-            <Link href="/jobs">
+            <Link href={jobsPath}>
               <Button variant="outline" size="sm">
-                Clear All Filters
+                {t('clearAllFilters')}
               </Button>
             </Link>
           </div>
