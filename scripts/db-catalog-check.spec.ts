@@ -22,8 +22,11 @@ vi.mock('pg', () => {
 import { runCatalogCheck } from './db-catalog-check.js';
 
 function createBaselineQueryResponder(overrides?: {
+  unpinnedProc?: Array<{ schema_name: string; proname: string; prosecdef: boolean; proconfig: unknown }>;
+  callableProc?: Array<{ schema_name: string; proname: string; grantee: string; privilege_type: string }>;
   rlsTables?: Array<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }>;
   baseTableGrants?: Array<{ grantee: string; table_name: string; privilege_type: string }>;
+  viewGrants?: Array<{ grantee: string; table_name: string; privilege_type: string }>;
 }) {
   const defaultRlsTables = Array.from({ length: 23 }, (_, idx) => ({
     relname: `table_${idx + 1}`,
@@ -31,24 +34,28 @@ function createBaselineQueryResponder(overrides?: {
     relforcerowsecurity: false,
   }));
 
+  const defaultViewGrants = [
+    { grantee: 'anon', table_name: 'public_business_profiles', privilege_type: 'SELECT' },
+    { grantee: 'authenticated', table_name: 'public_business_profiles', privilege_type: 'SELECT' },
+    { grantee: 'anon', table_name: 'public_jobs', privilege_type: 'SELECT' },
+    { grantee: 'authenticated', table_name: 'public_jobs', privilege_type: 'SELECT' },
+  ];
+
   return async (sql: string): Promise<QueryResult> => {
-    if (sql.includes('p.proconfig')) return { rows: [] };
-    if (sql.includes('information_schema.routine_privileges')) return { rows: [] };
-    if (sql.includes("c.relkind = 'r'")) {
+    if (sql.includes('p.proconfig') && !sql.includes('prohibit_truncate_trigger')) {
+      return { rows: overrides?.unpinnedProc ?? [] };
+    }
+    if (sql.includes('information_schema.routine_privileges')) {
+      return { rows: overrides?.callableProc ?? [] };
+    }
+    if (sql.includes("c.relkind = 'r'") && sql.includes('c.relrowsecurity')) {
       return { rows: overrides?.rlsTables ?? defaultRlsTables };
     }
-    if (sql.includes("table_name NOT IN ('public_business_profiles', 'public_jobs')")) {
+    if (sql.includes("c.relkind = 'r'") && sql.includes('role_table_grants')) {
       return { rows: overrides?.baseTableGrants ?? [] };
     }
-    if (sql.includes("table_name IN ('public_business_profiles', 'public_jobs')")) {
-      return {
-        rows: [
-          { grantee: 'anon', table_name: 'public_business_profiles', privilege_type: 'SELECT' },
-          { grantee: 'authenticated', table_name: 'public_business_profiles', privilege_type: 'SELECT' },
-          { grantee: 'anon', table_name: 'public_jobs', privilege_type: 'SELECT' },
-          { grantee: 'authenticated', table_name: 'public_jobs', privilege_type: 'SELECT' },
-        ],
-      };
+    if (sql.includes("c.relkind IN ('v', 'm')") && sql.includes('role_table_grants')) {
+      return { rows: overrides?.viewGrants ?? defaultViewGrants };
     }
     if (sql.includes('FROM storage.buckets')) {
       return { rows: [{ id: 'private', name: 'private', public: false }] };
@@ -81,23 +88,25 @@ function createBaselineQueryResponder(overrides?: {
   };
 }
 
-describe('ADR 0002 / #127: Deny-all RLS & Zero Table Grants Backstop (db:catalog:check)', () => {
+describe('ADR 0002 / #131 (AUTHZ-08): Deny-all RLS & Zero Table Grants Backstop (db:catalog:check)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('passes when all base tables have RLS enabled and anon/authenticated have zero base table grants', async () => {
+  it('passes when all base tables have RLS enabled, anon/authenticated have zero base table grants, and only approved views are readable', async () => {
     mockQuery.mockImplementation(createBaselineQueryResponder());
     const result = await runCatalogCheck('postgresql://postgres:postgres@127.0.0.1:54322/postgres');
     expect(result.passed).toBe(true);
 
     const grantsCheck = result.checks.find((c) => c.name === 'Zero base table grants to anon or authenticated');
     const rlsCheck = result.checks.find((c) => c.name === 'All base tables have RLS enabled (relrowsecurity = true)');
+    const viewCheck = result.checks.find((c) => c.name === 'Public non-PII views granted SELECT to anon and authenticated');
     expect(grantsCheck?.passed).toBe(true);
     expect(rlsCheck?.passed).toBe(true);
+    expect(viewCheck?.passed).toBe(true);
   });
 
-  it('fails Check 4 when anon or authenticated is granted privileges on any base table', async () => {
+  it('fails Check 4 when PUBLIC, anon, or authenticated is granted privileges on any base table', async () => {
     mockQuery.mockImplementation(
       createBaselineQueryResponder({
         baseTableGrants: [
@@ -131,6 +140,42 @@ describe('ADR 0002 / #127: Deny-all RLS & Zero Table Grants Backstop (db:catalog
 
     const rlsCheck = result.checks.find((c) => c.name === 'All base tables have RLS enabled (relrowsecurity = true)');
     expect(rlsCheck?.passed).toBe(false);
+  });
+
+  it('fails Check 2 when a SECURITY DEFINER function in public or private_payments is callable by anon/authenticated/PUBLIC', async () => {
+    mockQuery.mockImplementation(
+      createBaselineQueryResponder({
+        callableProc: [
+          { schema_name: 'private_payments', proname: 'settle_payment', grantee: 'authenticated', privilege_type: 'EXECUTE' },
+        ],
+      }),
+    );
+
+    const result = await runCatalogCheck('postgresql://postgres:postgres@127.0.0.1:54322/postgres');
+    expect(result.passed).toBe(false);
+
+    const procCheck = result.checks.find((c) => c.name === 'Zero prosecdef functions callable by anon or authenticated');
+    expect(procCheck?.passed).toBe(false);
+  });
+
+  it('fails Check 5 when an unapproved view or write privilege is exposed to anon/authenticated', async () => {
+    mockQuery.mockImplementation(
+      createBaselineQueryResponder({
+        viewGrants: [
+          { grantee: 'anon', table_name: 'public_business_profiles', privilege_type: 'SELECT' },
+          { grantee: 'authenticated', table_name: 'public_business_profiles', privilege_type: 'SELECT' },
+          { grantee: 'anon', table_name: 'public_jobs', privilege_type: 'SELECT' },
+          { grantee: 'authenticated', table_name: 'public_jobs', privilege_type: 'SELECT' },
+          { grantee: 'anon', table_name: 'public_institution_profiles', privilege_type: 'SELECT' },
+        ],
+      }),
+    );
+
+    const result = await runCatalogCheck('postgresql://postgres:postgres@127.0.0.1:54322/postgres');
+    expect(result.passed).toBe(false);
+
+    const viewCheck = result.checks.find((c) => c.name === 'Public non-PII views granted SELECT to anon and authenticated');
+    expect(viewCheck?.passed).toBe(false);
   });
 
   it('keeps db:catalog:check and db:smoke:postgrest wired in CI workflow', () => {

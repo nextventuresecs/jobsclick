@@ -44,4 +44,18 @@ describe('Public Projection Reads Migration (20261118085644)', () => {
     expect(sql).toContain('ADD COLUMN IF NOT EXISTS is_published BOOLEAN NOT NULL DEFAULT true');
     expect(sql).toContain('CREATE INDEX IF NOT EXISTS idx_institution_profiles_is_published');
   });
+
+  it('hardens public_business_profiles and public_jobs to filter active owners and revoke write/PUBLIC grants (AUTHZ-07)', () => {
+    const hardenViewsPath = resolve(
+      __dirname,
+      '../../../supabase/migrations/20261126000100_harden_public_views.sql'
+    );
+    expect(existsSync(hardenViewsPath)).toBe(true);
+    const sql = readFileSync(hardenViewsPath, 'utf-8');
+    expect(sql).toContain("WHERE u.status = 'active'");
+    expect(sql).toContain('REVOKE ALL ON public.public_business_profiles FROM PUBLIC, anon, authenticated;');
+    expect(sql).toContain('REVOKE ALL ON public.public_jobs FROM PUBLIC, anon, authenticated;');
+    expect(sql).toContain('GRANT SELECT ON public.public_business_profiles TO anon, authenticated;');
+    expect(sql).toContain('GRANT SELECT ON public.public_jobs TO anon, authenticated;');
+  });
 });

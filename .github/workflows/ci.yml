@@ -91,6 +91,7 @@ jobs:
         run: |
           node --test scripts/ci/dependency-audit.test.mjs
           node --test scripts/ci/docker-context.test.mjs
+          node --test scripts/ci/check-web-secrets.test.mjs
 
       - name: Run Production Dependency Audit Gate
         run: node scripts/ci/dependency-audit.mjs
@@ -113,6 +114,9 @@ jobs:
 
       - name: Build All Workspaces
         run: pnpm build
+
+      - name: Scan Web Client Bundle for Privileged Credentials (AUTHZ-05)
+        run: node scripts/ci/check-web-secrets.mjs
 
       - name: Smoke test compiled API startup
         shell: bash
