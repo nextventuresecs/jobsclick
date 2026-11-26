@@ -14,7 +14,10 @@ async function bootstrap() {
   initSentry(env.SENTRY_DSN);
 
   const adapter = new FastifyAdapter({
-    trustProxy: env.TRUST_PROXY_HOPS,
+    trustProxy:
+      env.TRUST_PROXY_HOPS > 0
+        ? (_addr: string, hop: number) => hop < env.TRUST_PROXY_HOPS
+        : false,
     bodyLimit: 1_048_576,
   });
   configureWebCors(adapter, env.WEB_URL || env.APP_URL);

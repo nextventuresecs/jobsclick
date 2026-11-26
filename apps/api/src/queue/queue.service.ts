@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { Queue, ConnectionOptions, Job, type JobsOptions } from 'bullmq';
 import IORedis from 'ioredis';
 import { createBullBoard } from '@bull-board/api';
-import { BullMQAdapter } from '@bull-board/api/bullMQAdapter.js';
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 import { FastifyAdapter } from '@bull-board/fastify';
 import {
   QUEUE_NAMES,
