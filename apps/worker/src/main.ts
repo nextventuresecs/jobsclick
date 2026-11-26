@@ -11,6 +11,7 @@ import {
   DEFAULT_BULLMQ_RETRY_OPTIONS,
   PAYMENTS_BULLMQ_JOB_OPTIONS,
 } from '@indian-job-portal/validation';
+import { createWorkerReadiness } from './health.js';
 import { validateEnv, EnvConfig } from './config/env.js';
 import {
   initSentry,
