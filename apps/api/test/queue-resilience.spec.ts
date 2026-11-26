@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import IORedis from 'ioredis';
 import { ServiceUnavailableException } from '@nestjs/common';
-import { QueueService } from '../src/queue/queue.service.js';
+import { QueueService, DEFAULT_JOB_OPTIONS } from '../src/queue/queue.service.js';
 import { OtpRedisService } from '../src/auth/otp-redis.service.js';
 import { HealthController } from '../src/health/health.controller.js';
 import { validateEnv } from '../src/config/env.js';
@@ -138,6 +138,7 @@ describe('Redis, BullMQ & Health Readiness Production Hardening', () => {
       REDIS_URL: 'rediss://default:Ab3$zQ9*wL2!xP5@redis.example.com:6380',
       JWT_SECRET: 'de4772a0c0f3aa1c09aaa18a7ffde65b791b9a8324fe72e6465a533fa219a4b1',
       OTP_PEPPER: 'b8eLqRnYs3wGxMoZfUvJiKb8eLqRnYs3',
+      ADMIN_DASHBOARD_SECRET: 'k4V9xQwL2mRpZ8sT6yN3bH7jK4v9XqWl',
       CF_ORIGIN_LOCKED: 'true',
       SMS_GATEWAY_MODE: 'live',
       MSG91_AUTH_KEY: 'msg91_live_auth_key_sec_99182746',
@@ -172,5 +173,23 @@ describe('Redis, BullMQ & Health Readiness Production Hardening', () => {
         API_URL: 'https://api.jobsclick.live',
       }),
     ).not.toThrow();
+
+    // #123: ADMIN_DASHBOARD_SECRET mandatory & distinct from JWT_SECRET
+    expect(() =>
+      validateEnv({ ...baseProd, ADMIN_DASHBOARD_SECRET: undefined }),
+    ).toThrow(/ADMIN_DASHBOARD_SECRET/);
+    expect(() =>
+      validateEnv({ ...baseProd, ADMIN_DASHBOARD_SECRET: baseProd['JWT_SECRET'] }),
+    ).toThrow(/ADMIN_DASHBOARD_SECRET/);
+
+    // #133: TRUST_PROXY_HOPS must be explicitly configured in strict environments
+    expect(() =>
+      validateEnv({ ...baseProd, TRUST_PROXY_HOPS: undefined }),
+    ).toThrow(/TRUST_PROXY_HOPS/);
+  });
+
+  it('#124 enforces bounded removeOnComplete and removeOnFail retention on non-payment queues', () => {
+    expect(DEFAULT_JOB_OPTIONS.removeOnComplete).toEqual({ age: 86400, count: 1000 });
+    expect(DEFAULT_JOB_OPTIONS.removeOnFail).toEqual({ age: 604800, count: 5000 });
   });
 });

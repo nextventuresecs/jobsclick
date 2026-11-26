@@ -287,12 +287,17 @@ export function validateEnv(overrides?: Record<string, string | undefined>): Env
       errors.push(pepperErr);
     }
 
-    // ADMIN_DASHBOARD_SECRET: if set, minimum 32 chars, no placeholders
-    if (rawSource['ADMIN_DASHBOARD_SECRET']) {
-      const adminErr = validateSecretKey('ADMIN_DASHBOARD_SECRET', rawSource['ADMIN_DASHBOARD_SECRET'], 32);
-      if (adminErr) {
-        errors.push(adminErr);
-      }
+    // ADMIN_DASHBOARD_SECRET: mandatory dedicated secret in production/staging (min 32 chars, no placeholders)
+    const adminDashboardSecret = rawSource['ADMIN_DASHBOARD_SECRET'];
+    const adminErr = validateSecretKey('ADMIN_DASHBOARD_SECRET', adminDashboardSecret, 32);
+    if (adminErr) {
+      errors.push(adminErr);
+    }
+    if (adminDashboardSecret && jwt && adminDashboardSecret === jwt) {
+      errors.push('ADMIN_DASHBOARD_SECRET must not be identical to JWT_SECRET');
+    }
+    if (adminDashboardSecret && pepper && adminDashboardSecret === pepper) {
+      errors.push('ADMIN_DASHBOARD_SECRET must not be identical to OTP_PEPPER');
     }
 
     // CF_ORIGIN_LOCKED: mandatory in production/staging. Cannot be missing, empty, or malformed.
@@ -435,6 +440,12 @@ export function validateEnv(overrides?: Record<string, string | undefined>): Env
           errors.push(`TRUSTED_PROXY_CIDRS contains invalid CIDR or IP: "${entry}" in production/staging`);
         }
       }
+    }
+
+    // TRUST_PROXY_HOPS must be explicitly configured in production/staging (#133)
+    const rawHops = rawSource['TRUST_PROXY_HOPS'];
+    if (rawHops === undefined || rawHops === null || String(rawHops).trim() === '') {
+      errors.push('TRUST_PROXY_HOPS must be explicitly set (0-5) in production/staging');
     }
 
     // Razorpay Payment Configuration (WAL-03)
