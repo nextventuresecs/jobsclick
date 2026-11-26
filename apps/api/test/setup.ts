@@ -106,7 +106,8 @@ testContainer.createTestingModule = (metadata: ModuleMetadata) => {
     testPath.includes('jwt-guard-hardening.spec') ||
     testPath.includes('auth-multichannel.e2e-spec.ts') ||
     testPath.includes('health.e2e-spec.ts') ||
-    testPath.includes('session-invalidation-p0-8.spec');
+    testPath.includes('session-invalidation-p0-8.spec') ||
+    testPath.includes('idor-matrix.e2e-spec');
 
   const isNoOverride =
     testPath.includes('sms-turnstile.spec') ||
