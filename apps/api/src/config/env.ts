@@ -79,6 +79,7 @@ const baseSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   // Authentication & Administrative Security
   JWT_SECRET: z.string().optional(),
+  JWT_PREVIOUS_SECRET: z.string().optional(),
   JWT_ACCESS_TOKEN_TTL_MINUTES: z.coerce.number().min(1).max(60).default(30),
   OTP_PEPPER: z.string().optional(),
   ADMIN_DASHBOARD_SECRET: z.string().optional(),
@@ -278,6 +279,18 @@ export function validateEnv(overrides?: Record<string, string | undefined>): Env
     const jwtErr = validateProductionJwtKey('JWT_SECRET', jwt);
     if (jwtErr) {
       errors.push(jwtErr);
+    }
+
+    // JWT_PREVIOUS_SECRET: optional zero-downtime key rotation secret (verified only, never used for signing)
+    const prevJwt = rawSource['JWT_PREVIOUS_SECRET'];
+    if (prevJwt !== undefined && prevJwt !== '') {
+      const prevJwtErr = validateProductionJwtKey('JWT_PREVIOUS_SECRET', prevJwt);
+      if (prevJwtErr) {
+        errors.push(prevJwtErr);
+      }
+      if (jwt && prevJwt === jwt) {
+        errors.push('JWT_PREVIOUS_SECRET must not be identical to JWT_SECRET');
+      }
     }
 
     // OTP_PEPPER: minimum 32 chars, no placeholders (general secret key requirement)
