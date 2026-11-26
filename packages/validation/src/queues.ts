@@ -37,8 +37,8 @@ export const DEFAULT_BULLMQ_RETRY_OPTIONS = {
     type: 'exponential' as const,
     delay: 1000,
   },
-  removeOnComplete: false,
-  removeOnFail: false,
+  removeOnComplete: { age: 86400, count: 1000 },
+  removeOnFail: { age: 604800, count: 5000 },
 };
 
 export const PAYMENTS_BULLMQ_JOB_OPTIONS = {
