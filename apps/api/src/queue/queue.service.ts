@@ -2,7 +2,6 @@ import { Injectable, Logger, OnModuleDestroy, ServiceUnavailableException } from
 import { randomUUID } from 'node:crypto';
 import { Queue, ConnectionOptions, Job, type JobsOptions } from 'bullmq';
 import IORedis from 'ioredis';
-import IORedisMock from 'ioredis-mock';
 import { createBullBoard } from '@bull-board/api';
 import { BullMQAdapter } from '@bull-board/api/bullMQAdapter.js';
 import { FastifyAdapter } from '@bull-board/fastify';
@@ -74,6 +73,7 @@ export class QueueService implements OnModuleDestroy {
     const redisUrl = process.env['REDIS_URL'] || 'redis://localhost:6379';
 
     if (this.isMock) {
+      const IORedisMock = require('ioredis-mock') as typeof IORedis;
       this.connection = new IORedisMock() as unknown as IORedis;
     } else {
       const isTls = redisUrl.startsWith('rediss://');

@@ -1,7 +1,8 @@
 import './instrument.js';
 import { Worker, Queue, ConnectionOptions } from 'bullmq';
 import IORedis from 'ioredis';
-import IORedisMock from 'ioredis-mock';
+import { isStaging } from '@indian-job-portal/validation';
+import { createWorkerReadiness } from './health.js';
 import { validateEnv, EnvConfig } from './config/env.js';
 import {
   initSentry,
@@ -89,6 +90,7 @@ export const PAYMENTS_JOB_OPTIONS = {
 
 export function getRedisConnection(env: EnvConfig): IORedis {
   if (env.USE_MOCK_REDIS === 'true' || env.NODE_ENV === 'test') {
+    const IORedisMock = require('ioredis-mock') as typeof IORedis;
     return new IORedisMock() as unknown as IORedis;
   }
 
