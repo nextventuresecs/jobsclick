@@ -14,7 +14,7 @@ The home page, jobs search and cards, job detail and seeker profile editor are i
 | JOB-03, WS7 | One responsive Apply control for open jobs, clear closed and unavailable states, bilingual detail landmarks, public company and share links, and JobPosting structured data for open listings. |
 | JS-02, WS3 | Three seeker profile steps, focus moved to the new step, required-field validation, associated field labels, appropriate keyboard and autofill hints, and in-session draft state on Back. Existing save, cancel and PDF actions remain available. |
 | AUTH-07, WS4 | Direct first visits to `/hi` and `/hi/jobs` return server-rendered Hindi, including visitors with an English preference. |
-| WS2, India location sources | Collected and validated official LGD state and district references and India Post PIN data offline. Recorded provenance and checksums for 36 states and UTs, 785 district codes and 19,300 PINs. Production integration requires refreshed exports and mapped district names. [Source record](../../data/geo/README.md) |
+| WS2, India location sources | Downloaded the publisher APIs' LGD state and district exports and full India Post CSV. The exports have 36 states and UTs, 785 district codes and 19,586 PINs. Verified all 38 legacy unmatched groups and reviewed the 48 publisher groups. Recent gazettes expose roster gaps, and offices in split or disputed areas still need authoritative assignments. [Source record and review details](../../data/geo/README.md) |
 
 Workflow and evidence records are in the [agent workflow](agentic-workflow.md), [Phase 0 audit](audit.md), [shared-button verification](verification/shared-button.md) and [client decisions](../decisions/001-client-decisions.md).
 
@@ -32,6 +32,7 @@ Workflow and evidence records are in the [agent workflow](agentic-workflow.md), 
 | Isolated API and worker | **124 passed** in 15 files. Covered public job discovery, persistence, contact visibility, queue coalescing, health and controlled payment and sponsorship fixtures. |
 | Worker cluster follow-up (T-07, BULK-02/03) | **4 passed twice** directly on real Redis queues and disposable Supabase. BullMQ records failures on attempts one and two and completion on attempt three. The invite test seeds a matching dispatched wave, asserts the two intended recipients and recorded cost, and verifies that an adjacent batch stays pending. The SMS provider is mocked and the test deletes its own fixtures. Both fixes are in the integration tests. |
 | Additional endpoint-adapted API tests | **27 passed** in three files. Temporary endpoint overrides were applied in the scratch runner. The worker-cluster suite runs directly with configured loopback endpoints. |
+| Offline location follow-up | Both district-label snapshots passed the structural and review-coverage checks. The publisher's 165,627 postal rows matched its reported total. Four negative checks rejected an incomplete count, an interrupted CSV, an out-of-state candidate and a missing review pair. |
 
 Disposable Supabase and Redis used ports 56321, 56322 and 56379. The test preload blocked outbound service hosts and the existing default local ports. The disposable project and Redis container were removed after the run.
 
@@ -39,7 +40,7 @@ Local evidence is in the [public browser and screenshot folder](../../.scratch/j
 
 ## Needs your input
 
-1. **Production location data.** Supply or authorize fresh bilingual LGD district and India Post PIN exports. Confirm an authoritative crosswalk for the 38 mismatched postal district pairs and the owner of the institution roster and duplicate review. Review the location RLS and any legacy-address migration before adoption.
+1. **Production location data.** Supply or authorize an official LGD district roster with the missing codes and effective dates, including the new districts in Ladakh and Markapuram. Confirm an authoritative office or locality crosswalk for the remaining disputed, split and missing-label rows. Confirm the owner of the institution roster and duplicate review. Reviewed Hindi labels, location RLS and any legacy-address migration remain subject to approval.
 2. **Product decisions.** Confirm employer and institution onboarding destinations, approved support and marketing material, and whether to scope Apply Undo, wallet messaging, voice or location features. Auth and OTP, payments and consent proposals remain subject to human review.
 3. **Release evidence.** Confirm access to an isolated preview and identify testers for Hindi copy, TalkBack and low-end Android task trials.
 
