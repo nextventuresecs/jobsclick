@@ -467,6 +467,16 @@ export async function scheduleRepeatableJobs(
       if (!queue) continue;
       // BullMQ v6: register the job scheduler (idempotent; replaces the old repeat-job pattern).
       await queue.upsertJobScheduler(name, { every }, { name, data });
+
+      // Migration guard: if a BullMQ v5-style repeat job with this exact jobId was left behind
+      // from a previous deployment, remove it so it does not compete with the scheduler entry.
+      // Guard with typeof so minimal test mocks that omit getJobState continue to work.
+      if (typeof (queue as unknown as Record<string, unknown>)['getJobState'] === 'function') {
+        const previous = await (queue as unknown as { getJobState: (id: string) => Promise<string> }).getJobState(name);
+        if (previous === 'waiting' || previous === 'delayed') {
+          await (queue as unknown as { remove: (id: string, opts: object) => Promise<unknown> }).remove(name, { removeChildren: false });
+        }
+      }
     }
   } finally {
     if (acquiredLock && connection && connection.status === 'ready') {
