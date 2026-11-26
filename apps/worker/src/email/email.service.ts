@@ -17,6 +17,7 @@ export interface SendEmailOptions {
   from?: string;
   replyTo?: string;
   headers?: Record<string, string>;
+  idempotencyKey?: string;
   attachments?: Array<{
     filename: string;
     content: string; // base64 string
@@ -91,6 +92,7 @@ export class WorkerEmailService {
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
+          ...(options.idempotencyKey ? { 'Idempotency-Key': options.idempotencyKey } : {}),
         },
         body: JSON.stringify({
           from,
@@ -242,6 +244,7 @@ export class WorkerEmailService {
     kind: 'invoice' | 'credit_note';
     totalInr: number;
     pdfBuffer?: Buffer;
+    idempotencyKey?: string;
   }): Promise<SendEmailResult> {
     const isCreditNote = options.kind === 'credit_note';
     const title = isCreditNote ? 'Credit Note' : 'Tax Invoice';
@@ -275,6 +278,7 @@ export class WorkerEmailService {
       subject,
       html,
       attachments,
+      idempotencyKey: options.idempotencyKey,
     });
   }
 }

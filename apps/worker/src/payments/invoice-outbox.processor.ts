@@ -112,12 +112,40 @@ export class InvoiceOutboxService {
         throw new Error(`Failed to issue invoice via RPC: ${invErr?.message || 'no data'}`);
       }
 
-      const invoice = invData;
-      const settings = await this.validatePlatformSettings();
-      const billing = (invoice.billing_snapshot || {}) as BillingSnapshot;
+      await this.deliverInvoice(invData, invoiceKind);
+    } catch (err) {
+      const newAttempts = entry.attempts + 1;
+      await this.acknowledgeAttempt(entry, false);
+      if (newAttempts >= 5) {
+        captureMessage(
+          `Alert: Invoice outbox entry ${entry.id} failed after 5 attempts for payment ${entry.payment_id}`,
+          'error',
+        );
+      }
+      captureException(err instanceof Error ? err : new Error('INVOICE_DELIVERY_FAILED'));
+      return false;
+    }
 
-      // 2. Render PDF using @react-pdf/renderer with Noto Sans Devanagari
-      const pdfBuffer = await renderInvoicePdf({
+    // If the completion response is lost, the write may have committed. Do not clear it.
+    await this.acknowledgeAttempt(entry, true);
+    return true;
+  }
+
+  private async deliverInvoice(invoice: IssuedInvoice, invoiceKind: 'invoice' | 'credit_note'): Promise<void> {
+    const billing = (invoice.billing_snapshot || {}) as BillingSnapshot;
+    const storage = this.supabase.storage.from('private');
+    const storagePath = `invoices/${invoice.id}.pdf`;
+    const readPdf = async () => {
+      const { data, error } = await storage.download(storagePath);
+      if (error || !data) throw new Error('INVOICE_PDF_READ_FAILED');
+      return Buffer.from(await data.arrayBuffer());
+    };
+    let pdfBuffer: Buffer;
+    if (invoice.pdf_path === storagePath) {
+      pdfBuffer = await readPdf();
+    } else {
+      const settings = await this.validatePlatformSettings();
+      pdfBuffer = await renderInvoicePdf({
         invoiceNumber: invoice.number,
         kind: invoiceKind,
         fy: invoice.fy,
@@ -143,81 +171,58 @@ export class InvoiceOutboxService {
         description: invoiceKind === 'credit_note' ? 'Reversal / Credit Note' : 'JobsClick Platform Credits / Services',
       });
 
-      // 3. Store PDF in Supabase Storage (private bucket at invoices/{invoiceId}.pdf)
-      const storagePath = `invoices/${invoice.id}.pdf`;
-      const { error: uploadErr } = await this.supabase.storage
-        .from('private')
-        .upload(storagePath, pdfBuffer, {
-          contentType: 'application/pdf',
-          upsert: true,
-        });
-
-      if (uploadErr) {
-        captureException(new Error(`Invoice PDF storage upload failed: ${uploadErr.message}`));
-      }
-
-      // 4. Send email via Resend if email is provided (body has NO phone number)
-      let emailedAt: string | null = null;
-      if (typeof billing.email === 'string' && billing.email.trim().length > 0) {
-        const emailRes = await this.emailService.sendInvoiceEmail({
-          to: billing.email.trim(),
-          invoiceNumber: invoice.number,
-          kind: invoiceKind,
-          totalInr: Number(invoice.total_paise) / 100,
-          pdfBuffer,
-        });
-        if (emailRes.success) {
-          emailedAt = new Date().toISOString();
+      const { data, error } = await storage.upload(storagePath, pdfBuffer, {
+        contentType: 'application/pdf',
+        upsert: false,
+      });
+      if (error) {
+        if (error.status !== 409 && String(error.statusCode) !== '409') {
+          throw new Error('INVOICE_PDF_UPLOAD_FAILED');
         }
+        // A retry after upload must reuse the original attachment with the same email idempotency key.
+        pdfBuffer = await readPdf();
+      } else if (data?.path !== storagePath) {
+        throw new Error('INVOICE_PDF_UPLOAD_UNCONFIRMED');
       }
-
-      // 5. Update invoice record with pdf_path and emailed_at
-      await this.supabase
-        .from('invoices')
-        .update({
-          pdf_path: storagePath,
-          emailed_at: emailedAt,
-        })
-        .eq('id', invoice.id);
-
-      // 6. Mark outbox entry done via atomic RPC
-      await (this.supabase.rpc as unknown as (
-        fn: string,
-        args: Record<string, unknown>,
-      ) => Promise<{ error: { message: string } | null }>)(
-        'rpc_complete_outbox',
-        {
-          p_id: entry.id,
-          p_attempts: entry.attempts + 1,
-          p_done: true,
-        },
-      );
-
-      return true;
-    } catch (err) {
-      const newAttempts = entry.attempts + 1;
-      await (this.supabase.rpc as unknown as (
-        fn: string,
-        args: Record<string, unknown>,
-      ) => Promise<{ error: { message: string } | null }>)(
-        'rpc_complete_outbox',
-        {
-          p_id: entry.id,
-          p_attempts: newAttempts,
-          p_done: false,
-        },
-      );
-
-      if (newAttempts >= 5) {
-        captureMessage(
-          `Alert: Invoice outbox entry ${entry.id} failed after 5 attempts for payment ${entry.payment_id}`,
-          'error',
-        );
-      }
-
-      captureException(err instanceof Error ? err : new Error(String(err)));
-      return false;
+      await this.saveInvoiceCheckpoint(invoice.id, { pdf_path: storagePath });
     }
+
+    const recipient = typeof billing.email === 'string' ? billing.email.trim() : '';
+    if (!recipient || invoice.emailed_at) return;
+
+    const result = await this.emailService.sendInvoiceEmail({
+      to: recipient,
+      invoiceNumber: invoice.number,
+      kind: invoiceKind,
+      totalInr: Number(invoice.total_paise) / 100,
+      pdfBuffer,
+      idempotencyKey: `invoice-email/${invoice.id}`,
+    });
+    if (!result.success || !result.messageId?.trim()) throw new Error('INVOICE_EMAIL_UNCONFIRMED');
+    await this.saveInvoiceCheckpoint(invoice.id, { emailed_at: new Date().toISOString() });
+  }
+
+  private async saveInvoiceCheckpoint(
+    invoiceId: string,
+    checkpoint: Pick<Partial<IssuedInvoice>, 'pdf_path' | 'emailed_at'>,
+  ): Promise<void> {
+    const { data, error } = await this.supabase.from('invoices')
+      .update(checkpoint)
+      .eq('id', invoiceId)
+      .select('id')
+      .single();
+    if (error || !data) throw new Error('INVOICE_CHECKPOINT_WRITE_FAILED');
+  }
+
+  private async acknowledgeAttempt(entry: OutboxEntry, done: boolean): Promise<void> {
+    const { error } = await (this.supabase.rpc as unknown as (
+      fn: string,
+      args: Record<string, unknown>,
+    ) => Promise<{ error: { message: string } | null }>)(
+      'rpc_complete_outbox',
+      { p_id: entry.id, p_attempts: entry.attempts + 1, p_done: done },
+    );
+    if (error) throw new Error('INVOICE_OUTBOX_ACK_FAILED');
   }
 
   /**
@@ -252,15 +257,16 @@ export async function invoiceOutboxProcessor(
 
   // If specific outboxId or paymentId provided
   if (job.data.outboxId) {
-    const { data } = await (supabase.rpc as unknown as (
+    const { data, error } = await (supabase.rpc as unknown as (
       fn: string,
       args: Record<string, unknown>,
     ) => Promise<{ data: OutboxEntry[] | null; error: { message: string } | null }>)(
       'rpc_claim_outbox_batch',
       { p_limit: 100 },
     );
+    if (error || !data) throw new Error('INVOICE_OUTBOX_CLAIM_FAILED');
 
-    const match = (data || []).find((item) => item.id === job.data.outboxId);
+    const match = data.find((item) => item.id === job.data.outboxId);
     if (match) {
       const ok = await service.processOutboxEntry(match);
       return { processed: 1, succeeded: ok ? 1 : 0, failed: ok ? 0 : 1 };
@@ -269,18 +275,19 @@ export async function invoiceOutboxProcessor(
 
   // Batch process pending entries using FOR UPDATE SKIP LOCKED
   const limit = job.data.batchLimit ?? 10;
-  const { data: pending } = await (supabase.rpc as unknown as (
+  const { data: pending, error } = await (supabase.rpc as unknown as (
     fn: string,
     args: Record<string, unknown>,
   ) => Promise<{ data: OutboxEntry[] | null; error: { message: string } | null }>)(
     'rpc_claim_outbox_batch',
     { p_limit: limit },
   );
+  if (error || !pending) throw new Error('INVOICE_OUTBOX_CLAIM_FAILED');
 
   let succeeded = 0;
   let failed = 0;
 
-  for (const entry of pending || []) {
+  for (const entry of pending) {
     const ok = await service.processOutboxEntry(entry);
     if (ok) succeeded++;
     else failed++;
@@ -289,7 +296,7 @@ export async function invoiceOutboxProcessor(
   await service.checkStuckOutboxEntries();
 
   return {
-    processed: (pending || []).length,
+    processed: pending.length,
     succeeded,
     failed,
   };

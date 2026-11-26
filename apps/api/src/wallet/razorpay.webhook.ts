@@ -176,10 +176,7 @@ export class RazorpayWebhookController {
         (paymentEntity['error_reason'] as string) ||
         'Payment failed';
 
-      if (orderId) {
-        await this.paymentService.handlePaymentFailure(orderId, paymentId, failureReason);
-      }
-
+      // This event describes one attempt. A later or earlier capture determines the order state.
       await this.auditLogRepo.append({
         id: crypto.randomUUID(),
         actor_id: null,

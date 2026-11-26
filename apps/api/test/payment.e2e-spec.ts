@@ -7,6 +7,7 @@ import { WalletService } from '../src/wallet/wallet.service.js';
 import { PaymentService } from '../src/wallet/payment.service.js';
 import { PaymentRepository } from '../src/database/repositories/payment.repository.js';
 import { CreditLedgerRepository } from '../src/database/repositories/credit-ledger.repository.js';
+import { AuditLogRepository } from '../src/database/repositories/audit-log.repository.js';
 import { UserRepository } from '../src/database/repositories/user.repository.js';
 import { CREDIT_PACKS } from '@indian-job-portal/validation';
 
@@ -436,9 +437,16 @@ describe('Ticket T-16: Razorpay Payment Gateway & Invoicing (WAL-03, Section 8.7
     ).rejects.toThrow();
   });
 
-  it('Industry-Grade Lifecycle: Handles payment.failed webhook gracefully without granting credits', async () => {
+  it.each(['before capture', 'after capture'] as const)('records a failed attempt %s without changing the order', async (when) => {
     const order = await paymentService.createOrder(employerUserId, { packId: 'pack_starter' });
     const failPaymentId = `pay_fail_${Date.now()}`;
+    const eventId = `evt_${crypto.randomUUID()}_failed`;
+    const capturedPaymentId = `pay_capture_${crypto.randomUUID()}`;
+    if (when === 'after capture') {
+      await paymentService.processPaymentSuccess(order.orderId, capturedPaymentId);
+    }
+    const original = await paymentRepo.findByGatewayOrderId(order.orderId);
+    const balance = await walletService.getBalance(employerUserId);
 
     const failPayload = JSON.stringify({
       event: 'payment.failed',
@@ -465,7 +473,7 @@ describe('Ticket T-16: Razorpay Payment Gateway & Invoicing (WAL-03, Section 8.7
       headers: {
         'content-type': 'application/json',
         'x-razorpay-signature': signature,
-        'x-razorpay-event-id': `evt_${Date.now()}_failed`,
+        'x-razorpay-event-id': eventId,
       },
       payload: failPayload,
     });
@@ -474,9 +482,19 @@ describe('Ticket T-16: Razorpay Payment Gateway & Invoicing (WAL-03, Section 8.7
     const body = response.json();
     expect(body.action).toBe('payment_failed_recorded');
 
-    const payment = await paymentRepo.findByGatewayOrderId(order.orderId);
-    expect(payment?.status).toBe('failed');
-    expect(payment?.metadata?.['failureReason']).toContain('declined');
+    expect(await paymentRepo.findByGatewayOrderId(order.orderId)).toEqual(original);
+    expect(await walletService.getBalance(employerUserId)).toEqual(balance);
+    expect(await app.get(AuditLogRepository).findAll()).toContainEqual(expect.objectContaining({
+      action: 'PAYMENT_FAILED_AT_GATEWAY',
+      meta: expect.objectContaining({ eventId, orderId: order.orderId, paymentId: failPaymentId }),
+    }));
+    if (when === 'before capture') {
+      await paymentService.processPaymentSuccess(order.orderId, capturedPaymentId);
+      expect(await paymentRepo.findByGatewayOrderId(order.orderId)).toMatchObject({
+        status: 'captured',
+        gateway_payment_id: capturedPaymentId,
+      });
+    }
   });
 
   it('Industry-Grade Lifecycle: Handles payment.refunded webhook and reverses granted credits', async () => {

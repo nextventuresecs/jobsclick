@@ -374,10 +374,6 @@ export class PaymentService {
     return settledPayments.map((p) => this.formatInvoice(p, invoiceMap.get(p.id)));
   }
 
-  async handlePaymentFailure(orderId: string, paymentId: string, failureReason: string): Promise<void> {
-    await this.paymentRepository.updateStatus(orderId, 'failed', { failureReason, gatewayPaymentId: paymentId });
-  }
-
   async getInvoice(paymentIdOrOrderId: string, userId: string, isAdmin = false): Promise<InvoiceResponse> {
     const ctx = createActorAuthorizationContext(userId, isAdmin ? 'admin' : 'job_seeker', {
       tenant: { type: isAdmin ? 'platform' : 'user', id: userId },
