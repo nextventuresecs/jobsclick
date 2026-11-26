@@ -227,10 +227,14 @@ describe('Next.js Production Startup Verification (Finding 4)', () => {
             const html = await response.text();
             expect(html.match(/<html lang="([^"]+)"/)?.[1]).toBe('hi');
             expect(html.match(/<h1\b[^>]*>[\s\S]*?<\/h1>/)?.[0]).toContain(heading);
+            expect(html.includes('aria-label="नेविगेशन मेनू"')).toBe(true);
+            expect(html.includes('href="/hi/how-it-works"')).toBe(true);
             if (query) {
               expect(html).toMatch(/<form\b[^>]*action="\/hi\/jobs"/);
               expect(html).toMatch(/<input\b[^>]*name="keyword"[^>]*value="welder"/);
-              expect(html).toMatch(/<h3\b[^>]*>कोई मिलती-जुलती नौकरी नहीं मिली<\/h3>/);
+              expect(html).toMatch(/<label\b[^>]*for="jobs-keyword"/);
+              expect(html).toContain('नौकरियां अभी उपलब्ध नहीं हैं');
+              expect(html).toContain('फिर कोशिश करें');
               expect(html).toContain('प्रकार: अंशकालिक');
             }
           }

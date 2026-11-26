@@ -1,42 +1,47 @@
-# Jobsclick morning report — 26 November 2026
+# Jobsclick redesign completion report
 
-Branch `codex/js-02-js-05-ux-workflow`. The unattended workflow and Phase 0 source audit are complete. The shared-button slice has local evidence. The full redesign and release gates remain open. No remote push, PR submission or deployment was performed. Staging services and the staging checkout were untouched.
+26 November 2026 · Branch `codex/js-02-js-05-ux-workflow`
 
-## AUTH-07 and location data follow-up
-
-- The production test reproduced English HTML on both Hindi routes when Next bound explicitly to loopback. Next normalized the absolute middleware rewrite hostname and passed the request through routing twice. Path-only rewrites now apply the first request's Hindi headers to the destination. The jobs page uses the message catalogs for its heading, search, filters and results labels. Its search, reset and filter links preserve the Hindi route.
-- The final production build, workspace typecheck and lint passed. Vitest passed 267 web tests across 37 files in two runs, including eight production-startup checks. Both routes returned HTTP 200 and Hindi headings with no cookie and with an English preference. Each also passed in a fresh Chrome profile. A loopback API fixture verified a part-time card, Hindi salary units and a Hindi job-detail link. Unprefixed `/jobs` passed the English check. Both catalogs contain the same 975 keys.
-- The production check used an isolated local build. Staging refs and the brand assets were unchanged. The service-backed monorepo suites, full bilingual audit and real-user release checks remain open. Employer-supplied listings can contain text in the language provided by the employer.
-- Official sources supplied a current citizen-report snapshot of the 36 states and UTs, a legacy OGD export with 785 district codes and a legacy India Post export with 19,300 PINs across 157,126 rows. Source checksums, dates, license and local file locations are in the [source record](../../data/geo/README.md).
-- The district export includes 205 local names in Devanagari and five blank local names. Comparing the official datasets left 38 postal state/district pairs without exact LGD matches. Production lookup requires fresher exports, reviewed Hindi names, authoritative crosswalk evidence and approval for any RLS or legacy-address migration.
+The home page, jobs search and cards, job detail and seeker profile editor are implemented on the UX branch. Tests ran against a local production build and disposable services. Staging and the existing local development services were untouched. The branch is a local review candidate.
 
 ## Completed
 
-- Updated the [agent workflow](agentic-workflow.md) to continue through ready work and queue only blocked decisions for the end. Required human approval still applies before adopting changes to RLS, auth/OTP, existing-data migrations, payments and DPDP consent.
-- Audited 13 page modules plus nested screens and forms for six roles. Mapped location fields, persistence, contrast, Hindi and route gaps, and outlined the workstream order in the [Phase 0 audit](audit.md).
-- Recorded the existing typography, theme, spacing and logo in [design.md](../../design.md). Added the [PR evidence checklist](../../.github/pull_request_template.md) and [accessibility checklist](a11y-checklist.md).
-- Updated shared-button defaults to a 48 × 48 CSS pixel minimum, 16px text, visible keyboard focus and reduced-motion support. Preserved submit and loading/disabled behavior. Independent review found a possible Tailwind cascade change for amber buttons. The fix preserves caller color overrides and has a generated-CSS test. Explicit consumer `text-xs` classes still require follow-up.
-- Wrote a [shared-button evidence and user-study record](verification/shared-button.md).
+| Requirement | Delivered |
+| --- | --- |
+| WS0, WS1, WS9 | Phase 0 audit for six roles. Unattended coordinator, specialist and verifier workflow. Shared button target, typography, focus and reduced-motion defaults. PR verification checklist and documented palette and logo baseline. |
+| WS6, public home | Labelled job search, entry points for job seekers, employers and colleges, live job previews, and bilingual heading, FAQs and metadata. Removed static category counts and unsupported proof claims. The shared header has a compact menu at narrow and tablet widths. Header and footer links preserve Hindi URLs. The footer retains role, privacy and category links. Reused the existing logo, colors, typography and audience destinations. |
+| JOB-02, WS7 and WS8 | Shareable bilingual search URLs, removable filters, result counts, server pagination, distinct empty and failure states, and retry with filters retained. Cards link to the localized detail and Apply section. Employment type checks the first 20 results within the current API contract. |
+| JOB-03, WS7 | One responsive Apply control for open jobs, clear closed and unavailable states, bilingual detail landmarks, public company and share links, and JobPosting structured data for open listings. |
+| JS-02, WS3 | Three seeker profile steps, focus moved to the new step, required-field validation, associated field labels, appropriate keyboard and autofill hints, and in-session draft state on Back. Existing save, cancel and PDF actions remain available. |
+| AUTH-07, WS4 | Direct first visits to `/hi` and `/hi/jobs` return server-rendered Hindi, including visitors with an English preference. |
+| WS2, India location sources | Collected and validated official LGD state and district references and India Post PIN data offline. Recorded provenance and checksums for 36 states and UTs, 785 district codes and 19,300 PINs. Production integration requires refreshed exports and mapped district names. [Source record](../../data/geo/README.md) |
 
-## Verification
+Workflow and evidence records are in the [agent workflow](agentic-workflow.md), [Phase 0 audit](audit.md), [shared-button verification](verification/shared-button.md) and [client decisions](../decisions/001-client-decisions.md).
+
+## Tested
 
 | Check | Result |
 | --- | --- |
-| `pnpm typecheck` and `pnpm lint` | Both passed across the workspace after the test fix. Typecheck was rerun with a stable build directory. |
-| Web Vitest excluding the production-startup suite | **259 passed in 36 files**, including six shared-button tests. The new checks cover target and type classes, focus, loading/disabled behavior, and generated CSS override order. |
-| Headless Chrome component fixture | **6 passed** across English and Hindi at 360×640, 412×915 and 1280×800. Measured target size, 16px type, a solid 2px keyboard focus outline, no spinner animation in reduced-motion mode, and unchanged default and amber colors. |
-| Palette, logo and language baseline | Confirmed existing Tailwind color config, global font CSS and logo file had no diff. English/Hindi catalogs each had 957 leaf keys. Static Hallmark returned 211 Floor failures, 18 Reflex findings and 83 warnings across 74 web source files. |
-| Full monorepo Vitest | Attempted and stopped after local Redis access and database-dependent suites failed. No full-suite pass. |
-| Web production startup | **6 passed** in a separate run. The serial retry built Next.js and passed all startup cases after the earlier Windows `EPERM` failure. Web total across both runs is **265 passed**. |
-| Public route browser smoke | **12 button checks passed** across home and jobs at three viewports with stored English/Hindi preferences. In both dev and the production build, cold requests to `/hi` and `/hi/jobs` returned English HTML without a locale cookie. Production responses set the Hindi cookie. This is an open AUTH-07 finding. |
-| Release gate | Playwright full flow matrix, axe, Lighthouse, slow-3G/CPU, Hallmark rendered sweep, all-route before/after screenshots and real-user evidence remain open. |
+| Build and static gates | Production Next.js build, workspace `pnpm lint`, `pnpm typecheck` and Git whitespace check passed. The theme configuration, global stylesheet, shared UI package and public assets match the start of this slice. English and Hindi have the same 1,054 message keys. |
+| Web | **273 passed** across **39 files**, including 8 production startup tests. Regressions cover first-load Hindi, labelled search, localized links, feed and detail outages, missing and closed jobs, a single Apply control and JobPosting data. |
+| Headless Chrome | **9 public route checks** across two mobile window sizes and desktop. Checked fresh Hindi navigation, fixture content and the Apply anchor. English jobs passed the HTTP baseline. The seeker form fixture passed label association, required fields, step focus, draft retention, final submission, Cancel and PDF action. |
+| Responsive and axe | The Hindi home, search and detail screens had zero horizontal overflow at 320, 768 and 1024 CSS pixels with the menu open and closed. The menu and language controls measured at least 48 × 48 CSS pixels and opened and closed in the fixture. Axe found zero WCAG 2.2 A/AA-tagged violations in 12 initial public-page states across English and Hindi at 360 and 1280 pixels. |
+| Hallmark | Rendered three public routes and captured 15 screenshots on the final sweep. Floor failures dropped from 8 to 0. Hallmark still exits nonzero with 15 Reflex findings and 8 warnings, including copy density, layout density and control states. |
+| Local performance | One cold 360px run per public route and language, with 1.6 Mbps download, 150 ms latency and 4× CPU slowdown. The six runs recorded LCP between 0.90 and 1.26 seconds and initial layout shift up to 0.041. Lighthouse and real-device release measurements remain open. |
+| Isolated Postgres and Supabase | **53 passed** in 6 database files on disposable Supabase CLI 3.1.0 with tracked migrations. |
+| Isolated API and worker | **124 passed** in 15 files. Covered public job discovery, persistence, contact visibility, queue coalescing, health and controlled payment and sponsorship fixtures. |
+| Additional endpoint-adapted tests | **28 passed, 2 failed** across four files using only scratch endpoint overrides and a real-Redis worker retry. The existing mock path lacks Redis Lua `cmsgpack`. With real Redis, the cluster suite passed bulk import and showed two remaining fixture failures. Retry reported 4 where the assertion expected 3. Invite dispatch timed out after the worker rejected the batch with `INVITE_WAVE_BATCH_MISMATCH`. Repository worker code and tests were left as-is. |
 
-Component screenshots: `C:/Users/jagta/AppData/Local/Temp/jobsclick-button-EsG3mt`. Public-route screenshots: `C:/Users/jagta/AppData/Local/Temp/jobsclick-ux-ZckcJX`. Both are after-state evidence from isolated Chrome.
+Disposable Supabase and Redis used ports 56321, 56322 and 56379. The test preload blocked outbound service hosts and the existing default local ports. The disposable project and Redis container were removed after the run.
 
-## Needs your help
+Local evidence is in the [public browser and screenshot folder](../../.scratch/jobsclick-public-ux) and the [disposable service logs](../../.scratch/jobsclick-services-ux-7f2a).
 
-1. **Geo reference data.** Official references are now available for offline validation. Production needs fresher district and PIN exports, reviewed Hindi display labels and an authoritative mapping for the 38 postal state/district pairs without exact LGD matches. Current OGD downloads can be supplied through an authorized account or by providing the files. Approve institution roster use if available and confirm who can approve and deduplicate free-text institution submissions. [Source and verification record](../../data/geo/README.md)
-2. **Sensitive changes and product decisions.** Review any later RLS, legacy-address migration, auth/OTP, payments or consent drafts before adoption. Confirm approved support details, marketing claims or assets that lack a source. Apply Undo, credit claims and optional location or voice features need proven product and privacy behavior before release.
-3. **Real-user release evidence.** Authorize an isolated preview if testers need remote access. Human task tests on low-end Android, TalkBack and Hindi read-aloud are pending. The verification record contains tasks, pass criteria and an observation sheet.
+## Needs your input
 
-Remaining engineering includes palette-guard automation, complete Playwright/axe and performance gates, and the location, onboarding, job search/card and marketing implementation slices. Use the audit issue map for order. The branch is a local candidate pending those checks and required human evidence.
+1. **Production location data.** Supply or authorize fresh bilingual LGD district and India Post PIN exports. Confirm an authoritative crosswalk for the 38 mismatched postal district pairs and the owner of the institution roster and duplicate review. Review the location RLS and any legacy-address migration before adoption.
+2. **Product decisions.** Confirm employer and institution onboarding destinations, approved support and marketing material, and whether to scope Apply Undo, wallet messaging, voice or location features. Auth and OTP, payments and consent proposals remain subject to human review.
+3. **Release evidence.** Confirm access to an isolated preview and identify testers for Hindi copy, TalkBack and low-end Android task trials.
+
+## Remaining engineering
+
+Full bilingual and accessibility coverage across role workspaces, employer and institution onboarding, nationwide location UI and persistence, server-side employment-type and district filters, full-flow Playwright and failure-state testing, Lighthouse and slow-network measurements, and automated palette and release gates remain open. The worker cluster failures are a separate test-maintenance issue. The local redesign has not completed the full release gate.

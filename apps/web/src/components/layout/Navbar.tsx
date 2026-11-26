@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { JobsClickLogo, Button } from '@indian-job-portal/ui';
 import { LanguageSwitcher } from '../language-switcher';
 import { Menu, X, ShieldCheck, Briefcase, LayoutDashboard, LogOut } from 'lucide-react';
@@ -19,6 +19,7 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const t = useTranslations('Navigation');
   const tRoles = useTranslations('Roles');
+  const locale = useLocale();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -40,8 +41,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   const isActive = (path: string) => {
-    return pathname === path || pathname.startsWith(`${path}/`);
+    const localPath = pathname.replace(/^\/hi(?=\/|$)/, '') || '/';
+    return localPath === path || localPath.startsWith(`${path}/`);
   };
+  const localHref = (path: string) => locale === 'hi' ? '/hi' + (path === '/' ? '' : path) : path;
 
   const getRoleLabel = (role: ClientRole): string => {
     if (role === 'jobseeker') return tRoles('jobseeker');
@@ -54,20 +57,20 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 gap-4 lg:gap-8">
+        <div className="flex h-16 items-center justify-between gap-1 sm:gap-4">
           {/* Zone 1: Brand Wordmark */}
           <Link
-            href="/"
-            className="flex items-center text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C2410C] rounded-md shrink-0"
-            aria-label="JobsClick Home"
+            href={localHref('/')}
+            className="flex min-h-12 shrink-0 items-center rounded-md text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-charcoal"
+            aria-label={t('home')}
           >
-            <JobsClickLogo variant="full" size="md" />
+            <JobsClickLogo variant="full" size="sm" className="sm:[&_svg]:h-9" />
           </Link>
 
           {/* Zone 2: Navigation Links */}
-          <nav className="hidden md:flex items-center gap-6 lg:gap-7 text-sm font-medium text-gray-700">
+          <nav className="hidden items-center gap-4 text-sm font-medium text-gray-700 xl:flex 2xl:gap-7">
             <Link
-              href="/jobs"
+              href={localHref('/jobs')}
               className={`whitespace-nowrap transition-colors py-1 ${
                 isActive('/jobs')
                   ? 'text-[#C2410C] font-semibold border-b-2 border-[#C2410C]'
@@ -77,7 +80,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               {t('findJobs')}
             </Link>
             <Link
-              href="/company"
+              href={localHref('/company')}
               className={`whitespace-nowrap transition-colors py-1 ${
                 isActive('/company')
                   ? 'text-[#C2410C] font-semibold border-b-2 border-[#C2410C]'
@@ -87,7 +90,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               {t('companies')}
             </Link>
             <Link
-              href="/how-it-works"
+              href={localHref('/how-it-works')}
               className={`whitespace-nowrap transition-colors py-1 ${
                 isActive('/how-it-works')
                   ? 'text-[#C2410C] font-semibold border-b-2 border-[#C2410C]'
@@ -97,7 +100,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               {t('howItWorks')}
             </Link>
             <Link
-              href="/institutions"
+              href={localHref('/institutions')}
               className={`whitespace-nowrap transition-colors py-1 ${
                 isActive('/institutions')
                   ? 'text-[#C2410C] font-semibold border-b-2 border-[#C2410C]'
@@ -109,7 +112,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </nav>
 
           {/* Zone 3: Actions (Language, Role Switcher, Auth) */}
-          <div className="hidden md:flex items-center gap-3 shrink-0">
+          <div className="hidden shrink-0 items-center gap-3 xl:flex">
             {/* Language Switcher */}
             <LanguageSwitcher />
 
@@ -127,7 +130,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {app?.isAuthenticated ? (
               <div className="flex items-center gap-2">
                 <Link
-                  href="/workspace"
+                  href={localHref('/workspace')}
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors"
                 >
                   <LayoutDashboard className="w-3.5 h-3.5" />
@@ -169,13 +172,15 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Mobile menu trigger & Language */}
-          <div className="flex md:hidden items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1 xl:hidden">
             <LanguageSwitcher />
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 text-gray-600 hover:text-gray-900 rounded-md focus:outline-none"
-              aria-label="Toggle Navigation Menu"
+              className="grid size-12 place-items-center rounded-md text-gray-600 hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-charcoal"
+              aria-label={t('toggleMenu')}
+              aria-expanded={mobileMenuOpen}
+              aria-controls={mobileMenuOpen ? 'mobile-navigation' : undefined}
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
@@ -185,30 +190,30 @@ export const Navbar: React.FC<NavbarProps> = ({
 
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-b border-gray-200 bg-white px-4 pt-3 pb-6 space-y-3">
+        <nav id="mobile-navigation" className="max-h-[calc(100dvh-4rem)] space-y-3 overflow-y-auto border-b border-gray-200 bg-white px-4 pt-3 pb-6 xl:hidden">
           <Link
-            href="/jobs"
+            href={localHref('/jobs')}
             onClick={() => setMobileMenuOpen(false)}
             className="block px-3 py-2 text-base font-medium text-gray-800 rounded-md hover:bg-gray-50"
           >
             {t('findJobs')}
           </Link>
           <Link
-            href="/company"
+            href={localHref('/company')}
             onClick={() => setMobileMenuOpen(false)}
             className="block px-3 py-2 text-base font-medium text-gray-800 rounded-md hover:bg-gray-50"
           >
             {t('companies')}
           </Link>
           <Link
-            href="/how-it-works"
+            href={localHref('/how-it-works')}
             onClick={() => setMobileMenuOpen(false)}
             className="block px-3 py-2 text-base font-medium text-gray-800 rounded-md hover:bg-gray-50"
           >
             {t('howItWorks')}
           </Link>
           <Link
-            href="/institutions"
+            href={localHref('/institutions')}
             onClick={() => setMobileMenuOpen(false)}
             className="block px-3 py-2 text-base font-medium text-gray-800 rounded-md hover:bg-gray-50"
           >
@@ -225,7 +230,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             {app?.isAuthenticated ? (
               <div className="grid grid-cols-2 gap-2">
                 <Link
-                  href="/workspace"
+                  href={localHref('/workspace')}
                   onClick={() => setMobileMenuOpen(false)}
                   className="text-center px-3 py-2.5 text-sm font-semibold text-white bg-gray-900 rounded-lg"
                 >
@@ -268,7 +273,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             )}
           </div>
-        </div>
+        </nav>
       )}
     </header>
   );

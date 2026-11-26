@@ -1,9 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@indian-job-portal/ui';
-import { Save, Download } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Save, Download } from 'lucide-react';
 import type { SeekerFormData } from './seekerFormTypes';
 import { SeekerDemographicsFields } from './SeekerDemographicsFields';
 import { SeekerKycAndEduFields } from './SeekerKycAndEduFields';
@@ -27,70 +27,69 @@ export function SeekerProfileForm({
   isDownloadingPdf,
 }: SeekerProfileFormProps) {
   const t = useTranslations('SeekerWorkspace');
+  const [step, setStep] = useState(0);
+  const stepHeading = useRef<HTMLHeadingElement>(null);
+  const focusStep = useRef(false);
+  const lastStep = 2;
+
+  useEffect(() => {
+    if (focusStep.current) stepHeading.current?.focus();
+  }, [step]);
+
+  function goToStep(nextStep: number) {
+    focusStep.current = true;
+    setStep(nextStep);
+  }
+
+  function submitStep(event: React.FormEvent<HTMLFormElement>) {
+    if (step === lastStep) {
+      onSubmit(event);
+      return;
+    }
+    event.preventDefault();
+    goToStep(step + 1);
+  }
 
   return (
-    <form onSubmit={onSubmit} className="bg-white rounded-2xl p-6 sm:p-8 border border-gray-200 shadow-xs space-y-6">
-      <div className="flex items-center justify-between pb-4 border-b border-gray-200">
-        <div>
-          <h2 className="text-base font-bold text-gray-900">{t('formEditHeading')}</h2>
-          <p className="text-xs text-gray-500">{t('formEditSubheading')}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {onDownloadPdf && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={isDownloadingPdf}
-              onClick={onDownloadPdf}
-              className="inline-flex items-center gap-1.5"
-            >
-              <Download className="w-4 h-4 text-gray-600" />
-              <span>{isDownloadingPdf ? '...' : t('downloadPdf')}</span>
-            </Button>
-          )}
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-3 py-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 rounded-lg border border-gray-300"
-          >
-            {t('cancel')}
-          </button>
-          <Button type="submit" variant="primary" size="sm" className="inline-flex items-center gap-1.5">
-            <Save className="w-4 h-4" />
-            <span>{t('saveProfile')}</span>
-          </Button>
-        </div>
+    <form onSubmit={submitStep} className="space-y-6 rounded-xl border border-gray-light bg-white p-4 sm:p-8">
+      <div className="space-y-2 border-b border-gray-light pb-4">
+        <h2 className="text-xl font-bold text-charcoal">{t('formEditHeading')}</h2>
+        <p className="text-base text-gray-text">{t('formEditSubheading')}</p>
+        <p className="text-base font-semibold">{t('profileStep', { step: step + 1, total: lastStep + 1 })}</p>
       </div>
 
-      <SeekerDemographicsFields formData={formData} updateField={updateField} />
-      <SeekerKycAndEduFields formData={formData} updateField={updateField} />
-      <SeekerSkillsAndPrefsFields formData={formData} updateField={updateField} />
+      <div className="space-y-4">
+        <h3 ref={stepHeading} tabIndex={-1} className="rounded text-lg font-bold outline-offset-4">
+          {t(step === 0 ? 'profileStepDetails' : step === 1 ? 'profileStepEducation' : 'profileStepPreferences')}
+        </h3>
+        {step === 0 && <SeekerDemographicsFields formData={formData} updateField={updateField} />}
+        {step === 1 && <SeekerKycAndEduFields formData={formData} updateField={updateField} />}
+        {step === 2 && <SeekerSkillsAndPrefsFields formData={formData} updateField={updateField} />}
+      </div>
 
-      <div className="pt-4 border-t border-gray-200 flex items-center justify-end gap-3">
+      <div className="flex flex-wrap items-center gap-3 border-t border-gray-light pt-4">
         {onDownloadPdf && (
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             size="md"
-            disabled={isDownloadingPdf}
+            isLoading={isDownloadingPdf}
             onClick={onDownloadPdf}
-            className="inline-flex items-center gap-1.5"
           >
-            <Download className="w-4 h-4 text-gray-600" />
-            <span>{isDownloadingPdf ? '...' : t('downloadPdf')}</span>
+            <Download aria-hidden="true" className="h-5 w-5" />
+            {t('downloadPdf')}
           </Button>
         )}
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-2.5 rounded-xl border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-        >
-          {t('cancel')}
-        </button>
-        <Button type="submit" variant="primary" size="md" className="inline-flex items-center gap-1.5 font-semibold">
-          <Save className="w-4 h-4" />
-          <span>{t('saveProfile')}</span>
+        <Button type="button" variant="ghost" onClick={onCancel}>{t('cancel')}</Button>
+        {step > 0 && (
+          <Button type="button" variant="outline" onClick={() => goToStep(step - 1)}>
+            <ArrowLeft aria-hidden="true" className="h-5 w-5" />{t('profileBack')}
+          </Button>
+        )}
+        <Button type="submit" className="ml-auto">
+          {step === lastStep
+            ? <><Save aria-hidden="true" className="h-5 w-5" />{t('saveProfile')}</>
+            : <>{t('profileNext')}<ArrowRight aria-hidden="true" className="h-5 w-5" /></>}
         </Button>
       </div>
     </form>
