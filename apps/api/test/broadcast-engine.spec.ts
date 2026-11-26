@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
-import type { UserRow } from '@indian-job-portal/database';
+import type { CreditLedgerRow, UserRow } from '@indian-job-portal/database';
 import { AppModule } from '../src/app.module.js';
 import {
   calculateSmsSegments,
@@ -74,9 +74,22 @@ describe('Ticket T-20: MSME Department Broadcast Engine & District Employment Re
     store.clearTable('jobs');
     store.clearTable('business_profiles');
 
-    const moduleFixture: TestingModule = await Test.createTestingModule({
+    const builder = Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    });
+    if (process.env['USE_JSON_STORE'] === '1') {
+      // In this fixture users live outside Postgres, so escrow must use the same test store.
+      builder.overrideProvider(CreditLedgerRepository).useValue({
+        async append(row: CreditLedgerRow) {
+          store.setRow('credit_ledgers', row.id, row);
+          return row;
+        },
+        async findByUserId(userId: string) {
+          return Object.values(store.getTable<CreditLedgerRow>('credit_ledgers')).filter((row) => row.user_id === userId);
+        },
+      });
+    }
+    const moduleFixture: TestingModule = await builder.compile();
 
     app = moduleFixture.createNestApplication<NestFastifyApplication>(
       new FastifyAdapter(),
