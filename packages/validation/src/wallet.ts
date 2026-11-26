@@ -300,18 +300,10 @@ export const createSponsorshipOrderSchema = z
   })
   .strict();
 
-export const activateSponsorshipSchema = z.object({
-  paymentReference: z.string().optional(),
-  studentCountOverride: z.number().int().positive().optional(),
-  idempotencyKey: z.string().optional(),
-  force: z.boolean().optional(),
-});
-
 export type SponsorshipTier = z.infer<typeof sponsorshipTierSchema>;
 export type SponsorshipQuote = z.infer<typeof sponsorshipQuoteSchema>;
 export type SponsorshipQuoteInput = z.infer<typeof sponsorshipQuoteInputSchema>;
 export type CreateSponsorshipOrderInput = z.infer<typeof createSponsorshipOrderSchema>;
-export type ActivateSponsorshipInput = z.infer<typeof activateSponsorshipSchema>;
 
 // GSTIN format and Modulo-36 Luhn-variant checksum validator
 const GSTIN_CODES = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
