@@ -316,10 +316,36 @@ async function seedDatabase(seedData) {
     .upsert(seedData.states, { onConflict: 'lgd_code' });
   if (statesErr) throw new Error(`Failed upserting states: ${statesErr.message}`);
 
-  // 2. Upsert LGD districts in batches and map lgd_code -> uuid
+  // 2. Fetch existing manual-gazette districts (lgd_code is null) so any newly
+  //    assigned LGD code promotes the row in-place and preserves its UUID.
+  const { data: existingManual, error: manualFetchErr } = await db
+    .from('districts')
+    .select('id, state_code, name_en')
+    .is('lgd_code', null);
+  if (manualFetchErr) throw new Error(`Failed querying manual districts: ${manualFetchErr.message}`);
+
+  const existingByKey = new Map(
+    (existingManual ?? []).map((r) => [`${r.state_code}:${String(r.name_en).trim().toLowerCase()}`, r.id]),
+  );
+
+  // 3. Promote matching manual-gazette rows and upsert remaining LGD districts
   const lgdToUuid = new Map();
-  for (let i = 0; i < seedData.lgdDistricts.length; i += 200) {
-    const batch = seedData.lgdDistricts.slice(i, i + 200);
+  const lgdToUpsert = [];
+  for (const district of seedData.lgdDistricts) {
+    const k = `${district.state_code}:${district.name_en.trim().toLowerCase()}`;
+    const existingId = existingByKey.get(k);
+    if (existingId) {
+      const { error } = await db.from('districts').update(district).eq('id', existingId);
+      if (error) throw new Error(`Failed promoting manual district ${district.name_en}: ${error.message}`);
+      lgdToUuid.set(district.lgd_code, existingId);
+      existingByKey.delete(k);
+    } else {
+      lgdToUpsert.push(district);
+    }
+  }
+
+  for (let i = 0; i < lgdToUpsert.length; i += 200) {
+    const batch = lgdToUpsert.slice(i, i + 200);
     const { data, error } = await db
       .from('districts')
       .upsert(batch, { onConflict: 'lgd_code' })
@@ -333,17 +359,7 @@ async function seedDatabase(seedData) {
   }
   assert.equal(lgdToUuid.size, seedData.lgdDistricts.length, 'Did not resolve UUIDs for all LGD districts');
 
-  // 3. Idempotently upsert manual-gazette districts (lgd_code is null)
-  const { data: existingManual, error: manualFetchErr } = await db
-    .from('districts')
-    .select('id, state_code, name_en')
-    .is('lgd_code', null);
-  if (manualFetchErr) throw new Error(`Failed querying manual districts: ${manualFetchErr.message}`);
-
-  const existingByKey = new Map(
-    (existingManual ?? []).map((r) => [`${r.state_code}:${String(r.name_en).trim().toLowerCase()}`, r.id]),
-  );
-
+  // 4. Idempotently upsert remaining manual-gazette districts (lgd_code is null)
   for (const manual of seedData.manualDistricts) {
     const k = `${manual.state_code}:${manual.name_en.trim().toLowerCase()}`;
     const existingId = existingByKey.get(k);
@@ -356,16 +372,26 @@ async function seedDatabase(seedData) {
     }
   }
 
-  // 4. Upsert pincodes in batches
-  const pincodeRows = seedData.pincodes.map((p) => ({
-    pincode: p.pincode,
-    state_code: p.state_code,
-    district_id: p.primary_district_lgd_code !== null ? lgdToUuid.get(p.primary_district_lgd_code) ?? null : null,
-    ambiguous: p.ambiguous,
-    candidate_district_ids: p.candidate_district_lgd_codes
-      .map((code) => lgdToUuid.get(code))
-      .filter((id) => typeof id === 'string'),
-  }));
+  // 5. Validate all candidate UUIDs and upsert pincodes in batches
+  const pincodeRows = seedData.pincodes.map((p) => {
+    const primaryDistrictId =
+      p.primary_district_lgd_code !== null ? lgdToUuid.get(p.primary_district_lgd_code) ?? null : null;
+    if (!p.ambiguous) {
+      assert.ok(primaryDistrictId, `Missing primary district UUID for unambiguous PIN ${p.pincode}`);
+    }
+    const candidateIds = p.candidate_district_lgd_codes.map((code) => {
+      const id = lgdToUuid.get(code);
+      assert.ok(id, `Missing candidate district UUID for LGD code ${code} on PIN ${p.pincode}`);
+      return id;
+    });
+    return {
+      pincode: p.pincode,
+      state_code: p.state_code,
+      district_id: primaryDistrictId,
+      ambiguous: p.ambiguous,
+      candidate_district_ids: candidateIds,
+    };
+  });
 
   for (let i = 0; i < pincodeRows.length; i += 500) {
     const batch = pincodeRows.slice(i, i + 500);

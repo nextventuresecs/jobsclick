@@ -100,18 +100,23 @@ export class ProfilesService {
   constructor(
     @Inject(ProfileRepository) private readonly profileRepository: ProfileRepository,
     @Inject(UserRepository) private readonly userRepository: UserRepository,
+    @Inject(LocationRepository) private readonly locationRepository: LocationRepository,
     @Optional() @Inject(QueueService) private readonly queueService?: QueueService,
     @Optional() @Inject(SUPABASE_CLIENT) private readonly supabase?: SupabaseClient<Database>,
     @Optional() @Inject(AuditLogRepository) private readonly auditLogRepo?: AuditLogRepository,
-    @Optional() @Inject(LocationRepository) private readonly locationRepository?: LocationRepository,
   ) {}
 
   private async resolveLocationRefs(
     stateCode?: number | null,
     districtId?: string | null,
-  ): Promise<{ stateCode: number | null; districtId: string | null }> {
-    if (!this.locationRepository || (stateCode == null && districtId == null)) {
-      return { stateCode: stateCode ?? null, districtId: districtId ?? null };
+  ): Promise<{
+    stateCode: number | null;
+    districtId: string | null;
+    stateNameEn: string | null;
+    districtNameEn: string | null;
+  }> {
+    if (stateCode == null && districtId == null) {
+      return { stateCode: null, districtId: null, stateNameEn: null, districtNameEn: null };
     }
     return this.locationRepository.validateDistrictForState(stateCode, districtId);
   }
@@ -254,8 +259,8 @@ export class ProfilesService {
       skills: input.skills ?? [],
       preferred_categories: input.preferredCategories ?? [],
       city: input.city ?? null,
-      district: input.district ?? null,
-      state: input.state ?? null,
+      district: locationRefs.districtNameEn ?? input.district ?? null,
+      state: locationRefs.stateNameEn ?? input.state ?? null,
       state_code: locationRefs.stateCode,
       district_id: locationRefs.districtId,
       pincode: input.pincode ? input.pincode.trim() : null,
@@ -284,6 +289,8 @@ export class ProfilesService {
       phone: user.phone,
       email: user.email || null,
       ...input,
+      district: locationRefs.districtNameEn ?? input.district,
+      state: locationRefs.stateNameEn ?? input.state,
       stateCode: locationRefs.stateCode,
       districtId: locationRefs.districtId,
       completenessScore,
@@ -354,8 +361,8 @@ export class ProfilesService {
       sector: input.sector ?? null,
       address: input.address ?? null,
       city: input.city ?? null,
-      district: input.district ?? null,
-      state: input.state ?? null,
+      district: locationRefs.districtNameEn ?? input.district ?? null,
+      state: locationRefs.stateNameEn ?? input.state ?? null,
       state_code: locationRefs.stateCode,
       district_id: locationRefs.districtId,
       pincode: input.pincode ? input.pincode.trim() : null,
@@ -377,6 +384,8 @@ export class ProfilesService {
       slug: row.public_slug,
       userId,
       ...input,
+      district: locationRefs.districtNameEn ?? input.district,
+      state: locationRefs.stateNameEn ?? input.state,
       stateCode: locationRefs.stateCode,
       districtId: locationRefs.districtId,
     };
@@ -573,8 +582,8 @@ export class ProfilesService {
       website: input.website ?? null,
       address: input.address ?? null,
       city: input.city ?? null,
-      district: input.district ?? null,
-      state: input.state ?? null,
+      district: locationRefs.districtNameEn ?? input.district ?? null,
+      state: locationRefs.stateNameEn ?? input.state ?? null,
       state_code: locationRefs.stateCode,
       district_id: locationRefs.districtId,
       pincode: input.pincode ? input.pincode.trim() : null,
@@ -596,6 +605,8 @@ export class ProfilesService {
       slug: row.public_slug,
       userId,
       ...input,
+      district: locationRefs.districtNameEn ?? input.district,
+      state: locationRefs.stateNameEn ?? input.state,
       stateCode: locationRefs.stateCode,
       districtId: locationRefs.districtId,
     };

@@ -154,14 +154,22 @@ export class LocationRepository {
   async validateDistrictForState(
     stateCode?: number | null,
     districtId?: string | null,
-  ): Promise<{ stateCode: number | null; districtId: string | null }> {
+    options?: { readonly requireActiveDistrict?: boolean },
+  ): Promise<{
+    stateCode: number | null;
+    districtId: string | null;
+    stateNameEn: string | null;
+    districtNameEn: string | null;
+  }> {
     if (stateCode == null && districtId == null) {
-      return { stateCode: null, districtId: null };
+      return { stateCode: null, districtId: null, stateNameEn: null, districtNameEn: null };
     }
+
+    const requireActive = options?.requireActiveDistrict ?? true;
 
     if (districtId != null) {
       const district = await this.findDistrictById(districtId);
-      if (!district || !district.is_active) {
+      if (!district || (requireActive && !district.is_active)) {
         throw new BadRequestException({
           statusCode: 400,
           code: 'INVALID_DISTRICT_ID',
@@ -175,7 +183,13 @@ export class LocationRepository {
           message: 'Selected district does not belong to the selected state.',
         });
       }
-      return { stateCode: district.state_code, districtId: district.id };
+      const state = await this.findStateByCode(district.state_code);
+      return {
+        stateCode: district.state_code,
+        districtId: district.id,
+        stateNameEn: state?.name_en ?? null,
+        districtNameEn: district.name_en,
+      };
     }
 
     const state = await this.findStateByCode(stateCode!);
@@ -186,6 +200,11 @@ export class LocationRepository {
         message: 'Selected state does not exist.',
       });
     }
-    return { stateCode: state.lgd_code, districtId: null };
+    return {
+      stateCode: state.lgd_code,
+      districtId: null,
+      stateNameEn: state.name_en,
+      districtNameEn: null,
+    };
   }
 }

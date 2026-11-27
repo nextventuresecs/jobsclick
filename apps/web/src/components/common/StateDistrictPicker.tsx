@@ -107,8 +107,11 @@ export function StateDistrictPicker({
   const [loadFailed, setLoadFailed] = useState(false);
   const [pinStatus, setPinStatus] = useState<'idle' | 'checking' | 'ambiguous' | 'suggested' | 'not-found'>('idle');
   const [pinSummary, setPinSummary] = useState<{ district: string; state: string } | null>(null);
+  const [isLoadingDistricts, setIsLoadingDistricts] = useState(false);
 
   const hasUserSelectionRef = useRef(stateCode !== null || districtId !== null);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
   const latestSelectionRef = useRef<StateDistrictSelection>({
     stateCode,
     districtId,
@@ -120,72 +123,87 @@ export function StateDistrictPicker({
 
   useEffect(() => {
     if (initialStates && initialStates.length > 0) return;
-    let active = true;
-    fetch(`${apiUrl}/locations/states`, { headers: { Accept: 'application/json' } })
+    const controller = new AbortController();
+    fetch(`${apiUrl}/locations/states`, {
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error('STATES_LOAD_FAILED'))))
       .then((data: { states?: LocationState[] }) => {
-        if (!active) return;
+        if (controller.signal.aborted) return;
         if (Array.isArray(data.states)) {
           setStates(data.states);
           setLoadFailed(false);
         }
       })
       .catch(() => {
-        if (active) setLoadFailed(true);
+        if (!controller.signal.aborted) setLoadFailed(true);
       });
     return () => {
-      active = false;
+      controller.abort();
     };
   }, [apiUrl, initialStates]);
 
   useEffect(() => {
     if (stateCode === null) {
+      setIsLoadingDistricts(false);
       if (!initialDistricts) setDistricts([]);
       return;
     }
     if (initialDistricts && initialDistricts.length > 0 && initialDistricts.every((d) => d.stateCode === stateCode)) {
+      setIsLoadingDistricts(false);
       setDistricts(initialDistricts);
       return;
     }
-    let active = true;
+    const controller = new AbortController();
+    setDistricts([]);
+    setIsLoadingDistricts(true);
     fetch(`${apiUrl}/locations/districts?state=${encodeURIComponent(String(stateCode))}`, {
       headers: { Accept: 'application/json' },
+      signal: controller.signal,
     })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error('DISTRICTS_LOAD_FAILED'))))
       .then((data: { districts?: LocationDistrict[] }) => {
-        if (!active) return;
+        if (controller.signal.aborted) return;
         if (Array.isArray(data.districts)) {
           setDistricts(data.districts);
           setLoadFailed(false);
         }
+        setIsLoadingDistricts(false);
       })
       .catch(() => {
-        if (active) setLoadFailed(true);
+        if (!controller.signal.aborted) {
+          setLoadFailed(true);
+          setIsLoadingDistricts(false);
+        }
       });
     return () => {
-      active = false;
+      controller.abort();
     };
   }, [apiUrl, initialDistricts, stateCode]);
 
-  const lastCheckedPinRef = useRef<string>('');
+  const lastResolvedPinRef = useRef<string>('');
   useEffect(() => {
     if (!showPincode) return;
     const clean = pincode.trim();
     if (!/^[1-9]\d{5}$/.test(clean)) {
       setPinStatus('idle');
       setPinSummary(null);
-      lastCheckedPinRef.current = '';
+      lastResolvedPinRef.current = '';
       return;
     }
-    if (clean === lastCheckedPinRef.current) return;
-    lastCheckedPinRef.current = clean;
+    if (clean === lastResolvedPinRef.current) return;
 
-    let active = true;
+    const controller = new AbortController();
     setPinStatus('checking');
-    fetch(`${apiUrl}/locations/pincode/${clean}`, { headers: { Accept: 'application/json' } })
+    fetch(`${apiUrl}/locations/pincode/${clean}`, {
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    })
       .then(async (res) => {
         if (res.status === 404) {
-          if (active) {
+          if (!controller.signal.aborted) {
+            lastResolvedPinRef.current = clean;
             setPinStatus('not-found');
             setPinSummary(null);
           }
@@ -193,8 +211,9 @@ export function StateDistrictPicker({
         }
         if (!res.ok) throw new Error('PIN_LOOKUP_FAILED');
         const lookup = (await res.json()) as LocationPincodeResponse;
-        if (!active) return;
+        if (controller.signal.aborted) return;
 
+        lastResolvedPinRef.current = clean;
         const applied = applyPincodeLookupResult(
           latestSelectionRef.current,
           lookup,
@@ -209,27 +228,27 @@ export function StateDistrictPicker({
             district: applied.next.districtName,
             state: applied.next.stateName,
           });
-          onChange(applied.next);
+          onChangeRef.current(applied.next);
         } else if (applied.status === 'ambiguous') {
           setPinStatus('ambiguous');
           setPinSummary(null);
           if (!hasUserSelectionRef.current) {
-            onChange(applied.next);
+            onChangeRef.current(applied.next);
           }
         } else {
           setPinStatus('idle');
         }
       })
       .catch(() => {
-        if (active) {
+        if (!controller.signal.aborted) {
           setPinStatus('idle');
         }
       });
 
     return () => {
-      active = false;
+      controller.abort();
     };
-  }, [apiUrl, locale, onChange, pincode, showPincode]);
+  }, [apiUrl, locale, pincode, showPincode]);
 
   const stateSelectValue = customStateMode
     ? NOT_LISTED_VALUE
@@ -375,7 +394,7 @@ export function StateDistrictPicker({
             id={`${baseId}-district`}
             value={districtSelectValue}
             onChange={(e) => handleDistrictSelect(e.target.value)}
-            disabled={!customStateMode && stateCode === null && !customDistrictMode}
+            disabled={isLoadingDistricts || (!customStateMode && stateCode === null && !customDistrictMode)}
             className={`${controlClass} disabled:bg-gray-100 disabled:text-gray-500`}
             required={required && !customDistrictMode && !customStateMode}
           >

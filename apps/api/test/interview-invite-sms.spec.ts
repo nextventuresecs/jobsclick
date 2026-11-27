@@ -98,6 +98,7 @@ describe('In-Platform Interview Invite SMS (Hard Invariant #1 & JOB-03)', () => 
       mockWalletService,
       mockUserRepo,
       mockSmsGateway as unknown as SmsGateway,
+      {} as unknown as import('../src/database/repositories/location.repository.js').LocationRepository,
     );
   });
 
@@ -175,6 +176,7 @@ describe('In-Platform Interview Invite SMS (Hard Invariant #1 & JOB-03)', () => 
       {} as unknown as WalletService,
       mockUserRepo,
       mockSmsGateway as unknown as SmsGateway,
+      {} as unknown as import('../src/database/repositories/location.repository.js').LocationRepository,
     );
 
     await expect(

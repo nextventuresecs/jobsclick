@@ -334,16 +334,73 @@ describe('Locations API & Profile/Job Location Validation (JS-02, EMP-01, JOB-01
         minPay: 18000,
         maxPay: 24000,
         city: 'Indore',
-        district: 'Indore',
-        state: 'Madhya Pradesh',
+        district: 'इंदौर',
+        state: 'मध्य प्रदेश',
         stateCode: 23,
         districtId: mpIndoreId,
       },
     });
     expect(goodJob.statusCode).toBe(201);
-    expect(JSON.parse(goodJob.payload)).toMatchObject({
+    const createdJob = JSON.parse(goodJob.payload);
+    expect(createdJob).toMatchObject({
       stateCode: 23,
       districtId: mpIndoreId,
+      district: 'Indore',
+      state: 'Madhya Pradesh',
     });
+
+    // Deactivate district after job creation; unrelated salary update still succeeds
+    const existingIndore = store.getTable<DistrictRow>('districts')[mpIndoreId]!;
+    store.setRow('districts', mpIndoreId, { ...existingIndore, is_active: false });
+
+    const patchSalaryRes = await app.inject({
+      method: 'PUT',
+      url: `/jobs/${createdJob.id}`,
+      headers: empHeaders,
+      payload: {
+        maxPay: 26000,
+      },
+    });
+    expect(patchSalaryRes.statusCode).toBe(200);
+    expect(JSON.parse(patchSalaryRes.payload)).toMatchObject({
+      maxPay: 26000,
+      districtId: mpIndoreId,
+    });
+
+    // Explicitly switching to an inactive district fails
+    const badSwitchRes = await app.inject({
+      method: 'PUT',
+      url: `/jobs/${createdJob.id}`,
+      headers: empHeaders,
+      payload: {
+        stateCode: 23,
+        districtId: mpIndoreId,
+        maxPay: 27000,
+      },
+    });
+    expect(badSwitchRes.statusCode).toBe(200); // unchanged districtId stays allowed
+
+    const inactiveDistrictId = '44444444-4444-4444-8444-444444444444';
+    store.setRow('districts', inactiveDistrictId, {
+      id: inactiveDistrictId,
+      lgd_code: 999,
+      state_code: 23,
+      name_en: 'Retired District',
+      name_hi: null,
+      is_active: false,
+      source: 'lgd',
+      effective_from: null,
+      notes: null,
+    });
+    const switchToInactiveRes = await app.inject({
+      method: 'PUT',
+      url: `/jobs/${createdJob.id}`,
+      headers: empHeaders,
+      payload: {
+        stateCode: 23,
+        districtId: inactiveDistrictId,
+      },
+    });
+    expect(switchToInactiveRes.statusCode).toBe(400);
   });
 });

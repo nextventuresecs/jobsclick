@@ -215,6 +215,7 @@ export class JobRepository {
         }
         query = query
           .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
           .range(offset, offset + limit - 1);
 
         const { data, count, error } = await query;

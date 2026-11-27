@@ -277,6 +277,7 @@ describe('SMS / DLT Templates & Staging Safeguards Verification', () => {
         {} as unknown as WalletService,
         mockUserRepo as unknown as UserRepository,
         realGateway,
+        {} as unknown as import('../src/database/repositories/location.repository.js').LocationRepository,
       );
 
       await expect(

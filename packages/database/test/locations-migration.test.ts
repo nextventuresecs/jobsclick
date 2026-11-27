@@ -20,8 +20,14 @@ describe('Location Reference Tables & Profile/Jobs Columns Migrations (202611271
     expect(sql).toContain('lgd_code INT PRIMARY KEY');
     expect(sql).toContain('CREATE TABLE IF NOT EXISTS public.districts');
     expect(sql).toContain("source TEXT NOT NULL CHECK (source IN ('lgd', 'manual-gazette'))");
+    expect(sql).toContain('CONSTRAINT uq_districts_state_id UNIQUE (state_code, id)');
+    expect(sql).toContain('CONSTRAINT chk_district_source CHECK');
     expect(sql).toContain('CREATE TABLE IF NOT EXISTS public.pincodes');
     expect(sql).toContain("pincode CHAR(6) PRIMARY KEY CHECK (pincode ~ '^[1-9][0-9]{5}$')");
+    expect(sql).toContain('CONSTRAINT fk_pincodes_state_district');
+    expect(sql).toContain('FOREIGN KEY (state_code, district_id) REFERENCES public.districts(state_code, id)');
+    expect(sql).toContain('CONSTRAINT chk_pincodes_state_district_pair');
+    expect(sql).toContain('CONSTRAINT chk_pincode_resolution CHECK');
     expect(sql).toContain("candidate_district_ids UUID[] NOT NULL DEFAULT '{}'");
     expect(sql).toContain('CREATE INDEX IF NOT EXISTS idx_districts_state_code ON public.districts(state_code)');
     expect(sql).toContain('CREATE INDEX IF NOT EXISTS idx_pincodes_district_id ON public.pincodes(district_id)');
@@ -34,7 +40,7 @@ describe('Location Reference Tables & Profile/Jobs Columns Migrations (202611271
     expect(sql).toContain('ALTER TABLE public.districts ENABLE ROW LEVEL SECURITY');
     expect(sql).toContain('ALTER TABLE public.pincodes ENABLE ROW LEVEL SECURITY');
     expect(sql).toContain('REVOKE ALL ON public.states, public.districts, public.pincodes FROM PUBLIC, anon, authenticated');
-    expect(sql).toContain('GRANT ALL ON public.states, public.districts, public.pincodes TO service_role');
+    expect(sql).toContain('GRANT SELECT, INSERT, UPDATE ON public.states, public.districts, public.pincodes TO service_role');
     expect(sql).not.toMatch(/CREATE\s+POLICY/i);
   });
 
@@ -47,8 +53,10 @@ describe('Location Reference Tables & Profile/Jobs Columns Migrations (202611271
     expect(nonCommentSql).toContain('ALTER TABLE public.business_profiles');
     expect(nonCommentSql).toContain('ALTER TABLE public.institution_profiles');
     expect(nonCommentSql).toContain('ALTER TABLE public.jobs');
-    expect(nonCommentSql).toContain('ADD COLUMN IF NOT EXISTS state_code INT REFERENCES public.states(lgd_code)');
-    expect(nonCommentSql).toContain('ADD COLUMN IF NOT EXISTS district_id UUID REFERENCES public.districts(id)');
+    expect(nonCommentSql).toContain('ADD COLUMN state_code INT REFERENCES public.states(lgd_code)');
+    expect(nonCommentSql).toContain('FOREIGN KEY (state_code, district_id) REFERENCES public.districts(state_code, id)');
+    expect(nonCommentSql).toContain("CHECK (pincode IS NULL OR pincode ~ '^[1-9][0-9]{5}$')");
+    expect(nonCommentSql).toContain('CREATE INDEX IF NOT EXISTS idx_jobs_state_district ON public.jobs(state_code, district_id)');
     expect(nonCommentSql).not.toMatch(/DROP\s+COLUMN/i);
     expect(nonCommentSql).not.toMatch(/search_jobs/i);
     expect(nonCommentSql).not.toMatch(/location_nodes/i);

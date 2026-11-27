@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException, BadRequestException, ForbiddenException, ServiceUnavailableException, Logger, Optional } from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, BadRequestException, ForbiddenException, ServiceUnavailableException, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import {
   CreateJobInput,
@@ -153,21 +153,29 @@ export class JobsService {
     @Inject(WalletService) private readonly walletService: WalletService,
     @Inject(UserRepository) private readonly userRepository: UserRepository,
     @Inject(SmsGateway) private readonly smsGateway: SmsGateway,
-    @Optional() @Inject(LocationRepository) private readonly locationRepository?: LocationRepository,
+    @Inject(LocationRepository) private readonly locationRepository: LocationRepository,
   ) {}
 
   private async resolveLocationRefs(
     stateCode?: number | null,
     districtId?: string | null,
-  ): Promise<{ stateCode: number | null; districtId: string | null }> {
-    if (!this.locationRepository || (stateCode == null && districtId == null)) {
-      return { stateCode: stateCode ?? null, districtId: districtId ?? null };
+    options?: { readonly requireActiveDistrict?: boolean },
+  ): Promise<{
+    stateCode: number | null;
+    districtId: string | null;
+    stateNameEn: string | null;
+    districtNameEn: string | null;
+  }> {
+    if (stateCode == null && districtId == null) {
+      return { stateCode: null, districtId: null, stateNameEn: null, districtNameEn: null };
     }
-    return this.locationRepository.validateDistrictForState(stateCode, districtId);
+    return this.locationRepository.validateDistrictForState(stateCode, districtId, options);
   }
 
   async createJob(employerId: string, input: CreateJobInput): Promise<JobRecord> {
-    const locationRefs = await this.resolveLocationRefs(input.stateCode, input.districtId);
+    const locationRefs = await this.resolveLocationRefs(input.stateCode, input.districtId, {
+      requireActiveDistrict: true,
+    });
     const id = randomUUID();
     const now = new Date().toISOString();
 
@@ -183,8 +191,8 @@ export class JobsService {
       min_pay: input.minPay,
       max_pay: input.maxPay,
       city: input.city,
-      district: input.district,
-      state: input.state,
+      district: locationRefs.districtNameEn ?? input.district,
+      state: locationRefs.stateNameEn ?? input.state,
       state_code: locationRefs.stateCode,
       district_id: locationRefs.districtId,
       openings: input.openings,
@@ -260,7 +268,12 @@ export class JobsService {
     const ctx = createActorAuthorizationContext(employerId, role || 'employer');
     const nextStateCode = input.stateCode !== undefined ? input.stateCode : existing.state_code;
     const nextDistrictId = input.districtId !== undefined ? input.districtId : existing.district_id;
-    const locationRefs = await this.resolveLocationRefs(nextStateCode, nextDistrictId);
+    const locationChanged =
+      (input.stateCode !== undefined && input.stateCode !== existing.state_code) ||
+      (input.districtId !== undefined && input.districtId !== existing.district_id);
+    const locationRefs = await this.resolveLocationRefs(nextStateCode, nextDistrictId, {
+      requireActiveDistrict: locationChanged,
+    });
 
     const updated = await this.jobRepository.updateForTenant(ctx, jobId, {
       title: input.title ?? existing.title,
@@ -271,8 +284,8 @@ export class JobsService {
       min_pay: input.minPay ?? existing.min_pay,
       max_pay: input.maxPay ?? existing.max_pay,
       city: input.city ?? existing.city,
-      district: input.district ?? existing.district,
-      state: input.state ?? existing.state,
+      district: locationRefs.districtNameEn ?? input.district ?? existing.district,
+      state: locationRefs.stateNameEn ?? input.state ?? existing.state,
       state_code: locationRefs.stateCode,
       district_id: locationRefs.districtId,
       openings: input.openings ?? existing.openings,

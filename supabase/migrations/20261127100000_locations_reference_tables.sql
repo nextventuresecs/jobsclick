@@ -21,15 +21,33 @@ CREATE TABLE IF NOT EXISTS public.districts (
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   source TEXT NOT NULL CHECK (source IN ('lgd', 'manual-gazette')),
   effective_from DATE,
-  notes TEXT
+  notes TEXT,
+  CONSTRAINT uq_districts_state_id UNIQUE (state_code, id),
+  CONSTRAINT chk_district_source CHECK (
+    (source = 'lgd' AND lgd_code IS NOT NULL)
+    OR (source = 'manual-gazette' AND lgd_code IS NULL)
+  )
 );
 
 CREATE TABLE IF NOT EXISTS public.pincodes (
   pincode CHAR(6) PRIMARY KEY CHECK (pincode ~ '^[1-9][0-9]{5}$'),
   state_code INT REFERENCES public.states(lgd_code),
-  district_id UUID REFERENCES public.districts(id),
+  district_id UUID,
   ambiguous BOOLEAN NOT NULL DEFAULT FALSE,
-  candidate_district_ids UUID[] NOT NULL DEFAULT '{}'
+  candidate_district_ids UUID[] NOT NULL DEFAULT '{}',
+  CONSTRAINT fk_pincodes_state_district
+    FOREIGN KEY (state_code, district_id) REFERENCES public.districts(state_code, id),
+  CONSTRAINT chk_pincodes_state_district_pair
+    CHECK (district_id IS NULL OR state_code IS NOT NULL),
+  CONSTRAINT chk_pincode_resolution CHECK (
+    (ambiguous = TRUE AND district_id IS NULL)
+    OR (
+      ambiguous = FALSE
+      AND district_id IS NOT NULL
+      AND state_code IS NOT NULL
+      AND cardinality(candidate_district_ids) = 0
+    )
+  )
 );
 
 CREATE INDEX IF NOT EXISTS idx_districts_state_code ON public.districts(state_code);
@@ -44,4 +62,4 @@ ALTER TABLE public.districts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pincodes ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON public.states, public.districts, public.pincodes FROM PUBLIC, anon, authenticated;
-GRANT ALL ON public.states, public.districts, public.pincodes TO service_role;
+GRANT SELECT, INSERT, UPDATE ON public.states, public.districts, public.pincodes TO service_role;

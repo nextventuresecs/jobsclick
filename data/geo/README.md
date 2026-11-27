@@ -70,6 +70,21 @@ node scripts/geo/seed-locations.mjs
 
 Optional overrides: `--geo-dir <path>` (defaults to `.scratch/jobsclick-geo`) and `--review <path>` (defaults to `data/geo/district-label-review.csv`).
 
+### Preflight & recovery
+
+Run this preflight query before applying `20261127100100_profiles_jobs_location_refs.sql` to check for unexpected columns or non-6-digit legacy `pincode` values:
+
+```sql
+SELECT table_name, column_name, data_type, character_maximum_length, is_nullable
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name IN ('job_seeker_profiles', 'business_profiles', 'institution_profiles', 'jobs')
+  AND column_name IN ('state_code', 'district_id', 'pincode')
+ORDER BY table_name, column_name;
+```
+
+If `seed-locations.mjs` fails mid-batch, re-running it is idempotent (and promotes matching `manual-gazette` districts in-place while preserving UUIDs). Keep `states`/`districts`/`pincodes` unexposed via `anon`/`authenticated` and deploy app changes only after seed verification succeeds.
+
 ## Known gaps and human review gates
 
 1. **Missing LGD codes (`lgd_code IS NULL`):** The November 2026 LGD publisher export omits five Ladakh districts notified in April 2026, Sankoo notified in October 2026, and Markapuram established in Andhra Pradesh on 31 December 2025. These 7 rows are seeded as `source = 'manual-gazette'` with `lgd_code = NULL`; backfill official LGD codes once OGD publishes them.

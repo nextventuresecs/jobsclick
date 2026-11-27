@@ -1,25 +1,27 @@
-## Scope
+## Summary
+- **Related Issue(s):** Closes #
+- **PRD Requirement ID(s):** <!-- e.g. AUTH-01, AUTH-05, BULK-03, WAL-03 -->
+- **ADR(s):** <!-- e.g. ADR 0001, ADR 0002 -->
 
-- Issue and requirement IDs
-- Changes and affected roles/routes
-- Deferred items and rollback or flag behavior
+## Authorization and Security Review
 
-## Verification
+Complete this section for changes affecting authentication, authorization, repositories, database access, or sensitive business operations. Mark N/A with explanation where not applicable.
 
-Link the exact candidate and evidence. Keep failed or blocked checks open and record the owner and next step.
+- [ ] Authorization is deny-by-default.
+- [ ] Required actor permissions and roles are validated from server state.
+- [ ] Tenant context originates from trusted server-side state (`AuthorizationContext`).
+- [ ] Tenant-sensitive database queries and mutations are explicitly scoped.
+- [ ] Resource ownership and relationships are validated.
+- [ ] Cross-tenant negative tests are included (and verify denied writes create no DB rows or queued jobs).
+- [ ] No privileged credentials (`SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL`) are exposed to `apps/web` or `NEXT_PUBLIC_*`.
+- [ ] No unauthorized database grants are introduced (`anon` / `authenticated` stay deny-all on base tables).
+- [ ] Sensitive RPC execution privileges and `search_path` remain restricted.
+- [ ] Logs and error responses exclude secrets, tokens, and raw PII.
+- [ ] Verification gates pass (`pnpm typecheck`, `pnpm lint`, unit/e2e tests, `db:catalog:check`, `db:smoke:postgrest`).
+- [ ] Changes comply with ADR 0002 and `AGENTS.md`.
 
-- [ ] Typecheck, lint including JSX accessibility checks, unit tests and relevant API/data tests pass.
-- [ ] Playwright verifies changed screens at 360×640, 412×915 and 1280×800 in English and Hindi.
-- [ ] axe reports zero serious or critical issues on changed flows.
-- [ ] Palette guard passes and focus, hover and error use existing tokens.
-- [ ] Before and after screenshots are attached for every affected route, viewport and locale.
-- [ ] Changed public pages meet Lighthouse accessibility, performance and CLS targets.
-- [ ] Slow 3G and 4× CPU run is usable, with no blocking spinner over three seconds.
-- [ ] Task times and taps are recorded against applicable targets.
-- [ ] Hallmark rendered check passes. Redesigns pass the wiring comparison and include independent review and any Reflex decisions.
-- [ ] Keyboard, focus, 200% zoom, reduced motion, high contrast and TalkBack evidence is recorded.
-- [ ] Flow verification record contains scenarios, anonymized observations and the authorized candidate link.
-- [ ] Required human reviews and real-user task tests passed on this candidate before release.
-- [ ] Applicable feature flags verified in both states and rollback recorded.
-
-For an inapplicable item, write the reason. Use the [workflow](../docs/ux/agentic-workflow.md) for thresholds and evidence.
+## Security Impact
+- **Risk level:**
+- **Affected authorization boundary:**
+- **Residual risks / follow-ups:**
+- **Security reviewer (human approval if touching RLS / auth / payments / DPDP):**
