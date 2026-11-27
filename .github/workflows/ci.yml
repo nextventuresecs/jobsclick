@@ -93,7 +93,7 @@ jobs:
       - name: Start Supabase local stack
         run: |
           supabase start --exclude mailpit
-          supabase status -o env >> $GITHUB_ENV
+          supabase status -o env | sed -E 's/^([^=]+)="(.*)"$/\1=\2/' >> $GITHUB_ENV
 
       - name: ESLint
         run: pnpm lint

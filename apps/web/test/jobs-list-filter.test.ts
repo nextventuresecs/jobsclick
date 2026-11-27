@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from 'react-dom/server';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import JobsListPage from '../src/app/jobs/page';
 
 vi.mock('next-intl/server', () => ({
@@ -24,7 +24,12 @@ vi.mock('../src/components/jobs/SaveSearchAlertModal', () => ({
 }));
 
 describe('JobsListPage employmentType server filter and pagination (JOB-02)', () => {
+  beforeEach(() => {
+    vi.stubEnv('API_URL', 'http://localhost:3001');
+  });
+
   afterEach(() => {
+    vi.unstubAllEnvs();
     vi.unstubAllGlobals();
     vi.clearAllMocks();
   });
