@@ -13,7 +13,9 @@ import { mapApiJobToJobItem, type ApiJobPayload } from '../../lib/job-mapper';
 export const revalidate = 30;
 
 interface JobsPageProps {
-  readonly searchParams?: Record<string, string | string[] | undefined>;
+  readonly searchParams?:
+    | Record<string, string | string[] | undefined>
+    | Promise<Record<string, string | string[] | undefined>>;
 }
 
 const CATEGORIES = [
@@ -37,7 +39,8 @@ function param(value: string | string[] | undefined) {
 }
 
 export default async function JobsListPage({ searchParams }: JobsPageProps) {
-  const [locale, t, categoryT] = await Promise.all([
+  const [resolvedSearchParams, locale, t, categoryT] = await Promise.all([
+    searchParams ? Promise.resolve(searchParams) : Promise.resolve(undefined),
     getLocale(),
     getTranslations('JobsPage'),
     getTranslations('Categories'),
@@ -45,14 +48,14 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
   const jobsPath = locale === 'hi' ? '/hi/jobs' : '/jobs';
   const number = new Intl.NumberFormat(locale + '-IN');
   const date = new Intl.DateTimeFormat(locale + '-IN', { dateStyle: 'medium', timeZone: 'Asia/Kolkata' });
-  const keyword = param(searchParams?.keyword);
-  const city = param(searchParams?.city);
-  const category = CATEGORIES.find((key) => key === param(searchParams?.category)) ?? '';
-  const type = employmentTypeSchema.safeParse(param(searchParams?.employmentType));
+  const keyword = param(resolvedSearchParams?.keyword);
+  const city = param(resolvedSearchParams?.city);
+  const category = CATEGORIES.find((key) => key === param(resolvedSearchParams?.category)) ?? '';
+  const type = employmentTypeSchema.safeParse(param(resolvedSearchParams?.employmentType));
   const employmentType = type.success ? type.data : '';
-  const rawPay = Number(param(searchParams?.minPay));
+  const rawPay = Number(param(resolvedSearchParams?.minPay));
   const minPay = Number.isFinite(rawPay) && rawPay > 0 ? rawPay : 0;
-  const page = Number(param(searchParams?.page));
+  const page = Number(param(resolvedSearchParams?.page));
   const pageNumber = Number.isSafeInteger(page) && page > 1 && page <= 10000 ? page : 1;
   const offset = (pageNumber - 1) * PAGE_SIZE;
   const filters = { keyword, city, category, employmentType, minPay: minPay ? String(minPay) : '' };
