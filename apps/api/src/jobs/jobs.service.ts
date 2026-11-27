@@ -197,6 +197,7 @@ export class JobsService {
       keyword: filters.keyword,
       city: filters.city,
       category: filters.category,
+      employmentType: filters.employmentType,
       minPay: filters.minPay,
       companyId: filters.companyId,
       limit: filters.limit,

@@ -18,6 +18,7 @@ export interface JobFilterParams {
   keyword?: string;
   city?: string;
   category?: string;
+  employmentType?: string;
   minPay?: number;
   companyId?: string;
   limit?: number;
@@ -132,53 +133,56 @@ export class JobRepository {
 
     if (!this.isTestMode) {
       try {
-        // 1. Primary path: Postgres Stored Procedure for FTS ranking & multi-page ordering
-        const { data: rpcData, error: rpcError } = await (this.supabase.rpc as unknown as (
-          fn: string,
-          args: Record<string, unknown>,
-        ) => Promise<{ data: unknown; error: { message: string } | null }>)(
-          'search_jobs',
-          {
-            p_keyword: filters.keyword || null,
-            p_city: filters.city || null,
-            p_category: filters.category || null,
-            p_min_pay: filters.minPay ?? null,
-            p_limit: limit,
-            p_offset: offset,
-          },
-        );
+        // 1. Primary path: Postgres Stored Procedure for FTS ranking & multi-page ordering.
+        // search_jobs does not accept employment_type, so when employmentType is set we use the PostgREST query path below.
+        if (!filters.employmentType) {
+          const { data: rpcData, error: rpcError } = await (this.supabase.rpc as unknown as (
+            fn: string,
+            args: Record<string, unknown>,
+          ) => Promise<{ data: unknown; error: { message: string } | null }>)(
+            'search_jobs',
+            {
+              p_keyword: filters.keyword || null,
+              p_city: filters.city || null,
+              p_category: filters.category || null,
+              p_min_pay: filters.minPay ?? null,
+              p_limit: limit,
+              p_offset: offset,
+            },
+          );
 
-        if (!rpcError && Array.isArray(rpcData)) {
-          const rpcRows = rpcData as SearchJobsRpcResult[];
-          const rows: (JobRow & { company_slug?: string })[] = rpcRows.map((r) => ({
-            id: '',
-            public_slug: r.slug,
-            employer_id: '',
-            title: r.title,
-            description: r.description,
-            category: r.category as JobRow['category'],
-            employment_type: r.employment_type ?? undefined,
-            experience_level: r.experience_level ?? undefined,
-            city: r.city,
-            district: r.district ?? undefined,
-            state: r.state ?? undefined,
-            min_pay: r.min_pay ?? undefined,
-            max_pay: r.max_pay ?? undefined,
-            openings: r.openings,
-            skills: r.skills ?? [],
-            requirements: r.requirements ?? [],
-            is_active: r.is_active,
-            is_featured: r.is_featured ?? false,
-            featured_until: r.featured_until ?? null,
-            source: 'direct',
-            created_by: '',
-            updated_by: '',
-            created_at: r.created_at,
-            updated_at: r.updated_at,
-            company_slug: r.company_slug ?? undefined,
-          }));
-          const total = rpcRows.length > 0 ? Number(rpcRows[0]!.total_count ?? rpcRows.length) : 0;
-          return { jobs: rows, total };
+          if (!rpcError && Array.isArray(rpcData)) {
+            const rpcRows = rpcData as SearchJobsRpcResult[];
+            const rows: (JobRow & { company_slug?: string })[] = rpcRows.map((r) => ({
+              id: '',
+              public_slug: r.slug,
+              employer_id: '',
+              title: r.title,
+              description: r.description,
+              category: r.category as JobRow['category'],
+              employment_type: r.employment_type ?? undefined,
+              experience_level: r.experience_level ?? undefined,
+              city: r.city,
+              district: r.district ?? undefined,
+              state: r.state ?? undefined,
+              min_pay: r.min_pay ?? undefined,
+              max_pay: r.max_pay ?? undefined,
+              openings: r.openings,
+              skills: r.skills ?? [],
+              requirements: r.requirements ?? [],
+              is_active: r.is_active,
+              is_featured: r.is_featured ?? false,
+              featured_until: r.featured_until ?? null,
+              source: 'direct',
+              created_by: '',
+              updated_by: '',
+              created_at: r.created_at,
+              updated_at: r.updated_at,
+              company_slug: r.company_slug ?? undefined,
+            }));
+            const total = rpcRows.length > 0 ? Number(rpcRows[0]!.total_count ?? rpcRows.length) : 0;
+            return { jobs: rows, total };
+          }
         }
 
         // 2. PostgREST fallback: Enforce ORDER BY before range slicing (eliminates inverted pagination)
@@ -188,6 +192,9 @@ export class JobRepository {
         }
         if (filters.category) {
           query = query.eq('category', filters.category);
+        }
+        if (filters.employmentType) {
+          query = query.eq('employment_type', filters.employmentType);
         }
         if (filters.minPay !== undefined) {
           query = query.gte('max_pay', filters.minPay);
@@ -237,6 +244,10 @@ export class JobRepository {
 
     if (filters.category) {
       list = list.filter((j) => j.category === filters.category);
+    }
+
+    if (filters.employmentType) {
+      list = list.filter((j) => j.employment_type === filters.employmentType);
     }
 
     if (filters.minPay !== undefined) {

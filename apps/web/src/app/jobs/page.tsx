@@ -53,8 +53,7 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
   const rawPay = Number(param(searchParams?.minPay));
   const minPay = Number.isFinite(rawPay) && rawPay > 0 ? rawPay : 0;
   const page = Number(param(searchParams?.page));
-  // Employment type is filtered locally because the public API has no type filter.
-  const pageNumber = !employmentType && Number.isSafeInteger(page) && page > 1 && page <= 10000 ? page : 1;
+  const pageNumber = Number.isSafeInteger(page) && page > 1 && page <= 10000 ? page : 1;
   const offset = (pageNumber - 1) * PAGE_SIZE;
   const filters = { keyword, city, category, employmentType, minPay: minPay ? String(minPay) : '' };
   const active = Object.values(filters).some(Boolean);
@@ -74,6 +73,7 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
     if (keyword) query.set('keyword', keyword);
     if (city) query.set('city', city);
     if (category) query.set('category', category);
+    if (employmentType) query.set('employmentType', employmentType);
     if (minPay) query.set('minPay', String(minPay));
     const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
     const response = await fetch(apiUrl + '/jobs?' + query, {
@@ -86,9 +86,7 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
         jobs = data.jobs
           .filter((job) => typeof job?.slug === 'string' && job.slug.length > 0)
           .map((job) => mapApiJobToJobItem(job, t('employer')));
-        if (employmentType) {
-          jobs = jobs.filter((job) => job.employmentType === employmentType);
-        } else if (typeof data.total === 'number' && Number.isSafeInteger(data.total) && data.total >= 0) {
+        if (typeof data.total === 'number' && Number.isSafeInteger(data.total) && data.total >= 0) {
           total = data.total;
         }
       }
@@ -171,7 +169,6 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
                   ? t.rich('resultsCount', { count: number.format(count), strong: (value) => <strong>{value}</strong> })
                   : t('pageCount', { start: number.format(offset + 1), end: number.format(offset + count), total: number.format(total) })}
               </p>
-              {jobs !== null && employmentType && <p className="text-base text-gray-text">{t('employmentTypeScope', { limit: number.format(PAGE_SIZE) })}</p>}
             </div>
             <SaveSearchAlertModal currentKeyword={keyword} currentCity={city} currentCategory={category} />
           </div>

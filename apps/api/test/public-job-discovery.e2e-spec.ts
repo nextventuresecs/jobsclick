@@ -304,6 +304,105 @@ describe('Ticket 2: Public Job Discovery & Live Database Search (E2E Integration
         expect(page1Slugs).not.toContain(slug);
       }
     });
+
+    it('filters by employmentType server-side with accurate total and pagination (JOB-02)', async () => {
+      await jobRepository.create({
+        id: '55555555-5555-5555-5555-555555555555',
+        employer_id: 'usr_emp_05',
+        title: 'Part-Time Delivery Rider',
+        description: 'Evening parcel delivery across central Pune.',
+        category: 'logistics_supply',
+        city: 'Pune',
+        openings: 5,
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        min_pay: 12000,
+        max_pay: 16000,
+        district: 'Pune',
+        state: 'Maharashtra',
+        skills: ['Delivery'],
+        employment_type: 'Part-time',
+        is_featured: false,
+      });
+
+      const partTimeRes = await app.inject({
+        method: 'GET',
+        url: '/jobs?employmentType=Part-time',
+      });
+      expect(partTimeRes.statusCode).toBe(200);
+      const partTimeData = JSON.parse(partTimeRes.payload);
+      expect(partTimeData.total).toBe(1);
+      expect(partTimeData.jobs).toHaveLength(1);
+      expect(partTimeData.jobs[0].title).toBe('Part-Time Delivery Rider');
+      expect(partTimeData.jobs[0].employmentType).toBe('Part-time');
+
+      // Full-time still returns the 4 seeded Full-time jobs and paginates accurately
+      const fullTimePage2 = await app.inject({
+        method: 'GET',
+        url: '/jobs?employmentType=Full-time&limit=2&offset=2',
+      });
+      expect(fullTimePage2.statusCode).toBe(200);
+      const fullTimeData = JSON.parse(fullTimePage2.payload);
+      expect(fullTimeData.total).toBe(4);
+      expect(fullTimeData.jobs).toHaveLength(2);
+      for (const job of fullTimeData.jobs) {
+        expect(job.employmentType).toBe('Full-time');
+      }
+    });
+
+    it('passes employment_type filter in live PostgREST query path without calling search_jobs RPC', async () => {
+      const calls: Array<{ method: string; args: unknown[] }> = [];
+      const queryBuilder: {
+        eq: (...args: unknown[]) => typeof queryBuilder;
+        ilike: (...args: unknown[]) => typeof queryBuilder;
+        or: (...args: unknown[]) => typeof queryBuilder;
+        gte: (...args: unknown[]) => typeof queryBuilder;
+        order: (...args: unknown[]) => typeof queryBuilder;
+        range: (...args: unknown[]) => Promise<{ data: unknown[]; count: number; error: null }>;
+      } = {
+        eq: (...args: unknown[]) => {
+          calls.push({ method: 'eq', args });
+          return queryBuilder;
+        },
+        ilike: (...args: unknown[]) => {
+          calls.push({ method: 'ilike', args });
+          return queryBuilder;
+        },
+        or: (...args: unknown[]) => {
+          calls.push({ method: 'or', args });
+          return queryBuilder;
+        },
+        gte: (...args: unknown[]) => {
+          calls.push({ method: 'gte', args });
+          return queryBuilder;
+        },
+        order: (...args: unknown[]) => {
+          calls.push({ method: 'order', args });
+          return queryBuilder;
+        },
+        range: async (...args: unknown[]) => {
+          calls.push({ method: 'range', args });
+          return { data: [], count: 0, error: null };
+        },
+      };
+      let rpcCalled = false;
+      const mockSupabase = {
+        from: () => ({ select: () => queryBuilder }),
+        rpc: async () => {
+          rpcCalled = true;
+          return { data: [], error: null };
+        },
+      } as unknown as SupabaseClient<Database>;
+
+      const liveRepo = new JobRepository(mockSupabase, false);
+      const result = await liveRepo.findMany({ employmentType: 'Contract', limit: 20, offset: 20 });
+
+      expect(rpcCalled).toBe(false);
+      expect(result).toEqual({ jobs: [], total: 0 });
+      expect(calls).toContainEqual({ method: 'eq', args: ['employment_type', 'Contract'] });
+      expect(calls).toContainEqual({ method: 'range', args: [20, 39] });
+    });
   });
 
   describe('3. Protocol & Edge Cache Hardening', () => {
