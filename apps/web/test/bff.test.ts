@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { forwardBffRequest, validateCsrf } from '../src/lib/bff';
-import { signSessionToken, SESSION_COOKIE_NAME } from '../src/lib/auth-session';
+import { signSessionToken, verifyToken, SESSION_COOKIE_NAME } from '../src/lib/auth-session';
 import { POST as uploadBulkRoster } from '../src/app/api/bulk/batches/file/route';
 
 describe('BFF Helper (apps/web/src/lib/bff.ts)', () => {
@@ -286,4 +286,26 @@ describe('BFF Helper (apps/web/src/lib/bff.ts)', () => {
     });
   });
 
+  it('supports JWT_PREVIOUS_SECRET rotation fallback in verifyToken while rejecting mismatched secrets', () => {
+    const oldSecret = 'old-web-bff-rotation-secret-key-at-least-32-chars';
+    const newSecret = 'new-web-bff-rotation-secret-key-at-least-32-chars';
+    const origPrev = process.env.JWT_PREVIOUS_SECRET;
+
+    try {
+      process.env.JWT_SECRET = oldSecret;
+      delete process.env.JWT_PREVIOUS_SECRET;
+      const oldToken = createValidToken('usr_rotated_web', 'employer');
+
+      process.env.JWT_SECRET = newSecret;
+      process.env.JWT_PREVIOUS_SECRET = oldSecret;
+      const verified = verifyToken(oldToken);
+      expect(verified?.sub).toBe('usr_rotated_web');
+
+      process.env.JWT_PREVIOUS_SECRET = 'unrelated-other-rotation-secret-key-at-least-32-ch';
+      expect(verifyToken(oldToken)).toBeNull();
+    } finally {
+      if (origPrev === undefined) delete process.env.JWT_PREVIOUS_SECRET;
+      else process.env.JWT_PREVIOUS_SECRET = origPrev;
+    }
+  });
 });

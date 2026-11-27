@@ -53,11 +53,30 @@ export class JwtService {
     const secretKey = this.getSecretKey();
 
     try {
-      const { payload } = await jwtVerify(token, secretKey, {
-        algorithms: ['HS256'],
-        issuer: 'jobsclick-api',
-        audience: 'jobsclick-web',
-      });
+      let payload: Record<string, unknown>;
+      try {
+        ({ payload } = await jwtVerify(token, secretKey, {
+          algorithms: ['HS256'],
+          issuer: 'jobsclick-api',
+          audience: 'jobsclick-web',
+        }));
+      } catch (primaryErr) {
+        const prevSecret = process.env['JWT_PREVIOUS_SECRET']?.trim();
+        const isSigMismatch =
+          typeof primaryErr === 'object' &&
+          primaryErr !== null &&
+          (primaryErr as { code?: string }).code === 'ERR_JWS_SIGNATURE_VERIFICATION_FAILED';
+        if (isSigMismatch && prevSecret && prevSecret.length >= 32 && prevSecret !== process.env['JWT_SECRET']) {
+          const prevKey = new TextEncoder().encode(prevSecret);
+          ({ payload } = await jwtVerify(token, prevKey, {
+            algorithms: ['HS256'],
+            issuer: 'jobsclick-api',
+            audience: 'jobsclick-web',
+          }));
+        } else {
+          throw primaryErr;
+        }
+      }
 
       // Required claims: exp, sub, jti, tv
       if (typeof payload.exp !== 'number') {

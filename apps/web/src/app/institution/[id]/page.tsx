@@ -23,9 +23,9 @@ import {
 } from 'lucide-react';
 
 interface InstitutionPageProps {
-  readonly params: {
+  readonly params: Promise<{
     readonly id: string;
-  };
+  }>;
 }
 
 const emptyCmsData: InstitutionCmsInput = {
@@ -38,7 +38,7 @@ const emptyCmsData: InstitutionCmsInput = {
 };
 
 export default async function PublicInstitutionPage({ params }: InstitutionPageProps) {
-  const institutionSlug = params.id;
+  const { id: institutionSlug } = await params;
   // ID-02: Old UUID URLs return 404, not a redirect, to avoid confirming internal IDs.
   if (isUuid(institutionSlug)) {
     notFound();

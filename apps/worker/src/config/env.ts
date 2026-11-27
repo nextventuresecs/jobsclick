@@ -19,6 +19,7 @@ export const envSchema = z.object({
   STORAGE_PUBLIC_URL: z.string().default('http://localhost:54321/storage/v1/object/public'),
   SENTRY_ENVIRONMENT: z.string().optional(),
   REDIS_URL: z.string().default('redis://localhost:6379'),
+  REDIS_URL_BULLMQ: z.string().optional(),
   REDIS_ALLOW_PLAINTEXT: z.string().optional(),
   DB_ALLOW_INSECURE_TLS: z.string().optional(),
   SENTRY_DSN: z.string().optional(),

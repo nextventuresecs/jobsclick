@@ -1,11 +1,34 @@
 import crypto from 'node:crypto';
+import { Global, Module } from '@nestjs/common';
 import { Test, type ModuleMetadata } from '@nestjs/testing';
-import { TestAuthModule } from './test-auth.module.js';
+import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard.js';
+import { TestAuthGuard } from './test-auth.guard.js';
 import { TurnstileVerifier } from '../src/auth/turnstile.service.js';
 import { MockTurnstileVerifier } from './mocks/mock-turnstile.verifier.js';
-import { SmsGateway } from '../src/auth/sms.service.js';
+import { SmsGateway, SmsService, Msg91SmsService } from '../src/auth/sms.service.js';
 import { MockSmsGateway } from './mocks/mock-sms.gateway.js';
 import { RAZORPAY_GATEWAY, FakeRazorpayGateway } from '../src/wallet/razorpay.gateway.js';
+
+@Global()
+@Module({
+  providers: [
+    { provide: TurnstileVerifier, useClass: MockTurnstileVerifier },
+    { provide: SmsGateway, useClass: MockSmsGateway },
+    { provide: SmsService, useExisting: SmsGateway },
+    { provide: Msg91SmsService, useExisting: SmsGateway },
+    MockTurnstileVerifier,
+    MockSmsGateway,
+  ],
+  exports: [
+    TurnstileVerifier,
+    SmsGateway,
+    SmsService,
+    Msg91SmsService,
+    MockTurnstileVerifier,
+    MockSmsGateway,
+  ],
+})
+class TestExternalMocksModule {}
 
 // Vitest global setup: generate cryptographically secure random secrets per test run
 // Ensures tests run against valid entropy without hardcoding literal secrets in src
@@ -83,15 +106,33 @@ testContainer.createTestingModule = (metadata: ModuleMetadata) => {
     testPath.includes('jwt-guard-hardening.spec') ||
     testPath.includes('auth-multichannel.e2e-spec.ts') ||
     testPath.includes('health.e2e-spec.ts') ||
-    testPath.includes('session-invalidation-p0-8.spec');
+    testPath.includes('session-invalidation-p0-8.spec') ||
+    testPath.includes('idor-matrix.e2e-spec');
 
-  if (!isLockdown && metadata) {
-    metadata.imports = metadata.imports ? [...metadata.imports, TestAuthModule] : [TestAuthModule];
-  }
-  const builder = origCreateTestingModule(metadata);
   const isNoOverride =
     testPath.includes('sms-turnstile.spec') ||
     testPath.includes('auth-fail-open-behaviour.spec');
+  if (!isLockdown && !isNoOverride && metadata) {
+    metadata.imports = metadata.imports
+      ? [...metadata.imports, TestExternalMocksModule]
+      : [TestExternalMocksModule];
+  }
+  const builder = origCreateTestingModule(metadata);
+  if (!isLockdown) {
+    builder.overrideGuard(JwtAuthGuard).useClass(TestAuthGuard);
+    const internals = builder as unknown as {
+      applyOverloadsMap: () => void;
+      container: { replace: (token: unknown, options: unknown) => void };
+    };
+    const origApply = internals.applyOverloadsMap.bind(builder);
+    internals.applyOverloadsMap = () => {
+      origApply();
+      internals.container.replace(JwtAuthGuard, {
+        isProvider: true,
+        useClass: TestAuthGuard,
+      });
+    };
+  }
   if (!isNoOverride) {
     builder.overrideProvider(TurnstileVerifier).useClass(MockTurnstileVerifier);
     builder.overrideProvider(SmsGateway).useClass(MockSmsGateway);

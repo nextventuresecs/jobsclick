@@ -18,6 +18,7 @@ import { QueueService } from '../queue/queue.service.js';
 import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
 import { LocationRepository } from '../database/repositories/location.repository.js';
 import { SUPABASE_CLIENT } from '../database/supabase.provider.js';
+import { createActorAuthorizationContext } from '../auth/authorization-context.js';
 import type {
   Database,
   JobSeekerProfileRow,
@@ -436,7 +437,11 @@ export class ProfilesService {
     const instId = institution.id;
 
     // 2. Fetch the caller's OWN students only
-    const students = await this.profileRepository.findStudentsByInstitution(instId);
+    // 2. Fetch the caller's OWN students only using server-derived AuthorizationContext
+    const ctx = createActorAuthorizationContext(userId, role, {
+      tenant: { type: 'institution', id: instId },
+    });
+    const students = await this.profileRepository.findStudentsByInstitutionScoped(ctx, instId);
     if (students.length === 0) {
       return [];
     }

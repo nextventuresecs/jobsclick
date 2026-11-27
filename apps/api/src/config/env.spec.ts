@@ -18,6 +18,7 @@ const VALID_PROD: Record<string, string> = {
   REDIS_URL: 'rediss://default:Ab3$zQ9*wL2!xP5@redis.example.com:6380',
   JWT_SECRET: 'de4772a0c0f3aa1c09aaa18a7ffde65b791b9a8324fe72e6465a533fa219a4b1', // 64 hex chars (32 bytes via CSPRNG)
   OTP_PEPPER: 'b8eLqRnYs3wGxMoZfUvJiKb8eLqRnYs3',
+  ADMIN_DASHBOARD_SECRET: 'k4V9xQwL2mRpZ8sT6yN3bH7jK4v9XqWl',
   CF_ORIGIN_LOCKED: 'true', // 32 chars, no placeholder, distinct from JWT_SECRET
   SMS_GATEWAY_MODE: 'live',
   MSG91_AUTH_KEY: 'msg91_live_auth_key_sec_99182746',

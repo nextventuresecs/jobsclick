@@ -145,10 +145,23 @@ export function verifyToken(token: string | undefined | null): VerifiedSession |
     const expectedSig = crypto.createHmac('sha256', secret).update(signingInput).digest();
     const actualSig = base64UrlDecode(encodedSignature);
 
-    if (
-      expectedSig.length !== actualSig.length ||
-      !crypto.timingSafeEqual(expectedSig, actualSig)
-    ) {
+    let sigMatches =
+      expectedSig.length === actualSig.length && crypto.timingSafeEqual(expectedSig, actualSig);
+
+    if (!sigMatches) {
+      const prevSecret = process.env.JWT_PREVIOUS_SECRET?.trim();
+      if (prevSecret && prevSecret.length >= 32 && prevSecret !== process.env.JWT_SECRET?.trim()) {
+        const prevExpectedSig = crypto
+          .createHmac('sha256', Buffer.from(prevSecret, 'utf-8'))
+          .update(signingInput)
+          .digest();
+        sigMatches =
+          prevExpectedSig.length === actualSig.length &&
+          crypto.timingSafeEqual(prevExpectedSig, actualSig);
+      }
+    }
+
+    if (!sigMatches) {
       return null;
     }
 

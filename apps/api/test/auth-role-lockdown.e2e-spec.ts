@@ -33,13 +33,11 @@ describe('Audit P0-5 & PR #97: Role Lockdown & Indian Phone Normalization (E2E)'
     userRepo = app.get(UserRepository);
     otpRedisService = app.get(OtpRedisService);
     PersistentDatabaseStore.getInstance().clearTable('users');
-    const keys = await otpRedisService.client.keys('auth:verify_ip_rate:*');
-    if (keys.length > 0) await otpRedisService.client.del(...keys);
+    await otpRedisService.client.del('auth:verify_ip_rate:127.0.0.1', 'auth:verify_ip_rate:::1');
   });
 
   beforeEach(async () => {
-    const keys = await otpRedisService.client.keys('auth:verify_ip_rate:*');
-    if (keys.length > 0) await otpRedisService.client.del(...keys);
+    await otpRedisService.client.del('auth:verify_ip_rate:127.0.0.1', 'auth:verify_ip_rate:::1');
   });
 
   afterAll(async () => {
