@@ -3,9 +3,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@indian-job-portal/database';
 import {
   SUPABASE_CLIENT,
-  USER_SCOPED_SUPABASE_FACTORY,
   createSupabaseClient,
-  createUserScopedSupabaseClient,
 } from './supabase.provider.js';
 import { UserRepository, USER_REPOSITORY } from './repositories/user.repository.js';
 import { InMemoryUserRepository } from './repositories/in-memory-user.repository.js';
@@ -28,10 +26,6 @@ import { isStrictEnv } from '../config/env.js';
     {
       provide: SUPABASE_CLIENT,
       useFactory: () => createSupabaseClient(),
-    },
-    {
-      provide: USER_SCOPED_SUPABASE_FACTORY,
-      useValue: (jwt?: string) => createUserScopedSupabaseClient(jwt),
     },
     {
       provide: USER_REPOSITORY,
@@ -61,7 +55,6 @@ import { isStrictEnv } from '../config/env.js';
   ],
   exports: [
     SUPABASE_CLIENT,
-    USER_SCOPED_SUPABASE_FACTORY,
     USER_REPOSITORY,
     UserRepository,
     JobRepository,

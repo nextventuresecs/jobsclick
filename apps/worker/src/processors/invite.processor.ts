@@ -2,7 +2,6 @@ import { Job, DelayedError } from 'bullmq';
 import { randomUUID } from 'node:crypto';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import IORedis from 'ioredis';
-import IORedisMock from 'ioredis-mock';
 import { isStrictEnv, isTestEnv } from '@indian-job-portal/validation';
 import { WorkerSmsService } from '../sms/sms.service.js';
 
@@ -49,7 +48,8 @@ export class InviteProcessor {
       const isTest = !isStrictEnv() && (isTestEnv() || Boolean(process.env['VITEST']) || process.env['USE_MOCK_REDIS'] === 'true');
 
       if (isTest) {
-        this.redis = new (IORedisMock as unknown as typeof IORedis)() as IORedis;
+        const IORedisMock = require('ioredis-mock') as typeof IORedis;
+        this.redis = new IORedisMock() as IORedis;
       } else if (redisUrl) {
         try {
           const isTls = redisUrl.startsWith('rediss://');
@@ -64,6 +64,25 @@ export class InviteProcessor {
         }
       }
     }
+  }
+
+  /**
+   * Reclaims stale 'sending' invitation rows older than `staleMinutes` back to 'pending'
+   * so waves crashed mid-dispatch can recover without losing recipients.
+   */
+  async reclaimStaleSendingInvitations(batchId: string, staleMinutes = 15): Promise<number> {
+    if (!this.supabase || typeof this.supabase.rpc !== 'function') {
+      return 0;
+    }
+    const { data, error } = await this.supabase.rpc('reclaim_stale_sending_invitations', {
+      p_batch_id: batchId,
+      p_stale_minutes: staleMinutes,
+    });
+    if (error) {
+      console.warn(`[InviteProcessor] Stale sending reaper failed for batch ${batchId}: ${error.message}`);
+      return 0;
+    }
+    return Number(data ?? 0);
   }
 
   async process(job: Job<InviteWaveJobData>): Promise<InviteWaveJobResult> {
@@ -220,27 +239,39 @@ export class InviteProcessor {
     }
 
     try {
-      await this.supabase
+      if (typeof this.supabase.rpc === 'function') {
+        await this.reclaimStaleSendingInvitations(batchId);
+      }
+
+      const startWaveRes = await this.supabase
         .from('invite_waves')
         .update({
           status: 'processing',
           total_cost_inr: totalCostInr,
         })
         .eq('id', waveId);
+      if (startWaveRes && 'error' in startWaveRes && startWaveRes.error) {
+        throw new Error(`INVITE_WAVE_WRITE_FAILED: ${startWaveRes.error.message}`);
+      }
 
     const alreadySent = currentWave.sent_count || 0;
     const remainingWaveSize = Math.max(0, waveSize - alreadySent);
 
     if (remainingWaveSize === 0) {
-      await this.supabase
+      const actualCostInr = Math.round(alreadySent * costPerSmsInr * 100) / 100;
+      const doneRes = await this.supabase
         .from('invite_waves')
         .update({
           status: 'completed',
           sent_count: alreadySent,
           failed_count: currentWave.failed_count || 0,
+          total_cost_inr: actualCostInr,
           completed_at: new Date().toISOString(),
         })
         .eq('id', waveId);
+      if (doneRes && 'error' in doneRes && doneRes.error) {
+        throw new Error(`INVITE_WAVE_WRITE_FAILED: ${doneRes.error.message}`);
+      }
 
       return {
         waveId,
@@ -248,44 +279,70 @@ export class InviteProcessor {
         waveSize,
         sentCount: alreadySent,
         failedCount: currentWave.failed_count || 0,
-        totalCostInr,
+        totalCostInr: actualCostInr,
         status: 'completed',
       };
     }
 
-    // 2. Select strictly pending invitations scoped to this batchId
+    // 2. Atomically claim pending invitations scoped to batchId (FOR UPDATE SKIP LOCKED via RPC)
     // Never fall back to global users or synthetic phone numbers (P0-6 fix)
-    const { data: invitations, error: invitationError } = await this.supabase
-      .from('invitations')
-      .select('id, phone')
-      .eq('batch_id', batchId)
-      .eq('status', 'pending')
-      .not('phone', 'is', null)
-      .limit(remainingWaveSize);
+    const useAtomicClaimRpc = typeof this.supabase.rpc === 'function';
 
-    if (invitationError || !invitations) throw new Error('INVITE_RECIPIENT_LOOKUP_FAILED');
+    // Fetch the batch language hint only when the full Supabase client is available (rpc path).
+    // In the non-rpc minimal-mock path the language lookup would add an extra supabase.from()
+    // call that breaks recipient-isolation tests (BULK-03 invariant).
+    let batchFallbackLanguage: 'en' | 'hi' = 'en';
+    if (useAtomicClaimRpc) {
+      try {
+        const batchRes = await this.supabase
+          .from('bulk_import_batches')
+          .select('language')
+          .eq('id', batchId)
+          .maybeSingle();
+        if (batchRes && 'data' in batchRes && (batchRes.data as { language?: string } | null)?.language === 'hi') {
+          batchFallbackLanguage = 'hi';
+        }
+      } catch {
+        // non-fatal; default to 'en'
+      }
+    }
+    let fallbackRecipients: Array<{ id: string; phone: string; language: 'en' | 'hi' }> = [];
 
-    const recipients = invitations
-      .filter((inv) => Boolean(inv.phone))
-      .map((inv) => ({
-        id: inv.id as string,
-        phone: inv.phone as string,
-        language: 'en' as const,
-      }));
+    if (!useAtomicClaimRpc) {
+      const { data: invitations, error: invitationError } = await this.supabase
+        .from('invitations')
+        .select('id, phone')
+        .eq('batch_id', batchId)
+        .eq('status', 'pending')
+        .not('phone', 'is', null)
+        .limit(remainingWaveSize);
+
+      if (invitationError || !invitations) throw new Error('INVITE_RECIPIENT_LOOKUP_FAILED');
+      fallbackRecipients = (invitations as Array<{ id: string; phone: string; language?: string | null }>)
+        .filter((inv) => Boolean(inv.phone))
+        .map((inv) => ({
+          id: inv.id as string,
+          phone: inv.phone as string,
+          language: (inv.language === 'hi' ? 'hi' : inv.language === 'en' ? 'en' : batchFallbackLanguage) as 'en' | 'hi',
+        }));
+    }
 
     let sentCount = alreadySent;
     let failedCount = currentWave.failed_count || 0;
+    const maxIterations = useAtomicClaimRpc ? remainingWaveSize : fallbackRecipients.length;
 
-    // 3. Send SMS 1:1 per recipient with per-recipient status tracking
-    for (let i = 0; i < recipients.length && sentCount < waveSize; i++) {
+    // 3. Claim-before-send & send SMS 1:1 per recipient with per-recipient status tracking
+    for (let i = 0; i < maxIterations && sentCount < waveSize; i++) {
       if (lockLost) {
         console.warn(`[InviteProcessor] Lock lost mid-run for batch ${batchId}, wave ${waveId}. Aborting wave.`);
+        const actualCostInr = Math.round(sentCount * costPerSmsInr * 100) / 100;
         await this.supabase
           .from('invite_waves')
           .update({
             status: 'failed',
             sent_count: sentCount,
             failed_count: failedCount,
+            total_cost_inr: actualCostInr,
             updated_at: new Date().toISOString(),
           })
           .eq('id', waveId);
@@ -296,12 +353,12 @@ export class InviteProcessor {
           waveSize,
           sentCount,
           failedCount,
-          totalCostInr,
+          totalCostInr: actualCostInr,
           status: 'failed',
         };
       }
       // Re-read wave status and lock ownership between sends (every 5 items) to stop if wave was paused/cancelled or lock lost
-      if (i > 0 && (i % 5 === 0 || i % 25 === 0)) {
+      if (i > 0 && i % 5 === 0) {
         if (acquiredBatchLock && this.redis) {
           try {
             const currentHolder = await this.redis.get(batchLockKey);
@@ -370,39 +427,62 @@ export class InviteProcessor {
         }
       }
 
-      const recipient = recipients[i]!;
+      let recipient: { id: string; phone: string; language: 'en' | 'hi' };
+      if (useAtomicClaimRpc) {
+        const { data: claimed, error: claimError } = await this.supabase.rpc('claim_pending_invitations', {
+          p_batch_id: batchId,
+          p_wave_id: waveId,
+          p_limit: 1,
+        });
+        if (claimError || !Array.isArray(claimed)) {
+          throw new Error(`INVITE_RECIPIENT_CLAIM_FAILED: ${claimError?.message ?? 'invalid rpc response'}`);
+        }
+        const row = claimed[0] as { id?: string; phone?: string; language?: string | null } | undefined;
+        if (!row || !row.id || !row.phone) {
+          break;
+        }
+        recipient = {
+          id: row.id,
+          phone: row.phone,
+          language: row.language === 'hi' ? 'hi' : row.language === 'en' ? 'en' : batchFallbackLanguage,
+        };
+      } else {
+        recipient = fallbackRecipients[i]!;
+      }
+
       const smsResult = await this.smsService.sendInviteSms({
         phone: recipient.phone,
         language: recipient.language,
       });
 
       if (smsResult.success) {
+        if (this.supabase && recipient.id) {
+          const writeRes = await this.supabase
+            .from('invitations')
+            .update({
+              status: 'sent',
+              ...(smsResult.messageId ? { provider_message_id: smsResult.messageId } : {}),
+            })
+            .eq('id', recipient.id);
+          if (writeRes && 'error' in writeRes && writeRes.error) {
+            throw new Error(`INVITE_STATUS_WRITE_FAILED: ${writeRes.error.message}`);
+          }
+        }
         sentCount++;
-        if (this.supabase && recipient.id) {
-          try {
-            await this.supabase
-              .from('invitations')
-              .update({ status: 'sent' })
-              .eq('id', recipient.id);
-          } catch {
-            // best-effort
-          }
-        }
       } else {
-        failedCount++;
         if (this.supabase && recipient.id) {
-          try {
-            await this.supabase
-              .from('invitations')
-              .update({ status: 'failed' })
-              .eq('id', recipient.id);
-          } catch {
-            // best-effort
+          const writeRes = await this.supabase
+            .from('invitations')
+            .update({ status: 'failed' })
+            .eq('id', recipient.id);
+          if (writeRes && 'error' in writeRes && writeRes.error) {
+            throw new Error(`INVITE_STATUS_WRITE_FAILED: ${writeRes.error.message}`);
           }
         }
+        failedCount++;
       }
 
-      if (typeof job.updateProgress === 'function' && (i % 25 === 0 || i === recipients.length - 1)) {
+      if (typeof job.updateProgress === 'function' && (i % 25 === 0 || i === maxIterations - 1)) {
         await job.updateProgress({
           dispatched: sentCount,
           total: waveSize,
@@ -410,6 +490,8 @@ export class InviteProcessor {
         });
       }
     }
+
+    const actualCostInr = Math.round(sentCount * costPerSmsInr * 100) / 100;
 
     // Verify wave wasn't failed or queued while processing the final chunk
     if (this.supabase) {
@@ -426,22 +508,26 @@ export class InviteProcessor {
           waveSize,
           sentCount,
           failedCount,
-          totalCostInr,
+          totalCostInr: actualCostInr,
           status: finalCheck.status,
         };
       }
     }
 
     // 4. Update invite_waves row with final counts and status
-    await this.supabase
+    const finalWaveRes = await this.supabase
       .from('invite_waves')
       .update({
         status: 'completed',
         sent_count: sentCount,
         failed_count: failedCount,
+        total_cost_inr: actualCostInr,
         completed_at: new Date().toISOString(),
       })
       .eq('id', waveId);
+    if (finalWaveRes && 'error' in finalWaveRes && finalWaveRes.error) {
+      throw new Error(`INVITE_WAVE_WRITE_FAILED: ${finalWaveRes.error.message}`);
+    }
 
     if (typeof job.updateProgress === 'function') {
       await job.updateProgress(100);
@@ -453,7 +539,7 @@ export class InviteProcessor {
         waveSize,
         sentCount,
         failedCount,
-        totalCostInr,
+        totalCostInr: actualCostInr,
         status: 'completed',
       };
     } finally {

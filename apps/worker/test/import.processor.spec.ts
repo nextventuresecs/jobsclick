@@ -498,4 +498,42 @@ describe('ImportProcessor - Hardened Bulk Candidate Ingestion', () => {
       expect(mockSupabase._profiles).toHaveLength(2);
     });
   });
+
+  describe('#126: Sanitized Error Code Diagnostics without PII Leaks', () => {
+    it('logs sanitized errorName/errorCode while hiding PII from logs and BullMQ thrown error', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const processor = new ImportProcessor(null);
+      const leakingErr = Object.assign(
+        new Error('Statement failed for candidate Priya Sharma phone 9876543210'),
+        { code: '57014', name: 'PostgrestTimeoutError' },
+      );
+
+      vi.spyOn(processor as unknown as { processImport: () => Promise<unknown> }, 'processImport').mockRejectedValueOnce(leakingErr);
+
+      const mockJob = {
+        id: 'job_sanitized_err',
+        attemptsMade: 0,
+        data: {
+          batchId: 'batch_diag_57014',
+          source: 'MSME',
+          entityType: 'student',
+          csvContent: 'name,phone\nPriya Sharma,9876543210\n',
+        } as BulkImportJobData,
+      } as unknown as Job<BulkImportJobData>;
+
+      try {
+        await expect(processor.process(mockJob)).rejects.toThrow(/^BULK_IMPORT_PROCESSING_FAILED$/);
+        expect(errorSpy).toHaveBeenCalledWith('[ImportProcessor] Batch import failure', {
+          batchId: 'batch_diag_57014',
+          errorName: 'PostgrestTimeoutError',
+          errorCode: '57014',
+        });
+        const loggedText = JSON.stringify(errorSpy.mock.calls);
+        expect(loggedText).not.toContain('9876543210');
+        expect(loggedText).not.toContain('Priya');
+      } finally {
+        errorSpy.mockRestore();
+      }
+    });
+  });
 });

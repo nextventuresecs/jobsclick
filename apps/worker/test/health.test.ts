@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import IORedis from 'ioredis';
-import { getWorkerHealthStatus, reportWorkerError } from '../src/health.js';
-import { startWorkerCluster } from '../src/main.js';
+import { Queue } from 'bullmq';
+import { createWorkerReadiness, getWorkerHealthStatus, reportWorkerError } from '../src/health.js';
+import { QUEUE_NAMES, scheduleRepeatableJobs, startWorkerCluster } from '../src/main.js';
 
 describe('Worker Health Check & Observability', () => {
   it('returns healthy status and valid uptime', () => {
@@ -16,17 +17,121 @@ describe('Worker Health Check & Observability', () => {
     expect(errId).toBeDefined();
   });
 
+  it('fails closed on a refused Redis command and probes again after recovery', async () => {
+    vi.useFakeTimers();
+    try {
+      const probe = vi.fn<() => Promise<unknown>>().mockRejectedValueOnce(new Error('ERR max requests limit exceeded'))
+        .mockResolvedValue(undefined);
+      const readiness = createWorkerReadiness(() => true, probe);
+      expect(await readiness.check()).toBe(false);
+      expect(await readiness.check()).toBe(false);
+      expect(probe).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(await readiness.check()).toBe(true);
+      expect(await readiness.check()).toBe(true);
+      expect(probe).toHaveBeenCalledTimes(2);
+
+      readiness.recordWorkerError();
+      expect(await readiness.check()).toBe(false);
+      await vi.advanceTimersByTimeAsync(29_999);
+      expect(await readiness.check()).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(await readiness.check()).toBe(true);
+      expect(probe).toHaveBeenCalledTimes(3);
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(await readiness.check()).toBe(true);
+      expect(probe).toHaveBeenCalledTimes(4);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('times out a hung command without piling up Redis requests', async () => {
+    vi.useFakeTimers();
+    try {
+      const probe = vi.fn(() => new Promise(() => {}));
+      const readiness = createWorkerReadiness(() => true, probe);
+      const checking = readiness.check();
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(await checking).toBe(false);
+      expect(await readiness.check()).toBe(false);
+      expect(probe).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it.skipIf(process.env['RUN_LIVE_REDIS'] !== 'true')('reports readiness after Redis and the workers connect', async () => {
     const redisUrl = process.env['REDIS_URL'];
     if (!redisUrl) throw new Error('A disposable test Redis connection is required');
     const connection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
-    const registry = startWorkerCluster({ NODE_ENV: 'test', REDIS_URL: redisUrl, USE_MOCK_REDIS: 'false' }, connection);
+    const registry = startWorkerCluster({ NODE_ENV: 'test', REDIS_URL: redisUrl, USE_MOCK_REDIS: 'false' }, connection, true, `health:${crypto.randomUUID()}`);
     try {
+      expect(registry.isRunning()).toBe(false);
       await registry.waitUntilReady();
+      await scheduleRepeatableJobs(registry);
       expect(registry.isRunning()).toBe(true);
+      expect(await registry.checkReadiness()).toBe(true);
     } finally {
       await registry.close();
     }
     expect(registry.isRunning()).toBe(false);
+  });
+
+  it.skipIf(process.env['RUN_LIVE_REDIS'] !== 'true')('starts only MVP workers in staging by default', async () => {
+    const connection = new IORedis(process.env['REDIS_URL']!, { maxRetriesPerRequest: null });
+    const registry = startWorkerCluster({ NODE_ENV: 'production', APP_ENV: 'staging', REDIS_URL: process.env['REDIS_URL']! }, connection, false, `health:${crypto.randomUUID()}`);
+    try {
+      await registry.waitUntilReady();
+      await scheduleRepeatableJobs(registry);
+      registry.start();
+      expect(registry.isRunning()).toBe(true);
+      expect(registry.importWorker.isRunning()).toBe(true);
+      expect(registry.inviteWorker.isRunning()).toBe(true);
+      expect(registry.pdfWorker.isRunning()).toBe(true);
+      expect([
+        registry.broadcastWorker, registry.alertsWorker, registry.reconcileWorker,
+        registry.expireWorker, registry.refundWorker, registry.invoiceOutboxWorker,
+      ].filter(Boolean)).toHaveLength(0);
+    } finally {
+      await registry.close();
+    }
+  });
+
+  it.skipIf(process.env['RUN_LIVE_REDIS'] !== 'true')('enables staging consumers only for the groups explicitly selected', async () => {
+    const redisUrl = process.env['REDIS_URL']!;
+    const connection = new IORedis(redisUrl, { maxRetriesPerRequest: null });
+    const registry = startWorkerCluster({
+      NODE_ENV: 'production', APP_ENV: 'staging', REDIS_URL: redisUrl,
+      ENABLE_P2_JOB_ALERTS: 'true', ENABLE_P2_PAYMENTS: 'true',
+    }, connection, false, `health:${crypto.randomUUID()}`);
+    try {
+      await registry.waitUntilReady();
+      expect([
+        registry.alertsWorker, registry.reconcileWorker, registry.expireWorker, registry.refundWorker, registry.invoiceOutboxWorker,
+      ].filter(Boolean)).toHaveLength(5);
+      expect(Boolean(registry.broadcastWorker)).toBe(false);
+    } finally {
+      await registry.close();
+    }
+  });
+
+  it.skipIf(process.env['RUN_LIVE_REDIS'] !== 'true')('converges to one schedule after a restart and preserves unrelated schedules', async () => {
+    const connection = new IORedis(process.env['REDIS_URL']!, { maxRetriesPerRequest: null });
+    const queue = new Queue(QUEUE_NAMES.BROADCAST, { connection, prefix: `health:${crypto.randomUUID()}` });
+    const repeat = { every: 15 * 60 * 1000 };
+    try {
+      await queue.upsertJobScheduler('broadcast-watchdog', repeat, { name: 'broadcast-watchdog' });
+      await queue.add('broadcast-watchdog', { staleHours: 6 }, { jobId: 'broadcast-watchdog' });
+      await queue.upsertJobScheduler('unrelated', repeat, { name: 'unrelated' });
+      await scheduleRepeatableJobs({ broadcastQueue: queue });
+      await scheduleRepeatableJobs({ broadcastQueue: queue });
+      expect((await queue.getJobSchedulers()).map(({ key }) => key).sort()).toEqual(['broadcast-watchdog', 'unrelated']);
+      expect(await queue.getJobState('broadcast-watchdog')).toBe('unknown');
+    } finally {
+      await queue.obliterate({ force: true });
+      await queue.close();
+      await connection.quit();
+    }
   });
 });

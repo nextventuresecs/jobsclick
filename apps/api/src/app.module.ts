@@ -52,7 +52,7 @@ import { HttpExceptionFilter } from './common/http-exception.filter.js';
     },
     {
       provide: APP_GUARD,
-      useClass: JwtAuthGuard,
+      useExisting: JwtAuthGuard,
     },
     {
       provide: APP_GUARD,

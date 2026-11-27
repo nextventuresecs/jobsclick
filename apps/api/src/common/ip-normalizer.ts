@@ -130,6 +130,32 @@ export function isIpInCidrs(ip: string, cidrs: string[]): boolean {
   return cidrs.some((cidr) => isIpInCidr(ip, cidr.trim()));
 }
 
+export const CLOUDFLARE_IPV4_CIDRS = [
+  '173.245.48.0/20',
+  '103.21.244.0/22',
+  '103.22.200.0/22',
+  '103.31.4.0/22',
+  '141.101.64.0/18',
+  '108.162.192.0/18',
+  '190.93.240.0/20',
+  '188.114.96.0/20',
+  '197.234.240.0/22',
+  '198.41.128.0/17',
+  '162.158.0.0/15',
+  '104.16.0.0/13',
+  '104.24.0.0/14',
+  '172.64.0.0/13',
+  '131.0.72.0/22',
+] as const;
+
+export function isProxyOrCloudflareIp(ip: string, trustedProxyCidrs: string[] = []): boolean {
+  const normalized = normalizeIp(ip);
+  if (isIpInCidrs(normalized, [...CLOUDFLARE_IPV4_CIDRS])) {
+    return true;
+  }
+  return trustedProxyCidrs.length > 0 && isIpInCidrs(normalized, trustedProxyCidrs);
+}
+
 export function getClientIp(req: {
   ip?: string;
   headers?: Record<string, string | string[] | undefined>;
@@ -140,24 +166,34 @@ export function getClientIp(req: {
   const trustedProxiesEnv = process.env['TRUSTED_PROXY_CIDRS'] || '127.0.0.1,::1';
   const trustedCidrs = trustedProxiesEnv.split(',').map((s) => s.trim()).filter(Boolean);
 
+  let resolved = '127.0.0.1';
+
   // Fastify trustProxy reads X-Forwarded-For; CF-Connecting-IP is evaluated only when CF_ORIGIN_LOCKED is active
   // AND the direct socket peer is in TRUSTED_PROXY_CIDRS
   if (cfOriginLocked && socketPeer && isIpInCidrs(socketPeer, trustedCidrs)) {
     const cfIpRaw = req.headers?.['cf-connecting-ip'];
     const cfIp = typeof cfIpRaw === 'string' ? cfIpRaw.trim() : Array.isArray(cfIpRaw) ? cfIpRaw[0]?.trim() : undefined;
     if (cfIp && net.isIP(cfIp) !== 0) {
-      return cfIp;
+      resolved = cfIp;
     }
   }
 
   // Fallback to Fastify's req.ip (which parses X-Forwarded-For if socket peer was trusted by trustProxy)
-  if (req.ip && net.isIP(req.ip.trim()) !== 0) {
-    return req.ip.trim();
+  if (resolved === '127.0.0.1' && req.ip && net.isIP(req.ip.trim()) !== 0) {
+    resolved = req.ip.trim();
+  } else if (resolved === '127.0.0.1' && socketPeer && net.isIP(socketPeer.trim()) !== 0) {
+    resolved = socketPeer.trim();
   }
 
-  if (socketPeer && net.isIP(socketPeer.trim()) !== 0) {
-    return socketPeer.trim();
+  const runtimeEnv = (process.env['APP_ENV'] || process.env['NODE_ENV'] || '').toLowerCase();
+  if (
+    (runtimeEnv === 'production' || runtimeEnv === 'staging') &&
+    resolved !== '127.0.0.1' &&
+    resolved !== '::1' &&
+    isProxyOrCloudflareIp(resolved, trustedCidrs)
+  ) {
+    console.warn('[ProxyMisconfig] Resolved client IP belongs to a trusted proxy or Cloudflare CIDR; check TRUST_PROXY_HOPS / CF_ORIGIN_LOCKED');
   }
 
-  return '127.0.0.1';
+  return resolved;
 }

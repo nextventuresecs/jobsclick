@@ -21,6 +21,7 @@ import { UserRepository } from '../database/repositories/user.repository.js';
 import { LocationRepository } from '../database/repositories/location.repository.js';
 import { SmsGateway } from '../auth/sms.service.js';
 import { WalletService } from '../wallet/wallet.service.js';
+import { createActorAuthorizationContext } from '../auth/authorization-context.js';
 import type { JobRow, ApplicationRow } from '@indian-job-portal/database';
 
 export interface JobRecord extends CreateJobInput {
@@ -264,10 +265,7 @@ export class JobsService {
     if (!existing) {
       throw new NotFoundException('Job not found');
     }
-    if (role !== 'admin' && existing.employer_id !== employerId) {
-      throw new ForbiddenException('Unauthorized to modify this job posting');
-    }
-
+    const ctx = createActorAuthorizationContext(employerId, role || 'employer');
     const nextStateCode = input.stateCode !== undefined ? input.stateCode : existing.state_code;
     const nextDistrictId = input.districtId !== undefined ? input.districtId : existing.district_id;
     const locationChanged =
@@ -277,7 +275,7 @@ export class JobsService {
       requireActiveDistrict: locationChanged,
     });
 
-    const updated = await this.jobRepository.update(jobId, {
+    const updated = await this.jobRepository.updateForTenant(ctx, jobId, {
       title: input.title ?? existing.title,
       description: input.description ?? existing.description,
       category: input.category ?? existing.category,
@@ -303,11 +301,8 @@ export class JobsService {
     if (!existing) {
       throw new NotFoundException('Job not found');
     }
-    if (role !== 'admin' && existing.employer_id !== employerId) {
-      throw new ForbiddenException('Unauthorized to delete this job posting');
-    }
-
-    await this.jobRepository.softDelete(jobId);
+    const ctx = createActorAuthorizationContext(employerId, role || 'employer');
+    await this.jobRepository.softDeleteForTenant(ctx, jobId);
     return { success: true };
   }
 
@@ -395,11 +390,8 @@ export class JobsService {
     if (!job) {
       throw new NotFoundException('Job not found');
     }
-    if (role !== 'admin' && job.employer_id !== employerId) {
-      throw new ForbiddenException('Unauthorized to view applications for this job');
-    }
-
-    const appRows = await this.applicationRepository.findByJobId(jobId);
+    const ctx = createActorAuthorizationContext(employerId, role || 'employer');
+    const appRows = await this.applicationRepository.findByJobIdForEmployer(ctx, jobId, job.employer_id);
     const records: ApplicationRecord[] = [];
 
     for (const app of appRows) {
@@ -440,11 +432,18 @@ export class JobsService {
     }
 
     const job = await this.jobRepository.findById(appRecord.job_id);
-    if (!job || (role !== 'admin' && job.employer_id !== employerId)) {
+    if (!job) {
       throw new ForbiddenException('Unauthorized to modify application status');
     }
 
-    const updated = await this.applicationRepository.updateStatus(applicationId, status);
+    const ctx = createActorAuthorizationContext(employerId, role || 'employer');
+    const updated = await this.applicationRepository.updateStatusForEmployer(
+      ctx,
+      applicationId,
+      appRecord.job_id,
+      job.employer_id,
+      status,
+    );
     const seekerProfile = await this.profileRepository.findSeekerProfileByUserId(appRecord.applicant_id);
     if (!seekerProfile) {
       this.logger.warn(`Application ${applicationId} references orphaned seeker profile for user ${appRecord.applicant_id}`);

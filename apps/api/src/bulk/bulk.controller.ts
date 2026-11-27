@@ -1,9 +1,10 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type {} from '@fastify/multipart';
-import { BadRequestException, Controller, Get, Post, Put, Body, Param, Headers, Req, Res, Inject, UsePipes, UseGuards, PayloadTooLargeException } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Post, Put, Body, Param, Headers, Req, Res, Inject, UsePipes, UseGuards, UseInterceptors, PayloadTooLargeException } from '@nestjs/common';
 import { ZodValidationPipe, createZodDto } from 'nestjs-zod';
 import { BulkService } from './bulk.service.js';
 import { QstashSignatureGuard } from '../qstash/qstash-signature.guard.js';
+import { QstashIdempotencyInterceptor } from '../qstash/qstash-idempotency.interceptor.js';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard.js';
 import { CurrentUser, type AuthenticatedUser } from '../auth/decorators/current-user.decorator.js';
@@ -68,6 +69,7 @@ export class BulkController {
   @Public()
   @Post('webhooks/qstash/import-batch')
   @UseGuards(QstashSignatureGuard)
+  @UseInterceptors(QstashIdempotencyInterceptor)
   async handleImportBatchWebhook(@Body() payload: { batchId: string; source?: string; entityType?: 'student' | 'employer'; csvContent?: string }) {
     return this.bulkService.executeImportBatchJob(payload.batchId, payload);
   }
@@ -75,6 +77,7 @@ export class BulkController {
   @Public()
   @Post('webhooks/qstash/send-invite-wave')
   @UseGuards(QstashSignatureGuard)
+  @UseInterceptors(QstashIdempotencyInterceptor)
   async handleSendInviteWaveWebhook(@Body() payload: { waveId: string }) {
     return this.bulkService.executeInviteWaveJob(payload.waveId);
   }

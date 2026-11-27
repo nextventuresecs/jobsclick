@@ -45,4 +45,26 @@ describe('document CSP', () => {
     expect(res.headers.get('x-middleware-request-content-security-policy')).toBe(csp);
     expect(res.headers.get('x-middleware-request-x-next-locale')).toBe('hi');
   });
+
+  it('#125 attaches Permissions-Policy and Strict-Transport-Security in production responses', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('APP_ENV', 'production');
+    const req = new NextRequest('https://jobsclick.live/jobs');
+    const res = middleware(req);
+    expect(res.headers.get('permissions-policy')).toContain('camera=()');
+    expect(res.headers.get('strict-transport-security')).toBe('max-age=31536000; includeSubDomains; preload');
+  });
+
+  it('#133 enforces auth redirect on /hi/company/bulk-onboard and /hi/workspace via locale-stripped matching', () => {
+    vi.stubEnv('APP_ENV', 'staging');
+    for (const url of [
+      'https://staging.example.test/hi/company/bulk-onboard',
+      'https://staging.example.test/hi/workspace/jobs',
+      'https://staging.example.test/company/bulk-onboard',
+    ]) {
+      const res = middleware(new NextRequest(url));
+      expect(res.status).toBe(307);
+      expect(res.headers.get('location')).toContain('authRequired=1');
+    }
+  });
 });

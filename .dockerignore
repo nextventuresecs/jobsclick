@@ -32,3 +32,17 @@
 **/pnpm-debug.log*
 **/.DS_Store
 **/Thumbs.db
+
+# Non-runtime repository directories and test suites.
+review-output
+docs
+load
+tests
+supabase
+scripts
+workflows
+NOTES.md
+issues-mvp.md
+**/.agents
+**/.github
+apps/*/test

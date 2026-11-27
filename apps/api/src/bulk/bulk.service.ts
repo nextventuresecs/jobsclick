@@ -7,6 +7,8 @@ import { parse as parseCsvSync } from 'csv-parse/sync';
 import { QstashService } from '../qstash/qstash.service.js';
 import { QueueService } from '../queue/queue.service.js';
 import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
+import { SUPABASE_CLIENT } from '../database/supabase.provider.js';
+import { createActorAuthorizationContext, requirePermission } from '../auth/authorization-context.js';
 import type { TaskStatus } from '@indian-job-portal/database';
 import { xlsxRosterToCsv } from './xlsx-roster.js';
 
@@ -91,7 +93,13 @@ export class BulkService {
     @Inject(QstashService) private readonly qstashService: QstashService,
     @Inject(QueueService) private readonly queueService: QueueService,
     @Optional() @Inject(AuditLogRepository) private readonly auditLogRepo?: AuditLogRepository,
+    @Optional() @Inject(SUPABASE_CLIENT) injectedSupabase?: SupabaseClient,
   ) {
+    if (injectedSupabase) {
+      this.supabase = injectedSupabase;
+      return;
+    }
+
     const url = process.env['SUPABASE_URL'];
     const key = process.env['SUPABASE_SERVICE_ROLE_KEY'];
 
@@ -816,26 +824,38 @@ export class BulkService {
 
   async getQueueStatus(): Promise<{
     provider: string;
-    queues: Array<{ name: string; waiting: number; active: number; completed: number; failed: number }>;
+    status: 'healthy' | 'degraded' | 'unavailable';
+    queues: Array<{ name: string; waiting: number; active: number; completed: number; failed: number; delayed?: number; status?: string; error?: string }>;
     uiUrl?: string;
   }> {
     try {
       const liveMetrics = await this.queueService.getLiveQueueMetrics();
+      if (!this.isTestMode && liveMetrics.status === 'unavailable') {
+        throw new ServiceUnavailableException({ code: 'QUEUE_UNAVAILABLE' });
+      }
       return {
         provider: 'bullmq',
+        status: liveMetrics.status,
         queues: liveMetrics.queues,
         uiUrl: '/admin/queues/ui',
       };
-    } catch {
-      return {
-        provider: 'bullmq',
-        queues: [
-          { name: 'bulk-import', waiting: 0, active: 0, completed: this.memBatches.size, failed: 0 },
-          { name: 'invite-wave', waiting: 0, active: 0, completed: this.memWaves.size, failed: 0 },
-          { name: 'pdf-generator', waiting: 0, active: 0, completed: 0, failed: 0 },
-        ],
-        uiUrl: '/admin/queues/ui',
-      };
+    } catch (err) {
+      if (this.isTestMode) {
+        return {
+          provider: 'bullmq',
+          status: 'degraded',
+          queues: [
+            { name: 'bulk-import', waiting: 0, active: 0, completed: this.memBatches.size, failed: 0 },
+            { name: 'invite-wave', waiting: 0, active: 0, completed: this.memWaves.size, failed: 0 },
+            { name: 'pdf-generator', waiting: 0, active: 0, completed: 0, failed: 0 },
+          ],
+          uiUrl: '/admin/queues/ui',
+        };
+      }
+      if (err instanceof ServiceUnavailableException) {
+        throw err;
+      }
+      throw new ServiceUnavailableException({ code: 'QUEUE_UNAVAILABLE' });
     }
   }
 
@@ -850,12 +870,16 @@ export class BulkService {
     if (!actor?.id || !['admin', 'intermediary', 'msme_admin'].includes(actor.role)) {
       throw new ForbiddenException('BULK_ROLE_FORBIDDEN');
     }
+    const ctx = createActorAuthorizationContext(actor.id, actor.role);
+    requirePermission(ctx, 'bulk:write');
   }
 
   private requireInviter(actor?: AuthenticatedUser): void {
     if (!actor?.id || !['admin', 'intermediary'].includes(actor.role)) {
       throw new ForbiddenException('BULK_INVITE_FORBIDDEN');
     }
+    const ctx = createActorAuthorizationContext(actor.id, actor.role);
+    requirePermission(ctx, 'bulk:write');
   }
 
   private assertOwner(createdBy: string | null | undefined, actor?: AuthenticatedUser): void {

@@ -1,16 +1,20 @@
 name: CI/CD Pipeline
 
 on:
-  workflow_dispatch:
-    inputs:
-      promote_to_production:
-        description: Request production approval after staging passes
-        type: boolean
-        default: false
   push:
     branches: ['**']
   pull_request:
     branches: ['**']
+  workflow_dispatch:
+    inputs:
+      deploy_target:
+        description: 'Optional release target when dispatched manually'
+        type: choice
+        options:
+          - verify-only
+          - staging
+          - production
+        default: verify-only
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -37,6 +41,7 @@ jobs:
 
     env:
       NODE_ENV: test
+      RUN_LIVE_REDIS: 'true'
       REDIS_URL: redis://127.0.0.1:6379
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
       SUPABASE_URL: http://127.0.0.1:54321
@@ -79,6 +84,18 @@ jobs:
       - name: Check Single Migration Tree Integrity
         run: pnpm ci:check-migrations
 
+      - name: Test release safeguards
+        run: node --test scripts/ci/railway-release.test.mjs
+
+      - name: Test dependency audit and Docker context gates
+        run: |
+          node --test scripts/ci/dependency-audit.test.mjs
+          node --test scripts/ci/docker-context.test.mjs
+          node --test scripts/ci/check-web-secrets.test.mjs
+
+      - name: Run Production Dependency Audit Gate
+        run: node scripts/ci/dependency-audit.mjs
+
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
@@ -86,7 +103,7 @@ jobs:
 
       - name: Start Supabase Local Stack
         run: |
-          supabase start
+          supabase start --exclude mailpit
           supabase status -o env >> $GITHUB_ENV
 
       - name: Run ESLint
@@ -98,13 +115,35 @@ jobs:
       - name: Build All Workspaces
         run: pnpm build
 
+      - name: Scan Web Client Bundle for Privileged Credentials (AUTHZ-05)
+        run: node scripts/ci/check-web-secrets.mjs
+
+      - name: Smoke test compiled API startup
+        shell: bash
+        env:
+          TURNSTILE_SECRET_KEY: test-turnstile-secret-key-fixture
+          MSG91_AUTH_KEY: test-msg91-auth-key-fixture
+          RAZORPAY_KEY_ID: rzp_test_fixture
+          RAZORPAY_KEY_SECRET: test_razorpay_key_secret_256bits_fixture
+          RAZORPAY_WEBHOOK_SECRET: test_razorpay_webhook_secret_256bits_fixture
+        run: |
+          PORT=3101 node apps/api/dist/main.js > "$RUNNER_TEMP/api-startup.log" 2>&1 &
+          api_pid=$!
+          trap 'kill "$api_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent --max-time 1 http://127.0.0.1:3101/health; then
+              exit 0
+            fi
+            if ! kill -0 "$api_pid" 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/api-startup.log"
+          exit 1
+
       - name: Run Test Suite
         run: pnpm test
-
-      - name: Verify worker readiness against Redis
-        env:
-          RUN_LIVE_REDIS: 'true'
-        run: pnpm exec vitest run apps/worker/test/health.test.ts
 
   db-security-gate:
     name: Database Security & Migration Gate
@@ -157,7 +196,7 @@ jobs:
 
       - name: Start Supabase Stack & Reset DB
         run: |
-          supabase start
+          supabase start --exclude mailpit
           supabase db reset
 
       - name: Verify Generated Database Types Freshness
@@ -242,7 +281,7 @@ jobs:
 
       - name: Start Supabase Stack & Apply Migrations
         run: |
-          supabase start
+          supabase start --exclude mailpit
           supabase db reset
 
       - name: Build Dependent Packages
@@ -260,13 +299,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Verify release gate and source export
-        run: node --test scripts/ci/railway-release.test.mjs
-
       - name: Export tracked source
         id: source
         run: node scripts/ci/export-release-source.mjs
@@ -274,7 +306,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Verify Docker ignores local artifacts
+      - name: Test Docker build context exclusions
         run: node --test scripts/ci/docker-context.test.mjs
 
       - name: Build API Docker Image
@@ -282,22 +314,43 @@ jobs:
         with:
           context: ${{ steps.source.outputs.path }}
           file: ${{ steps.source.outputs.path }}/apps/api/Dockerfile
+          load: true
           push: false
           tags: indian-job-portal-api:latest
+
+      - name: Scan API Docker Image (Trivy)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: indian-job-portal-api:latest
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: CRITICAL
 
       - name: Build Worker Docker Image
         uses: docker/build-push-action@v5
         with:
           context: ${{ steps.source.outputs.path }}
           file: ${{ steps.source.outputs.path }}/apps/worker/Dockerfile
+          load: true
           push: false
           tags: indian-job-portal-worker:latest
+
+      - name: Scan Worker Docker Image (Trivy)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: indian-job-portal-worker:latest
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: CRITICAL
 
       - name: Build Web Docker Image
         uses: docker/build-push-action@v5
         with:
           context: ${{ steps.source.outputs.path }}
           file: ${{ steps.source.outputs.path }}/apps/web/Dockerfile
+          load: true
           push: false
           tags: indian-job-portal-web:latest
           build-args: |
@@ -307,10 +360,21 @@ jobs:
             NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
             NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
 
+      - name: Scan Web Docker Image (Trivy)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: indian-job-portal-web:latest
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: CRITICAL
+
   deploy-staging:
     name: Deploy to Staging
     needs: [verify, db-security-gate, db-integration, container-build]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+    if: >-
+      ((github.ref == 'refs/heads/integration/staging' || github.ref == 'refs/heads/main') && github.event_name == 'push') ||
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.deploy_target == 'staging' || github.event.inputs.deploy_target == 'production'))
     runs-on: ubuntu-latest
     environment: staging
     timeout-minutes: 45
@@ -318,15 +382,49 @@ jobs:
       healthy_sha: ${{ steps.health.outputs.healthy_sha }}
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
       - name: Export tracked source
         id: source
         run: node scripts/ci/export-release-source.mjs
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply Migrations to Staging Database
+        env:
+          STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          STAGING_PROJECT_REF: ${{ secrets.STAGING_PROJECT_REF }}
+        run: |
+          pnpm db:bootstrap:staging
+
       - name: Install Railway CLI
         run: npm install -g "@railway/cli@$RAILWAY_CLI_VERSION"
+
       - name: Deploy and verify Railway staging services
         id: health
         env:
@@ -343,21 +441,49 @@ jobs:
     name: Deploy to Production
     needs: [deploy-staging]
     if: >-
-      github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.promote_to_production &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_target == 'production')) &&
       needs.deploy-staging.result == 'success' && needs.deploy-staging.outputs.healthy_sha == github.sha
     runs-on: ubuntu-latest
     environment: production
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
       - name: Export tracked source
         id: source
         run: node scripts/ci/export-release-source.mjs
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Install Railway CLI
         run: npm install -g "@railway/cli@$RAILWAY_CLI_VERSION"
+
       - name: Deploy Services to Railway (Production)
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_PROD_TOKEN }}

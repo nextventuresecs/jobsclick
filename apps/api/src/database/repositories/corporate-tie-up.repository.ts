@@ -1,8 +1,14 @@
-import { Injectable, Inject, Optional, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, Inject, Optional, InternalServerErrorException, ForbiddenException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { isTestEnv, isStrictEnv } from '@indian-job-portal/validation';
 import type { Database, CorporateTieUpRow } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
+import {
+  type AuthorizationContext,
+  requireAuthorizationContext,
+  requirePermission,
+  isPlatformAdminContext,
+} from '../../auth/authorization-context.js';
 
 @Injectable()
 export class CorporateTieUpRepository {
@@ -94,13 +100,68 @@ export class CorporateTieUpRepository {
   }
 
   async findByInstitutionId(institutionId: string): Promise<CorporateTieUpRow[]> {
-    const all = await this.findAll();
-    return all.filter((t) => t.institution_id === institutionId);
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await this.supabase
+          .from('corporate_tie_ups')
+          .select('*')
+          .eq('institution_id', institutionId)
+          .order('created_at', { ascending: false });
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as CorporateTieUpRow[]) || [];
+      } catch (err) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
+      }
+    }
+
+    const table = this.persistentStore.getTable<CorporateTieUpRow>('corporate_tie_ups');
+    return Object.values(table).filter((t) => t.institution_id === institutionId);
   }
 
   async findByEmployerId(employerId: string): Promise<CorporateTieUpRow[]> {
-    const all = await this.findAll();
-    return all.filter((t) => t.employer_id === employerId);
+    if (!this.isTestMode) {
+      try {
+        const { data, error } = await this.supabase
+          .from('corporate_tie_ups')
+          .select('*')
+          .eq('employer_id', employerId)
+          .order('created_at', { ascending: false });
+        if (error) {
+          throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+        }
+        return (data as CorporateTieUpRow[]) || [];
+      } catch (err) {
+        if (isStrictEnv() || err instanceof InternalServerErrorException) {
+          throw err instanceof InternalServerErrorException ? err : new InternalServerErrorException('DATABASE_ERROR');
+        }
+      }
+    }
+
+    const table = this.persistentStore.getTable<CorporateTieUpRow>('corporate_tie_ups');
+    return Object.values(table).filter((t) => t.employer_id === employerId);
+  }
+
+  async findByIdScoped(ctx: AuthorizationContext, id: string): Promise<CorporateTieUpRow | null> {
+    const verified = requireAuthorizationContext(ctx);
+    requirePermission(verified, 'placement:read');
+
+    const existing = await this.findById(id);
+    if (!existing) return null;
+
+    if (isPlatformAdminContext(verified)) {
+      return existing;
+    }
+    if (verified.tenant.type === 'institution' && existing.institution_id === verified.tenant.id) {
+      return existing;
+    }
+    if (verified.tenant.type === 'business' && existing.employer_id === verified.tenant.id) {
+      return existing;
+    }
+    throw new ForbiddenException('You do not own this corporate partnership');
   }
 
   async update(id: string, updates: Partial<CorporateTieUpRow>): Promise<CorporateTieUpRow | null> {
