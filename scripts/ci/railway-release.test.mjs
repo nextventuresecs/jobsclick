@@ -71,8 +71,8 @@ test('production requires the healthy SHA from staging, and build inputs use the
   for (const job of [staging, production]) {
     assert.match(job, /github\.event_name == 'workflow_dispatch'/);
   }
-  assert.match(production, /github\.event\.inputs\.deploy_target == 'production'/);
-  assert.match(workflow, /deploy_target:\s*description:[^\n]+\s*type: choice/);
+  assert.match(production, /inputs\.promote_to_production/);
+  assert.match(workflow, /promote_to_production:\s*description:[^\n]+\s*type: boolean\s*default: false/);
   assert.match(staging, /needs: \[verify, db-security-gate, db-integration, container-build\]/);
   assert.equal(workflow.match(/context: \$\{\{ steps\.source\.outputs\.path \}\}/g)?.length, 3);
   assert.match(workflow, /context: \$\{\{ steps\.source\.outputs\.path \}\}/);

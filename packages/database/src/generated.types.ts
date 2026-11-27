@@ -271,7 +271,6 @@ export type Database = {
           failure_reason: string | null
           id: string
           institution_id: string | null
-          language: string
           processed_rows: number
           qstash_message_id: string | null
           retry_count: number
@@ -293,7 +292,6 @@ export type Database = {
           failure_reason?: string | null
           id?: string
           institution_id?: string | null
-          language?: string
           processed_rows?: number
           qstash_message_id?: string | null
           retry_count?: number
@@ -314,7 +312,6 @@ export type Database = {
           failure_reason?: string | null
           id?: string
           institution_id?: string | null
-          language?: string
           processed_rows?: number
           qstash_message_id?: string | null
           retry_count?: number
@@ -913,39 +910,27 @@ export type Database = {
       invitations: {
         Row: {
           batch_id: string | null
-          claimed_at: string | null
-          claimed_by_wave_id: string | null
           created_at: string
           email: string | null
           id: string
-          language: string
           phone: string | null
-          provider_message_id: string | null
           status: string
         }
         ComputedFields: never
         Insert: {
           batch_id?: string | null
-          claimed_at?: string | null
-          claimed_by_wave_id?: string | null
           created_at?: string
           email?: string | null
           id?: string
-          language?: string
           phone?: string | null
-          provider_message_id?: string | null
           status?: string
         }
         Update: {
           batch_id?: string | null
-          claimed_at?: string | null
-          claimed_by_wave_id?: string | null
           created_at?: string
           email?: string | null
           id?: string
-          language?: string
           phone?: string | null
-          provider_message_id?: string | null
           status?: string
         }
         Relationships: [
@@ -953,12 +938,6 @@ export type Database = {
             foreignKeyName: "invitations_batch_id_fkey"
             columns: ["batch_id"]
             referencedRelation: "bulk_import_batches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "invitations_claimed_by_wave_id_fkey"
-            columns: ["claimed_by_wave_id"]
-            referencedRelation: "invite_waves"
             referencedColumns: ["id"]
           },
         ]
@@ -1788,6 +1767,46 @@ export type Database = {
           year_of_registration: string | null
         }
         ComputedFields: never
+        Insert: {
+          city?: string | null
+          commencement_year?: string | null
+          company_name?: string | null
+          company_size?: string | null
+          created_at?: string | null
+          district?: string | null
+          is_dpiit_startup?: boolean | null
+          is_msme?: boolean | null
+          know_my_business?: string | null
+          logo_url?: string | null
+          ownership_type?: string | null
+          products_brief?: string | null
+          sector?: string | null
+          services_brief?: string | null
+          slug?: string | null
+          state?: string | null
+          website?: string | null
+          year_of_registration?: string | null
+        }
+        Update: {
+          city?: string | null
+          commencement_year?: string | null
+          company_name?: string | null
+          company_size?: string | null
+          created_at?: string | null
+          district?: string | null
+          is_dpiit_startup?: boolean | null
+          is_msme?: boolean | null
+          know_my_business?: string | null
+          logo_url?: string | null
+          ownership_type?: string | null
+          products_brief?: string | null
+          sector?: string | null
+          services_brief?: string | null
+          slug?: string | null
+          state?: string | null
+          website?: string | null
+          year_of_registration?: string | null
+        }
         Relationships: []
       }
       public_institution_profiles: {
@@ -1838,14 +1857,6 @@ export type Database = {
     }
     Functions: {
       anonymise_user: { Args: { p_user_id: string }; Returns: Json }
-      claim_pending_invitations: {
-        Args: { p_batch_id: string; p_limit: number; p_wave_id: string }
-        Returns: {
-          id: string
-          language: string
-          phone: string
-        }[]
-      }
       generate_public_slug: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -1877,10 +1888,6 @@ export type Database = {
         Returns: Json
       }
       read_public_institution_cms: { Args: { p_slug: string }; Returns: Json }
-      reclaim_stale_sending_invitations: {
-        Args: { p_batch_id: string; p_stale_minutes?: number }
-        Returns: number
-      }
       rpc_apply_refund: {
         Args: {
           p_event_id?: string

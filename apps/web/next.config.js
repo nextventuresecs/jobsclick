@@ -5,7 +5,6 @@ const withNextIntl = createNextIntlPlugin('./i18n.ts');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  ...(process.env.NEXT_OUTPUT_STANDALONE === '1' ? { output: 'standalone' } : {}),
   experimental: {
     // Required in Next.js 14 to enable instrumentation.ts lifecycle hooks
     instrumentationHook: true,
@@ -83,18 +82,9 @@ const nextConfig = {
         key: 'Referrer-Policy',
         value: 'strict-origin-when-cross-origin',
       },
-      {
-        key: 'Permissions-Policy',
-        value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
-      },
     ];
 
-    if (isProd) {
-      defaultHeaders.push({
-        key: 'Strict-Transport-Security',
-        value: 'max-age=31536000; includeSubDomains; preload',
-      });
-    } else {
+    if (!isProd) {
       defaultHeaders.push({
         key: 'X-Robots-Tag',
         value: 'noindex, nofollow',

@@ -18,7 +18,6 @@ import type { InstitutionProfileRow, InstitutionInquiryRow } from '@indian-job-p
 import { ProfileRepository } from '../database/repositories/profile.repository.js';
 import { InquiryRepository } from '../database/repositories/inquiry.repository.js';
 import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
-import { createActorAuthorizationContext } from '../auth/authorization-context.js';
 
 export const DEFAULT_INSTITUTION_CMS: InstitutionCmsInput = {
   courses: [
@@ -325,10 +324,7 @@ export class InstitutionCmsService {
       return [];
     }
 
-    const ctx = createActorAuthorizationContext(userId, 'intermediary', {
-      tenant: { type: 'institution', id: profile.id },
-    });
-    const inquiries = await this.inquiryRepository.findInquiriesForInstitution(ctx, profile.id);
+    const inquiries = await this.inquiryRepository.findInquiriesByInstitutionId(profile.id);
 
     await this.auditInquiryAccess(userId, 'INSTITUTION_INQUIRIES_VIEWED', {
       institutionId: profile.id,
@@ -366,10 +362,7 @@ export class InstitutionCmsService {
       inquiryId,
       status,
     });
-    const ctx = createActorAuthorizationContext(userId, 'intermediary', {
-      tenant: { type: 'institution', id: profile.id },
-    });
-    const updated = await this.inquiryRepository.updateInquiryStatusScoped(ctx, profile.id, inquiryId, status);
+    const updated = await this.inquiryRepository.updateInquiryStatus(inquiryId, status);
     if (!updated) {
       throw new NotFoundException('Failed to update inquiry status');
     }

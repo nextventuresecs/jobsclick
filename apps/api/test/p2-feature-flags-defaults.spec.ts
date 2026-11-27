@@ -101,28 +101,16 @@ describe('Feature Flags Default-OFF Gate Tests', () => {
     expect(body.code).toBe('FEATURE_DISABLED');
   });
 
-  it('6. Institution Sponsorship (POST /institutions/sponsorship/create-order) returns 404 FEATURE_DISABLED by default and legacy activate route returns 404', async () => {
+  it('6. Institution Sponsorship (POST /institutions/:id/sponsorship/activate) returns 404 FEATURE_DISABLED by default', async () => {
     const res = await app.inject({
       method: 'POST',
-      url: '/institutions/sponsorship/create-order',
+      url: '/institutions/inst_123/sponsorship/activate',
       headers: institutionHeaders,
-      payload: {
-        institutionId: 'inst_123',
-        billingStateCode: '23',
-        termsVersion: '2026-01',
-      },
+      payload: { tier: 'gold' },
     });
     expect(res.statusCode).toBe(404);
     const body = JSON.parse(res.payload);
     expect(body.code).toBe('FEATURE_DISABLED');
-
-    const legacyRes = await app.inject({
-      method: 'POST',
-      url: '/institutions/inst_123/sponsorship/activate',
-      headers: institutionHeaders,
-      payload: {},
-    });
-    expect(legacyRes.statusCode).toBe(404);
   });
 
   it('7. Job Alerts (POST /jobs/alerts) returns 404 FEATURE_DISABLED by default', async () => {

@@ -3,11 +3,6 @@ import { randomUUID } from 'node:crypto';
 import { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, CreditLedgerRow } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
-import {
-  type AuthorizationContext,
-  requireAuthorizationContext,
-  isPlatformAdminContext,
-} from '../../auth/authorization-context.js';
 
 @Injectable()
 export class CreditLedgerRepository {
@@ -45,14 +40,6 @@ export class CreditLedgerRepository {
       throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
     }
     return (data as unknown as CreditLedgerRow[]) || [];
-  }
-
-  async findByUserIdScoped(ctx: AuthorizationContext, userId: string): Promise<CreditLedgerRow[]> {
-    const verified = requireAuthorizationContext(ctx);
-    if (!isPlatformAdminContext(verified) && verified.actorId !== userId) {
-      throw new BadRequestException('Cross-user credit ledger query denied');
-    }
-    return this.findByUserId(userId);
   }
 
   // Hard Invariant #7 & WAL-01: Balance is dynamically calculated from ledger entries via PostgreSQL aggregate (STF-10)

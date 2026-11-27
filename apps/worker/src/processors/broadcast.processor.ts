@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { Job } from 'bullmq';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import IORedis from 'ioredis';
+import IORedisMock from 'ioredis-mock';
 import { isStaging, isStrictEnv, isTestEnv } from '@indian-job-portal/validation';
 
 export interface BroadcastRecipient {
@@ -69,8 +70,7 @@ export class BroadcastProcessor {
       const isTest = !isStrictEnv() && (isTestEnv() || Boolean(process.env['VITEST']) || process.env['USE_MOCK_REDIS'] === 'true');
 
       if (isTest) {
-        const IORedisMock = require('ioredis-mock') as typeof IORedis;
-        this.redis = new IORedisMock() as IORedis;
+        this.redis = new (IORedisMock as unknown as typeof IORedis)() as IORedis;
       } else if (redisUrl) {
         try {
           const isTls = redisUrl.startsWith("rediss://");

@@ -17,6 +17,8 @@ import {
   SPONSORSHIP_TIERS,
   sponsorshipQuoteInputSchema,
   createSponsorshipOrderSchema,
+  activateSponsorshipSchema,
+  type ActivateSponsorshipInput,
 } from '@indian-job-portal/validation';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard.js';
@@ -24,6 +26,7 @@ import { CurrentUser, type AuthUser } from '../auth/decorators/current-user.deco
 import { RequireFeatureFlag } from '../auth/guards/feature-flag.guard.js';
 import { assertSponsorshipOrderEnabled, SponsorshipKillSwitchGuard } from '../config/rollout.js';
 import { SponsorshipService } from './sponsorship.service.js';
+import { ProfileRepository } from '../database/repositories/profile.repository.js';
 import {
   SponsorshipQuoteDto,
   CreateSponsorshipOrderDto,
@@ -36,6 +39,8 @@ export class InstitutionSponsorshipController {
   constructor(
     @Inject(SponsorshipService)
     private readonly sponsorshipService: SponsorshipService,
+    @Inject(ProfileRepository)
+    private readonly profileRepository: ProfileRepository,
   ) {}
 
   /**
@@ -132,5 +137,52 @@ export class InstitutionSponsorshipController {
     @Query('institutionId') institutionId?: string,
   ) {
     return this.sponsorshipService.getSponsorship(user.id, institutionId);
+  }
+
+  /**
+   * Activate annual sponsorship for an institution (WAL-05)
+   * Enrolled students become sponsored and gain unlimited applications.
+   * Fast-reject ownership check (Controller-level gate)
+   */
+  @Roles('institution', 'intermediary', 'admin')
+  @Post([':id/sponsorship/activate', 'institutions/:id/sponsorship/activate', 'institution/:id/sponsorship/activate'])
+  @RequireFeatureFlag('ENABLE_P2_PAYMENTS')
+  async activateSponsorship(
+    @CurrentUser() user: AuthUser,
+    @Param('id') id: string,
+    @Body() body: ActivateSponsorshipInput,
+  ) {
+    let inst = await this.profileRepository.findInstitutionProfileById(id);
+    if (!inst) {
+      inst = await this.profileRepository.findInstitutionProfileByUserId(id);
+    }
+
+    if (inst) {
+      const isOwner = inst.user_id === user.id;
+      const isIntermediaryAdmin =
+        (user.role === 'intermediary' || (user.role as string) === 'institution') &&
+        (inst.created_by === user.id || inst.user_id === user.id);
+      const isPlatformAdmin = user.role === 'admin' || (user.role as string) === 'msme_admin';
+
+      if (!(isOwner || isIntermediaryAdmin || isPlatformAdmin)) {
+        throw new ForbiddenException(
+          'You are not authorized to activate sponsorship for this institution',
+        );
+      }
+    } else {
+      const isSelfUser = user.id === id;
+      const isIntermediary =
+        user.role === 'intermediary' || (user.role as string) === 'institution';
+      const isPlatformAdmin = user.role === 'admin' || (user.role as string) === 'msme_admin';
+
+      if (!(isSelfUser || isIntermediary || isPlatformAdmin)) {
+        throw new ForbiddenException(
+          'You are not authorized to activate sponsorship for this institution',
+        );
+      }
+    }
+
+    const validated = activateSponsorshipSchema.parse(body || {});
+    return this.sponsorshipService.activateSponsorship(id, validated, user);
   }
 }

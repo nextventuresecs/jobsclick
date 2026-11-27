@@ -72,20 +72,6 @@ interface ChunkItem {
   companySize?: string;
 }
 
-const SAFE_ERROR_CODE_REGEX = /^[A-Za-z0-9_.:-]{1,64}$/;
-
-export function sanitizeImportErrorDiagnostic(error: unknown): { errorName: string; errorCode: string } {
-  const errObj = error && typeof error === 'object' ? (error as { name?: unknown; code?: unknown; status?: unknown }) : null;
-  const rawName = typeof errObj?.name === 'string' && SAFE_ERROR_CODE_REGEX.test(errObj.name) ? errObj.name : 'Error';
-  let errorCode = 'UNKNOWN_IMPORT_ERROR';
-  if (typeof errObj?.code === 'string' && SAFE_ERROR_CODE_REGEX.test(errObj.code)) {
-    errorCode = errObj.code;
-  } else if (typeof errObj?.status === 'number' && Number.isInteger(errObj.status)) {
-    errorCode = `HTTP_${errObj.status}`;
-  }
-  return { errorName: rawName, errorCode };
-}
-
 export class ImportProcessor {
   private supabase: SupabaseClient<Database> | null = null;
   private emailService: WorkerEmailService;
@@ -124,13 +110,7 @@ export class ImportProcessor {
 
     try {
       return await this.processImport(job, streamOverride);
-    } catch (err: unknown) {
-      const { errorName, errorCode } = sanitizeImportErrorDiagnostic(err);
-      console.error('[ImportProcessor] Batch import failure', {
-        batchId: job.data.batchId,
-        errorName,
-        errorCode,
-      });
+    } catch {
       // BullMQ retains thrown errors. Parser and provider errors can contain roster data.
       throw new Error('BULK_IMPORT_PROCESSING_FAILED');
     }

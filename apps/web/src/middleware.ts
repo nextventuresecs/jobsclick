@@ -3,7 +3,7 @@ import { isProduction, isStrictEnv, getSessionCookieName } from '@indian-job-por
 
 const SESSION_COOKIE_NAME = getSessionCookieName();
 
-const PROTECTED_PATH_PREFIXES = ['/workspace', '/company/bulk-onboard'];
+const PROTECTED_PATH_PREFIXES = ['/workspace', '/hi/workspace', '/company/bulk-onboard'];
 
 function configuredOrigin(value: string | undefined): string | undefined {
   if (!value) return undefined;
@@ -59,20 +59,15 @@ export function middleware(req: NextRequest) {
 
   function applySecurityHeaders(response: NextResponse): NextResponse {
     response.headers.set('Content-Security-Policy', csp);
-    response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), interest-cohort=()');
-    if (isProduction()) {
-      response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
-    } else {
+    if (!isProduction()) {
       response.headers.set('X-Robots-Tag', 'noindex, nofollow');
     }
     return response;
   }
 
-  // 2. Enforce authentication gate on protected routes (strip locale prefix first)
-  const localeMatch = pathname.match(/^\/(?:hi|en)(\/.*)?$/);
-  const canonicalPathname = (localeMatch ? (localeMatch[1] || '/') : pathname).replace(/\/+$/, '') || '/';
+  // 2. Enforce authentication gate on protected routes
   const isProtected = PROTECTED_PATH_PREFIXES.some(
-    (prefix) => canonicalPathname === prefix || canonicalPathname.startsWith(`${prefix}/`)
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   );
 
   const sessionCookie = req.cookies.get(SESSION_COOKIE_NAME)?.value;

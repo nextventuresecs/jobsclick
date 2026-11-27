@@ -269,9 +269,14 @@ describe('Payments Worker: Reconciliation, Expire & Outbox (WAL-03, Task 5)', ()
   });
 
   it('scheduleRepeatableJobs: registers periodic reconcile, expire, and outbox jobs with correct intervals', async () => {
+    const addCalls: Array<{ name: string; data: unknown; opts: unknown }> = [];
     const schedulerCalls: Array<{ id: string; repeat: unknown; template: unknown }> = [];
 
     const mockQueue = {
+      add: async (name: string, data: unknown, opts: unknown) => {
+        addCalls.push({ name, data, opts });
+        return {};
+      },
       upsertJobScheduler: async (id: string, repeat: unknown, template: unknown) => {
         schedulerCalls.push({ id, repeat, template });
         return {};
@@ -286,10 +291,28 @@ describe('Payments Worker: Reconciliation, Expire & Outbox (WAL-03, Task 5)', ()
 
     await scheduleRepeatableJobs(mockRegistry);
 
-    // Verify BullMQ v6 scheduler calls (upsertJobScheduler is the idempotent v6 API)
+    // Verify add calls match reviewer requirements exactly
+    expect(addCalls).toHaveLength(3);
+    expect(addCalls[0]).toEqual({
+      name: 'reconcile-periodic',
+      data: {},
+      opts: { repeat: { every: 10 * 60 * 1000 }, jobId: 'reconcile-periodic' },
+    });
+    expect(addCalls[1]).toEqual({
+      name: 'expire-periodic',
+      data: { olderThanHours: 48 },
+      opts: { repeat: { every: 60 * 60 * 1000 }, jobId: 'expire-periodic' },
+    });
+    expect(addCalls[2]).toEqual({
+      name: 'outbox-periodic',
+      data: { batchLimit: 20 },
+      opts: { repeat: { every: 60 * 1000 }, jobId: 'outbox-periodic' },
+    });
+
+    // Verify BullMQ v6 scheduler calls
     expect(schedulerCalls).toHaveLength(3);
-    expect(schedulerCalls[0]).toMatchObject({ id: 'reconcile-periodic', repeat: { every: 10 * 60 * 1000 } });
-    expect(schedulerCalls[1]).toMatchObject({ id: 'expire-periodic', repeat: { every: 60 * 60 * 1000 } });
-    expect(schedulerCalls[2]).toMatchObject({ id: 'outbox-periodic', repeat: { every: 60 * 1000 } });
+    expect(schedulerCalls[0].repeat).toEqual({ every: 10 * 60 * 1000 });
+    expect(schedulerCalls[1].repeat).toEqual({ every: 60 * 60 * 1000 });
+    expect(schedulerCalls[2].repeat).toEqual({ every: 60 * 1000 });
   });
 });

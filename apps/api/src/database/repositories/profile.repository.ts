@@ -9,11 +9,6 @@ import type {
   InstitutionSponsorshipRow,
 } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
-import {
-  type AuthorizationContext,
-  requireAuthorizationContext,
-  assertTenantMatchOrAdmin,
-} from '../../auth/authorization-context.js';
 
 @Injectable()
 export class ProfileRepository {
@@ -143,13 +138,47 @@ export class ProfileRepository {
     return local;
   }
 
-  async findStudentsByInstitutionScoped(
-    ctx: AuthorizationContext,
-    institutionId: string,
-  ): Promise<JobSeekerProfileRow[]> {
-    const verified = requireAuthorizationContext(ctx);
-    assertTenantMatchOrAdmin(verified, institutionId);
-    return this.findStudentsByInstitution(institutionId);
+  async updateStudentSponsorshipByInstitution(
+    institutionIdOrName: string,
+    isSponsored: boolean,
+    sponsorshipId?: string,
+  ): Promise<number> {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(institutionIdOrName);
+    const now = new Date().toISOString();
+    const updatePayload: Database['public']['Tables']['job_seeker_profiles']['Update'] = {
+      is_sponsored: isSponsored,
+      updated_at: now,
+    };
+    if (sponsorshipId) {
+      updatePayload.sponsorship_id = sponsorshipId;
+    }
+
+    const profiles = this.persistentStore.getTable<JobSeekerProfileRow>('job_seeker_profiles');
+    let localCount = 0;
+    for (const p of Object.values(profiles)) {
+      if ((isUuid && p.institution_id === institutionIdOrName) || (!isUuid && p.institution === institutionIdOrName)) {
+        p.is_sponsored = isSponsored;
+        if (sponsorshipId) p.sponsorship_id = sponsorshipId;
+        p.updated_at = now;
+        this.persistentStore.setRow('job_seeker_profiles', p.id, p);
+        localCount++;
+      }
+    }
+
+    let query = this.supabase.from('job_seeker_profiles').update(updatePayload);
+    if (isUuid) {
+      query = query.eq('institution_id', institutionIdOrName);
+    } else {
+      query = query.eq('institution', institutionIdOrName);
+    }
+
+    const { data, error } = await query.select('id');
+
+    if (error && !this.isTestMode) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+    }
+
+    return Math.max(data?.length || 0, localCount);
   }
 
   async markSeekerSponsored(

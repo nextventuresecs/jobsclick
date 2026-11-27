@@ -25,11 +25,11 @@ Because these four keys have different key prefixes and parameters (`phone` vs `
   `nowMs = tonumber(time[1]) * 1000 + math.floor(tonumber(time[2]) / 1000)`.
 
 ### 3. Fail-Closed Connection Policy
-- The Auth/OTP Redis client (`REDIS_URL_AUTH` or fallback `REDIS_URL`) is configured with:
+- The Redis client is configured with:
   - `enableOfflineQueue: false`
-  - `commandTimeout: 2000` (`REDIS_COMMAND_TIMEOUT_MS` default 2-second ceiling)
+  - `commandTimeout: 1000` (1-second ceiling)
   - `maxRetriesPerRequest: 1`
-  - Exponential reconnect backoff capped at 5s (`retryStrategy`), with `/health/ready` and startup probing failing loudly on `CROSSSLOT` or unavailable Redis.
+  - `retryStrategy() { return null; }`
 - If Redis becomes unavailable, requests fail closed within 2 seconds with HTTP 503 (`ServiceUnavailableException`). No SMS messages are dispatched when rate-limiting state cannot be verified.
 
 ### 4. Idempotent Rollback (`releaseOtpLimits`)

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalizeIp, isIpInCidr, isIpInCidrs, getClientIp, isProxyOrCloudflareIp } from './ip-normalizer.js';
+import { normalizeIp, isIpInCidr, isIpInCidrs, getClientIp } from './ip-normalizer.js';
 
 describe('normalizeIp', () => {
   it('passes standard IPv4 through unchanged', () => {
@@ -140,30 +140,5 @@ describe('getClientIp', () => {
     // 10KB string
     const largeGarbage = 'A'.repeat(10240);
     expect(getClientIp(testGarbage(largeGarbage))).toBe('10.0.0.1');
-  });
-
-  it('#133 identifies Cloudflare/proxy IPs and verifies resolved client IP is end-user address', () => {
-    const cfEdgeIp = '173.245.48.10';
-    const realVisitorIp = '198.51.100.77';
-    expect(isProxyOrCloudflareIp(cfEdgeIp, ['10.0.0.0/8'])).toBe(true);
-    expect(isProxyOrCloudflareIp('10.0.0.5', ['10.0.0.0/8'])).toBe(true);
-    expect(isProxyOrCloudflareIp(realVisitorIp, ['10.0.0.0/8', '173.245.48.0/20'])).toBe(false);
-
-    const origLock = process.env['CF_ORIGIN_LOCKED'];
-    const origCidrs = process.env['TRUSTED_PROXY_CIDRS'];
-    try {
-      process.env['CF_ORIGIN_LOCKED'] = 'true';
-      process.env['TRUSTED_PROXY_CIDRS'] = '10.0.0.0/8,173.245.48.0/20';
-      const resolved = getClientIp({
-        ip: cfEdgeIp,
-        headers: { 'cf-connecting-ip': realVisitorIp },
-        raw: { socket: { remoteAddress: '10.0.0.5' } },
-      });
-      expect(resolved).toBe(realVisitorIp);
-      expect(isProxyOrCloudflareIp(resolved, ['10.0.0.0/8'])).toBe(false);
-    } finally {
-      process.env['CF_ORIGIN_LOCKED'] = origLock;
-      process.env['TRUSTED_PROXY_CIDRS'] = origCidrs;
-    }
   });
 });

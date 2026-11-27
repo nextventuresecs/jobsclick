@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { Injectable, Inject, Optional, OnModuleInit, OnModuleDestroy, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { Injectable, OnModuleInit, OnModuleDestroy, Logger, ServiceUnavailableException } from '@nestjs/common';
 import IORedis from 'ioredis';
 import { maskPhone } from '../common/mask.js';
 import { normalizeIp } from '../common/ip-normalizer.js';
@@ -187,13 +187,13 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
   public readonly client: IORedis;
   private readonly pepper: string;
 
-  constructor(@Optional() @Inject('OTP_REDIS_CLIENT') customClient?: IORedis) {
+  constructor(customClient?: IORedis) {
     const pepper = process.env['OTP_PEPPER'];
     if (!pepper || pepper.trim().length < 32) {
       throw new Error('OTP_PEPPER environment variable must be set (min 32 chars)');
     }
     this.pepper = pepper.trim();
-    const redisUrl = process.env['REDIS_URL_AUTH'] || process.env['REDIS_URL'] || 'redis://127.0.0.1:6379';
+    const redisUrl = process.env['REDIS_URL'] || 'redis://127.0.0.1:6379';
 
     const commandTimeout = process.env['REDIS_COMMAND_TIMEOUT_MS']
       ? parseInt(process.env['REDIS_COMMAND_TIMEOUT_MS'], 10)
@@ -257,71 +257,18 @@ export class OtpRedisService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit(): Promise<void> {
     try {
       await this.waitForReady(1500);
-      const topology = await this.checkSinglePrimaryTopology();
-      if (!topology.ok) {
-        this.logger.error(`Redis topology check failed: ${topology.reason ?? 'UNKNOWN'}`);
-      }
     } catch (err) {
       this.logger.warn(`Redis connection initialization warning: ${(err as Error).message}`);
     }
   }
 
-  /**
-   * Verifies single-primary Redis topology (no Redis Cluster CROSSSLOT split)
-   * and Lua EVAL execution capability.
-   */
-  async checkSinglePrimaryTopology(): Promise<{ ok: boolean; reason?: string }> {
-    try {
-      const probe = this.client.eval(
-        "return redis.call('EXISTS', KEYS[1]) + redis.call('EXISTS', KEYS[2])",
-        2,
-        'auth:topology:slot_a',
-        'auth:topology:slot_b',
-      );
-      await Promise.race([
-        probe,
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('REDIS_TOPOLOGY_TIMEOUT')), 2000),
-        ),
-      ]);
-      return { ok: true };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes('CROSSSLOT') || msg.includes('CLUSTER')) {
-        return { ok: false, reason: 'REDIS_CLUSTER_UNSUPPORTED' };
-      }
-      if (msg.includes('REDIS_TOPOLOGY_TIMEOUT')) {
-        return { ok: false, reason: 'REDIS_TIMEOUT' };
-      }
-      return { ok: false, reason: 'REDIS_UNAVAILABLE' };
-    }
-  }
-
-  async checkReadiness(): Promise<{ ok: boolean; reason?: string }> {
-    if (typeof this.client.status === 'string' && this.client.status !== 'ready') {
-      return { ok: false, reason: `REDIS_STATUS_${this.client.status.toUpperCase()}` };
-    }
-    return this.checkSinglePrimaryTopology();
-  }
-
   async onModuleDestroy(): Promise<void> {
     try {
-      if (typeof this.client.quit === 'function') {
-        await Promise.race([
-          this.client.quit(),
-          new Promise<void>((resolve) => setTimeout(resolve, 1000)),
-        ]);
-      } else if (typeof this.client.disconnect === 'function') {
+      if (typeof this.client.disconnect === 'function') {
         this.client.disconnect();
       }
     } catch {
-      try {
-        if (typeof this.client.disconnect === 'function') {
-          this.client.disconnect();
-        }
-      } catch {
-        // Ignore disconnect errors during teardown
-      }
+      // Ignore disconnect errors during teardown
     }
   }
 

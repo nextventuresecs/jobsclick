@@ -4,6 +4,7 @@ import {
   BadRequestException,
   InternalServerErrorException,
   NotFoundException,
+  ForbiddenException,
   Logger,
 } from '@nestjs/common';
 import crypto from 'node:crypto';
@@ -14,7 +15,6 @@ import {
   type InvoiceResponse,
 } from '@indian-job-portal/validation';
 import { PaymentRepository, type SettlePaymentResult } from '../database/repositories/payment.repository.js';
-import { createActorAuthorizationContext } from '../auth/authorization-context.js';
 import { RAZORPAY_GATEWAY, type RazorpayGateway } from './razorpay.gateway.js';
 import { verifyHmacHex, verifyCheckoutSignature } from './razorpay-signature.js';
 
@@ -379,12 +379,19 @@ export class PaymentService {
   }
 
   async getInvoice(paymentIdOrOrderId: string, userId: string, isAdmin = false): Promise<InvoiceResponse> {
-    const ctx = createActorAuthorizationContext(userId, isAdmin ? 'admin' : 'job_seeker', {
-      tenant: { type: isAdmin ? 'platform' : 'user', id: userId },
-    });
-    const payment = await this.paymentRepository.findByIdOrOrderIdScoped(ctx, paymentIdOrOrderId);
+    let payment = null;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(paymentIdOrOrderId);
+    if (isUuid) {
+      payment = await this.paymentRepository.findById(paymentIdOrOrderId);
+    }
+    if (!payment) {
+      payment = await this.paymentRepository.findByGatewayOrderId(paymentIdOrOrderId);
+    }
     if (!payment) {
       throw new NotFoundException('Payment record not found');
+    }
+    if (!isAdmin && payment.user_id !== userId) {
+      throw new ForbiddenException('You are not authorized to access this invoice');
     }
     if (!['captured', 'partially_refunded', 'refunded'].includes(payment.status)) {
       throw new BadRequestException({

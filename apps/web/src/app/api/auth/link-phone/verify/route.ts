@@ -4,7 +4,7 @@ import { getSessionCookieConfig } from '@indian-job-portal/validation';
 import { SESSION_COOKIE_NAME, verifyToken, signSessionToken } from '@/lib/auth-session';
 
 export async function POST(req: NextRequest) {
-  const cookieStore = await cookies();
+  const cookieStore = cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   if (!token) {
     return NextResponse.json({ error: 'Unauthorized: Session required' }, { status: 401 });

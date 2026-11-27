@@ -10,10 +10,8 @@ describe('Institution inquiry audit', () => {
     const inquiry = { id: 'inquiry', institution_id: 'institution', student_phone: 'synthetic-contact' };
     const repository = {
       findInquiriesByInstitutionId: vi.fn().mockResolvedValue([inquiry]),
-      findInquiriesForInstitution: vi.fn().mockResolvedValue([inquiry]),
       findInquiryById: vi.fn().mockResolvedValue(inquiry),
       updateInquiryStatus: vi.fn(),
-      updateInquiryStatusScoped: vi.fn().mockResolvedValue(inquiry),
     };
     const audit = { append: vi.fn().mockRejectedValue(new Error('audit unavailable')) };
     const service = new InstitutionCmsService(

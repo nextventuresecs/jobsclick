@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import crypto from 'node:crypto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
@@ -6,10 +6,12 @@ import { AppModule } from '../src/app.module.js';
 import { OtpGenerator } from '../src/auth/otp-generator.service.js';
 import { SponsorshipService } from '../src/wallet/sponsorship.service.js';
 import { WalletService } from '../src/wallet/wallet.service.js';
+import { PaymentService } from '../src/wallet/payment.service.js';
 import { ProfileRepository } from '../src/database/repositories/profile.repository.js';
 import { PaymentRepository } from '../src/database/repositories/payment.repository.js';
 import { UserRepository } from '../src/database/repositories/user.repository.js';
 import type { JobSeekerProfileRow, InstitutionProfileRow } from '@indian-job-portal/database';
+import { ForbiddenException, BadRequestException } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import { OtpRedisService } from '../src/auth/otp-redis.service.js';
 import { JwtService } from '../src/auth/jwt.service.js';
@@ -18,6 +20,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
   let app: NestFastifyApplication;
   let sponsorshipService: SponsorshipService;
   let walletService: WalletService;
+  let paymentService: PaymentService;
   let profileRepo: ProfileRepository;
   let paymentRepo: PaymentRepository;
   let userRepo: UserRepository;
@@ -46,6 +49,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
 
     sponsorshipService = app.get(SponsorshipService);
     walletService = app.get(WalletService);
+    paymentService = app.get(PaymentService);
     profileRepo = app.get(ProfileRepository);
     paymentRepo = app.get(PaymentRepository);
     userRepo = app.get(UserRepository);
@@ -162,8 +166,8 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
     });
   });
 
-  describe('AC #2: Legacy activation is permanently removed and institutions use create-order + institution_id scoping', () => {
-    it('returns 404 for legacy sponsorship activation, creates quoted order, and isolates same-name institutions', async () => {
+  describe('AC #2: When an institution pays the annual fee, all enrolled students are marked as sponsored', () => {
+    it('activates annual sponsorship and marks all enrolled candidates as sponsored', async () => {
       const institutionId = crypto.randomUUID();
       const student1UserId = crypto.randomUUID();
       const student2UserId = crypto.randomUUID();
@@ -232,52 +236,46 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
       expect(s1.is_sponsored).toBe(false);
       expect(s2.is_sponsored).toBe(false);
 
-      // Legacy direct activation endpoints must be permanently removed (404) (#130)
-      for (const legacyUrl of [
-        `/institutions/${institutionId}/sponsorship/activate`,
-        `/institution/${institutionId}/sponsorship/activate`,
-      ]) {
-        const legacyRes = await app.inject({
-          method: 'POST',
-          url: legacyUrl,
-          headers: { Authorization: `Bearer ${jwtToken}` },
-          payload: { studentCountOverride: 1 },
-        });
-        expect(legacyRes.statusCode).toBe(404);
-      }
+      // Create a verified captured payment record for the institution
+      const testPaymentId = `pay_inst_test_${Date.now()}`;
+      await paymentRepo.create({
+        id: crypto.randomUUID(),
+        user_id: institutionUser.id,
+        gateway_order_id: `order_inst_${Date.now()}`,
+        gateway_payment_id: testPaymentId,
+        amount_inr: 50000,
+        amount_paise: 5000000,
+        currency: 'INR',
+        purpose: 'sponsorship',
+        status: 'captured',
+        created_at: new Date().toISOString(),
+      });
 
-      // Settlement happens strictly via POST /institutions/sponsorship/create-order -> webhook
-      const orderRes = await app.inject({
+      // Institution activates annual sponsorship via HTTP endpoint
+      const activationRes = await app.inject({
         method: 'POST',
-        url: '/institutions/sponsorship/create-order',
-        headers: { Authorization: `Bearer ${jwtToken}` },
+        url: `/institutions/${institutionId}/sponsorship/activate`,
+        headers: {
+          Authorization: `Bearer ${jwtToken}`,
+        },
         payload: {
-          institutionId,
-          declaredStudentCount: 2,
-          billingStateCode: '07',
-          termsVersion: '2026-01',
+          paymentReference: testPaymentId,
         },
       });
-      expect(orderRes.statusCode).toBe(201);
-      const orderBody = orderRes.json();
-      expect(orderBody.orderId).toBeDefined();
-      expect(orderBody.quote.institutionId).toBe(institutionId);
-      expect(orderBody.quote.studentCap).toBe(2);
 
-      // Two institutions with identical institution_name never share enrolled students (#130)
-      const secondInstId = crypto.randomUUID();
-      await profileRepo.saveInstitutionProfile({
-        id: secondInstId,
-        user_id: institutionUser.id,
-        institution_name: 'IIT Delhi Technical Campus', // exact same free-text name!
-        source: 'direct',
-        created_by: institutionUser.id,
-        updated_by: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
-      const secondStudents = await profileRepo.findStudentsByInstitution(secondInstId);
-      expect(secondStudents).toHaveLength(0);
+      expect(activationRes.statusCode).toBe(201);
+      const activationData = activationRes.json();
+      expect(activationData.success).toBe(true);
+      expect(activationData.sponsoredStudentsCount).toBeGreaterThanOrEqual(2);
+      expect(activationData.quote.isSponsorshipActive).toBe(true);
+      expect(activationData.expiresAt).toBeDefined();
+
+      // Verify both enrolled students now have is_sponsored = true
+      const updatedS1 = await profileRepo.findSeekerProfileByUserId(student1UserId);
+      const updatedS2 = await profileRepo.findSeekerProfileByUserId(student2UserId);
+
+      expect(updatedS1?.is_sponsored).toBe(true);
+      expect(updatedS2?.is_sponsored).toBe(true);
     });
   });
 
@@ -483,54 +481,61 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
       };
       await profileRepo.saveInstitutionProfile(targetInst);
 
-      // 4. Intruder cannot read target institution's quote or create sponsorship order
-      const unauthorizedQuoteRes = await app.inject({
-        method: 'GET',
-        url: `/institutions/${targetInstId}/sponsorship-quote`,
-        headers: { Authorization: `Bearer ${intruderToken}` },
-      });
-      expect(unauthorizedQuoteRes.statusCode).toBe(403);
-
-      const unauthorizedOrderRes = await app.inject({
-        method: 'POST',
-        url: '/institutions/sponsorship/create-order',
-        headers: { Authorization: `Bearer ${intruderToken}` },
-        payload: {
-          institutionId: targetInstId,
-          billingStateCode: '23',
-          termsVersion: '2026-01',
-        },
-      });
-      expect(unauthorizedOrderRes.statusCode).toBe(404);
-
-      // 5. Legacy activation route returns 404 even for valid owner (#130)
-      const legacyOwnerRes = await app.inject({
+      // 4. Intruder attempts HTTP activation for owner's institution -> 403 Forbidden
+      const unauthorizedHttpRes = await app.inject({
         method: 'POST',
         url: `/institutions/${targetInstId}/sponsorship/activate`,
-        headers: { Authorization: `Bearer ${ownerToken}` },
-        payload: {},
-      });
-      expect(legacyOwnerRes.statusCode).toBe(404);
-
-      // 6. Legitimate owner can read quote and create server-priced sponsorship order -> 201 Created
-      const authorizedOrderRes = await app.inject({
-        method: 'POST',
-        url: '/institutions/sponsorship/create-order',
-        headers: { Authorization: `Bearer ${ownerToken}` },
+        headers: {
+          Authorization: `Bearer ${intruderToken}`,
+        },
         payload: {
-          institutionId: targetInstId,
-          declaredStudentCount: 100,
-          billingStateCode: '23',
-          termsVersion: '2026-01',
+          paymentReference: 'rzp_pay_hacker_test',
         },
       });
-      expect(authorizedOrderRes.statusCode).toBe(201);
-      expect(authorizedOrderRes.json().orderId).toBeDefined();
+      expect(unauthorizedHttpRes.statusCode).toBe(403);
+      expect(unauthorizedHttpRes.json().message).toContain('not authorized');
+
+      // 5. Intruder attempts service-level activation directly -> ForbiddenException
+      await expect(
+        sponsorshipService.activateSponsorship(
+          targetInstId,
+          { paymentReference: 'rzp_pay_hacker_test' },
+          { id: intruderUserId, role: 'institution' },
+        ),
+      ).rejects.toThrow(ForbiddenException);
+
+      // 6. Legitimate owner activates their own institution with captured payment -> 201 Created
+      const validOwnerPaymentId = `pay_owner_valid_${Date.now()}`;
+      await paymentRepo.create({
+        id: crypto.randomUUID(),
+        user_id: ownerUserId,
+        gateway_order_id: `order_owner_${Date.now()}`,
+        gateway_payment_id: validOwnerPaymentId,
+        amount_inr: 50000,
+        amount_paise: 5000000,
+        currency: 'INR',
+        purpose: 'sponsorship',
+        status: 'captured',
+        created_at: new Date().toISOString(),
+      });
+
+      const authorizedHttpRes = await app.inject({
+        method: 'POST',
+        url: `/institutions/${targetInstId}/sponsorship/activate`,
+        headers: {
+          Authorization: `Bearer ${ownerToken}`,
+        },
+        payload: {
+          paymentReference: validOwnerPaymentId,
+        },
+      });
+      expect(authorizedHttpRes.statusCode).toBe(201);
+      expect(authorizedHttpRes.json().success).toBe(true);
     });
   });
 
-  describe('AC #5: Duplicate Active Grant Protection (WAL-05 Idempotency)', () => {
-    it('rejects duplicate sponsorship order creation (409) when an active grant already exists and reads status via GET /institution/sponsorship', async () => {
+  describe('AC #5: Concurrency & Transaction/Lock Serialization (WAL-05 Idempotency)', () => {
+    it('serializes concurrent activations and prevents duplicate sponsorship rows or double updates', async () => {
       const concurrentInstId = crypto.randomUUID();
       const ownerUser = crypto.randomUUID();
       await userRepo.save({
@@ -546,6 +551,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
         updated_at: new Date().toISOString(),
       });
 
+      // Create owning institution profile
       await profileRepo.saveInstitutionProfile({
         id: concurrentInstId,
         user_id: ownerUser,
@@ -557,54 +563,83 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
         updated_at: new Date().toISOString(),
       });
 
-      await profileRepo.saveSponsorship({
+      // Create students linked to this institution
+      for (let i = 1; i <= 3; i++) {
+        const studentUserId = crypto.randomUUID();
+        await userRepo.save({
+          id: studentUserId,
+          phone: '98' + Math.floor(10000000 + Math.random() * 90000000),
+          role: 'job_seeker',
+          status: 'active',
+          source: 'seed',
+          created_by: null,
+          updated_by: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+        await profileRepo.saveSeekerProfile({
+          id: crypto.randomUUID(),
+          user_id: studentUserId,
+          full_name: `Student C${i}`,
+          institution_id: concurrentInstId,
+          is_sponsored: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+      }
+
+      // Create a verified captured payment record for the concurrent institution
+      const concurrentPaymentId = `pay_concurrent_${Date.now()}`;
+      await paymentRepo.create({
         id: crypto.randomUUID(),
-        institution_id: concurrentInstId,
-        tier: 'Small',
-        rate_per_student: 150,
-        annual_fee: 17700,
-        student_count: 100,
-        student_cap: 100,
-        seats_used: 3,
-        status: 'active',
-        started_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString(),
-        created_by: ownerUser,
+        user_id: ownerUser,
+        gateway_order_id: `order_c_${Date.now()}`,
+        gateway_payment_id: concurrentPaymentId,
+        amount_inr: 50000,
+        amount_paise: 5000000,
+        currency: 'INR',
+        purpose: 'sponsorship',
+        status: 'captured',
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
       });
 
-      const jwtService = app.get(JwtService);
-      const otpRedis = app.get(OtpRedisService);
-      await otpRedis.setAuthState(ownerUser, { role: 'intermediary', status: 'active', tokenVersion: 0 });
-      const ownerToken = await jwtService.signAccessToken(ownerUser, 0, { role: 'intermediary', status: 'active' });
+      // Fire 5 concurrent activation requests for the same institution
+      const requests = Array.from({ length: 5 }, () =>
+        sponsorshipService.activateSponsorship(
+          concurrentInstId,
+          { studentCountOverride: 50, paymentReference: concurrentPaymentId },
+          { id: ownerUser, role: 'institution' },
+        ),
+      );
 
-      const statusRes = await app.inject({
-        method: 'GET',
-        url: `/institution/sponsorship?institutionId=${concurrentInstId}`,
-        headers: { Authorization: `Bearer ${ownerToken}` },
-      });
-      expect(statusRes.statusCode).toBe(200);
-      expect(statusRes.json().status).toBe('active');
-      expect(statusRes.json().tier).toBe('Small');
+      const results = await Promise.all(requests);
 
-      const dupOrderRes = await app.inject({
-        method: 'POST',
-        url: '/institutions/sponsorship/create-order',
-        headers: { Authorization: `Bearer ${ownerToken}` },
-        payload: {
-          institutionId: concurrentInstId,
-          billingStateCode: '23',
-          termsVersion: '2026-01',
-        },
-      });
-      expect(dupOrderRes.statusCode).toBe(409);
-      expect(dupOrderRes.json().code).toBe('SPONSORSHIP_ALREADY_ACTIVE');
+      // All 5 requests resolve successfully
+      expect(results.length).toBe(5);
+      results.forEach((r) => expect(r.success).toBe(true));
+
+      // Exactly ONE request performed the active initial grant (alreadyActive: false)
+      const freshGrants = results.filter((r) => r.alreadyActive === false);
+      expect(freshGrants.length).toBe(1);
+
+      // Remaining 4 requests received the idempotent cached active state (alreadyActive: true)
+      const cachedGrants = results.filter((r) => r.alreadyActive === true);
+      expect(cachedGrants.length).toBe(4);
+
+      // Assert exactly one sponsorship row was created in institution_sponsorships table
+      const sponsorships = await profileRepo.findSponsorshipsByInstitutionId(concurrentInstId);
+      expect(sponsorships.length).toBe(1);
+      expect(sponsorships[0]?.status).toBe('active');
+
+      // Verify all enrolled students are marked sponsored
+      const students = await profileRepo.findStudentsByInstitution(concurrentInstId);
+      expect(students.length).toBe(3);
+      students.forEach((s) => expect(s.is_sponsored).toBe(true));
     });
   });
 
   describe('AC #6: Payment Verification & Webhook Idempotency (WAL-05 & WAL-03)', () => {
-    it('processes sponsorship payment webhook idempotently without exposing unverified activation', async () => {
+    it('processes payment webhook idempotently and enforces payment verification on sponsorship activation', async () => {
       const webhookSecret = process.env['RAZORPAY_WEBHOOK_SECRET'] || 'dummy_razorpay_webhook_secret';
       const instUserId = crypto.randomUUID();
       await userRepo.save({
@@ -621,6 +656,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
       });
       const instId = crypto.randomUUID();
 
+      // Create institution profile
       await profileRepo.saveInstitutionProfile({
         id: instId,
         user_id: instUserId,
@@ -632,16 +668,10 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
         updated_at: new Date().toISOString(),
       });
 
-      const order = await sponsorshipService.createOrder(instUserId, {
-        institutionId: instId,
-        declaredStudentCount: 100,
-        billingStateCode: '23',
-        termsVersion: '2026-01',
+      // 1. Create a payment order for the institution
+      const order = await paymentService.createOrder(instUserId, {
+        packId: 'pack_starter',
       });
-
-      const settleSpy = vi.spyOn(paymentRepo, 'settlePayment')
-        .mockResolvedValueOnce({ status: 'settled', payment_id: order.orderId, purpose: 'sponsorship' })
-        .mockResolvedValueOnce({ status: 'duplicate_event' });
 
       const paymentId = `pay_rzp_inst_${Date.now()}`;
       const webhookPayload = JSON.stringify({
@@ -651,7 +681,7 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
             entity: {
               id: paymentId,
               order_id: order.orderId,
-              amount: order.amount,
+              amount: 59000,
             },
           },
         },
@@ -663,35 +693,106 @@ describe('Ticket T-17: Institution Sponsorship Tiers & Annual Billing Engine (WA
         .digest('hex');
 
       const eventId = `evt_spons_webhook_${Date.now()}`;
-      try {
-        const firstWebhookRes = await app.inject({
-          method: 'POST',
-          url: '/webhooks/razorpay',
-          headers: {
-            'content-type': 'application/json',
-            'x-razorpay-signature': signature,
-            'x-razorpay-event-id': eventId,
-          },
-          payload: webhookPayload,
-        });
-        expect(firstWebhookRes.statusCode).toBe(200);
-        expect(firstWebhookRes.json().alreadyProcessed).toBe(false);
+      // 2. First webhook call: captured successfully
+      const firstWebhookRes = await app.inject({
+        method: 'POST',
+        url: '/webhooks/razorpay',
+        headers: {
+          'content-type': 'application/json',
+          'x-razorpay-signature': signature,
+          'x-razorpay-event-id': eventId,
+        },
+        payload: webhookPayload,
+      });
+      expect(firstWebhookRes.statusCode).toBe(200);
+      expect(firstWebhookRes.json().alreadyProcessed).toBe(false);
 
-        const secondWebhookRes = await app.inject({
-          method: 'POST',
-          url: '/webhooks/razorpay',
-          headers: {
-            'content-type': 'application/json',
-            'x-razorpay-signature': signature,
-            'x-razorpay-event-id': eventId,
-          },
-          payload: webhookPayload,
-        });
-        expect(secondWebhookRes.statusCode).toBe(200);
-        expect(secondWebhookRes.json().alreadyProcessed).toBe(true);
-      } finally {
-        settleSpy.mockRestore();
-      }
+      // 3. Second webhook replay (idempotency): alreadyProcessed is true
+      const secondWebhookRes = await app.inject({
+        method: 'POST',
+        url: '/webhooks/razorpay',
+        headers: {
+          'content-type': 'application/json',
+          'x-razorpay-signature': signature,
+          'x-razorpay-event-id': eventId,
+        },
+        payload: webhookPayload,
+      });
+      expect(secondWebhookRes.statusCode).toBe(200);
+      expect(secondWebhookRes.json().alreadyProcessed).toBe(true);
+
+      // 4. Activate sponsorship using verified payment reference & idempotency key
+      const idempotencyKey = `spons_idem_${Date.now()}`;
+      const activationResult = await sponsorshipService.activateSponsorship(
+        instId,
+        {
+          paymentReference: paymentId,
+          idempotencyKey,
+        },
+        { id: instUserId, role: 'institution' },
+      );
+
+      expect(activationResult.success).toBe(true);
+      expect(activationResult.quote.isSponsorshipActive).toBe(true);
+      expect(activationResult.alreadyActive).toBe(false);
+
+      // 5. Repeating with same idempotencyKey returns existing sponsorship
+      const repeatedResult = await sponsorshipService.activateSponsorship(
+        instId,
+        {
+          paymentReference: paymentId,
+          idempotencyKey,
+        },
+        { id: instUserId, role: 'institution' },
+      );
+
+      expect(repeatedResult.success).toBe(true);
+      expect(repeatedResult.alreadyActive).toBe(true);
+      expect(repeatedResult.sponsorshipId).toBe(activationResult.sponsorshipId);
+
+      // 6. Attempting to activate with an uncaptured payment reference is rejected
+      const uncapturedPaymentId = `pay_uncaptured_${Date.now()}`;
+      await paymentRepo.create({
+        id: crypto.randomUUID(),
+        user_id: instUserId,
+        gateway_order_id: `order_fake_${Date.now()}`,
+        gateway_payment_id: uncapturedPaymentId,
+        amount_inr: 500,
+        amount_paise: 50000,
+        currency: 'INR',
+        purpose: 'sponsorship',
+        status: 'created', // NOT captured
+        created_at: new Date().toISOString(),
+      });
+
+      const instUncapturedId = crypto.randomUUID();
+      await profileRepo.saveInstitutionProfile({
+        id: instUncapturedId,
+        user_id: instUserId,
+        institution_name: 'Uncaptured Payment Test College',
+        source: 'direct',
+        created_by: instUserId,
+        updated_by: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      await expect(
+        sponsorshipService.activateSponsorship(
+          instUncapturedId,
+          { paymentReference: uncapturedPaymentId },
+          { id: instUserId, role: 'institution' },
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      // 7. Non-admin attempting to activate without any payment reference is rejected
+      await expect(
+        sponsorshipService.activateSponsorship(
+          instUncapturedId,
+          {},
+          { id: instUserId, role: 'institution' },
+        ),
+      ).rejects.toThrow('A verified, captured payment reference is required to activate sponsorship');
     });
   });
 });

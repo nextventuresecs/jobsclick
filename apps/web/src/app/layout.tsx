@@ -39,7 +39,7 @@ export default async function RootLayout({
 
   let cleanPath = '/';
   try {
-    const headerList = await headers();
+    const headerList = headers();
     cleanPath = headerList.get('x-clean-path') || '/';
   } catch {
     // Headers unavailable in current rendering phase

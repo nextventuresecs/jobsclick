@@ -93,7 +93,7 @@ describe('Public Pages ID-02 HTML Verification: Zero Internal UUIDs in Rendered 
 
     // Render the server component
     const pageComponent = await PublicCompanyPage({
-      params: Promise.resolve({ id: SAMPLE_COMPANY_SLUG }),
+      params: { id: SAMPLE_COMPANY_SLUG },
     });
     const html = renderToString(pageComponent);
 
@@ -111,7 +111,7 @@ describe('Public Pages ID-02 HTML Verification: Zero Internal UUIDs in Rendered 
 
   it('rejects old internal UUID URLs with 404 (notFound) on PublicCompanyPage (no redirect)', async () => {
     await expect(
-      PublicCompanyPage({ params: Promise.resolve({ id: SAMPLE_INTERNAL_UUID }) }),
+      PublicCompanyPage({ params: { id: SAMPLE_INTERNAL_UUID } }),
     ).rejects.toThrow('NEXT_NOT_FOUND');
     expect(notFoundMock).toHaveBeenCalled();
   });
@@ -148,7 +148,7 @@ describe('Public Pages ID-02 HTML Verification: Zero Internal UUIDs in Rendered 
     }));
 
     const pageComponent = await JobDetailPage({
-      params: Promise.resolve({ id: SAMPLE_JOB_SLUG }),
+      params: { id: SAMPLE_JOB_SLUG },
     });
     const html = renderToString(pageComponent);
 
@@ -167,7 +167,7 @@ describe('Public Pages ID-02 HTML Verification: Zero Internal UUIDs in Rendered 
 
   it('rejects old internal UUID URLs with 404 (notFound) on JobDetailPage (no redirect)', async () => {
     await expect(
-      JobDetailPage({ params: Promise.resolve({ id: SAMPLE_INTERNAL_UUID }) }),
+      JobDetailPage({ params: { id: SAMPLE_INTERNAL_UUID } }),
     ).rejects.toThrow('NEXT_NOT_FOUND');
     expect(notFoundMock).toHaveBeenCalled();
   });

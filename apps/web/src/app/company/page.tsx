@@ -14,16 +14,15 @@ import {
 } from 'lucide-react';
 
 interface CompanyPageProps {
-  readonly searchParams?: Promise<{
+  readonly searchParams?: {
     readonly query?: string;
     readonly sector?: string;
-  }>;
+  };
 }
 
 export default async function CompaniesDirectoryPage({ searchParams }: CompanyPageProps) {
-  const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const query = resolvedSearchParams?.query?.trim() || '';
-  const sector = resolvedSearchParams?.sector?.trim() || '';
+  const query = searchParams?.query?.trim() || '';
+  const sector = searchParams?.sector?.trim() || '';
   const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
 
   let companies: CompanyItem[] = [];

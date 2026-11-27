@@ -120,33 +120,22 @@ describe('Phase 2 Feature Flag Boundaries & Blast-Radius Verification (PRN-06)',
       expect(body.code).toBe('FEATURE_DISABLED');
     });
 
-    it('returns 404 FEATURE_DISABLED when attempting institution sponsorship order creation', async () => {
+    it('returns 404 FEATURE_DISABLED when attempting institution sponsorship activation', async () => {
       process.env['ENABLE_P2_PAYMENTS'] = 'false';
 
       const res = await app.inject({
         method: 'POST',
-        url: '/institutions/sponsorship/create-order',
+        url: '/institutions/inst_123/sponsorship/activate',
         headers: institutionHeaders,
         payload: {
-          institutionId: 'inst_123',
-          billingStateCode: '23',
-          termsVersion: '2026-01',
+          tier: 'starter',
+          academicYear: '2026-27',
         },
       });
 
       expect(res.statusCode).toBe(404);
       const body = JSON.parse(res.payload);
       expect(body.code).toBe('FEATURE_DISABLED');
-
-      // Legacy direct activation route is permanently removed (#130)
-      process.env['ENABLE_P2_PAYMENTS'] = 'true';
-      const legacyRes = await app.inject({
-        method: 'POST',
-        url: '/institutions/inst_123/sponsorship/activate',
-        headers: institutionHeaders,
-        payload: {},
-      });
-      expect(legacyRes.statusCode).toBe(404);
     });
   });
 

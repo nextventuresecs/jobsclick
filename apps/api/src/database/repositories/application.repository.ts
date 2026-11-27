@@ -1,14 +1,8 @@
-import { Injectable, Inject, Optional, InternalServerErrorException, ForbiddenException } from '@nestjs/common';
+import { Injectable, Inject, Optional, InternalServerErrorException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { isTestEnv, isStrictEnv } from '@indian-job-portal/validation';
 import type { Database, ApplicationRow } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
-import {
-  type AuthorizationContext,
-  requireAuthorizationContext,
-  requirePermission,
-  assertTenantMatchOrAdmin,
-} from '../../auth/authorization-context.js';
 
 @Injectable()
 export class ApplicationRepository {
@@ -143,57 +137,6 @@ export class ApplicationRepository {
     }
 
     const { error } = await this.supabase.from('applications').update({ status, updated_at: updated.updated_at }).eq('id', id);
-    if (error) {
-      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
-    }
-
-    return updated;
-  }
-
-  async findByJobIdForEmployer(
-    ctx: AuthorizationContext,
-    jobId: string,
-    jobOwnerId: string,
-  ): Promise<ApplicationRow[]> {
-    const verified = requireAuthorizationContext(ctx);
-    requirePermission(verified, 'applications:read');
-    assertTenantMatchOrAdmin(verified, jobOwnerId);
-    return this.findByJobId(jobId);
-  }
-
-  async updateStatusForEmployer(
-    ctx: AuthorizationContext,
-    id: string,
-    expectedJobId: string,
-    jobOwnerId: string,
-    status: string,
-  ): Promise<ApplicationRow | null> {
-    const verified = requireAuthorizationContext(ctx);
-    requirePermission(verified, 'applications:write');
-    assertTenantMatchOrAdmin(verified, jobOwnerId);
-
-    const existing = await this.findById(id);
-    if (!existing) return null;
-    if (existing.job_id !== expectedJobId) {
-      throw new ForbiddenException('Application does not belong to authorized job');
-    }
-
-    const updated: ApplicationRow = {
-      ...existing,
-      status,
-      updated_at: new Date().toISOString(),
-    };
-
-    if (this.isTestMode) {
-      this.persistentStore.setRow('applications', id, updated);
-      return updated;
-    }
-
-    const { error } = await this.supabase
-      .from('applications')
-      .update({ status, updated_at: updated.updated_at })
-      .eq('id', id)
-      .eq('job_id', expectedJobId);
     if (error) {
       throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
     }

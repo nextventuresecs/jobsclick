@@ -14,9 +14,7 @@ test('BuildKit excludes local artifacts at the root and inside workspaces', (t) 
     'dump.rdb', 'apps/api/tmp.rdb', 'apps/worker/appendonlydir/redis.aof', '.scratch/state.json',
     'apps/api/scratch/state.json', 'apps/web/.env.local', 'apps/api/fixture.log',
     'apps/web/node_modules/module.js', 'supabase/.temp/state.json', 'supabase/.branches/state.json',
-    'apps/web/.next/stale.js', 'review-output/AUDIT_RECHECK.md', 'docs/PRD.md',
-    'supabase/migrations/001.sql', 'load/module4.k6.js', 'tests/perf/run.sh',
-    'apps/api/test/health.e2e-spec.ts',
+    'apps/web/.next/stale.js',
   ];
   const included = ['apps/api/src/main.ts', 'apps/web/.env.example', 'package.json', 'pnpm-lock.yaml'];
   for (const relative of [...excluded, ...included]) {

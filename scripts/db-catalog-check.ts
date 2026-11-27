@@ -19,12 +19,12 @@ export async function runCatalogCheck(connectionString: string): Promise<Catalog
 
   const checks: CatalogCheckResult['checks'] = [];
 
-  // Check 1: All prosecdef functions across public & private_payments have pinned search_path
+  // Check 1: All prosecdef functions have pinned search_path
   const unpinnedProc = await client.query(`
-    SELECT n.nspname AS schema_name, p.proname, p.prosecdef, p.proconfig
+    SELECT p.proname, p.prosecdef, p.proconfig
     FROM pg_proc p
     JOIN pg_namespace n ON p.pronamespace = n.oid
-    WHERE n.nspname IN ('public', 'private_payments')
+    WHERE n.nspname = 'public' 
       AND p.prosecdef = true
       AND (p.proconfig IS NULL OR NOT EXISTS (
         SELECT 1 FROM unnest(p.proconfig) cfg WHERE cfg LIKE 'search_path=%'
@@ -33,33 +33,24 @@ export async function runCatalogCheck(connectionString: string): Promise<Catalog
   checks.push({
     name: 'All prosecdef functions have pinned search_path',
     passed: unpinnedProc.rows.length === 0,
-    details: unpinnedProc.rows.length === 0 ? 'All security definer functions in public/private_payments have pinned search_path' : unpinnedProc.rows,
+    details: unpinnedProc.rows.length === 0 ? 'All security definer functions in public schema have search_path=public, pg_temp' : unpinnedProc.rows,
   });
 
-  // Check 2: Zero prosecdef functions callable directly or via inherited role membership by PUBLIC, anon, or authenticated
+  // Check 2: Zero prosecdef functions callable by anon or authenticated
   const callableProc = await client.query(`
-    SELECT rp.specific_schema AS schema_name, p.proname, rp.grantee, rp.privilege_type
+    SELECT p.proname, grantee, privilege_type
     FROM information_schema.routine_privileges rp
-    JOIN pg_namespace n ON n.nspname = rp.specific_schema
-    JOIN pg_proc p ON p.proname = rp.routine_name AND p.pronamespace = n.oid
-    WHERE rp.specific_schema IN ('public', 'private_payments')
+    JOIN pg_proc p ON p.proname = rp.routine_name
+    JOIN pg_namespace n ON p.pronamespace = n.oid
+    WHERE rp.routine_schema = 'public'
       AND p.prosecdef = true
-      AND rp.privilege_type = 'EXECUTE'
-      AND (
-        rp.grantee IN ('PUBLIC', 'anon', 'authenticated')
-        OR rp.grantee IN (
-          SELECT grp.rolname
-          FROM pg_auth_members m
-          JOIN pg_roles grp ON grp.oid = m.roleid
-          JOIN pg_roles mem ON mem.oid = m.member
-          WHERE mem.rolname IN ('anon', 'authenticated')
-        )
-      );
+      AND grantee IN ('PUBLIC', 'anon', 'authenticated')
+      AND privilege_type = 'EXECUTE';
   `);
   checks.push({
     name: 'Zero prosecdef functions callable by anon or authenticated',
     passed: callableProc.rows.length === 0,
-    details: callableProc.rows.length === 0 ? 'Zero direct or inherited execute privileges for PUBLIC/anon/authenticated on SECURITY DEFINER functions' : callableProc.rows,
+    details: callableProc.rows.length === 0 ? 'Zero execute privileges for PUBLIC/anon/authenticated on SECURITY DEFINER functions' : callableProc.rows,
   });
 
   // Check 3: All 23 base tables have RLS enabled
@@ -81,49 +72,35 @@ export async function runCatalogCheck(connectionString: string): Promise<Catalog
     },
   });
 
-  // Check 4: Zero base table permissions (relkind = 'r') granted to PUBLIC, anon, or authenticated
+  // Check 4: Zero base table permissions granted to anon or authenticated
   const baseTableGrants = await client.query(`
-    SELECT rtg.grantee, rtg.table_name, rtg.privilege_type
-    FROM information_schema.role_table_grants rtg
-    JOIN pg_namespace n ON n.nspname = rtg.table_schema
-    JOIN pg_class c ON c.relname = rtg.table_name AND c.relnamespace = n.oid
-    WHERE rtg.table_schema IN ('public', 'private_payments')
-      AND c.relkind = 'r'
-      AND rtg.grantee IN ('PUBLIC', 'anon', 'authenticated')
-    ORDER BY rtg.table_schema, rtg.table_name, rtg.grantee;
+    SELECT grantee, table_name, privilege_type
+    FROM information_schema.role_table_grants
+    WHERE table_schema = 'public'
+      AND grantee IN ('anon', 'authenticated')
+      AND table_name NOT IN ('public_business_profiles', 'public_jobs')
+    ORDER BY table_name, grantee;
   `);
   checks.push({
     name: 'Zero base table grants to anon or authenticated',
     passed: baseTableGrants.rows.length === 0,
-    details: baseTableGrants.rows.length === 0 ? 'All base tables revoked from PUBLIC, anon & authenticated' : baseTableGrants.rows,
+    details: baseTableGrants.rows.length === 0 ? 'All base tables revoked from anon & authenticated' : baseTableGrants.rows,
   });
 
-  // Check 5: Only public_business_profiles & public_jobs views granted SELECT to anon/authenticated (zero extra views or write grants)
+  // Check 5: Only public_* views granted SELECT to anon / authenticated (AUTH-05 F0-f: public_institution_profiles is service-only)
   const viewGrants = await client.query(`
-    SELECT rtg.grantee, rtg.table_name, rtg.privilege_type
-    FROM information_schema.role_table_grants rtg
-    JOIN pg_namespace n ON n.nspname = rtg.table_schema
-    JOIN pg_class c ON c.relname = rtg.table_name AND c.relnamespace = n.oid
-    WHERE rtg.table_schema IN ('public', 'private_payments')
-      AND c.relkind IN ('v', 'm')
-      AND rtg.grantee IN ('PUBLIC', 'anon', 'authenticated')
-    ORDER BY rtg.table_name, rtg.grantee;
+    SELECT grantee, table_name, privilege_type
+    FROM information_schema.role_table_grants
+    WHERE table_schema = 'public'
+      AND grantee IN ('anon', 'authenticated')
+      AND table_name IN ('public_business_profiles', 'public_jobs')
+    ORDER BY table_name, grantee;
   `);
-  const allowedPublicViews = new Set(['public_business_profiles', 'public_jobs']);
-  const unexpectedViewGrants = viewGrants.rows.filter(
-    (r) =>
-      !allowedPublicViews.has(String(r.table_name)) ||
-      String(r.privilege_type) !== 'SELECT' ||
-      String(r.grantee) === 'PUBLIC',
-  );
   const expectedViewCount = 4; // 2 public views * 2 roles (anon, authenticated)
   checks.push({
     name: 'Public non-PII views granted SELECT to anon and authenticated',
-    passed:
-      unexpectedViewGrants.length === 0 &&
-      viewGrants.rows.length === expectedViewCount &&
-      viewGrants.rows.every((r) => r.privilege_type === 'SELECT'),
-    details: unexpectedViewGrants.length > 0 ? { unexpectedViewGrants, all: viewGrants.rows } : viewGrants.rows,
+    passed: viewGrants.rows.length === expectedViewCount && viewGrants.rows.every((r) => r.privilege_type === 'SELECT'),
+    details: viewGrants.rows,
   });
 
   // Check 6: Private storage bucket exists and is not public

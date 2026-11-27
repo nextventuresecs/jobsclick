@@ -14,7 +14,7 @@ import { JobApplyButton } from '../../../components/jobs/JobApplyButton';
 export const revalidate = 30;
 
 interface JobDetailPageProps {
-  readonly params: { readonly id: string } | Promise<{ readonly id: string }>;
+  readonly params: { readonly id: string };
 }
 
 interface JobDetailPayload extends ApiJobPayload {
@@ -242,9 +242,10 @@ function JobDetailContent({
 }
 
 export default async function JobDetailPage({ params }: JobDetailPageProps) {
-  const { id: jobSlug } = await params;
+  const jobSlug = params.id;
   // ID-02: Public routes never redirect legacy internal IDs to public records.
   if (isUuid(jobSlug)) notFound();
+
   const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
   let response: Response;
   let data: JobDetailPayload | null;

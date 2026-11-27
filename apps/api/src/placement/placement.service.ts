@@ -26,7 +26,6 @@ import type { CorporateTieUpRow, PlacementApplicationRow } from '@indian-job-por
 import { CorporateTieUpRepository } from '../database/repositories/corporate-tie-up.repository.js';
 import { PlacementPipelineRepository } from '../database/repositories/placement-pipeline.repository.js';
 import { PersistentDatabaseStore } from '../database/supabase.provider.js';
-import { createActorAuthorizationContext, isPlatformAdminContext } from '../auth/authorization-context.js';
 
 const SEED_TIE_UPS: CorporateTieUp[] = [
   {
@@ -317,36 +316,17 @@ export class PlacementService {
    * Scoped tie-ups retrieval with strict multi-tenant boundary checks
    */
   async getTieUps(userId: string, role: string): Promise<CorporateTieUp[]> {
-    const ctx = createActorAuthorizationContext(userId, role);
-    if (isPlatformAdminContext(ctx)) {
-      return this.getAllTieUps();
+    const all = await this.getAllTieUps();
+    if (role === 'admin' || role === 'msme_admin') {
+      return all;
     }
-
-    let scopedRows: CorporateTieUpRow[] = [];
     if (role === 'institution' || role === 'intermediary') {
-      scopedRows = await this.tieUpRepo.findByInstitutionId(ctx.tenant.id);
-    } else if (role === 'employer') {
-      scopedRows = await this.tieUpRepo.findByEmployerId(ctx.tenant.id);
-    } else {
-      return [];
+      return all.filter((t) => t.institutionId === userId);
     }
-
-    if (isStrictEnv()) {
-      return scopedRows.map(mapTieUpRowToDomain);
+    if (role === 'employer') {
+      return all.filter((t) => t.employerId === userId);
     }
-
-    const storeTable = this.persistentStore.getTable<CorporateTieUp>('corporate_tie_ups');
-    const merged = new Map<string, CorporateTieUp>();
-    for (const s of Object.values(storeTable)) {
-      const matchesTenant =
-        role === 'employer' ? s.employerId === ctx.tenant.id : s.institutionId === ctx.tenant.id;
-      if (matchesTenant) merged.set(s.id, s);
-    }
-    for (const r of scopedRows) {
-      const dom = mapTieUpRowToDomain(r);
-      merged.set(dom.id, { ...(merged.get(dom.id) || {}), ...dom });
-    }
-    return Array.from(merged.values());
+    return [];
   }
 
   /**
@@ -389,55 +369,20 @@ export class PlacementService {
    * Scoped pipeline retrieval with tenant isolation
    */
   async getPipeline(userId: string, role: string): Promise<PlacementApplication[]> {
-    const ctx = createActorAuthorizationContext(userId, role);
-    if (isPlatformAdminContext(ctx)) {
-      return this.getAllApplications();
+    const all = await this.getAllApplications();
+    if (role === 'admin' || role === 'msme_admin') {
+      return all;
     }
-
-    let scopedRows: PlacementApplicationRow[] = [];
     if (role === 'institution' || role === 'intermediary') {
-      scopedRows = await this.pipelineRepo.findByInstitutionId(ctx.tenant.id);
-    } else if (role === 'job_seeker') {
-      scopedRows = await this.pipelineRepo.findByStudentId(ctx.actorId);
-    } else if (role === 'employer') {
-      const ownedTieUps = await this.tieUpRepo.findByEmployerId(ctx.tenant.id);
-      const chunks = await Promise.all(ownedTieUps.map((t) => this.pipelineRepo.findByTieUpId(t.id)));
-      scopedRows = chunks.flat();
-    } else {
-      return [];
+      return all.filter((a) => a.institutionId === userId);
     }
-
-    if (isStrictEnv()) {
-      return scopedRows.map(mapAppRowToDomain);
+    if (role === 'employer') {
+      return all.filter((a) => a.employerId === userId);
     }
-
-    const storeTable = this.persistentStore.getTable<PlacementApplication>('placement_applications');
-    const merged = new Map<string, PlacementApplication>();
-    for (const s of Object.values(storeTable)) {
-      const matchesTenant =
-        role === 'job_seeker'
-          ? s.studentId === ctx.actorId
-          : role === 'employer'
-            ? s.employerId === ctx.tenant.id
-            : s.institutionId === ctx.tenant.id;
-      if (matchesTenant) merged.set(s.id, s);
+    if (role === 'job_seeker') {
+      return all.filter((a) => a.studentId === userId);
     }
-    for (const r of scopedRows) {
-      const dom = mapAppRowToDomain(r);
-      const existing = merged.get(dom.id);
-      merged.set(dom.id, {
-        ...(existing || {}),
-        ...dom,
-        studentName: existing?.studentName || dom.studentName,
-        rollNumber: existing?.rollNumber || dom.rollNumber,
-        trade: existing?.trade || dom.trade,
-        passingYear: existing?.passingYear || dom.passingYear,
-        grade: existing?.grade || dom.grade,
-        companyName: existing?.companyName || dom.companyName,
-        employerId: existing?.employerId || dom.employerId,
-      });
-    }
-    return Array.from(merged.values());
+    return [];
   }
 
   /**
