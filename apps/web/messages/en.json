@@ -184,6 +184,22 @@
     "btnSaveAlert": "Save Alert",
     "alertSavedSuccess": "Search alert saved successfully!"
   },
+  "LocationPicker": {
+    "pincodeLabel": "PIN Code (Optional)",
+    "pincodePlaceholder": "6-digit PIN (e.g. 452001)",
+    "stateLabel": "State / UT",
+    "selectState": "Select State / UT",
+    "notListed": "Not listed",
+    "districtLabel": "District",
+    "selectDistrict": "Select District",
+    "customStateLabel": "Enter State Name",
+    "customDistrictLabel": "Enter District Name",
+    "loadError": "Unable to load locations list. Choose \"Not listed\" to enter manually.",
+    "pincodeChecking": "Checking PIN code...",
+    "pincodeAmbiguous": "This PIN spans multiple districts. Please choose State and District below.",
+    "pincodeSuggested": "Suggested: {district}, {state}",
+    "pincodeNotFound": "PIN code not found. Choose State and District manually."
+  },
   "JobDetail": {
     "back": "Back to jobs",
     "pay": "Monthly pay",

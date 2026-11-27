@@ -4,6 +4,7 @@ import React from 'react';
 import { useTranslations } from 'next-intl';
 import type { CompanyEditFormData } from './CompanyProfileForm';
 import type { CompanyItem } from '../../../data/sampleCompanies';
+import { StateDistrictPicker } from '../../common/StateDistrictPicker';
 
 interface CompanyBasicDetailsFieldsProps {
   readonly formData: CompanyEditFormData;
@@ -113,13 +114,25 @@ export function CompanyBasicDetailsFields({ formData: d }: CompanyBasicDetailsFi
             <label className="block text-xs font-semibold text-gray-700 mb-1">{t('labelJobCity')} *</label>
             <input type="text" value={d.formCity} onChange={(e) => d.setFormCity(e.target.value)} className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-orange focus:outline-hidden" required />
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">{t('labelJobDistrict')} *</label>
-            <input type="text" value={d.formDistrict} onChange={(e) => d.setFormDistrict(e.target.value)} className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-orange focus:outline-hidden" required />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">State *</label>
-            <input type="text" value={d.formState} onChange={(e) => d.setFormState(e.target.value)} className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 focus:ring-2 focus:ring-brand-orange focus:outline-hidden" required />
+          <div className="sm:col-span-3">
+            <StateDistrictPicker
+              stateCode={d.formStateCode}
+              districtId={d.formDistrictId}
+              stateName={d.formState}
+              districtName={d.formDistrict}
+              pincode={d.formPincode}
+              showPincode
+              required
+              onChange={(loc) => {
+                d.setFormStateCode(loc.stateCode);
+                d.setFormDistrictId(loc.districtId);
+                d.setFormState(loc.stateName);
+                d.setFormDistrict(loc.districtName);
+                if (loc.pincode !== undefined) {
+                  d.setFormPincode(loc.pincode);
+                }
+              }}
+            />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1">{t('labelEnterpriseSize')} *</label>

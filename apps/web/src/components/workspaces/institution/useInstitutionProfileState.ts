@@ -19,6 +19,8 @@ export function useInstitutionProfileState(initialInstitution: InstitutionProfil
   const [formCity, setFormCity] = useState(initialInstitution.city);
   const [formDistrict, setFormDistrict] = useState(initialInstitution.district);
   const [formState, setFormState] = useState(initialInstitution.state);
+  const [formStateCode, setFormStateCode] = useState<number | null>(initialInstitution.stateCode ?? null);
+  const [formDistrictId, setFormDistrictId] = useState<string | null>(initialInstitution.districtId ?? null);
   const [formPincode, setFormPincode] = useState(initialInstitution.pincode);
   const [formTradesInput, setFormTradesInput] = useState(initialInstitution.tradesOffered.join(', '));
   const [formAnnualCapacity, setFormAnnualCapacity] = useState(initialInstitution.annualCapacity);
@@ -41,6 +43,8 @@ export function useInstitutionProfileState(initialInstitution: InstitutionProfil
     formCity, setFormCity,
     formDistrict, setFormDistrict,
     formState, setFormState,
+    formStateCode, setFormStateCode,
+    formDistrictId, setFormDistrictId,
     formPincode, setFormPincode,
     formTradesInput, setFormTradesInput,
     formAnnualCapacity, setFormAnnualCapacity,

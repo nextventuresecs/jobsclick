@@ -22,6 +22,9 @@ export function useCompanyProfileState(initialCompany: CompanyItem) {
   const [formCity, setFormCity] = useState(initialCompany.city);
   const [formDistrict, setFormDistrict] = useState(initialCompany.district);
   const [formState, setFormState] = useState(initialCompany.state);
+  const [formStateCode, setFormStateCode] = useState<number | null>(initialCompany.stateCode ?? null);
+  const [formDistrictId, setFormDistrictId] = useState<string | null>(initialCompany.districtId ?? null);
+  const [formPincode, setFormPincode] = useState(initialCompany.pincode || '');
   const [formCompanySize, setFormCompanySize] = useState<CompanyItem['enterpriseSize']>(initialCompany.enterpriseSize);
   const [formIsMsme, setFormIsMsme] = useState(initialCompany.isMsme ?? false);
   const [formUdyamNumber, setFormUdyamNumber] = useState(initialCompany.udyamNumber || '');
@@ -39,6 +42,9 @@ export function useCompanyProfileState(initialCompany: CompanyItem) {
     city?: string;
     district?: string;
     state?: string;
+    stateCode?: number | null;
+    districtId?: string | null;
+    pincode?: string | null;
     ownershipType?: string;
     companySize?: string;
   }) => {
@@ -48,6 +54,9 @@ export function useCompanyProfileState(initialCompany: CompanyItem) {
     if (busProfile.city) setFormCity(busProfile.city);
     if (busProfile.district) setFormDistrict(busProfile.district);
     if (busProfile.state) setFormState(busProfile.state);
+    if (busProfile.stateCode !== undefined) setFormStateCode(busProfile.stateCode);
+    if (busProfile.districtId !== undefined) setFormDistrictId(busProfile.districtId);
+    if (busProfile.pincode) setFormPincode(busProfile.pincode);
     if (busProfile.ownershipType) setFormOwnership(busProfile.ownershipType as CompanyItem['ownershipType']);
     if (busProfile.companySize) setFormCompanySize(busProfile.companySize as CompanyItem['enterpriseSize']);
   };
@@ -73,6 +82,9 @@ export function useCompanyProfileState(initialCompany: CompanyItem) {
     city: formCity.trim(),
     district: formDistrict.trim(),
     state: formState.trim(),
+    stateCode: formStateCode,
+    districtId: formDistrictId,
+    pincode: formPincode.trim(),
     enterpriseSize: formCompanySize,
     isMsme: formIsMsme,
     udyamNumber: formIsMsme ? formUdyamNumber.trim().toUpperCase() : '',
@@ -107,6 +119,9 @@ export function useCompanyProfileState(initialCompany: CompanyItem) {
       formCity, setFormCity,
       formDistrict, setFormDistrict,
       formState, setFormState,
+      formStateCode, setFormStateCode,
+      formDistrictId, setFormDistrictId,
+      formPincode, setFormPincode,
       formCompanySize, setFormCompanySize,
       formIsMsme, setFormIsMsme,
       formUdyamNumber, setFormUdyamNumber,

@@ -184,6 +184,22 @@
     "btnSaveAlert": "अलर्ट सहेजें",
     "alertSavedSuccess": "खोज अलर्ट सफलतापूर्वक सहेजा गया!"
   },
+  "LocationPicker": {
+    "pincodeLabel": "पिन कोड (वैकल्पिक)",
+    "pincodePlaceholder": "6 अंकों का पिन (जैसे 452001)",
+    "stateLabel": "राज्य / केंद्र शासित प्रदेश",
+    "selectState": "राज्य / केंद्र शासित प्रदेश चुनें",
+    "notListed": "सूची में नहीं है",
+    "districtLabel": "जिला",
+    "selectDistrict": "जिला चुनें",
+    "customStateLabel": "राज्य का नाम दर्ज करें",
+    "customDistrictLabel": "जिले का नाम दर्ज करें",
+    "loadError": "स्थानों की सूची लोड नहीं हो सकी। मैनुअल दर्ज करने के लिए \"सूची में नहीं है\" चुनें।",
+    "pincodeChecking": "पिन कोड जाँचा जा रहा है...",
+    "pincodeAmbiguous": "यह पिन कई जिलों में फैला है। कृपया नीचे राज्य और जिला चुनें।",
+    "pincodeSuggested": "सुझाव: {district}, {state}",
+    "pincodeNotFound": "पिन कोड नहीं मिला। कृपया राज्य और जिला मैनुअल चुनें।"
+  },
   "JobDetail": {
     "back": "नौकरियों पर वापस जाएँ",
     "pay": "महीने का वेतन",

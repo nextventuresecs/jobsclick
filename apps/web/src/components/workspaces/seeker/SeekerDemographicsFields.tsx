@@ -4,6 +4,7 @@ import React, { useId } from 'react';
 import { useTranslations } from 'next-intl';
 import type { SeekerFormData } from './seekerFormTypes';
 import type { SeekerProfileData } from '../../../data/sampleWorkspaces';
+import { StateDistrictPicker } from '../../common/StateDistrictPicker';
 
 interface SeekerDemographicsFieldsProps {
   formData: SeekerFormData;
@@ -101,41 +102,23 @@ export function SeekerDemographicsFields({ formData, updateField }: SeekerDemogr
           />
         </div>
 
-        <div>
-          <label htmlFor={`${id}-formDistrict`} className="block text-base font-semibold text-gray-700 mb-1">{t('labelDistrict')}</label>
-          <input
-            id={`${id}-formDistrict`}
-            autoComplete="address-level3"
-            type="text"
-            value={formData.formDistrict}
-            onChange={(e) => updateField('formDistrict', e.target.value)}
-            className="min-h-12 w-full px-3 py-2 text-base rounded-xl border border-gray-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
-          />
-        </div>
-
-        <div>
-          <label htmlFor={`${id}-formState`} className="block text-base font-semibold text-gray-700 mb-1">{t('labelState')}</label>
-          <input
-            id={`${id}-formState`}
-            autoComplete="address-level1"
-            type="text"
-            value={formData.formState}
-            onChange={(e) => updateField('formState', e.target.value)}
-            className="min-h-12 w-full px-3 py-2 text-base rounded-xl border border-gray-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
-          />
-        </div>
-
-        <div>
-          <label htmlFor={`${id}-formPincode`} className="block text-base font-semibold text-gray-700 mb-1">{t('labelPincode')}</label>
-          <input
-            id={`${id}-formPincode`}
-            autoComplete="postal-code"
-            inputMode="numeric"
-            type="text"
-            maxLength={6}
-            value={formData.formPincode}
-            onChange={(e) => updateField('formPincode', e.target.value)}
-            className="min-h-12 w-full px-3 py-2 text-base font-mono rounded-xl border border-gray-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600"
+        <div className="sm:col-span-3">
+          <StateDistrictPicker
+            stateCode={formData.formStateCode}
+            districtId={formData.formDistrictId}
+            stateName={formData.formState}
+            districtName={formData.formDistrict}
+            pincode={formData.formPincode}
+            showPincode
+            onChange={(loc) => {
+              updateField('formStateCode', loc.stateCode);
+              updateField('formDistrictId', loc.districtId);
+              updateField('formState', loc.stateName);
+              updateField('formDistrict', loc.districtName);
+              if (loc.pincode !== undefined) {
+                updateField('formPincode', loc.pincode);
+              }
+            }}
           />
         </div>
       </div>

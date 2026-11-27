@@ -14,6 +14,9 @@ export function useJobPostFormState(company: CompanyItem) {
   const [plantLocation, setPlantLocation] = useState(company.address);
   const [jobCity, setJobCity] = useState(company.city);
   const [jobDistrict, setJobDistrict] = useState(company.district);
+  const [jobState, setJobState] = useState(company.state);
+  const [jobStateCode, setJobStateCode] = useState<number | null>(company.stateCode ?? null);
+  const [jobDistrictId, setJobDistrictId] = useState<string | null>(company.districtId ?? null);
   const [salaryMin, setSalaryMin] = useState(18000);
   const [salaryMax, setSalaryMax] = useState(28000);
   const [openings, setOpenings] = useState(2);
@@ -37,6 +40,9 @@ export function useJobPostFormState(company: CompanyItem) {
     plantLocation, setPlantLocation,
     jobCity, setJobCity,
     jobDistrict, setJobDistrict,
+    jobState, setJobState,
+    jobStateCode, setJobStateCode,
+    jobDistrictId, setJobDistrictId,
     salaryMin, setSalaryMin,
     salaryMax, setSalaryMax,
     openings, setOpenings,

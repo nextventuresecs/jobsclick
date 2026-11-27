@@ -45,6 +45,12 @@ export interface CompanyEditFormData {
   setFormDistrict: (val: string) => void;
   formState: string;
   setFormState: (val: string) => void;
+  formStateCode: number | null;
+  setFormStateCode: (val: number | null) => void;
+  formDistrictId: string | null;
+  setFormDistrictId: (val: string | null) => void;
+  formPincode: string;
+  setFormPincode: (val: string) => void;
   formCompanySize: CompanyItem['enterpriseSize'];
   setFormCompanySize: (val: CompanyItem['enterpriseSize']) => void;
   formIsMsme: boolean;

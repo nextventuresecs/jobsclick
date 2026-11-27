@@ -87,6 +87,8 @@ const baseFormData: SeekerFormData = {
   formCity: 'Indore',
   formDistrict: 'Indore',
   formState: 'Madhya Pradesh',
+  formStateCode: null,
+  formDistrictId: null,
   formPincode: '452001',
   formQualification: 'ITI Electrician',
   formInstitution: 'Govt ITI Indore',

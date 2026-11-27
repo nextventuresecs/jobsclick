@@ -21,6 +21,8 @@ export interface SeekerProfileData {
   readonly city: string;
   readonly district: string;
   readonly state: string;
+  readonly stateCode?: number | null;
+  readonly districtId?: string | null;
   readonly pincode: string;
   readonly qualification: string;
   readonly institution: string;
@@ -96,6 +98,8 @@ export interface InstitutionProfileData {
   readonly city: string;
   readonly district: string;
   readonly state: string;
+  readonly stateCode?: number | null;
+  readonly districtId?: string | null;
   readonly pincode: string;
   readonly tradesOffered: readonly string[];
   readonly annualCapacity: number;
