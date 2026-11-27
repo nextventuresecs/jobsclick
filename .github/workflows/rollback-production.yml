@@ -1,0 +1,80 @@
+name: Rollback Production
+
+# Redeploys a previously released commit to production. Code only: database
+# migrations are forward-only and are NOT reverted here.
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Full commit SHA of the last good production release (must be on main)'
+        required: true
+        type: string
+      reason:
+        description: 'Why are we rolling back?'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  RAILWAY_CLI_VERSION: '5.71.0'
+
+jobs:
+  rollback:
+    name: Rollback to ${{ inputs.sha }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_WEB_URL || 'https://jobsclick.live' }}
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+
+      - name: Require SHA to be on main
+        env:
+          TARGET_SHA: ${{ inputs.sha }}
+        run: |
+          [[ "$TARGET_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || { echo "::error::Need full 40-char SHA"; exit 1; }
+          TARGET_SHA="${TARGET_SHA,,}"
+          [ "$(git rev-parse HEAD)" = "$TARGET_SHA" ] || { echo "::error::Checkout is not at target SHA"; exit 1; }
+          git fetch origin main
+          git merge-base --is-ancestor "$TARGET_SHA" origin/main \
+            || { echo "::error::SHA is not an ancestor of main"; exit 1; }
+
+      - name: Export tracked source (at target SHA, not main HEAD)
+        id: source
+        env:
+          GITHUB_SHA: ${{ inputs.sha }}
+        run: node scripts/ci/export-release-source.mjs
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Railway CLI
+        run: npm install -g "@railway/cli@$RAILWAY_CLI_VERSION"
+
+      - name: Redeploy production at target SHA
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_PROD_TOKEN }}
+          SOURCE_PATH: ${{ steps.source.outputs.path }}
+          PRODUCTION_API_URL: ${{ vars.PRODUCTION_API_URL || 'https://api.jobsclick.live' }}
+          PRODUCTION_WEB_URL: ${{ vars.PRODUCTION_WEB_URL || 'https://jobsclick.live' }}
+          TARGET_SHA: ${{ inputs.sha }}
+        run: node scripts/ci/railway-release.mjs production "$SOURCE_PATH" "$TARGET_SHA"
+
+      - name: Log reason
+        env:
+          TARGET_SHA: ${{ inputs.sha }}
+          REASON: ${{ inputs.reason }}
+        run: |
+          echo "Rollback to $TARGET_SHA by $GITHUB_ACTOR - reason: $REASON" >> "$GITHUB_STEP_SUMMARY"

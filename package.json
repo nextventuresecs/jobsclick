@@ -13,6 +13,7 @@
     "test:attack:module4": "node --experimental-strip-types scripts/attack/module4.ts",
     "ci:check-migrations": "node scripts/ci/check-migrations-single-tree.js",
     "db:bootstrap:staging": "node --experimental-strip-types scripts/bootstrap-staging-db.ts",
+    "db:bootstrap:production": "node --experimental-strip-types scripts/bootstrap-production-db.ts",
     "db:seed:staging": "node --experimental-strip-types scripts/seed-staging.ts",
     "db:bootstrap:drill": "node --experimental-strip-types scripts/drill-fresh-database.ts",
     "db:catalog:check": "node --experimental-strip-types scripts/db-catalog-check.ts",

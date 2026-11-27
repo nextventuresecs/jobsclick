@@ -1,14 +1,22 @@
 name: CI/CD Pipeline
 
+# Flow
+#   PR                      -> verify gates only (no deploy)
+#   push main / integration/staging -> gates -> auto-deploy STAGING
+#   manual dispatch (main) deploy_target=production
+#                           -> gates -> STAGING (same SHA, must be healthy)
+#                           -> PRODUCTION (environment approval) -> release tag
+# Production NEVER deploys on push.
+
 on:
-  push:
-    branches: ['**']
   pull_request:
-    branches: ['**']
+    branches: [main, integration/staging]
+  push:
+    branches: [main, integration/staging]
   workflow_dispatch:
     inputs:
       deploy_target:
-        description: 'Optional release target when dispatched manually'
+        description: 'Release target (production also redeploys staging with the same SHA first)'
         type: choice
         options:
           - verify-only
@@ -16,17 +24,24 @@ on:
           - production
         default: verify-only
 
+# Only PR runs are cancellable. A push run may be mid-deploy; never cancel it.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
 
 env:
   RAILWAY_CLI_VERSION: '5.71.0'
+  SUPABASE_CLI_VERSION: '3.1.0'
 
 jobs:
+  # ───────────────────────────── GATES ─────────────────────────────
   verify:
     name: Lint, Typecheck, Test & Build
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     services:
       redis:
@@ -45,6 +60,7 @@ jobs:
       REDIS_URL: redis://127.0.0.1:6379
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
       SUPABASE_URL: http://127.0.0.1:54321
+      # Public Supabase local-demo keys (not secrets).
       SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
       SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
       JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
@@ -52,36 +68,10 @@ jobs:
       TRUSTED_PROXY_CIDRS: 127.0.0.1/32,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Check Single Migration Tree Integrity
+      - name: Check single migration tree integrity
         run: pnpm ci:check-migrations
 
       - name: Test release safeguards
@@ -93,29 +83,28 @@ jobs:
           node --test scripts/ci/docker-context.test.mjs
           node --test scripts/ci/check-web-secrets.test.mjs
 
-      - name: Run Production Dependency Audit Gate
+      - name: Production dependency audit gate
         run: node scripts/ci/dependency-audit.mjs
 
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v1
         with:
-          version: 3.1.0
+          version: ${{ env.SUPABASE_CLI_VERSION }}
 
-      - name: Start Supabase Local Stack
+      - name: Start Supabase local stack
         run: |
           supabase start --exclude mailpit
           supabase status -o env >> $GITHUB_ENV
 
-      - name: Run ESLint
+      - name: ESLint
         run: pnpm lint
 
-      - name: Run TypeScript Check
+      - name: TypeScript check
         run: pnpm typecheck
 
-      - name: Build All Workspaces
+      - name: Build all workspaces
         run: pnpm build
 
-      - name: Scan Web Client Bundle for Privileged Credentials (AUTHZ-05)
+      - name: Scan web client bundle for privileged credentials (AUTHZ-05)
         run: node scripts/ci/check-web-secrets.mjs
 
       - name: Smoke test compiled API startup
@@ -142,12 +131,13 @@ jobs:
           cat "$RUNNER_TEMP/api-startup.log"
           exit 1
 
-      - name: Run Test Suite
+      - name: Test suite
         run: pnpm test
 
   db-security-gate:
     name: Database Security & Migration Gate
     runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     env:
       NODE_ENV: test
@@ -157,68 +147,42 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Check Single Migration Tree Integrity
+      - name: Check single migration tree integrity
         run: pnpm ci:check-migrations
 
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v1
         with:
-          version: 3.1.0
+          version: ${{ env.SUPABASE_CLI_VERSION }}
 
-      - name: Start Supabase Stack & Reset DB
+      - name: Start Supabase stack & reset DB
         run: |
           supabase start --exclude mailpit
           supabase db reset
 
-      - name: Verify Generated Database Types Freshness
+      - name: Verify generated database types are fresh
         run: |
           pnpm db:generate-types
           git diff --exit-code packages/database/src/generated.types.ts
 
-      - name: Run Database Catalog Security Assertion
+      - name: Database catalog security assertion
         run: pnpm db:catalog:check
 
-      - name: Run Database Security Attack Suite Drill
+      - name: Database security attack-suite drill
         run: pnpm db:security:drill
 
-      - name: Run PostgREST HTTP Smoke Checks
+      - name: PostgREST HTTP smoke checks
         run: pnpm db:smoke:postgrest
 
-      - name: Run Fresh Database Bootstrap Drill
+      - name: Fresh database bootstrap drill
         run: pnpm db:bootstrap:drill
 
   db-integration:
     name: Database Integration Tests (Real Postgres)
     runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     services:
       redis:
@@ -242,185 +206,115 @@ jobs:
       TRUSTED_PROXY_CIDRS: 127.0.0.1/32,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Check Single Migration Tree Integrity
+      - name: Check single migration tree integrity
         run: pnpm ci:check-migrations
 
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v1
         with:
-          version: 3.1.0
+          version: ${{ env.SUPABASE_CLI_VERSION }}
 
-      - name: Start Supabase Stack & Apply Migrations
+      - name: Start Supabase stack & apply migrations
         run: |
           supabase start --exclude mailpit
           supabase db reset
 
-      - name: Build Dependent Packages
+      - name: Build dependent packages
         run: pnpm --filter @indian-job-portal/database --filter @indian-job-portal/validation run build
 
-      - name: Run Database Integration Tests (Real Postgres)
+      - name: Database integration tests
         run: pnpm test:db
 
   container-build:
-    name: Build Container Images
+    name: Build & Scan (${{ matrix.service }})
     needs: [verify, db-security-gate, db-integration]
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: api
+            build_args: ''
+          - service: worker
+            build_args: ''
+          - service: web
+            build_args: |
+              NEXT_PUBLIC_APP_ENV=test
+              NEXT_PUBLIC_APP_URL=http://localhost:3000
+              NEXT_PUBLIC_API_URL=http://localhost:3001
+              NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+              NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Export tracked source
         id: source
         run: node scripts/ci/export-release-source.mjs
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v3
 
       - name: Test Docker build context exclusions
         run: node --test scripts/ci/docker-context.test.mjs
 
-      - name: Build API Docker Image
+      - name: Build ${{ matrix.service }} image
         uses: docker/build-push-action@v5
         with:
           context: ${{ steps.source.outputs.path }}
-          file: ${{ steps.source.outputs.path }}/apps/api/Dockerfile
+          file: ${{ steps.source.outputs.path }}/apps/${{ matrix.service }}/Dockerfile
           load: true
           push: false
-          tags: indian-job-portal-api:latest
+          tags: indian-job-portal-${{ matrix.service }}:${{ github.sha }}
+          build-args: ${{ matrix.build_args }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
-      - name: Scan API Docker Image (Trivy)
+      - name: Trivy scan ${{ matrix.service }}
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: indian-job-portal-api:latest
+          image-ref: indian-job-portal-${{ matrix.service }}:${{ github.sha }}
           format: table
           exit-code: '1'
           ignore-unfixed: true
           severity: CRITICAL
 
-      - name: Build Worker Docker Image
-        uses: docker/build-push-action@v5
-        with:
-          context: ${{ steps.source.outputs.path }}
-          file: ${{ steps.source.outputs.path }}/apps/worker/Dockerfile
-          load: true
-          push: false
-          tags: indian-job-portal-worker:latest
-
-      - name: Scan Worker Docker Image (Trivy)
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: indian-job-portal-worker:latest
-          format: table
-          exit-code: '1'
-          ignore-unfixed: true
-          severity: CRITICAL
-
-      - name: Build Web Docker Image
-        uses: docker/build-push-action@v5
-        with:
-          context: ${{ steps.source.outputs.path }}
-          file: ${{ steps.source.outputs.path }}/apps/web/Dockerfile
-          load: true
-          push: false
-          tags: indian-job-portal-web:latest
-          build-args: |
-            NEXT_PUBLIC_APP_ENV=test
-            NEXT_PUBLIC_APP_URL=http://localhost:3000
-            NEXT_PUBLIC_API_URL=http://localhost:3001
-            NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-            NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
-
-      - name: Scan Web Docker Image (Trivy)
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: indian-job-portal-web:latest
-          format: table
-          exit-code: '1'
-          ignore-unfixed: true
-          severity: CRITICAL
-
+  # ───────────────────────────── STAGING ─────────────────────────────
   deploy-staging:
     name: Deploy to Staging
     needs: [verify, db-security-gate, db-integration, container-build]
     if: >-
-      ((github.ref == 'refs/heads/integration/staging' || github.ref == 'refs/heads/main') && github.event_name == 'push') ||
-      (github.event_name == 'workflow_dispatch' && (github.event.inputs.deploy_target == 'staging' || github.event.inputs.deploy_target == 'production'))
+      github.event_name != 'pull_request' &&
+      (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/integration/staging') &&
+      (github.event_name == 'push' ||
+       (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_target != 'verify-only'))
     runs-on: ubuntu-latest
-    environment: staging
     timeout-minutes: 45
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_WEB_URL || 'https://staging.jobsclick.live' }}
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
     outputs:
       healthy_sha: ${{ steps.health.outputs.healthy_sha }}
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Export tracked source
         id: source
         run: node scripts/ci/export-release-source.mjs
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
+      - uses: ./.github/actions/setup
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Apply Migrations to Staging Database
+      - name: Apply migrations to staging database
         env:
           STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
           STAGING_PROJECT_REF: ${{ secrets.STAGING_PROJECT_REF }}
-        run: |
-          pnpm db:bootstrap:staging
+        run: pnpm db:bootstrap:staging -- --confirm-project-ref "$STAGING_PROJECT_REF"
 
       - name: Install Railway CLI
         run: npm install -g "@railway/cli@$RAILWAY_CLI_VERSION"
@@ -437,55 +331,92 @@ jobs:
           node scripts/ci/railway-release.mjs staging "$SOURCE_PATH" "$GITHUB_SHA"
           printf 'healthy_sha=%s\n' "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
 
+  # ───────────────────────────── PRODUCTION ─────────────────────────────
   deploy-production:
     name: Deploy to Production
     needs: [deploy-staging]
+    # Manual only. Same SHA must have just passed staging in THIS run.
     if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.deploy_target == 'production' &&
       github.ref == 'refs/heads/main' &&
-      (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_target == 'production')) &&
-      needs.deploy-staging.result == 'success' && needs.deploy-staging.outputs.healthy_sha == github.sha
+      needs.deploy-staging.result == 'success' &&
+      needs.deploy-staging.outputs.healthy_sha == github.sha
     runs-on: ubuntu-latest
-    environment: production
+    timeout-minutes: 45
+    # GitHub Environment "production": required reviewers + prevent self-review
+    # + deployment branches = main only + production-scoped secrets.
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_WEB_URL || 'https://jobsclick.live' }}
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Export tracked source
         id: source
         run: node scripts/ci/export-release-source.mjs
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup
+
+      - uses: supabase/setup-cli@v1
         with:
-          node-version: 22
+          version: ${{ env.SUPABASE_CLI_VERSION }}
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+      # Schema-only snapshot (no user data) as a cheap extra rollback aid.
+      # Primary data safety net = Supabase PITR enabled on the prod project.
+      - name: Snapshot production schema before migration
+        env:
+          PRODUCTION_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: supabase db dump --db-url "$PRODUCTION_DATABASE_URL" -f "prod-schema-${GITHUB_SHA}.sql"
+
+      - name: Upload schema snapshot
+        uses: actions/upload-artifact@v4
         with:
-          version: 9
+          name: prod-schema-${{ github.sha }}
+          path: prod-schema-${{ github.sha }}.sql
+          retention-days: 30
 
-      - name: Get pnpm store directory
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Setup pnpm cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Apply migrations to production database
+        env:
+          PRODUCTION_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          PRODUCTION_PROJECT_REF: ${{ secrets.PRODUCTION_PROJECT_REF }}
+        run: pnpm db:bootstrap:production -- --confirm-project-ref "$PRODUCTION_PROJECT_REF"
 
       - name: Install Railway CLI
         run: npm install -g "@railway/cli@$RAILWAY_CLI_VERSION"
 
-      - name: Deploy Services to Railway (Production)
+      - name: Deploy and verify Railway production services
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_PROD_TOKEN }}
           SOURCE_PATH: ${{ steps.source.outputs.path }}
+          PRODUCTION_API_URL: ${{ vars.PRODUCTION_API_URL || 'https://api.jobsclick.live' }}
+          PRODUCTION_WEB_URL: ${{ vars.PRODUCTION_WEB_URL || 'https://jobsclick.live' }}
         run: node scripts/ci/railway-release.mjs production "$SOURCE_PATH" "$GITHUB_SHA"
+
+      - name: Rollback hint
+        if: failure()
+        run: |
+          echo "::error::Production deploy failed at ${GITHUB_SHA}."
+          echo "Code: run 'Rollback Production' workflow with the last good SHA."
+          echo "DB: forward-fix migration only. PITR restore = last resort."
+
+  record-release:
+    name: Tag production release
+    needs: [deploy-production]
+    if: needs.deploy-production.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="prod-$(date -u +%Y%m%d-%H%M)-${GITHUB_SHA::7}"
+          gh release create "$tag" --target "$GITHUB_SHA" --title "Production $tag" --generate-notes

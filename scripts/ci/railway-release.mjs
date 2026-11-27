@@ -42,7 +42,13 @@ export function workerIsReady(output, now = Date.now()) {
   return latestReady > latestUnavailable && now - latestReady <= 45_000;
 }
 
-export async function waitForStaging({
+const ENV_URL_KEYS = {
+  staging: { api: 'STAGING_API_URL', web: 'STAGING_WEB_URL' },
+  production: { api: 'PRODUCTION_API_URL', web: 'PRODUCTION_WEB_URL' },
+};
+
+export async function waitForEnvironment({
+  environment = 'staging',
   deployments,
   readLatest,
   probe,
@@ -50,6 +56,7 @@ export async function waitForStaging({
   attempts = 90,
   timeoutMs = 15 * 60_000,
 }) {
+  const label = environment.charAt(0).toUpperCase() + environment.slice(1);
   const deadline = Date.now() + timeoutMs;
   const entries = Object.entries(deployments);
   const observed = new Set();
@@ -61,14 +68,14 @@ export async function waitForStaging({
     waitingOn = entries.flatMap(([service, id], index) => {
       const deployment = latest[index];
       if (deployment?.id !== id) {
-        if (observed.has(service)) throw new Error(`Staging ${service} deployment was superseded`);
+        if (observed.has(service)) throw new Error(`${label} ${service} deployment was superseded`);
         return [service];
       }
       observed.add(service);
       const status = deployment.status;
       if (status === 'SUCCESS') return [];
       if (pending.has(status)) return [service];
-      throw new Error(`Staging ${service} deployment is unhealthy (${/^[A-Z_]+$/.test(status) ? status : 'unknown status'})`);
+      throw new Error(`${label} ${service} deployment is unhealthy (${/^[A-Z_]+$/.test(status) ? status : 'unknown status'})`);
     });
 
     if (waitingOn.length === 0) {
@@ -79,25 +86,38 @@ export async function waitForStaging({
     if (healthyRounds === 2 && Date.now() < deadline) return;
     if (round + 1 < attempts && Date.now() < deadline) await pause();
   }
-  throw new Error(`Timed out waiting for staging health (${waitingOn.join(', ') || 'stable health'})`);
+  throw new Error(`Timed out waiting for ${environment} health (${waitingOn.join(', ') || 'stable health'})`);
 }
 
 function httpsOrigin(env, setting, path) {
-  const url = new URL(env[setting] ?? '');
+  let url;
+  try {
+    url = new URL(env[setting] ?? '');
+  } catch {
+    throw new Error(`${setting} must be an HTTPS origin`);
+  }
   if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash || url.pathname !== '/') {
     throw new Error(`${setting} must be an HTTPS origin`);
   }
   return new URL(path, url);
 }
 
-export async function deployRelease(environment, cwd, sha, execute = run, env = process.env) {
+export async function deployRelease(
+  environment,
+  cwd,
+  sha,
+  execute = run,
+  env = process.env,
+  { fetchHealth = fetch, pause = () => sleep(10_000) } = {},
+) {
   if (!['staging', 'production'].includes(environment) || !cwd || !/^[a-f\d]{40}$/i.test(sha ?? '') || !env.RAILWAY_TOKEN) {
     throw new Error('Release requires an environment, exported source directory, commit SHA, and Railway project token');
   }
-  const urls = environment === 'staging' ? {
-    api: httpsOrigin(env, 'STAGING_API_URL', '/health'),
-    web: httpsOrigin(env, 'STAGING_WEB_URL', '/api/health'),
-  } : null;
+  const urlKeys = ENV_URL_KEYS[environment];
+  const urls = {
+    api: httpsOrigin(env, urlKeys.api, '/health'),
+    web: httpsOrigin(env, urlKeys.web, '/api/health'),
+  };
   const railway = async (args, label, timeout = 30_000) => {
     try {
       const { stdout } = await execute('railway', args, { cwd, env, timeout, maxBuffer: 2 * 1024 * 1024 });
@@ -119,10 +139,11 @@ export async function deployRelease(environment, cwd, sha, execute = run, env = 
     deployments[service] = deploymentId;
     console.log(`Submitted ${environment} ${service} deployment ${deploymentId}`);
   }
-  if (!urls) return;
 
-  await waitForStaging({
+  await waitForEnvironment({
+    environment,
     deployments,
+    pause,
     readLatest: async (service) => {
       const output = await railway([
         'deployment', 'list', '--service', service, '--environment', environment,
@@ -132,9 +153,9 @@ export async function deployRelease(environment, cwd, sha, execute = run, env = 
     },
     probe: async (service, id) => service === 'worker'
       ? workerIsReady(await railway(['logs', id, '--deployment', '--lines', '200', '--json'], 'read worker readiness'))
-      : probeHttpHealth(urls[service], id),
+      : probeHttpHealth(urls[service], id, fetchHealth),
   });
-  console.log(`Railway staging passed health checks for ${sha}`);
+  console.log(`Railway ${environment} passed health checks for ${sha}`);
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
