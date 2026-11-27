@@ -30,6 +30,12 @@ export interface JobPostFormData {
   setJobCity: (val: string) => void;
   jobDistrict: string;
   setJobDistrict: (val: string) => void;
+  jobState: string;
+  setJobState: (val: string) => void;
+  jobStateCode: number | null;
+  setJobStateCode: (val: number | null) => void;
+  jobDistrictId: string | null;
+  setJobDistrictId: (val: string | null) => void;
   salaryMin: number;
   setSalaryMin: (val: number) => void;
   salaryMax: number;

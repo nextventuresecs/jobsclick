@@ -62,6 +62,7 @@ describe('Seeker PDF Download Endpoint (JS-03 / Hard Invariant #8a)', () => {
       const service = new ProfilesService(
         mockProfileRepo,
         {} as import('../src/database/repositories/user.repository.js').UserRepository,
+        {} as import('../src/database/repositories/location.repository.js').LocationRepository,
         undefined,
         mockSupabase,
       );
@@ -95,6 +96,7 @@ describe('Seeker PDF Download Endpoint (JS-03 / Hard Invariant #8a)', () => {
       const service = new ProfilesService(
         mockProfileRepo,
         {} as import('../src/database/repositories/user.repository.js').UserRepository,
+        {} as import('../src/database/repositories/location.repository.js').LocationRepository,
         { publishPdfJob } as unknown as QueueService,
         mockSupabase,
       );

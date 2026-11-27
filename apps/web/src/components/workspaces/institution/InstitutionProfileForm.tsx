@@ -6,6 +6,7 @@ import { Button } from '@indian-job-portal/ui';
 import type { InstitutionProfileData } from '../../../data/sampleWorkspaces';
 import { Save } from 'lucide-react';
 import { InstitutionGovernanceFields } from './InstitutionGovernanceFields';
+import { StateDistrictPicker } from '../../common/StateDistrictPicker';
 
 export interface InstitutionEditFormData {
   formInstName: string;
@@ -38,6 +39,10 @@ export interface InstitutionEditFormData {
   setFormDistrict: (val: string) => void;
   formState: string;
   setFormState: (val: string) => void;
+  formStateCode: number | null;
+  setFormStateCode: (val: number | null) => void;
+  formDistrictId: string | null;
+  setFormDistrictId: (val: string | null) => void;
   formPincode: string;
   setFormPincode: (val: string) => void;
   formTradesInput: string;
@@ -126,17 +131,24 @@ export function InstitutionProfileForm({ formData: d, onSubmit, onCancel }: Inst
             <label className="block text-xs font-semibold text-gray-700 mb-1">City *</label>
             <input type="text" value={d.formCity} onChange={(e) => d.setFormCity(e.target.value)} className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 focus:ring-2 focus:ring-teal-500 focus:outline-hidden" required />
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">District</label>
-            <input type="text" value={d.formDistrict} onChange={(e) => d.setFormDistrict(e.target.value)} className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 focus:ring-2 focus:ring-teal-500 focus:outline-hidden" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">State</label>
-            <input type="text" value={d.formState} onChange={(e) => d.setFormState(e.target.value)} className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 focus:ring-2 focus:ring-teal-500 focus:outline-hidden" />
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1">PIN Code</label>
-            <input type="text" maxLength={6} value={d.formPincode} onChange={(e) => d.setFormPincode(e.target.value)} className="w-full px-3 py-2 text-sm font-mono rounded-xl border border-gray-300 focus:ring-2 focus:ring-teal-500 focus:outline-hidden" />
+          <div className="sm:col-span-4">
+            <StateDistrictPicker
+              stateCode={d.formStateCode}
+              districtId={d.formDistrictId}
+              stateName={d.formState}
+              districtName={d.formDistrict}
+              pincode={d.formPincode}
+              showPincode
+              onChange={(loc) => {
+                d.setFormStateCode(loc.stateCode);
+                d.setFormDistrictId(loc.districtId);
+                d.setFormState(loc.stateName);
+                d.setFormDistrict(loc.districtName);
+                if (loc.pincode !== undefined) {
+                  d.setFormPincode(loc.pincode);
+                }
+              }}
+            />
           </div>
           <div className="sm:col-span-2">
             <label className="block text-xs font-semibold text-gray-700 mb-1">{t('labelTradesOffered')}</label>

@@ -42,6 +42,8 @@ export async function fetchSeekerProfile(
       city: data.city,
       district: data.district,
       state: data.state,
+      stateCode: data.stateCode ?? null,
+      districtId: data.districtId ?? null,
       pincode: data.pincode,
       qualification: data.qualification,
       institution: data.institution,

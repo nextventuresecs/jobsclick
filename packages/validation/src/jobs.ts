@@ -74,6 +74,8 @@ export const createJobSchema = z.object({
   city: z.string().min(2, 'City is required'),
   district: z.string().min(2, 'District is required'),
   state: z.string().optional().default('India'),
+  stateCode: z.number().int().positive().nullable().optional(),
+  districtId: z.string().uuid().nullable().optional(),
   openings: z.number().int().min(1).default(1),
   skills: z.array(z.string()).default([]),
   expiryDate: z.string().optional(),

@@ -4,34 +4,44 @@ import { useState } from 'react';
 import type { SeekerProfileData } from '../../../data/sampleWorkspaces';
 import type { SeekerFormData } from './seekerFormTypes';
 
+export function profileToFormData(profile: SeekerProfileData): SeekerFormData {
+  return {
+    formName: profile.name,
+    formGender: profile.gender,
+    formDob: profile.dob,
+    formSeekerType: profile.seekerType,
+    formAddress: profile.address || '',
+    formCity: profile.city,
+    formDistrict: profile.district,
+    formState: profile.state,
+    formStateCode: profile.stateCode ?? null,
+    formDistrictId: profile.districtId ?? null,
+    formPincode: profile.pincode,
+    formQualification: profile.qualification,
+    formInstitution: profile.institution,
+    formGraduationYear: profile.graduationYear,
+    formExperienceYears: profile.experienceYears,
+    formCurrentRole: profile.currentRole || '',
+    formSkillsInput: profile.skills.join(', '),
+    formLanguagesInput: profile.languages.join(', '),
+    formLocationsInput: profile.preferredLocations.join(', '),
+    formWillingToRelocate: profile.willingToRelocate,
+    formBio: profile.bio,
+    formAadhaarLastFour: profile.aadhaarLastFour || '',
+    formApaarId: profile.apaarId || '',
+    formDpdpConsent: profile.dpdpConsentGiven,
+  };
+}
+
 export function useSeekerProfileFormState(initialProfile: SeekerProfileData) {
-  const [formData, setFormData] = useState<SeekerFormData>({
-    formName: initialProfile.name,
-    formGender: initialProfile.gender,
-    formDob: initialProfile.dob,
-    formSeekerType: initialProfile.seekerType,
-    formAddress: initialProfile.address || '',
-    formCity: initialProfile.city,
-    formDistrict: initialProfile.district,
-    formState: initialProfile.state,
-    formPincode: initialProfile.pincode,
-    formQualification: initialProfile.qualification,
-    formInstitution: initialProfile.institution,
-    formGraduationYear: initialProfile.graduationYear,
-    formExperienceYears: initialProfile.experienceYears,
-    formCurrentRole: initialProfile.currentRole || '',
-    formSkillsInput: initialProfile.skills.join(', '),
-    formLanguagesInput: initialProfile.languages.join(', '),
-    formLocationsInput: initialProfile.preferredLocations.join(', '),
-    formWillingToRelocate: initialProfile.willingToRelocate,
-    formBio: initialProfile.bio,
-    formAadhaarLastFour: initialProfile.aadhaarLastFour || '',
-    formApaarId: initialProfile.apaarId || '',
-    formDpdpConsent: initialProfile.dpdpConsentGiven,
-  });
+  const [formData, setFormData] = useState<SeekerFormData>(() => profileToFormData(initialProfile));
 
   const updateField = <K extends keyof SeekerFormData>(key: K, value: SeekerFormData[K]) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const resetFromProfile = (profile: SeekerProfileData) => {
+    setFormData(profileToFormData(profile));
   };
 
   const syncFromProfile = (data: Partial<SeekerProfileData>) => {
@@ -45,6 +55,8 @@ export function useSeekerProfileFormState(initialProfile: SeekerProfileData) {
       formCity: data.city ?? prev.formCity,
       formDistrict: data.district ?? prev.formDistrict,
       formState: data.state ?? prev.formState,
+      formStateCode: data.stateCode !== undefined ? data.stateCode : prev.formStateCode,
+      formDistrictId: data.districtId !== undefined ? data.districtId : prev.formDistrictId,
       formPincode: data.pincode ?? prev.formPincode,
       formQualification: data.qualification ?? prev.formQualification,
       formInstitution: data.institution ?? prev.formInstitution,
@@ -69,5 +81,6 @@ export function useSeekerProfileFormState(initialProfile: SeekerProfileData) {
     formData,
     updateField,
     syncFromProfile,
+    resetFromProfile,
   };
 }

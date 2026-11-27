@@ -9,6 +9,9 @@ export interface CompanyItem {
   readonly city: string;
   readonly district: string;
   readonly state: string;
+  readonly stateCode?: number | null;
+  readonly districtId?: string | null;
+  readonly pincode?: string;
   readonly description: string;
   readonly udyamNumber: string;
   readonly verified: boolean;

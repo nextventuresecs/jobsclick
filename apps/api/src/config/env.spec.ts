@@ -891,4 +891,20 @@ describe('TASK 5 - Staging prod-copy tripwires in validateEnv()', () => {
       expect(msg).not.toContain(password);
     }
   });
+
+  it('blocks enabling ENABLE_P2_FEATURED_PROMOTIONS in production/staging until search_jobs supports p_employment_type', () => {
+    expect(() =>
+      validateEnv({
+        ...VALID_STAGING,
+        ENABLE_P2_FEATURED_PROMOTIONS: 'true',
+      }),
+    ).toThrowError(/ENABLE_P2_FEATURED_PROMOTIONS cannot be enabled until public\.search_jobs supports p_employment_type/);
+
+    expect(() =>
+      validateEnv({
+        ...VALID_STAGING,
+        ENABLE_P2_FEATURED_PROMOTIONS: '1',
+      }),
+    ).toThrowError(/ENABLE_P2_FEATURED_PROMOTIONS cannot be enabled until public\.search_jobs supports p_employment_type/);
+  });
 });

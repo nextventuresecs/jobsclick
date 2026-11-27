@@ -25,9 +25,13 @@ function getAvailablePort(): Promise<number> {
 
 async function runNextStart(
   envOverrides: Record<string, string | undefined>,
-  options: { waitForReady?: boolean; timeoutMs?: number } = {},
+  options: {
+    waitForReady?: boolean;
+    timeoutMs?: number;
+    checkServer?: (origin: string) => Promise<void>;
+  } = {},
 ): Promise<SpawnResult> {
-  const { waitForReady = false, timeoutMs = 30000 } = options;
+  const { waitForReady = false, timeoutMs = 30000, checkServer } = options;
   const port = await getAvailablePort();
 
   return new Promise((resolve, reject) => {
@@ -50,7 +54,7 @@ async function runNextStart(
       }
     }
 
-    const proc = spawn(process.execPath, [nextBin, 'start', '-p', String(port)], {
+    const proc = spawn(process.execPath, [nextBin, 'start', '-H', '127.0.0.1', '-p', String(port)], {
       cwd: webDir,
       env: {
         ...filteredEnv,
@@ -68,16 +72,21 @@ async function runNextStart(
       }
     }, timeoutMs);
 
-    proc.stdout?.on('data', (d: Buffer) => {
+    let checking = false;
+    proc.stdout?.on('data', async (d: Buffer) => {
       const chunk = d.toString('utf8');
       stdout += chunk;
-      if (waitForReady && (chunk.includes('Ready in') || chunk.includes('ready') || stdout.includes('Ready in'))) {
-        if (!isResolved) {
-          isResolved = true;
-          clearTimeout(timeout);
-          proc.kill();
-          resolve({ code: 0, stdout, stderr });
-        }
+      if (!waitForReady || isResolved || checking || !stdout.includes('Ready in')) return;
+      checking = true;
+      try {
+        await checkServer?.(`http://127.0.0.1:${port}`);
+        resolve({ code: 0, stdout, stderr });
+      } catch (error) {
+        reject(error);
+      } finally {
+        isResolved = true;
+        clearTimeout(timeout);
+        proc.kill();
       }
     });
 
@@ -89,7 +98,11 @@ async function runNextStart(
       if (!isResolved) {
         isResolved = true;
         clearTimeout(timeout);
-        resolve({ code, stdout, stderr });
+        if (waitForReady) {
+          reject(new Error(`Next.js closed before readiness checks finished (exit ${code}).\n${stdout}\n${stderr}`));
+        } else {
+          resolve({ code, stdout, stderr });
+        }
       }
     });
 
@@ -190,5 +203,43 @@ describe('Next.js Production Startup Verification (Finding 4)', () => {
 
     expect(result.code).toBe(0);
     expect(result.stdout).toContain('Ready in');
+  }, 40000);
+
+  it.each([
+    ['/hi', 'भारत के कुशल कार्यबल को जोड़ना'],
+    ['/hi/jobs', 'भारत में उपलब्ध नौकरियां देखें'],
+  ])('renders Hindi HTML at %s on the first visit', async (route, heading) => {
+    await runNextStart(
+      {
+        JWT_SECRET: 'de4772a0c0f3aa1c09aaa18a7ffde65b791b9a8324fe72e6465a533fa219a4b1',
+        NEXT_PUBLIC_API_URL: 'https://api.example.com',
+        NEXT_PUBLIC_APP_URL: 'https://jobsclick.live',
+        API_URL: 'http://127.0.0.1:1',
+      },
+      {
+        waitForReady: true,
+        checkServer: async (origin) => {
+          for (const headers of [undefined, { cookie: 'NEXT_LOCALE=en' }]) {
+            const query = route === '/hi/jobs' ? '?keyword=welder&employmentType=Part-time' : '';
+            const response = await fetch(`${origin}${route}${query}`, { headers, redirect: 'manual' });
+            expect(response.status).toBe(200);
+            expect(response.headers.get('link')).toContain(`https://jobsclick.live${route}>; rel="alternate"; hreflang="hi"`);
+            const html = await response.text();
+            expect(html.match(/<html lang="([^"]+)"/)?.[1]).toBe('hi');
+            expect(html.match(/<h1\b[^>]*>[\s\S]*?<\/h1>/)?.[0]).toContain(heading);
+            expect(html.includes('aria-label="नेविगेशन मेनू"')).toBe(true);
+            expect(html.includes('href="/hi/how-it-works"')).toBe(true);
+            if (query) {
+              expect(html).toMatch(/<form\b[^>]*action="\/hi\/jobs"/);
+              expect(html).toMatch(/<input\b[^>]*name="keyword"[^>]*value="welder"/);
+              expect(html).toMatch(/<label\b[^>]*for="jobs-keyword"/);
+              expect(html).toContain('नौकरियां अभी उपलब्ध नहीं हैं');
+              expect(html).toContain('फिर कोशिश करें');
+              expect(html).toContain('प्रकार: अंशकालिक');
+            }
+          }
+        },
+      },
+    );
   }, 40000);
 });

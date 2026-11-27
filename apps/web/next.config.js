@@ -6,6 +6,21 @@ const withNextIntl = createNextIntlPlugin('./i18n.ts');
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   ...(process.env.NEXT_OUTPUT_STANDALONE === '1' ? { output: 'standalone' } : {}),
+  experimental: {
+    // Required in Next.js 14 to enable instrumentation.ts lifecycle hooks
+    instrumentationHook: true,
+  },
+  async rewrites() {
+    // Keep the Hindi route in this request even when Next normalizes a bind hostname,
+    // while excluding /hi/api/* and /hi/_next/* so they never resolve as localized pages.
+    return {
+      beforeFiles: [
+        { source: '/hi', destination: '/' },
+        { source: '/hi/:segment((?!api(?:/|$)|_next(?:/|$))[^/]+)', destination: '/:segment' },
+        { source: '/hi/:segment((?!api(?:/|$)|_next(?:/|$))[^/]+)/:path+', destination: '/:segment/:path+' },
+      ],
+    };
+  },
   images: {
     dangerouslyAllowSVG: false,
     contentDispositionType: 'attachment',

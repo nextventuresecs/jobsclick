@@ -16,8 +16,8 @@ describe('Web Application Baseline & Homepage - Feature 3', () => {
     const hi = (await import('../messages/hi.json')).default;
 
     expect(en.HomePage.badge).toBeDefined();
-    expect(en.HomePage.heroTitleHighlight).toBe('Verified Opportunities.');
-    expect(hi.HomePage.heroTitleHighlight).toBe('सत्यापित अवसरों के साथ।');
+    expect(en.HomePage.heroTitleHighlight).toBe('Job Opportunities.');
+    expect(hi.HomePage.heroTitleHighlight).toBe('रोज़गार के अवसरों के साथ।');
     expect(en.HomePage.msmeTitle).toBeDefined();
     expect(hi.HomePage.msmeTitle).toBeDefined();
   });

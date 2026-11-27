@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import type { JobPostFormData } from './JobPostForm';
 import { employmentTypeValues, experienceLevelValues } from '@indian-job-portal/validation';
 import type { IndustryCategory, EmploymentType, ExperienceLevel } from '@indian-job-portal/validation';
+import { StateDistrictPicker } from '../../common/StateDistrictPicker';
 
 export function JobPostFormFields({ formData: d }: { readonly formData: JobPostFormData }) {
   const t = useTranslations('EmployerWorkspace');
@@ -109,13 +110,20 @@ export function JobPostFormFields({ formData: d }: { readonly formData: JobPostF
             required
           />
         </div>
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 mb-1">{t('labelJobDistrict')} *</label>
-          <input
-            type="text" value={d.jobDistrict} onChange={(e) => d.setJobDistrict(e.target.value)}
-            placeholder="e.g. Pune"
-            className="w-full px-3 py-2.5 text-sm rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#F97316] focus:outline-hidden"
+        <div className="sm:col-span-2">
+          <StateDistrictPicker
+            stateCode={d.jobStateCode}
+            districtId={d.jobDistrictId}
+            stateName={d.jobState}
+            districtName={d.jobDistrict}
+            showPincode={false}
             required
+            onChange={(loc) => {
+              d.setJobStateCode(loc.stateCode);
+              d.setJobDistrictId(loc.districtId);
+              d.setJobState(loc.stateName);
+              d.setJobDistrict(loc.districtName);
+            }}
           />
         </div>
       </div>

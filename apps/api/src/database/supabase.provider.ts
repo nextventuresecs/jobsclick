@@ -24,6 +24,9 @@ export interface DatabasePersistenceState {
   alert_deliveries: Record<string, unknown>;
   corporate_tie_ups: Record<string, unknown>;
   placement_applications: Record<string, unknown>;
+  states: Record<string, unknown>;
+  districts: Record<string, unknown>;
+  pincodes: Record<string, unknown>;
 }
 
 export class PersistentDatabaseStore {
@@ -48,6 +51,9 @@ export class PersistentDatabaseStore {
     alert_deliveries: {},
     corporate_tie_ups: {},
     placement_applications: {},
+    states: {},
+    districts: {},
+    pincodes: {},
   };
 
   private constructor() {
@@ -121,6 +127,9 @@ export class PersistentDatabaseStore {
           alert_deliveries: parsed.alert_deliveries || {},
           corporate_tie_ups: parsed.corporate_tie_ups || {},
           placement_applications: parsed.placement_applications || {},
+          states: parsed.states || {},
+          districts: parsed.districts || {},
+          pincodes: parsed.pincodes || {},
         };
       }
     } catch {

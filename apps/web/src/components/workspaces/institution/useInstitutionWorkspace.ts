@@ -104,12 +104,19 @@ export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInst
           city: data.city || prev.city,
           district: data.district || prev.district,
           state: data.state || prev.state,
+          stateCode: data.stateCode !== undefined ? data.stateCode : prev.stateCode,
+          districtId: data.districtId !== undefined ? data.districtId : prev.districtId,
           pincode: data.pincode || prev.pincode,
           contactPerson: data.contactPerson || prev.contactPerson,
           contactPhone: data.contactPhone || prev.contactPhone,
           contactEmail: data.contactEmail || prev.contactEmail,
           isOnboardingComplete: true,
         }));
+        if (data.district) profileForm.setFormDistrict(data.district);
+        if (data.state) profileForm.setFormState(data.state);
+        if (data.stateCode !== undefined) profileForm.setFormStateCode(data.stateCode);
+        if (data.districtId !== undefined) profileForm.setFormDistrictId(data.districtId);
+        if (data.pincode) profileForm.setFormPincode(data.pincode);
         setIsOnboardingComplete(true);
       })
       .catch(() => {});
@@ -252,6 +259,8 @@ export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInst
       city: profileForm.formCity,
       district: profileForm.formDistrict,
       state: profileForm.formState,
+      stateCode: profileForm.formStateCode,
+      districtId: profileForm.formDistrictId,
       pincode: profileForm.formPincode || undefined,
       tradesOffered: tradesArray,
       annualCapacity: profileForm.formAnnualCapacity,
@@ -315,6 +324,8 @@ export function useInstitutionWorkspace({ user, accessToken, addToast }: UseInst
         city: updated.city || profileForm.formCity,
         district: updated.district || profileForm.formDistrict,
         state: updated.state || profileForm.formState,
+        stateCode: updated.stateCode !== undefined ? updated.stateCode : profileForm.formStateCode,
+        districtId: updated.districtId !== undefined ? updated.districtId : profileForm.formDistrictId,
         pincode: updated.pincode || profileForm.formPincode,
         tradesOffered: tradesArray,
         annualCapacity: Number(updated.annualCapacity || profileForm.formAnnualCapacity),

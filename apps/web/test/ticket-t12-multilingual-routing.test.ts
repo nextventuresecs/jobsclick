@@ -1,22 +1,19 @@
+import { createRequire } from 'node:module';
 import { describe, it, expect } from 'vitest';
 import { NextRequest } from 'next/server';
 import { middleware } from '../src/middleware';
 import { createSessionToken } from '../src/lib/auth-session';
 
+const require = createRequire(__filename);
+
 describe('Ticket T-12: Multilingual Hindi Routing & SEO (/hi/...)', () => {
-  it('AC-1: rewrites /hi/jobs to /jobs without redirecting, keeping URL intact', async () => {
+  it('AC-1: forwards Hindi and clean-path headers for /hi/jobs', async () => {
     const request = new NextRequest('https://jobsclick.live/hi/jobs');
     const response = await middleware(request);
 
-    // Must NOT be a redirect (status 301, 302, 307, 308)
-    expect(response.status).not.toBe(301);
-    expect(response.status).not.toBe(302);
-    expect(response.status).not.toBe(307);
-    expect(response.status).not.toBe(308);
-
-    // Must rewrite to internal /jobs route
-    const rewriteHeader = response.headers.get('x-middleware-rewrite');
-    expect(rewriteHeader).toBe('https://jobsclick.live/jobs');
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-middleware-request-x-next-locale')).toBe('hi');
+    expect(response.headers.get('x-middleware-request-x-clean-path')).toBe('/jobs');
 
     // Must set NEXT_LOCALE cookie to 'hi'
     const setCookie = response.headers.get('set-cookie');
@@ -31,17 +28,13 @@ describe('Ticket T-12: Multilingual Hindi Routing & SEO (/hi/...)', () => {
     expect(linkHeader).toContain('https://jobsclick.live/jobs');
   });
 
-  it('AC-1: rewrites root /hi to / with Hindi locale and no redirect', async () => {
+  it('AC-1: forwards Hindi and clean-path headers for /hi', async () => {
     const request = new NextRequest('https://jobsclick.live/hi');
     const response = await middleware(request);
 
-    expect(response.status).not.toBe(301);
-    expect(response.status).not.toBe(302);
-    expect(response.status).not.toBe(307);
-    expect(response.status).not.toBe(308);
-
-    const rewriteHeader = response.headers.get('x-middleware-rewrite');
-    expect(rewriteHeader).toBe('https://jobsclick.live/');
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-middleware-request-x-next-locale')).toBe('hi');
+    expect(response.headers.get('x-middleware-request-x-clean-path')).toBe('/');
 
     const linkHeader = response.headers.get('Link');
     expect(linkHeader).toContain('hreflang="hi"');
@@ -58,7 +51,7 @@ describe('Ticket T-12: Multilingual Hindi Routing & SEO (/hi/...)', () => {
     expect(location).toBe('https://jobsclick.live/jobs');
   });
 
-  it('preserves verified user session headers during /hi rewrite', async () => {
+  it('forwards the session cookie alongside Hindi route headers', async () => {
     const validToken = await createSessionToken({
       id: 'usr_seeker_777',
       phone: '9876543210',
@@ -75,8 +68,9 @@ describe('Ticket T-12: Multilingual Hindi Routing & SEO (/hi/...)', () => {
 
     const response = await middleware(request);
 
-    // Must still rewrite without redirecting
-    expect(response.headers.get('x-middleware-rewrite')).toBe('https://jobsclick.live/jobs');
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-middleware-request-cookie')).toBe(`auth_token=${validToken}`);
+    expect(response.headers.get('x-middleware-request-x-next-locale')).toBe('hi');
   });
 
   it('AC-2: provides valid hreflang alternate links on default English /jobs', async () => {
@@ -134,5 +128,63 @@ describe('Ticket T-12: Multilingual Hindi Routing & SEO (/hi/...)', () => {
         delete envRef['NODE_ENV'];
       }
     }
+  });
+
+  it.each([
+    '/hi/api',
+    '/hi/api/auth/session',
+    '/hi/_next',
+    '/hi/_next/static/chunks/app.js',
+  ])('does not set Hindi locale headers or cookies for internal path %s', (pathname) => {
+    const request = new NextRequest(`https://jobsclick.live${pathname}`);
+    const response = middleware(request);
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-middleware-request-x-next-locale')).toBeNull();
+    expect(response.headers.get('x-middleware-request-x-locale')).toBeNull();
+    expect(response.headers.get('x-middleware-request-x-clean-path')).toBeNull();
+    expect(response.headers.get('Link')).toBeNull();
+    expect(response.headers.get('set-cookie') ?? '').not.toContain('NEXT_LOCALE=hi');
+  });
+
+  it('excludes /hi/api/* and /hi/_next/* from next.config.js rewrites while preserving localized pages', async () => {
+    const nextConfig = require('../next.config.js') as {
+      rewrites: () => Promise<{ beforeFiles: Array<{ source: string; destination: string }> }>;
+    };
+    const { getPathMatch } = require('next/dist/shared/lib/router/utils/path-match') as {
+      getPathMatch: (path: string) => (pathname: string) => Record<string, string | string[]> | false;
+    };
+    const { prepareDestination } = require('next/dist/shared/lib/router/utils/prepare-destination') as {
+      prepareDestination: (opts: {
+        appendParamsToQuery: boolean;
+        destination: string;
+        params: Record<string, string | string[]>;
+        query: Record<string, string | string[]>;
+      }) => { parsedDestination: { pathname: string } };
+    };
+
+    const { beforeFiles } = await nextConfig.rewrites();
+    const resolveRewrite = (pathname: string): string | null => {
+      for (const rule of beforeFiles) {
+        const matched = getPathMatch(rule.source)(pathname);
+        if (matched) {
+          return prepareDestination({
+            appendParamsToQuery: false,
+            destination: rule.destination,
+            params: matched,
+            query: {},
+          }).parsedDestination.pathname;
+        }
+      }
+      return null;
+    };
+
+    expect(resolveRewrite('/hi')).toBe('/');
+    expect(resolveRewrite('/hi/jobs')).toBe('/jobs');
+    expect(resolveRewrite('/hi/jobs/3m8x0b7k9w2a')).toBe('/jobs/3m8x0b7k9w2a');
+    expect(resolveRewrite('/hi/api')).toBeNull();
+    expect(resolveRewrite('/hi/api/auth/session')).toBeNull();
+    expect(resolveRewrite('/hi/_next')).toBeNull();
+    expect(resolveRewrite('/hi/_next/static/chunks/app.js')).toBeNull();
   });
 });

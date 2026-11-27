@@ -89,8 +89,14 @@ export function middleware(req: NextRequest) {
     return applySecurityHeaders(NextResponse.redirect(loginRedirectUrl));
   }
 
-  // Bypass multilingual header generation for internal API routes
-  if (pathname.startsWith('/api/')) {
+  // Bypass multilingual header generation for internal API and Next.js asset routes
+  if (
+    pathname === '/api' ||
+    pathname.startsWith('/api/') ||
+    pathname === '/_next' ||
+    pathname.startsWith('/_next/') ||
+    /^\/(?:hi|en)\/(?:api|_next)(?:\/|$)/.test(pathname)
+  ) {
     const response = NextResponse.next({
       request: {
         headers: requestHeaders,
@@ -108,7 +114,7 @@ export function middleware(req: NextRequest) {
   };
 
   // 3. Multilingual Hindi Routing: /hi and /hi/... (Ticket T-12 / Issue #35)
-  // Rewrite without redirecting so search engine bots can crawl /hi and /hi/jobs with URL intact.
+  // The path-only rewrite in next.config.js runs after these locale headers are set.
   const hiMatch = pathname.match(/^\/hi(?:\/(.*))?$/);
   if (hiMatch) {
     const rawSubPath = (hiMatch[1] || '').replace(/\/+$/, '');
@@ -118,10 +124,7 @@ export function middleware(req: NextRequest) {
     requestHeaders.set('x-clean-path', cleanPath);
     requestHeaders.set('x-original-pathname', pathname);
 
-    const rewriteUrl = req.nextUrl.clone();
-    rewriteUrl.pathname = cleanPath;
-
-    const response = NextResponse.rewrite(rewriteUrl, {
+    const response = NextResponse.next({
       request: {
         headers: requestHeaders,
       },

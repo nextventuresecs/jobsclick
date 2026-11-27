@@ -16,6 +16,20 @@ function getIsoDate(dateStr?: string): string {
   return fallback || '';
 }
 
+interface BusinessProfileSyncPayload {
+  companyName?: string;
+  sector?: string;
+  address?: string;
+  city?: string;
+  district?: string;
+  state?: string;
+  stateCode?: number | null;
+  districtId?: string | null;
+  pincode?: string | null;
+  ownershipType?: string;
+  companySize?: string;
+}
+
 interface LoaderParams {
   apiUrl: string;
   authHeader: string;
@@ -23,7 +37,7 @@ interface LoaderParams {
   company: CompanyItem;
   companyJobs?: JobItem[];
   setCompany: React.Dispatch<React.SetStateAction<CompanyItem>>;
-  syncFromBusinessProfile: (busProfile: Record<string, string | undefined>) => void;
+  syncFromBusinessProfile: (busProfile: BusinessProfileSyncPayload) => void;
   setCompanyJobs: React.Dispatch<React.SetStateAction<JobItem[]>>;
   setApplicants: React.Dispatch<React.SetStateAction<readonly ApplicationData[]>>;
 }
@@ -45,6 +59,9 @@ export function loadEmployerWorkspaceData({
         city: busProfile.city || prev.city,
         district: busProfile.district || prev.district,
         state: busProfile.state || prev.state,
+        stateCode: busProfile.stateCode !== undefined ? busProfile.stateCode : prev.stateCode,
+        districtId: busProfile.districtId !== undefined ? busProfile.districtId : prev.districtId,
+        pincode: busProfile.pincode || prev.pincode,
         ownershipType: (busProfile.ownershipType as CompanyItem['ownershipType']) || prev.ownershipType,
         enterpriseSize: (busProfile.companySize as CompanyItem['enterpriseSize']) || prev.enterpriseSize,
       }));

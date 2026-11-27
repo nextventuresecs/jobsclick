@@ -17,6 +17,7 @@ import { CorporateTieUpRepository } from './repositories/corporate-tie-up.reposi
 import { PlacementPipelineRepository } from './repositories/placement-pipeline.repository.js';
 import { InquiryRepository } from './repositories/inquiry.repository.js';
 import { PublicDiscoveryRepository } from './repositories/public-discovery.repository.js';
+import { LocationRepository } from './repositories/location.repository.js';
 import { isStrictEnv } from '../config/env.js';
 
 @Global()
@@ -50,6 +51,7 @@ import { isStrictEnv } from '../config/env.js';
     PlacementPipelineRepository,
     InquiryRepository,
     PublicDiscoveryRepository,
+    LocationRepository,
   ],
   exports: [
     SUPABASE_CLIENT,
@@ -65,6 +67,7 @@ import { isStrictEnv } from '../config/env.js';
     PlacementPipelineRepository,
     InquiryRepository,
     PublicDiscoveryRepository,
+    LocationRepository,
   ],
 })
 export class DatabaseModule {}

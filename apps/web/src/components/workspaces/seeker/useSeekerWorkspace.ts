@@ -25,6 +25,8 @@ const defaultEmptySeekerProfile: SeekerProfileData = {
   city: '',
   district: '',
   state: '',
+  stateCode: null,
+  districtId: null,
   pincode: '',
   qualification: '',
   institution: '',
@@ -53,7 +55,7 @@ export function useSeekerWorkspace() {
   const [isEditing, setIsEditing] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
-  const { formData, updateField, syncFromProfile } = useSeekerProfileFormState(profile);
+  const { formData, updateField, syncFromProfile, resetFromProfile } = useSeekerProfileFormState(profile);
 
   const myApplications = applications;
 
@@ -143,6 +145,8 @@ export function useSeekerWorkspace() {
       city: formData.formCity,
       district: formData.formDistrict,
       state: formData.formState,
+      stateCode: formData.formStateCode,
+      districtId: formData.formDistrictId,
       pincode: formData.formPincode || undefined,
       qualification: formData.formQualification,
       institution: formData.formInstitution,
@@ -196,6 +200,8 @@ export function useSeekerWorkspace() {
         city: formData.formCity,
         district: formData.formDistrict,
         state: formData.formState,
+        stateCode: formData.formStateCode,
+        districtId: formData.formDistrictId,
         pincode: formData.formPincode,
         qualification: formData.formQualification,
         institution: formData.formInstitution,
@@ -251,6 +257,11 @@ export function useSeekerWorkspace() {
     }
   };
 
+  const handleCancelEdit = () => {
+    resetFromProfile(profile);
+    setIsEditing(false);
+  };
+
   return {
     activeTab,
     setActiveTab,
@@ -263,6 +274,7 @@ export function useSeekerWorkspace() {
     setIsEditing,
     formData,
     updateField,
+    handleCancelEdit,
     handleSaveProfile,
     handlePrint,
     handleDownloadPdf,

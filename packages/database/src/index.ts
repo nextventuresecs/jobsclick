@@ -51,6 +51,8 @@ export interface Database {
         district?: string | null;
         state?: string | null;
         pincode?: string | null;
+        state_code?: number | null;
+        district_id?: string | null;
         qualification?: string | null;
         institution?: string | null;
         graduation_year?: string | null;
@@ -81,6 +83,9 @@ export interface Database {
         city: string | null;
         district: string | null;
         state?: string | null;
+        pincode?: string | null;
+        state_code?: number | null;
+        district_id?: string | null;
         logo_url: string | null;
         phone?: string | null;
         email?: string | null;
@@ -124,6 +129,8 @@ export interface Database {
         district?: string | null;
         state?: string | null;
         pincode?: string | null;
+        state_code?: number | null;
+        district_id?: string | null;
         trades_offered?: string[];
         annual_capacity?: number | null;
         placement_brochure_url?: string | null;
@@ -156,6 +163,8 @@ export interface Database {
         city: string;
         district?: string;
         state?: string;
+        state_code?: number | null;
+        district_id?: string | null;
         openings: number;
         skills?: string[];
         expiry_date?: string | null;
@@ -429,6 +438,30 @@ export interface Database {
         unrecovered_credits: number;
         created_at: string;
       }>;
+      states: TableDefinition<{
+        lgd_code: number;
+        name_en: string;
+        name_hi: string | null;
+        is_ut: boolean;
+      }>;
+      districts: TableDefinition<{
+        id: string;
+        lgd_code: number | null;
+        state_code: number;
+        name_en: string;
+        name_hi: string | null;
+        is_active: boolean;
+        source: 'lgd' | 'manual-gazette';
+        effective_from: string | null;
+        notes: string | null;
+      }>;
+      pincodes: TableDefinition<{
+        pincode: string;
+        state_code: number | null;
+        district_id: string | null;
+        ambiguous: boolean;
+        candidate_district_ids: string[];
+      }>;
     };
     Views: {
       public_business_profiles: ViewDefinition<{
@@ -608,6 +641,10 @@ export type PlacementApplicationRow = Database['public']['Tables']['placement_ap
 export type BroadcastCampaignRow = Database['public']['Tables']['broadcast_campaigns']['Row'];
 export type BroadcastDeliveryRow = Database['public']['Tables']['broadcast_deliveries']['Row'];
 export type InvitationRow = Database['public']['Tables']['invitations']['Row'];
+export type PaymentRefundRow = Database['public']['Tables']['payment_refunds']['Row'];
+export type StateRow = Database['public']['Tables']['states']['Row'];
+export type DistrictRow = Database['public']['Tables']['districts']['Row'];
+export type PincodeRow = Database['public']['Tables']['pincodes']['Row'];
 export type LocationNodeRow = Database['public']['Tables']['location_nodes']['Row'];
 export type SearchLogRow = Database['public']['Tables']['search_logs']['Row'];
 export type TaskRow = Database['public']['Tables']['tasks']['Row'];

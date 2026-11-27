@@ -9,6 +9,8 @@ export interface SeekerFormData {
   formCity: string;
   formDistrict: string;
   formState: string;
+  formStateCode: number | null;
+  formDistrictId: string | null;
   formPincode: string;
   formQualification: string;
   formInstitution: string;
