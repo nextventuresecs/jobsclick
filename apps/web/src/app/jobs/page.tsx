@@ -83,6 +83,7 @@ export default async function JobsListPage({ searchParams }: JobsPageProps) {
     if (response.ok) {
       const data = (await response.json()) as { jobs?: ApiJobPayload[]; total?: number } | null;
       if (Array.isArray(data?.jobs)) {
+        // JOB-05 (ENABLE_P2_FEATURED_PROMOTIONS) is P2-gated off by default; when enabled, promoted-first ordering is handled server-side.
         jobs = data.jobs
           .filter((job) => typeof job?.slug === 'string' && job.slug.length > 0)
           .map((job) => mapApiJobToJobItem(job, t('employer')));
