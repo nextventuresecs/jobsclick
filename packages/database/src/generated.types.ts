@@ -357,6 +357,7 @@ export type Database = {
           designation: string | null
           director_photo_url: string | null
           district: string | null
+          district_id: string | null
           dpiit_number: string | null
           email: string | null
           founder_or_director: string | null
@@ -367,6 +368,7 @@ export type Database = {
           logo_url: string | null
           ownership_type: string
           phone: string | null
+          pincode: string | null
           products_brief: string | null
           public_slug: string
           sector: string | null
@@ -374,6 +376,7 @@ export type Database = {
           social_media: Json | null
           source: string | null
           state: string | null
+          state_code: number | null
           udyam_number: string | null
           updated_at: string
           updated_by: string | null
@@ -393,6 +396,7 @@ export type Database = {
           designation?: string | null
           director_photo_url?: string | null
           district?: string | null
+          district_id?: string | null
           dpiit_number?: string | null
           email?: string | null
           founder_or_director?: string | null
@@ -403,6 +407,7 @@ export type Database = {
           logo_url?: string | null
           ownership_type: string
           phone?: string | null
+          pincode?: string | null
           products_brief?: string | null
           public_slug?: string
           sector?: string | null
@@ -410,6 +415,7 @@ export type Database = {
           social_media?: Json | null
           source?: string | null
           state?: string | null
+          state_code?: number | null
           udyam_number?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -428,6 +434,7 @@ export type Database = {
           designation?: string | null
           director_photo_url?: string | null
           district?: string | null
+          district_id?: string | null
           dpiit_number?: string | null
           email?: string | null
           founder_or_director?: string | null
@@ -438,6 +445,7 @@ export type Database = {
           logo_url?: string | null
           ownership_type?: string
           phone?: string | null
+          pincode?: string | null
           products_brief?: string | null
           public_slug?: string
           sector?: string | null
@@ -445,6 +453,7 @@ export type Database = {
           social_media?: Json | null
           source?: string | null
           state?: string | null
+          state_code?: number | null
           udyam_number?: string | null
           updated_at?: string
           updated_by?: string | null
@@ -460,6 +469,12 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "business_profiles_state_code_fkey"
+            columns: ["state_code"]
+            referencedRelation: "states"
+            referencedColumns: ["lgd_code"]
+          },
+          {
             foreignKeyName: "business_profiles_updated_by_fkey"
             columns: ["updated_by"]
             referencedRelation: "users"
@@ -470,6 +485,12 @@ export type Database = {
             columns: ["user_id"]
             referencedRelation: "users"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_business_profiles_state_district"
+            columns: ["state_code", "district_id"]
+            referencedRelation: "districts"
+            referencedColumns: ["state_code", "id"]
           },
         ]
       }
@@ -619,6 +640,50 @@ export type Database = {
           },
         ]
       }
+      districts: {
+        Row: {
+          effective_from: string | null
+          id: string
+          is_active: boolean
+          lgd_code: number | null
+          name_en: string
+          name_hi: string | null
+          notes: string | null
+          source: string
+          state_code: number
+        }
+        ComputedFields: never
+        Insert: {
+          effective_from?: string | null
+          id?: string
+          is_active?: boolean
+          lgd_code?: number | null
+          name_en: string
+          name_hi?: string | null
+          notes?: string | null
+          source: string
+          state_code: number
+        }
+        Update: {
+          effective_from?: string | null
+          id?: string
+          is_active?: boolean
+          lgd_code?: number | null
+          name_en?: string
+          name_hi?: string | null
+          notes?: string | null
+          source?: string
+          state_code?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "districts_state_code_fkey"
+            columns: ["state_code"]
+            referencedRelation: "states"
+            referencedColumns: ["lgd_code"]
+          },
+        ]
+      }
       institution_inquiries: {
         Row: {
           city: string | null
@@ -701,6 +766,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           district: string | null
+          district_id: string | null
           establishment_year: number | null
           id: string
           institution_name: string
@@ -716,6 +782,7 @@ export type Database = {
           sponsorship_rate_per_student: number | null
           sponsorship_tier: string | null
           state: string | null
+          state_code: number | null
           total_sponsored_students: number
           trades_offered: string[] | null
           updated_at: string
@@ -740,6 +807,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           district?: string | null
+          district_id?: string | null
           establishment_year?: number | null
           id?: string
           institution_name: string
@@ -755,6 +823,7 @@ export type Database = {
           sponsorship_rate_per_student?: number | null
           sponsorship_tier?: string | null
           state?: string | null
+          state_code?: number | null
           total_sponsored_students?: number
           trades_offered?: string[] | null
           updated_at?: string
@@ -778,6 +847,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           district?: string | null
+          district_id?: string | null
           establishment_year?: number | null
           id?: string
           institution_name?: string
@@ -793,6 +863,7 @@ export type Database = {
           sponsorship_rate_per_student?: number | null
           sponsorship_tier?: string | null
           state?: string | null
+          state_code?: number | null
           total_sponsored_students?: number
           trades_offered?: string[] | null
           updated_at?: string
@@ -802,10 +873,22 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fk_institution_profiles_state_district"
+            columns: ["state_code", "district_id"]
+            referencedRelation: "districts"
+            referencedColumns: ["state_code", "id"]
+          },
+          {
             foreignKeyName: "institution_profiles_created_by_fkey"
             columns: ["created_by"]
             referencedRelation: "users"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "institution_profiles_state_code_fkey"
+            columns: ["state_code"]
+            referencedRelation: "states"
+            referencedColumns: ["lgd_code"]
           },
           {
             foreignKeyName: "institution_profiles_updated_by_fkey"
@@ -1139,6 +1222,7 @@ export type Database = {
           created_by: string | null
           current_role: string | null
           district: string | null
+          district_id: string | null
           dob: string | null
           dpdp_consent_given: boolean | null
           experience_years: number | null
@@ -1161,6 +1245,7 @@ export type Database = {
           source: string | null
           sponsorship_id: string | null
           state: string | null
+          state_code: number | null
           updated_at: string
           updated_by: string | null
           user_id: string
@@ -1177,6 +1262,7 @@ export type Database = {
           created_by?: string | null
           current_role?: string | null
           district?: string | null
+          district_id?: string | null
           dob?: string | null
           dpdp_consent_given?: boolean | null
           experience_years?: number | null
@@ -1199,6 +1285,7 @@ export type Database = {
           source?: string | null
           sponsorship_id?: string | null
           state?: string | null
+          state_code?: number | null
           updated_at?: string
           updated_by?: string | null
           user_id: string
@@ -1214,6 +1301,7 @@ export type Database = {
           created_by?: string | null
           current_role?: string | null
           district?: string | null
+          district_id?: string | null
           dob?: string | null
           dpdp_consent_given?: boolean | null
           experience_years?: number | null
@@ -1236,12 +1324,19 @@ export type Database = {
           source?: string | null
           sponsorship_id?: string | null
           state?: string | null
+          state_code?: number | null
           updated_at?: string
           updated_by?: string | null
           user_id?: string
           willing_to_relocate?: boolean | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_job_seeker_profiles_state_district"
+            columns: ["state_code", "district_id"]
+            referencedRelation: "districts"
+            referencedColumns: ["state_code", "id"]
+          },
           {
             foreignKeyName: "job_seeker_profiles_created_by_fkey"
             columns: ["created_by"]
@@ -1267,6 +1362,12 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "job_seeker_profiles_state_code_fkey"
+            columns: ["state_code"]
+            referencedRelation: "states"
+            referencedColumns: ["lgd_code"]
+          },
+          {
             foreignKeyName: "job_seeker_profiles_updated_by_fkey"
             columns: ["updated_by"]
             referencedRelation: "users"
@@ -1288,6 +1389,7 @@ export type Database = {
           created_by: string | null
           description: string
           district: string | null
+          district_id: string | null
           employer_id: string
           employment_type: string | null
           experience_level: string | null
@@ -1304,6 +1406,7 @@ export type Database = {
           skills: string[] | null
           source: string | null
           state: string | null
+          state_code: number | null
           title: string
           updated_at: string
           updated_by: string | null
@@ -1316,6 +1419,7 @@ export type Database = {
           created_by?: string | null
           description: string
           district?: string | null
+          district_id?: string | null
           employer_id: string
           employment_type?: string | null
           experience_level?: string | null
@@ -1332,6 +1436,7 @@ export type Database = {
           skills?: string[] | null
           source?: string | null
           state?: string | null
+          state_code?: number | null
           title: string
           updated_at?: string
           updated_by?: string | null
@@ -1343,6 +1448,7 @@ export type Database = {
           created_by?: string | null
           description?: string
           district?: string | null
+          district_id?: string | null
           employer_id?: string
           employment_type?: string | null
           experience_level?: string | null
@@ -1359,11 +1465,18 @@ export type Database = {
           skills?: string[] | null
           source?: string | null
           state?: string | null
+          state_code?: number | null
           title?: string
           updated_at?: string
           updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_jobs_state_district"
+            columns: ["state_code", "district_id"]
+            referencedRelation: "districts"
+            referencedColumns: ["state_code", "id"]
+          },
           {
             foreignKeyName: "jobs_created_by_fkey"
             columns: ["created_by"]
@@ -1375,6 +1488,12 @@ export type Database = {
             columns: ["employer_id"]
             referencedRelation: "users"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_state_code_fkey"
+            columns: ["state_code"]
+            referencedRelation: "states"
+            referencedColumns: ["lgd_code"]
           },
           {
             foreignKeyName: "jobs_updated_by_fkey"
@@ -1542,6 +1661,44 @@ export type Database = {
           },
         ]
       }
+      pincodes: {
+        Row: {
+          ambiguous: boolean
+          candidate_district_ids: string[]
+          district_id: string | null
+          pincode: string
+          state_code: number | null
+        }
+        ComputedFields: never
+        Insert: {
+          ambiguous?: boolean
+          candidate_district_ids?: string[]
+          district_id?: string | null
+          pincode: string
+          state_code?: number | null
+        }
+        Update: {
+          ambiguous?: boolean
+          candidate_district_ids?: string[]
+          district_id?: string | null
+          pincode?: string
+          state_code?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_pincodes_state_district"
+            columns: ["state_code", "district_id"]
+            referencedRelation: "districts"
+            referencedColumns: ["state_code", "id"]
+          },
+          {
+            foreignKeyName: "pincodes_state_code_fkey"
+            columns: ["state_code"]
+            referencedRelation: "states"
+            referencedColumns: ["lgd_code"]
+          },
+        ]
+      }
       placement_applications: {
         Row: {
           created_at: string
@@ -1666,6 +1823,28 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      states: {
+        Row: {
+          is_ut: boolean
+          lgd_code: number
+          name_en: string
+          name_hi: string | null
+        }
+        ComputedFields: never
+        Insert: {
+          is_ut?: boolean
+          lgd_code: number
+          name_en: string
+          name_hi?: string | null
+        }
+        Update: {
+          is_ut?: boolean
+          lgd_code?: number
+          name_en?: string
+          name_hi?: string | null
+        }
+        Relationships: []
       }
       tasks: {
         Row: {
