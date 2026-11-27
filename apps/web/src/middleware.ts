@@ -84,8 +84,14 @@ export function middleware(req: NextRequest) {
     return applySecurityHeaders(NextResponse.redirect(loginRedirectUrl));
   }
 
-  // Bypass multilingual header generation for internal API routes
-  if (pathname.startsWith('/api/')) {
+  // Bypass multilingual header generation for internal API and Next.js asset routes
+  if (
+    pathname === '/api' ||
+    pathname.startsWith('/api/') ||
+    pathname === '/_next' ||
+    pathname.startsWith('/_next/') ||
+    /^\/(?:hi|en)\/(?:api|_next)(?:\/|$)/.test(pathname)
+  ) {
     const response = NextResponse.next({
       request: {
         headers: requestHeaders,

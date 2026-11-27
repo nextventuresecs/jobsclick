@@ -10,11 +10,13 @@ const nextConfig = {
     instrumentationHook: true,
   },
   async rewrites() {
-    // Keep the Hindi route in this request even when Next normalizes a bind hostname.
+    // Keep the Hindi route in this request even when Next normalizes a bind hostname,
+    // while excluding /hi/api/* and /hi/_next/* so they never resolve as localized pages.
     return {
       beforeFiles: [
         { source: '/hi', destination: '/' },
-        { source: '/hi/:path+', destination: '/:path+' },
+        { source: '/hi/:segment((?!api(?:/|$)|_next(?:/|$))[^/]+)', destination: '/:segment' },
+        { source: '/hi/:segment((?!api(?:/|$)|_next(?:/|$))[^/]+)/:path+', destination: '/:segment/:path+' },
       ],
     };
   },
