@@ -6,10 +6,6 @@ const withNextIntl = createNextIntlPlugin('./i18n.ts');
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   ...(process.env.NEXT_OUTPUT_STANDALONE === '1' ? { output: 'standalone' } : {}),
-  experimental: {
-    // Required in Next.js 14 to enable instrumentation.ts lifecycle hooks
-    instrumentationHook: true,
-  },
   images: {
     dangerouslyAllowSVG: false,
     contentDispositionType: 'attachment',

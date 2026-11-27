@@ -9,14 +9,14 @@ export default getRequestConfig(async () => {
   let localeCookie: string | undefined;
 
   try {
-    const headerStore = headers();
+    const headerStore = await headers();
     headerLocale = headerStore.get('x-next-locale') || headerStore.get('x-locale');
   } catch {
     // Headers unavailable in current rendering phase
   }
 
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     localeCookie = cookieStore.get('NEXT_LOCALE')?.value;
   } catch {
     // Cookies unavailable in current rendering phase

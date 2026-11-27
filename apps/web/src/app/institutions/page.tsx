@@ -20,10 +20,10 @@ import {
 } from 'lucide-react';
 
 interface InstitutionsPageProps {
-  readonly searchParams?: {
+  readonly searchParams?: Promise<{
     readonly query?: string;
     readonly type?: string;
-  };
+  }>;
 }
 
 export const metadata = {
@@ -45,8 +45,9 @@ const INSTITUTION_TYPES: readonly {
 export default async function InstitutionsDirectoryPage({
   searchParams,
 }: InstitutionsPageProps) {
-  const query = searchParams?.query?.trim() || '';
-  const typeFilter = searchParams?.type?.trim() || '';
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const query = resolvedSearchParams?.query?.trim() || '';
+  const typeFilter = resolvedSearchParams?.type?.trim() || '';
   const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
 
   let institutions: InstitutionProfileData[] = [...SAMPLE_INSTITUTIONS];
