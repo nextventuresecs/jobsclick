@@ -11,7 +11,7 @@ Issue draft WS1.1. Related surfaces include JOB-02 (public search), JOB-03 (appl
 | Component browser fixture | Chrome passed six viewport and language combinations. Actual rendered minimum was 48px high, text was 16px, Tab showed a solid 2px outline, the loading icon stopped in reduced-motion mode, and both default and custom colors matched. The fixture used the actual component and Tailwind config. Screenshots are component fixtures. |
 | Public route browser smoke | Chrome passed 12 checks across home and jobs search, with English and Hindi preferences at three viewports. Search targets remained at least 48px high, text was 16px, Tab applied a 2px outline, and reduced motion suppressed transition. First-visit Hindi HTML without a locale cookie still needs the AUTH-07 follow-up in the audit. |
 | Palette source check | Tailwind token config, global font stylesheet and logo source have no diff. |
-| Release checks | See the [morning report](../morning-report.md) for the full test status and gaps. |
+| Release checks | Tracked in the PR verification checklist and [Phase 0 audit](../audit.md). |
 
 ## User tasks for the affected flows
 
