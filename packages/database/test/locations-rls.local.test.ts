@@ -65,6 +65,7 @@ describe('Location reference tables RLS & privileges (ADR 0002)', () => {
         service_select: true,
         service_insert: true,
         service_update: true,
+        service_delete: false,
       });
 
       for (const role of ['anon', 'authenticated'] as const) {

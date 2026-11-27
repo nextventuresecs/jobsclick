@@ -109,6 +109,7 @@ export class ProfilesService {
   private async resolveLocationRefs(
     stateCode?: number | null,
     districtId?: string | null,
+    options?: { readonly requireActiveDistrict?: boolean },
   ): Promise<{
     stateCode: number | null;
     districtId: string | null;
@@ -118,7 +119,7 @@ export class ProfilesService {
     if (stateCode == null && districtId == null) {
       return { stateCode: null, districtId: null, stateNameEn: null, districtNameEn: null };
     }
-    return this.locationRepository.validateDistrictForState(stateCode, districtId);
+    return this.locationRepository.validateDistrictForState(stateCode, districtId, options);
   }
 
   // JS-03: Authenticated candidate CV PDF retrieval and generation dispatch
@@ -238,8 +239,14 @@ export class ProfilesService {
     }
 
     const completenessScore = this.calculateCompleteness(input);
-    const locationRefs = await this.resolveLocationRefs(input.stateCode, input.districtId);
     const existing = await this.profileRepository.findSeekerProfileByUserId(userId);
+    const locationChanged =
+      !existing ||
+      (input.stateCode ?? null) !== (existing.state_code ?? null) ||
+      (input.districtId ?? null) !== (existing.district_id ?? null);
+    const locationRefs = await this.resolveLocationRefs(input.stateCode, input.districtId, {
+      requireActiveDistrict: locationChanged,
+    });
     const now = new Date().toISOString();
     const id = existing?.id || `seeker_${userId}`;
 
@@ -346,8 +353,14 @@ export class ProfilesService {
   }
 
   async updateBusinessProfileMe(userId: string, input: BusinessProfileInput): Promise<BusinessProfileRecord> {
-    const locationRefs = await this.resolveLocationRefs(input.stateCode, input.districtId);
     const existing = await this.profileRepository.findBusinessProfileByUserId(userId);
+    const locationChanged =
+      !existing ||
+      (input.stateCode ?? null) !== (existing.state_code ?? null) ||
+      (input.districtId ?? null) !== (existing.district_id ?? null);
+    const locationRefs = await this.resolveLocationRefs(input.stateCode, input.districtId, {
+      requireActiveDistrict: locationChanged,
+    });
     const id = existing?.id || randomUUID();
     const now = new Date().toISOString();
 
@@ -560,8 +573,14 @@ export class ProfilesService {
     userId: string,
     input: InstitutionProfileInput,
   ): Promise<InstitutionProfileRecord> {
-    const locationRefs = await this.resolveLocationRefs(input.stateCode, input.districtId);
     const existing = await this.profileRepository.findInstitutionProfileByUserId(userId);
+    const locationChanged =
+      !existing ||
+      (input.stateCode ?? null) !== (existing.state_code ?? null) ||
+      (input.districtId ?? null) !== (existing.district_id ?? null);
+    const locationRefs = await this.resolveLocationRefs(input.stateCode, input.districtId, {
+      requireActiveDistrict: locationChanged,
+    });
     const id = existing?.id || `inst_${userId}`;
     const now = new Date().toISOString();
 

@@ -81,6 +81,21 @@ WHERE table_schema = 'public'
   AND table_name IN ('job_seeker_profiles', 'business_profiles', 'institution_profiles', 'jobs')
   AND column_name IN ('state_code', 'district_id', 'pincode')
 ORDER BY table_name, column_name;
+
+-- Inspect actual legacy PIN values on tables where `pincode` already exists before adding chk_*_pincode_format.
+-- Do not silently delete existing user data; clean or use NOT VALID + VALIDATE CONSTRAINT if invalid rows exist.
+SELECT COUNT(*) AS invalid_pincodes
+FROM public.job_seeker_profiles
+WHERE pincode IS NOT NULL AND pincode !~ '^[1-9][0-9]{5}$';
+
+SELECT COUNT(*) AS invalid_pincodes
+FROM public.institution_profiles
+WHERE pincode IS NOT NULL AND pincode !~ '^[1-9][0-9]{5}$';
+
+-- Run if business_profiles.pincode already exists in the target database:
+SELECT COUNT(*) AS invalid_pincodes
+FROM public.business_profiles
+WHERE pincode IS NOT NULL AND pincode !~ '^[1-9][0-9]{5}$';
 ```
 
 If `seed-locations.mjs` fails mid-batch, re-running it is idempotent (and promotes matching `manual-gazette` districts in-place while preserving UUIDs). Keep `states`/`districts`/`pincodes` unexposed via `anon`/`authenticated` and deploy app changes only after seed verification succeeds.

@@ -25,3 +25,13 @@ Complete this section for changes affecting authentication, authorization, repos
 - **Affected authorization boundary:**
 - **Residual risks / follow-ups:**
 - **Security reviewer (human approval if touching RLS / auth / payments / DPDP):**
+
+## UX, Accessibility, and Bilingual Verification
+
+Complete this section for changes affecting `apps/web`, `packages/ui`, public pages, forms, or user-facing copy. Mark N/A with explanation where not applicable.
+
+- [ ] Keyboard navigation, focus management, and semantic landmarks/labels verified (`docs/ux/a11y-checklist.md`).
+- [ ] Mobile-first responsive layout verified (360px–1280px, no horizontal overflow, ≥44px touch targets).
+- [ ] Bilingual copy verified in both English (`/`) and Hindi (`/hi`) with no hardcoded user-facing strings.
+- [ ] Public SSR pages / performance impact verified (no unnecessary client bundles or blocking requests).
+- [ ] Visual/interaction evidence attached (screenshots or test output for UI changes).

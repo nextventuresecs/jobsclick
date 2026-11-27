@@ -39,8 +39,12 @@ describe('Location Reference Tables & Profile/Jobs Columns Migrations (202611271
     expect(sql).toContain('ALTER TABLE public.states ENABLE ROW LEVEL SECURITY');
     expect(sql).toContain('ALTER TABLE public.districts ENABLE ROW LEVEL SECURITY');
     expect(sql).toContain('ALTER TABLE public.pincodes ENABLE ROW LEVEL SECURITY');
-    expect(sql).toContain('REVOKE ALL ON public.states, public.districts, public.pincodes FROM PUBLIC, anon, authenticated');
-    expect(sql).toContain('GRANT SELECT, INSERT, UPDATE ON public.states, public.districts, public.pincodes TO service_role');
+    expect(sql).toContain(
+      'REVOKE ALL PRIVILEGES ON TABLE public.states, public.districts, public.pincodes FROM PUBLIC, anon, authenticated, service_role',
+    );
+    expect(sql).toContain(
+      'GRANT SELECT, INSERT, UPDATE ON TABLE public.states, public.districts, public.pincodes TO service_role',
+    );
     expect(sql).not.toMatch(/CREATE\s+POLICY/i);
   });
 

@@ -61,5 +61,5 @@ ALTER TABLE public.states ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.districts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.pincodes ENABLE ROW LEVEL SECURITY;
 
-REVOKE ALL ON public.states, public.districts, public.pincodes FROM PUBLIC, anon, authenticated;
-GRANT SELECT, INSERT, UPDATE ON public.states, public.districts, public.pincodes TO service_role;
+REVOKE ALL PRIVILEGES ON TABLE public.states, public.districts, public.pincodes FROM PUBLIC, anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.states, public.districts, public.pincodes TO service_role;
