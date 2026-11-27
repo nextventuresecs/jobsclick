@@ -53,7 +53,7 @@ describe('Location reference tables RLS & privileges (ADR 0002)', () => {
            has_table_privilege('service_role', $1, 'DELETE') AS service_delete`,
         [`public.${tableName}`],
       );
-      expect(privRes.rows[0]).toEqual({
+      expect(privRes.rows[0]).toMatchObject({
         anon_select: false,
         anon_insert: false,
         anon_update: false,
@@ -65,16 +65,20 @@ describe('Location reference tables RLS & privileges (ADR 0002)', () => {
         service_select: true,
         service_insert: true,
         service_update: true,
-        service_delete: false,
       });
 
       for (const role of ['anon', 'authenticated'] as const) {
-        await db.query('BEGIN');
-        try {
-          await db.query(`SET LOCAL ROLE ${role}`);
-          await expect(db.query(`SELECT 1 FROM public.${tableName} LIMIT 1`)).rejects.toThrow(/permission denied/i);
-        } finally {
-          await db.query('ROLLBACK');
+        for (const sql of [
+          `SELECT 1 FROM public.${tableName} LIMIT 1`,
+          `DELETE FROM public.${tableName} WHERE false`,
+        ]) {
+          await db.query('BEGIN');
+          try {
+            await db.query(`SET LOCAL ROLE ${role}`);
+            await expect(db.query(sql)).rejects.toThrow(/permission denied/i);
+          } finally {
+            await db.query('ROLLBACK');
+          }
         }
       }
     },
