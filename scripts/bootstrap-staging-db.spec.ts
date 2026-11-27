@@ -1,4 +1,8 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import pg from 'pg';
 const { Client } = pg;
 import {
@@ -10,9 +14,26 @@ import {
 
 describe('Staging Database Bootstrap Runner URL Validation & Safety Gates', () => {
   const originalEnv = process.env;
+  let tmpDir: string;
+  let testCaPem: string;
+
+  beforeAll(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'staging-bootstrap-test-'));
+    const key = path.join(tmpDir, 'ca.key');
+    const crt = path.join(tmpDir, 'ca.crt');
+    execFileSync('openssl', [
+      'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
+      '-keyout', key, '-out', crt, '-days', '1', '-subj', '/CN=Test-Staging-CA',
+    ]);
+    testCaPem = fs.readFileSync(crt, 'utf8');
+  });
+
+  afterAll(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
 
   beforeEach(() => {
-    process.env = { ...originalEnv };
+    process.env = { ...originalEnv, SUPABASE_CA_CERT: testCaPem };
   });
 
   afterEach(() => {
@@ -150,13 +171,55 @@ describe('Staging Database Bootstrap Runner URL Validation & Safety Gates', () =
       expect((config.ssl as { rejectUnauthorized: boolean }).rejectUnauthorized).toBe(true);
     });
 
-    it('attaches CA certificate from inline SUPABASE_CA_CERT PEM string', () => {
-      process.env.SUPABASE_CA_CERT = '-----BEGIN CERTIFICATE-----\nMIIB...\n-----END CERTIFICATE-----';
+    it('attaches CA certificate from inline SUPABASE_CA_CERT PEM string and rejects missing CA', () => {
+      process.env.SUPABASE_CA_CERT = testCaPem;
       const config = parseDatabaseUrl(
         `postgresql://postgres:pass@db.${TARGET_STAGING_PROJECT_REF}.supabase.co:5432/postgres`,
         { confirmedProjectRef: TARGET_STAGING_PROJECT_REF }
       );
-      expect((config.ssl as { ca?: string }).ca).toBe(process.env.SUPABASE_CA_CERT);
+      expect((config.ssl as { ca?: string }).ca).toBe(testCaPem.replace(/\r\n/g, '\n').trim());
+
+      delete process.env.SUPABASE_CA_CERT;
+      expect(() =>
+        parseDatabaseUrl(
+          `postgresql://postgres:pass@db.${TARGET_STAGING_PROJECT_REF}.supabase.co:5432/postgres`,
+          { confirmedProjectRef: TARGET_STAGING_PROJECT_REF }
+        )
+      ).toThrow(/SUPABASE_CA_CERT is required/);
+    });
+  });
+
+  describe('Environment Isolation & No Silent Local Fallback', () => {
+    it('rejects missing STAGING_DATABASE_URL without falling back to DATABASE_URL or localhost', async () => {
+      delete process.env.STAGING_DATABASE_URL;
+      process.env.DATABASE_URL = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+      await expect(runBootstrap({ dryRun: true })).rejects.toThrow(
+        /STAGING_DATABASE_URL is required/,
+      );
+    });
+
+    it('rejects production project ref in staging and rejects localhost in strict staging NODE_ENV', () => {
+      process.env.PRODUCTION_PROJECT_REF = 'prodref999888777';
+      expect(() =>
+        parseDatabaseUrl(
+          'postgresql://postgres.prodref999888777:pass@aws-0-ap-south-1.pooler.supabase.com:5432/postgres',
+          { confirmedProjectRef: TARGET_STAGING_PROJECT_REF }
+        )
+      ).toThrow(/deprecated\/forbidden staging project ref/);
+
+      process.env.NODE_ENV = 'staging';
+      expect(() =>
+        parseDatabaseUrl('postgresql://postgres:postgres@127.0.0.1:54322/postgres')
+      ).toThrow(/Localhost target "127.0.0.1" is forbidden in strict staging/);
+    });
+
+    it('rejects missing password on remote staging connections', () => {
+      expect(() =>
+        parseDatabaseUrl(
+          `postgresql://postgres@db.${TARGET_STAGING_PROJECT_REF}.supabase.co:5432/postgres`,
+          { confirmedProjectRef: TARGET_STAGING_PROJECT_REF }
+        )
+      ).toThrow(/Database password is required/);
     });
   });
 

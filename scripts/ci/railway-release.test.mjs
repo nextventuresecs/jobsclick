@@ -89,6 +89,24 @@ test('production requires the healthy SHA from staging, and container matrix bui
     assert.match(containerBuild, new RegExp(`- service: ${service}\\b`));
   }
   assert.equal(workflow.match(/context: \$\{\{ steps\.source\.outputs\.path \}\}/g)?.length, 1);
+
+  // Staging & Production DB deployment safety gates
+  assert.match(staging, /NODE_ENV: staging/);
+  assert.match(staging, /SUPABASE_CA_CERT: \$\{\{ secrets\.SUPABASE_CA_CERT \}\}/);
+  assert.match(staging, /pnpm db:bootstrap:staging -- --dry-run --confirm-project-ref "\$STAGING_PROJECT_REF"/);
+  assert.match(staging, /pnpm db:bootstrap:staging -- --confirm-project-ref "\$STAGING_PROJECT_REF"/);
+
+  assert.match(production, /NODE_ENV: production/);
+  assert.match(production, /SUPABASE_CA_CERT: \$\{\{ secrets\.SUPABASE_CA_CERT \}\}/);
+  assert.match(production, /PRODUCTION_PITR_VERIFIED/);
+  assert.match(production, /confirm_pitr_verified/);
+  assert.match(production, /pnpm db:bootstrap:production -- --dry-run --confirm-project-ref "\$PRODUCTION_PROJECT_REF"/);
+  assert.match(production, /scripts\/snapshot-production-schema\.ts/);
+  assert.doesNotMatch(production, /supabase db dump --db-url/);
+
+  const recordRelease = workflow.split('  record-release:')[1];
+  assert.match(recordRelease, /needs: \[deploy-production\]/);
+  assert.match(recordRelease, /needs\.deploy-production\.result == 'success'/);
 });
 
 test('submits and verifies api, worker, and web for production using PRODUCTION_API_URL and PRODUCTION_WEB_URL', async () => {

@@ -23,6 +23,10 @@ on:
           - staging
           - production
         default: verify-only
+      confirm_pitr_verified:
+        description: 'Production only: confirm Supabase PITR/backups are active and verified'
+        type: boolean
+        default: false
 
 # Only PR runs are cancellable. A push run may be mid-deploy; never cancel it.
 concurrency:
@@ -310,10 +314,22 @@ jobs:
 
       - uses: ./.github/actions/setup
 
-      - name: Apply migrations to staging database
+      - name: Preview pending staging migrations (dry run, no writes)
         env:
+          NODE_ENV: staging
           STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
           STAGING_PROJECT_REF: ${{ secrets.STAGING_PROJECT_REF }}
+          PRODUCTION_PROJECT_REF: ${{ vars.PRODUCTION_PROJECT_REF }}
+          SUPABASE_CA_CERT: ${{ secrets.SUPABASE_CA_CERT }}
+        run: pnpm db:bootstrap:staging -- --dry-run --confirm-project-ref "$STAGING_PROJECT_REF"
+
+      - name: Apply migrations to staging database
+        env:
+          NODE_ENV: staging
+          STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          STAGING_PROJECT_REF: ${{ secrets.STAGING_PROJECT_REF }}
+          PRODUCTION_PROJECT_REF: ${{ vars.PRODUCTION_PROJECT_REF }}
+          SUPABASE_CA_CERT: ${{ secrets.SUPABASE_CA_CERT }}
         run: pnpm db:bootstrap:staging -- --confirm-project-ref "$STAGING_PROJECT_REF"
 
       - name: Install Railway CLI
@@ -366,19 +382,33 @@ jobs:
         with:
           version: ${{ env.SUPABASE_CLI_VERSION }}
 
+      - name: Verify production recovery readiness (PITR / backups)
+        shell: bash
+        run: |
+          if [ "${{ vars.PRODUCTION_PITR_VERIFIED }}" != "true" ] && [ "${{ github.event.inputs.confirm_pitr_verified }}" != "true" ]; then
+            echo "::error::Production recovery readiness not verified. Enable Supabase PITR and set PRODUCTION_PITR_VERIFIED=true or confirm_pitr_verified=true."
+            exit 1
+          fi
+
       - name: Preview pending production migrations (dry run, no writes)
         env:
+          NODE_ENV: production
           PRODUCTION_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
           PRODUCTION_PROJECT_REF: ${{ secrets.PRODUCTION_PROJECT_REF }}
           STAGING_PROJECT_REF: ${{ vars.STAGING_PROJECT_REF }}
+          SUPABASE_CA_CERT: ${{ secrets.SUPABASE_CA_CERT }}
         run: pnpm db:bootstrap:production -- --dry-run --confirm-project-ref "$PRODUCTION_PROJECT_REF"
 
       # Schema-only snapshot (no user data) as a cheap extra rollback aid.
       # Primary data safety net = Supabase PITR enabled on the prod project.
       - name: Snapshot production schema before migration
         env:
+          NODE_ENV: production
           PRODUCTION_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
-        run: supabase db dump --db-url "$PRODUCTION_DATABASE_URL" -f "prod-schema-${GITHUB_SHA}.sql"
+          PRODUCTION_PROJECT_REF: ${{ secrets.PRODUCTION_PROJECT_REF }}
+          STAGING_PROJECT_REF: ${{ vars.STAGING_PROJECT_REF }}
+          SUPABASE_CA_CERT: ${{ secrets.SUPABASE_CA_CERT }}
+        run: node --experimental-strip-types scripts/snapshot-production-schema.ts -f "prod-schema-${GITHUB_SHA}.sql"
 
       - name: Upload schema snapshot
         uses: actions/upload-artifact@v4
@@ -389,9 +419,11 @@ jobs:
 
       - name: Apply migrations to production database
         env:
+          NODE_ENV: production
           PRODUCTION_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
           PRODUCTION_PROJECT_REF: ${{ secrets.PRODUCTION_PROJECT_REF }}
           STAGING_PROJECT_REF: ${{ vars.STAGING_PROJECT_REF }}
+          SUPABASE_CA_CERT: ${{ secrets.SUPABASE_CA_CERT }}
         run: pnpm db:bootstrap:production -- --confirm-project-ref "$PRODUCTION_PROJECT_REF"
 
       - name: Install Railway CLI
