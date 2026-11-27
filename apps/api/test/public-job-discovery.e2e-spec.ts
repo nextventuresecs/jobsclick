@@ -401,6 +401,8 @@ describe('Ticket 2: Public Job Discovery & Live Database Search (E2E Integration
       expect(rpcCalled).toBe(false);
       expect(result).toEqual({ jobs: [], total: 0 });
       expect(calls).toContainEqual({ method: 'eq', args: ['employment_type', 'Contract'] });
+      expect(calls).toContainEqual({ method: 'order', args: ['created_at', { ascending: false }] });
+      expect(calls).not.toContainEqual({ method: 'order', args: ['is_featured', { ascending: false }] });
       expect(calls).toContainEqual({ method: 'range', args: [20, 39] });
     });
   });

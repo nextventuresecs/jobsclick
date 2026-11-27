@@ -347,6 +347,14 @@ export function validateEnv(overrides?: Record<string, string | undefined>): Env
       errors.push('USE_JSON_STORE must not be set in production/staging');
     }
 
+    // JOB-05 (P2): block enabling featured promotions until public.search_jobs supports p_employment_type
+    const featuredPromotionsRaw = rawSource['ENABLE_P2_FEATURED_PROMOTIONS']?.trim().toLowerCase();
+    if (featuredPromotionsRaw === 'true' || featuredPromotionsRaw === '1') {
+      errors.push(
+        'ENABLE_P2_FEATURED_PROMOTIONS cannot be enabled until public.search_jobs supports p_employment_type',
+      );
+    }
+
     // WEB_URL: required in production/staging, must not point to localhost, must use HTTPS
     const webUrl = rawSource['WEB_URL'];
     if (!webUrl || !webUrl.trim()) {

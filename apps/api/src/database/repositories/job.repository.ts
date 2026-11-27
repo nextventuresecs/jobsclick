@@ -208,7 +208,6 @@ export class JobRepository {
           );
         }
         query = query
-          .order('is_featured', { ascending: false })
           .order('created_at', { ascending: false })
           .range(offset, offset + limit - 1);
 
