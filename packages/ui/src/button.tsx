@@ -22,9 +22,9 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
 } as const;
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
-  sm: 'min-h-12 px-3.5 py-2 rounded-lg',
-  md: 'min-h-12 px-5 py-2.5 rounded-xl font-medium',
-  lg: 'min-h-[50px] px-7 py-3.5 rounded-xl font-semibold',
+  sm: 'min-h-11 min-w-11 px-3 py-1.5 text-sm rounded-lg',
+  md: 'min-h-12 min-w-12 px-5 py-2.5 text-base rounded-xl font-medium',
+  lg: 'min-h-[50px] min-w-12 px-7 py-3.5 text-base rounded-xl font-semibold',
 } as const;
 
 export const Button: React.FC<ButtonProps> = ({
@@ -42,7 +42,7 @@ export const Button: React.FC<ButtonProps> = ({
   return (
     <button
       disabled={disabled || isLoading}
-      className={`inline-flex min-w-12 items-center justify-center gap-2 font-sans text-base cursor-pointer motion-safe:transition-[background-color,color,border-color,transform] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-charcoal focus-visible:ring-2 focus-visible:ring-white disabled:opacity-50 disabled:cursor-not-allowed ${variantClass} ${sizeClass} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 font-sans cursor-pointer motion-safe:transition-[background-color,color,border-color,transform] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-charcoal focus-visible:ring-2 focus-visible:ring-white disabled:opacity-50 disabled:cursor-not-allowed ${variantClass} ${sizeClass} ${className}`}
       {...props}
     >
       {isLoading && (

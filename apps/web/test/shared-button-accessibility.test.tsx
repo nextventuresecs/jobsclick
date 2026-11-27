@@ -14,9 +14,20 @@ function renderedClasses(markup: string) {
 }
 
 describe('shared button accessibility', () => {
-  const sizes: ButtonSize[] = ['sm', 'md', 'lg'];
+  const largerSizes: ButtonSize[] = ['md', 'lg'];
 
-  it.each(sizes)('keeps the %s target at least 48px on both axes and text at 16px', (size) => {
+  it('keeps sm visibly smaller than md while preserving at least a 44px target', () => {
+    const smClasses = renderedClasses(renderToStaticMarkup(<Button size="sm">Apply</Button>));
+    const mdClasses = renderedClasses(renderToStaticMarkup(<Button size="md">Apply</Button>));
+
+    expect(smClasses).toEqual(expect.arrayContaining(['min-h-11', 'min-w-11', 'text-sm']));
+    expect(smClasses).not.toContain('min-h-12');
+    expect(smClasses).not.toContain('text-base');
+
+    expect(mdClasses).toEqual(expect.arrayContaining(['min-h-12', 'min-w-12', 'text-base']));
+  });
+
+  it.each(largerSizes)('keeps the %s target at least 48px on both axes and text at 16px', (size) => {
     const classes = renderedClasses(renderToStaticMarkup(<Button size={size}>Apply</Button>));
     expect(classes).toContain('min-w-12');
     expect(classes).toContain(size === 'lg' ? 'min-h-[50px]' : 'min-h-12');
