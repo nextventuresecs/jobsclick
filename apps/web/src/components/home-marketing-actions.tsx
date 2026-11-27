@@ -31,26 +31,52 @@ export function HireWorkersAction({ label, workspacePath }: {
   );
 }
 
+export function observeMobileJobsAction(
+  form: Element,
+  footer: Element,
+  onFormAbove: (value: boolean) => void,
+  onFooterBelow: (value: boolean) => void,
+  viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 0,
+): () => void {
+  const formObserver = new IntersectionObserver(
+    (entries) => {
+      const entry = entries[entries.length - 1];
+      if (!entry) return;
+      const rootTop = entry.rootBounds?.top ?? 64;
+      onFormAbove(!entry.isIntersecting && entry.boundingClientRect.bottom <= rootTop);
+    },
+    { rootMargin: '-64px 0px 0px 0px' },
+  );
+
+  const footerObserver = new IntersectionObserver((entries) => {
+    const entry = entries[entries.length - 1];
+    if (!entry) return;
+    const rootBottom = entry.rootBounds?.bottom ?? viewportHeight;
+    onFooterBelow(!entry.isIntersecting && entry.boundingClientRect.top >= rootBottom);
+  });
+
+  formObserver.observe(form);
+  footerObserver.observe(footer);
+
+  return () => {
+    formObserver.disconnect();
+    footerObserver.disconnect();
+  };
+}
+
 export function MobileJobsAction({ href, label }: {
   readonly href: string;
   readonly label: string;
 }) {
-  const [show, setShow] = useState(false);
+  const [formAbove, setFormAbove] = useState(false);
+  const [footerBelow, setFooterBelow] = useState(true);
+  const show = formAbove && footerBelow;
 
   useEffect(() => {
     const form = document.getElementById('home-job-search');
     const footer = document.getElementById('home-footer');
     if (!form || !footer || typeof IntersectionObserver === 'undefined') return;
-
-    const update = () => {
-      const formIsAbove = form.getBoundingClientRect().bottom <= 64;
-      const footerIsBelow = footer.getBoundingClientRect().top >= window.innerHeight;
-      setShow(formIsAbove && footerIsBelow);
-    };
-    const observer = new IntersectionObserver(update, { rootMargin: '-64px 0px 0px' });
-    observer.observe(form);
-    observer.observe(footer);
-    return () => observer.disconnect();
+    return observeMobileJobsAction(form, footer, setFormAbove, setFooterBelow);
   }, []);
 
   if (!show) return null;

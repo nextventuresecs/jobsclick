@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import HomePage from '../src/app/page';
+import { observeMobileJobsAction } from '../src/components/home-marketing-actions';
 
 vi.mock('next-intl/server', () => ({
   getLocale: async () => 'hi',
@@ -49,5 +50,98 @@ describe('public homepage journeys', () => {
     expect(empty).toContain('noRecentJobs');
     expect(empty).not.toContain('recentJobsUnavailable');
     expect(unavailable).toContain('action="/hi/jobs"');
+  });
+
+  it('tracks form and footer visibility with two separate IntersectionObservers', () => {
+    type ObserverRecord = {
+      callback: IntersectionObserverCallback;
+      options?: IntersectionObserverInit;
+      targets: Element[];
+      disconnect: ReturnType<typeof vi.fn>;
+    };
+    const observers: ObserverRecord[] = [];
+    class MockIntersectionObserver {
+      private record: ObserverRecord;
+      constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+        this.record = { callback, options, targets: [], disconnect: vi.fn() };
+        observers.push(this.record);
+      }
+      observe = (target: Element) => {
+        this.record.targets.push(target);
+      };
+      unobserve = vi.fn();
+      disconnect = () => {
+        this.record.disconnect();
+      };
+      takeRecords = () => [];
+      root = null;
+      rootMargin = '';
+      thresholds = [];
+    }
+    vi.stubGlobal('IntersectionObserver', MockIntersectionObserver);
+
+    const form = { id: 'home-job-search' } as unknown as Element;
+    const footer = { id: 'home-footer' } as unknown as Element;
+    let formAbove = false;
+    let footerBelow = true;
+
+    const cleanup = observeMobileJobsAction(
+      form,
+      footer,
+      (value) => { formAbove = value; },
+      (value) => { footerBelow = value; },
+      800,
+    );
+
+    expect(observers).toHaveLength(2);
+    expect(observers[0]!.targets).toEqual([form]);
+    expect(observers[0]!.options).toEqual({ rootMargin: '-64px 0px 0px 0px' });
+    expect(observers[1]!.targets).toEqual([footer]);
+
+    const formObserver = observers[0]!;
+    const footerObserver = observers[1]!;
+    const emit = (obs: ObserverRecord, entry: Partial<IntersectionObserverEntry>) => {
+      obs.callback([entry as IntersectionObserverEntry], obs as unknown as IntersectionObserver);
+    };
+
+    // Scrolling past the search form shows the sticky CTA while footer is below
+    emit(formObserver, {
+      isIntersecting: false,
+      boundingClientRect: { bottom: 40 } as DOMRectReadOnly,
+      rootBounds: { top: 64, bottom: 800 } as DOMRectReadOnly,
+    });
+    expect(formAbove).toBe(true);
+    expect(formAbove && footerBelow).toBe(true);
+
+    // Reaching the footer hides the sticky CTA
+    emit(footerObserver, {
+      isIntersecting: true,
+      boundingClientRect: { top: 750 } as DOMRectReadOnly,
+      rootBounds: { top: 0, bottom: 800 } as DOMRectReadOnly,
+    });
+    expect(footerBelow).toBe(false);
+    expect(formAbove && footerBelow).toBe(false);
+
+    // Scrolling back up above the footer restores the sticky CTA
+    emit(footerObserver, {
+      isIntersecting: false,
+      boundingClientRect: { top: 820 } as DOMRectReadOnly,
+      rootBounds: { top: 0, bottom: 800 } as DOMRectReadOnly,
+    });
+    expect(footerBelow).toBe(true);
+    expect(formAbove && footerBelow).toBe(true);
+
+    // Scrolling back into the search form hides the sticky CTA
+    emit(formObserver, {
+      isIntersecting: true,
+      boundingClientRect: { bottom: 120 } as DOMRectReadOnly,
+      rootBounds: { top: 64, bottom: 800 } as DOMRectReadOnly,
+    });
+    expect(formAbove).toBe(false);
+    expect(formAbove && footerBelow).toBe(false);
+
+    cleanup();
+    expect(formObserver.disconnect).toHaveBeenCalledTimes(1);
+    expect(footerObserver.disconnect).toHaveBeenCalledTimes(1);
   });
 });
