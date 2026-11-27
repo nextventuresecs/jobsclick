@@ -20,7 +20,15 @@ The India Post API metadata reports 3 October 2025. The resource page lists 10 A
 | `district-publisher-api.csv` | `b8901c98350a4057d3371ce14228181e4bb12cc447f847490efee599a0e38b59` |
 | `post-publisher-api-full.csv` | `701ee84ba125a914e7ffc979c0308b3a041b8adffa85ec9d5f4e0579ecf062e5` |
 
-All three CSVs come from the Ministry of Panchayati Raj or Department of Posts. Preserve the publisher attribution, provenance, and [Government Open Data License – India](https://data.gov.in/Godl) when redistributing the exports or derivatives. The checked-in [citizen state report snapshot](lgd-states.2026-11-26.csv) uses the separate [LGD reproduction policy](https://lgdirectory.gov.in/copyRightPolicy.do).
+All three CSVs come from the Ministry of Panchayati Raj or Department of Posts.
+
+### Provenance and GODL-India licence
+
+- **States & Districts (LGD):** [Ministry of Panchayati Raj OGD states](https://data.gov.in/resource/local-government-directory-lgd-states) and [districts](https://data.gov.in/resource/local-government-directory-lgd-districts), retrieved 26 November 2026 under the [Government Open Data License – India (GODL)](https://data.gov.in/Godl). Preserve publisher attribution and licence notices when redistributing exports or derivatives. The checked-in [citizen state report snapshot](lgd-states.2026-11-26.csv) falls under the [LGD reproduction policy](https://lgdirectory.gov.in/copyRightPolicy.do).
+- **PIN Directory:** [Department of Posts OGD All-India Pincode Directory](https://data.gov.in/resource/all-india-pincode-directory-till-last-month), retrieved 26 November 2026 under GODL-India.
+- **Manual Gazette Patch Rows (`source = 'manual-gazette'`):** Seven districts notified after or absent from the November 2026 LGD export are seeded with `lgd_code = NULL` and gazette citations stored in `districts.notes`:
+  - UT Ladakh (`state_code = 37`): Sham, Nubra, Changthang, Zanskar, Drass ([Ladakh April 2026 notification](https://ladakh.gov.in/historic-milestone-for-ladakh-five-new-districts-notified-in-ladakh-taking-total-districts-to-seven/)) and Sankoo ([Ladakh October 2026 notification](https://ladakh.gov.in/ladakh-administration-notifies-creation-of-sankoo-as-new-district-of-ut-ladakh/)).
+  - Andhra Pradesh (`state_code = 28`): Markapuram ([Markapuram gazette order](https://markapuram.ap.gov.in/documents/), effective 31 December 2025).
 
 ## District-label comparison
 
@@ -44,11 +52,30 @@ The verifier compares state and district names using case and whitespace normali
 - **Andhra Pradesh.** Exact office joins show 448 former Anantapur rows in Sri Sathya Sai, 152 former Nellore rows in Tirupati, and 369 former Visakhapatnam rows in Anakapalli or Alluri Sitharama Raju. The state has documented the reorganizations. [Sri Sathya Sai history](https://srisathyasai.ap.gov.in/history/) · [Tirupati history](https://tirupati.ap.gov.in/history/) · [Anakapalli mandals](https://anakapalli.ap.gov.in/mandals/)
 - **Conflicting office evidence.** The MP postal-circle list records Baruphatak BO `451449` under Barwani, while the legacy OGD row uses Khargone. The latest OGD labels Medra BO and Limbadia BO `382330` as Ahmedabad, while the housing ministry lists the named villages in Gandhinagar within the Ahmedabad Development Authority. Validate those office locations before assigning district codes. [Madhya Pradesh postal-circle list](https://mppost.gov.in/PDF/Branch%20Offices.pdf) · [Ministry of Housing and Urban Affairs village list](https://pmaymis.gov.in/PMAYMIS2_2024/list-uda.pdf)
 
-## Release blockers
+## Seeding the location tables
 
-The November LGD publisher response lists only Leh and Kargil for Ladakh. The UT notified five additional districts in April 2026 and Sankoo in October 2026. The response also lacks Markapuram, which Andhra Pradesh established with effect from 31 December 2025. The portal's update date therefore does not establish current administrative coverage. Obtain an official roster with the missing LGD codes and effective dates before releasing a nationwide district picker. [Ladakh April notification](https://ladakh.gov.in/historic-milestone-for-ladakh-five-new-districts-notified-in-ladakh-taking-total-districts-to-seven/) · [Sankoo notification](https://ladakh.gov.in/ladakh-administration-notifies-creation-of-sankoo-as-new-district-of-ut-ladakh/) · [Markapuram gazette order](https://markapuram.ap.gov.in/documents/)
+Schema and ADR 0002 `service_role`-only RLS live in `supabase/migrations/20261127100000_locations_reference_tables.sql` and `supabase/migrations/20261127100100_profiles_jobs_location_refs.sql`. Both migrations are drafted for human review before database application.
 
-Keep 715 rows with missing administrative labels pending and preserve multiple offices per PIN. Resolve split and disputed assignments with an authoritative office or locality crosswalk. Reviewed Hindi display labels and human review of any RLS or existing-address migration are still required. Preserve historical free-text addresses during any approved backfill.
+Run the idempotent seeder from the repository root once the raw OGD exports exist in `.scratch/jobsclick-geo/`:
+
+```powershell
+# 1. Dry-run verification (parses CSVs, validates counts: 36 states, 19,586 distinct PINs, no DB writes)
+node scripts/geo/seed-locations.mjs --dry-run
+
+# 2. Live idempotent upsert using service_role credentials (never commit keys)
+$env:SUPABASE_URL = "https://<project-ref>.supabase.co"
+$env:SUPABASE_SERVICE_ROLE_KEY = "<service-role-key>"
+node scripts/geo/seed-locations.mjs
+```
+
+Optional overrides: `--geo-dir <path>` (defaults to `.scratch/jobsclick-geo`) and `--review <path>` (defaults to `data/geo/district-label-review.csv`).
+
+## Known gaps and human review gates
+
+1. **Missing LGD codes (`lgd_code IS NULL`):** The November 2026 LGD publisher export omits five Ladakh districts notified in April 2026, Sankoo notified in October 2026, and Markapuram established in Andhra Pradesh on 31 December 2025. These 7 rows are seeded as `source = 'manual-gazette'` with `lgd_code = NULL`; backfill official LGD codes once OGD publishes them.
+2. **Ambiguous and unreviewed PINs:** Multi-district PINs and rows with `NA`/unresolved district labels are stored with `ambiguous = true`, `district_id = NULL`, and matching `candidate_district_ids` populated. The API and `StateDistrictPicker` never auto-select a district for ambiguous PINs, and users can always pick their State/District manually (or choose `Not listed`). A total of 715 raw India Post rows carry `NA` administrative labels, and split/disputed offices (e.g., Baruphatak BO `451449`, Medra/Limbadia `382330`) await authoritative office/locality crosswalk resolution.
+3. **Hindi display labels (`name_hi`):** The OGD states export provides uppercase English in `state_name_local` and the districts export mixes regional scripts, so `seed-locations.mjs` stores `name_hi = NULL` unless Devanagari characters (`U+0900–U+097F`) are present. `StateDistrictPicker` falls back to `nameEn` when `nameHi` is `NULL`. Native Hindi review is required to supply verified Devanagari labels for all 36 states and 792 districts.
+4. **Human-review-only migrations:** Do not apply `20261127100000_locations_reference_tables.sql` (RLS/grants) or `20261127100100_profiles_jobs_location_refs.sql` (nullable foreign keys on `job_seeker_profiles`, `business_profiles`, `institution_profiles`, `jobs`) without human approval. Legacy free-text address columns are preserved untouched with zero backfill.
 
 ## Reproduce the checks
 
