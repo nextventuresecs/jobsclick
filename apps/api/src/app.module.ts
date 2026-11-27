@@ -13,6 +13,7 @@ import { QueueModule } from './queue/queue.module.js';
 import { WalletModule } from './wallet/wallet.module.js';
 import { PlacementModule } from './placement/placement.module.js';
 import { EmailModule } from './email/email.module.js';
+import { LocationsModule } from './locations/locations.module.js';
 import { FeatureFlagGuard } from './auth/guards/feature-flag.guard.js';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
 import { RolesGuard } from './auth/guards/roles.guard.js';
@@ -38,6 +39,7 @@ import { HttpExceptionFilter } from './common/http-exception.filter.js';
     QueueModule,
     WalletModule,
     PlacementModule,
+    LocationsModule,
   ],
   providers: [
     {

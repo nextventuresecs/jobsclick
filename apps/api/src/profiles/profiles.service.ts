@@ -16,6 +16,7 @@ import { ProfileRepository } from '../database/repositories/profile.repository.j
 import { UserRepository } from '../database/repositories/user.repository.js';
 import { QueueService } from '../queue/queue.service.js';
 import { AuditLogRepository } from '../database/repositories/audit-log.repository.js';
+import { LocationRepository } from '../database/repositories/location.repository.js';
 import { SUPABASE_CLIENT } from '../database/supabase.provider.js';
 import type {
   Database,
@@ -101,7 +102,18 @@ export class ProfilesService {
     @Optional() @Inject(QueueService) private readonly queueService?: QueueService,
     @Optional() @Inject(SUPABASE_CLIENT) private readonly supabase?: SupabaseClient<Database>,
     @Optional() @Inject(AuditLogRepository) private readonly auditLogRepo?: AuditLogRepository,
+    @Optional() @Inject(LocationRepository) private readonly locationRepository?: LocationRepository,
   ) {}
+
+  private async resolveLocationRefs(
+    stateCode?: number | null,
+    districtId?: string | null,
+  ): Promise<{ stateCode: number | null; districtId: string | null }> {
+    if (!this.locationRepository || (stateCode == null && districtId == null)) {
+      return { stateCode: stateCode ?? null, districtId: districtId ?? null };
+    }
+    return this.locationRepository.validateDistrictForState(stateCode, districtId);
+  }
 
   // JS-03: Authenticated candidate CV PDF retrieval and generation dispatch
   async getSeekerPdfDownload(userId: string): Promise<{ downloadUrl: string | null; cached: boolean }> {
@@ -196,7 +208,9 @@ export class ProfilesService {
       city: profile.city || '',
       district: profile.district || undefined,
       state: profile.state || undefined,
-      pincode: profile.pincode || undefined,
+      stateCode: profile.state_code ?? null,
+      districtId: profile.district_id ?? null,
+      pincode: profile.pincode?.trim() || undefined,
       qualification: profile.qualification || undefined,
       institution: profile.institution || undefined,
       graduationYear: profile.graduation_year || undefined,
@@ -218,6 +232,7 @@ export class ProfilesService {
     }
 
     const completenessScore = this.calculateCompleteness(input);
+    const locationRefs = await this.resolveLocationRefs(input.stateCode, input.districtId);
     const existing = await this.profileRepository.findSeekerProfileByUserId(userId);
     const now = new Date().toISOString();
     const id = existing?.id || `seeker_${userId}`;
@@ -240,7 +255,9 @@ export class ProfilesService {
       city: input.city ?? null,
       district: input.district ?? null,
       state: input.state ?? null,
-      pincode: input.pincode ?? null,
+      state_code: locationRefs.stateCode,
+      district_id: locationRefs.districtId,
+      pincode: input.pincode ? input.pincode.trim() : null,
       qualification: input.qualification ?? null,
       institution: input.institution ?? null,
       graduation_year: input.graduationYear ?? null,
@@ -266,6 +283,8 @@ export class ProfilesService {
       phone: user.phone,
       email: user.email || null,
       ...input,
+      stateCode: locationRefs.stateCode,
+      districtId: locationRefs.districtId,
       completenessScore,
     };
   }
@@ -308,6 +327,9 @@ export class ProfilesService {
       city: profile.city || 'Indore',
       district: profile.district || 'Indore',
       state: profile.state || undefined,
+      stateCode: profile.state_code ?? null,
+      districtId: profile.district_id ?? null,
+      pincode: profile.pincode?.trim() || undefined,
       logoUrl: profile.logo_url || '',
       phone: profile.phone || undefined,
       email: profile.email || undefined,
@@ -316,6 +338,7 @@ export class ProfilesService {
   }
 
   async updateBusinessProfileMe(userId: string, input: BusinessProfileInput): Promise<BusinessProfileRecord> {
+    const locationRefs = await this.resolveLocationRefs(input.stateCode, input.districtId);
     const existing = await this.profileRepository.findBusinessProfileByUserId(userId);
     const id = existing?.id || randomUUID();
     const now = new Date().toISOString();
@@ -332,6 +355,9 @@ export class ProfilesService {
       city: input.city ?? null,
       district: input.district ?? null,
       state: input.state ?? null,
+      state_code: locationRefs.stateCode,
+      district_id: locationRefs.districtId,
+      pincode: input.pincode ? input.pincode.trim() : null,
       logo_url: input.logoUrl ?? null,
       phone: input.phone ?? null,
       email: input.email ?? null,
@@ -350,6 +376,8 @@ export class ProfilesService {
       slug: row.public_slug,
       userId,
       ...input,
+      stateCode: locationRefs.stateCode,
+      districtId: locationRefs.districtId,
     };
   }
 
@@ -508,7 +536,9 @@ export class ProfilesService {
       city: profile.city || undefined,
       district: profile.district || undefined,
       state: profile.state || undefined,
-      pincode: profile.pincode || undefined,
+      stateCode: profile.state_code ?? null,
+      districtId: profile.district_id ?? null,
+      pincode: profile.pincode?.trim() || undefined,
     };
   }
 
@@ -516,6 +546,7 @@ export class ProfilesService {
     userId: string,
     input: InstitutionProfileInput,
   ): Promise<InstitutionProfileRecord> {
+    const locationRefs = await this.resolveLocationRefs(input.stateCode, input.districtId);
     const existing = await this.profileRepository.findInstitutionProfileByUserId(userId);
     const id = existing?.id || `inst_${userId}`;
     const now = new Date().toISOString();
@@ -539,7 +570,9 @@ export class ProfilesService {
       city: input.city ?? null,
       district: input.district ?? null,
       state: input.state ?? null,
-      pincode: input.pincode ?? null,
+      state_code: locationRefs.stateCode,
+      district_id: locationRefs.districtId,
+      pincode: input.pincode ? input.pincode.trim() : null,
       trades_offered: [],
       annual_capacity: null,
       placement_brochure_url: null,
@@ -558,6 +591,8 @@ export class ProfilesService {
       slug: row.public_slug,
       userId,
       ...input,
+      stateCode: locationRefs.stateCode,
+      districtId: locationRefs.districtId,
     };
   }
 

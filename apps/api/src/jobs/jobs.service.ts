@@ -1,12 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  ForbiddenException,
-  ServiceUnavailableException,
-  Inject,
-  Logger,
-} from '@nestjs/common';
+import { Inject, Injectable, NotFoundException, BadRequestException, ForbiddenException, ServiceUnavailableException, Logger, Optional } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import {
   CreateJobInput,
@@ -26,6 +18,7 @@ import { JobRepository } from '../database/repositories/job.repository.js';
 import { ApplicationRepository } from '../database/repositories/application.repository.js';
 import { ProfileRepository } from '../database/repositories/profile.repository.js';
 import { UserRepository } from '../database/repositories/user.repository.js';
+import { LocationRepository } from '../database/repositories/location.repository.js';
 import { SmsGateway } from '../auth/sms.service.js';
 import { WalletService } from '../wallet/wallet.service.js';
 import type { JobRow, ApplicationRow } from '@indian-job-portal/database';
@@ -103,6 +96,8 @@ function mapJobRowToRecord(row: JobRow): JobRecord {
     city: row.city,
     district: row.district ?? '',
     state: row.state ?? '',
+    stateCode: row.state_code ?? null,
+    districtId: row.district_id ?? null,
     openings: row.openings,
     skills: row.skills ?? [],
     isFeatured: row.is_featured ?? false,
@@ -157,9 +152,21 @@ export class JobsService {
     @Inject(WalletService) private readonly walletService: WalletService,
     @Inject(UserRepository) private readonly userRepository: UserRepository,
     @Inject(SmsGateway) private readonly smsGateway: SmsGateway,
+    @Optional() @Inject(LocationRepository) private readonly locationRepository?: LocationRepository,
   ) {}
 
+  private async resolveLocationRefs(
+    stateCode?: number | null,
+    districtId?: string | null,
+  ): Promise<{ stateCode: number | null; districtId: string | null }> {
+    if (!this.locationRepository || (stateCode == null && districtId == null)) {
+      return { stateCode: stateCode ?? null, districtId: districtId ?? null };
+    }
+    return this.locationRepository.validateDistrictForState(stateCode, districtId);
+  }
+
   async createJob(employerId: string, input: CreateJobInput): Promise<JobRecord> {
+    const locationRefs = await this.resolveLocationRefs(input.stateCode, input.districtId);
     const id = randomUUID();
     const now = new Date().toISOString();
 
@@ -177,6 +184,8 @@ export class JobsService {
       city: input.city,
       district: input.district,
       state: input.state,
+      state_code: locationRefs.stateCode,
+      district_id: locationRefs.districtId,
       openings: input.openings,
       skills: input.skills,
       is_active: true,
@@ -251,6 +260,10 @@ export class JobsService {
       throw new ForbiddenException('Unauthorized to modify this job posting');
     }
 
+    const nextStateCode = input.stateCode !== undefined ? input.stateCode : existing.state_code;
+    const nextDistrictId = input.districtId !== undefined ? input.districtId : existing.district_id;
+    const locationRefs = await this.resolveLocationRefs(nextStateCode, nextDistrictId);
+
     const updated = await this.jobRepository.update(jobId, {
       title: input.title ?? existing.title,
       description: input.description ?? existing.description,
@@ -262,6 +275,8 @@ export class JobsService {
       city: input.city ?? existing.city,
       district: input.district ?? existing.district,
       state: input.state ?? existing.state,
+      state_code: locationRefs.stateCode,
+      district_id: locationRefs.districtId,
       openings: input.openings ?? existing.openings,
       skills: input.skills ?? existing.skills,
       updated_by: employerId,
