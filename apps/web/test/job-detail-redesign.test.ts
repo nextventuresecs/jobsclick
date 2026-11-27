@@ -44,7 +44,7 @@ describe('Public job detail', () => {
 
   it('renders one Apply control, honest pay, and a disclosure with the full job description', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => Response.json(job)));
-    const html = renderToStaticMarkup(await JobDetailPage({ params: { id: jobSlug } }));
+    const html = renderToStaticMarkup(await JobDetailPage({ params: Promise.resolve({ id: jobSlug }) }));
 
     expect(html).toContain('id="apply"');
     expect(applyButton).toHaveBeenCalledTimes(1);
@@ -64,7 +64,7 @@ describe('Public job detail', () => {
   it('preserves the Hindi locale on return, company, and share links', async () => {
     locale.mockReturnValue('hi');
     vi.stubGlobal('fetch', vi.fn(async () => Response.json(job)));
-    const html = renderToStaticMarkup(await JobDetailPage({ params: { id: jobSlug } }));
+    const html = renderToStaticMarkup(await JobDetailPage({ params: Promise.resolve({ id: jobSlug }) }));
 
     expect(html).toContain('href="/hi/jobs"');
     expect(html).toContain(`href="/hi/company/${job.companySlug}"`);
@@ -73,7 +73,7 @@ describe('Public job detail', () => {
 
   it('does not advertise or offer applications for an explicitly closed posting', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => Response.json({ ...job, isActive: false })));
-    const html = renderToStaticMarkup(await JobDetailPage({ params: { id: jobSlug } }));
+    const html = renderToStaticMarkup(await JobDetailPage({ params: Promise.resolve({ id: jobSlug }) }));
 
     expect(html).toContain('JobDetail.closed');
     expect(html).not.toContain('"@type":"JobPosting"');
@@ -86,10 +86,10 @@ describe('Public job detail', () => {
       .mockResolvedValueOnce(new Response(null, { status: 404 }));
     vi.stubGlobal('fetch', fetchMock);
 
-    const html = renderToStaticMarkup(await JobDetailPage({ params: { id: jobSlug } }));
+    const html = renderToStaticMarkup(await JobDetailPage({ params: Promise.resolve({ id: jobSlug }) }));
     expect(html).toContain('JobDetail.unavailableTitle');
     expect(html).toContain(`href="/jobs/${jobSlug}"`);
     expect(applyButton).not.toHaveBeenCalled();
-    await expect(JobDetailPage({ params: { id: jobSlug } })).rejects.toThrow('NEXT_NOT_FOUND');
+    await expect(JobDetailPage({ params: Promise.resolve({ id: jobSlug }) })).rejects.toThrow('NEXT_NOT_FOUND');
   });
 });

@@ -53,7 +53,7 @@ describe('JobsListPage employmentType server filter and pagination (JOB-02)', ()
     vi.stubGlobal('fetch', fetchMock);
 
     const html = renderToStaticMarkup(
-      await JobsListPage({ searchParams: { employmentType: 'Contract', page: '2' } }),
+      await JobsListPage({ searchParams: Promise.resolve({ employmentType: 'Contract', page: '2' }) }),
     );
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -91,7 +91,7 @@ describe('JobsListPage employmentType server filter and pagination (JOB-02)', ()
     vi.stubGlobal('fetch', fetchMock);
 
     const html = renderToStaticMarkup(
-      await JobsListPage({ searchParams: { employmentType: 'Contract', page: '1' } }),
+      await JobsListPage({ searchParams: Promise.resolve({ employmentType: 'Contract', page: '1' }) }),
     );
 
     expect(html).toContain('rel="next"');

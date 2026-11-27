@@ -13,9 +13,7 @@ import { mapApiJobToJobItem, type ApiJobPayload } from '../../lib/job-mapper';
 export const revalidate = 30;
 
 interface JobsPageProps {
-  readonly searchParams?:
-    | Record<string, string | string[] | undefined>
-    | Promise<Record<string, string | string[] | undefined>>;
+  readonly searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }
 
 const CATEGORIES = [

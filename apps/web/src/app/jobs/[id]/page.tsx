@@ -14,7 +14,7 @@ import { JobApplyButton } from '../../../components/jobs/JobApplyButton';
 export const revalidate = 30;
 
 interface JobDetailPageProps {
-  readonly params: { readonly id: string } | Promise<{ readonly id: string }>;
+  readonly params: Promise<{ readonly id: string }>;
 }
 
 interface JobDetailPayload extends ApiJobPayload {

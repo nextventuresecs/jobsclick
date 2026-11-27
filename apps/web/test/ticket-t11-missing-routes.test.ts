@@ -17,7 +17,7 @@ describe('Ticket T-11: Missing Routes (/how-it-works, /institutions)', () => {
 
   it('exports InstitutionsDirectoryPage server component with SEO metadata', async () => {
     const mod = (await import('../src/app/institutions/page.jsx')) as unknown as {
-      default: (props: { searchParams?: { query?: string; type?: string } }) => Promise<React.ReactElement>;
+      default: (props: { searchParams?: Promise<{ query?: string; type?: string }> }) => Promise<React.ReactElement>;
       metadata: { title: string };
     };
     expect(mod.default).toBeDefined();
@@ -28,10 +28,10 @@ describe('Ticket T-11: Missing Routes (/how-it-works, /institutions)', () => {
 
   it('renders InstitutionsDirectoryPage with sample institutions and filtering', async () => {
     const mod = (await import('../src/app/institutions/page.jsx')) as unknown as {
-      default: (props: { searchParams?: { query?: string; type?: string } }) => Promise<React.ReactElement>;
+      default: (props: { searchParams?: Promise<{ query?: string; type?: string }> }) => Promise<React.ReactElement>;
     };
     const jsx = await mod.default({
-      searchParams: { query: 'Indore', type: 'iti' },
+      searchParams: Promise.resolve({ query: 'Indore', type: 'iti' }),
     });
     expect(jsx).toBeDefined();
     expect(jsx.type).toBe('div');
