@@ -53,7 +53,7 @@ export function useSeekerWorkspace() {
   const [isEditing, setIsEditing] = useState(false);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
-  const { formData, updateField, syncFromProfile } = useSeekerProfileFormState(profile);
+  const { formData, updateField, syncFromProfile, resetFromProfile } = useSeekerProfileFormState(profile);
 
   const myApplications = applications;
 
@@ -251,6 +251,11 @@ export function useSeekerWorkspace() {
     }
   };
 
+  const handleCancelEdit = () => {
+    resetFromProfile(profile);
+    setIsEditing(false);
+  };
+
   return {
     activeTab,
     setActiveTab,
@@ -263,6 +268,7 @@ export function useSeekerWorkspace() {
     setIsEditing,
     formData,
     updateField,
+    handleCancelEdit,
     handleSaveProfile,
     handlePrint,
     handleDownloadPdf,

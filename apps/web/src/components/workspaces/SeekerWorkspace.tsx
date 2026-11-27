@@ -26,6 +26,7 @@ export function SeekerWorkspace() {
     setIsEditing,
     formData,
     updateField,
+    handleCancelEdit,
     handleSaveProfile,
     handlePrint,
     handleDownloadPdf,
@@ -99,7 +100,7 @@ export function SeekerWorkspace() {
               formData={formData}
               updateField={updateField}
               onSubmit={handleSaveProfile}
-              onCancel={() => setIsEditing(false)}
+              onCancel={handleCancelEdit}
               onDownloadPdf={handleDownloadPdf}
               isDownloadingPdf={isDownloadingPdf}
             />

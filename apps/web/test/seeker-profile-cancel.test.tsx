@@ -27,7 +27,7 @@ vi.mock('react', async () => {
       useState: (initial: unknown) => {
         const idx = hookState.stateIndex++;
         if (!(idx in hookState.states)) {
-          hookState.states[idx] = initial;
+          hookState.states[idx] = typeof initial === 'function' ? (initial as () => unknown)() : initial;
         }
         const setState = (next: unknown) => {
           hookState.states[idx] =
@@ -49,7 +49,7 @@ vi.mock('react', async () => {
     useState: (initial: unknown) => {
       const idx = hookState.stateIndex++;
       if (!(idx in hookState.states)) {
-        hookState.states[idx] = initial;
+        hookState.states[idx] = typeof initial === 'function' ? (initial as () => unknown)() : initial;
       }
       const setState = (next: unknown) => {
         hookState.states[idx] =
@@ -75,6 +75,8 @@ vi.mock('next-intl', () => ({
 }));
 
 import { SeekerProfileForm } from '../src/components/workspaces/seeker/SeekerProfileForm';
+import { useSeekerProfileFormState } from '../src/components/workspaces/seeker/useSeekerProfileFormState';
+import type { SeekerProfileData } from '../src/data/sampleWorkspaces';
 
 const baseFormData: SeekerFormData = {
   formName: 'Asha Devi',
@@ -236,5 +238,81 @@ describe('SeekerProfileForm cancel discard confirmation (JS-02)', () => {
     expect(enKeys).toContain('SeekerWorkspace.discardChangesDesc');
     expect(enKeys).toContain('SeekerWorkspace.discardChangesConfirm');
     expect(enKeys).toContain('SeekerWorkspace.keepEditing');
+  });
+
+  it('resets all formData fields (including initially empty fields) back to profile on resetFromProfile, while step Back/Next preserves edits', () => {
+    const savedProfile: SeekerProfileData = {
+      id: 'usr_1',
+      name: 'Asha Devi',
+      phone: '9876543210',
+      email: 'asha@example.test',
+      seekerType: 'individual',
+      gender: 'Female',
+      dob: '2001-04-12',
+      address: '',
+      city: 'Indore',
+      district: 'Indore',
+      state: 'Madhya Pradesh',
+      pincode: '452001',
+      qualification: 'ITI Electrician',
+      institution: 'Govt ITI Indore',
+      graduationYear: '2022',
+      experienceYears: 1,
+      currentRole: '',
+      skills: [],
+      languages: ['Hindi'],
+      preferredCategories: [],
+      preferredLocations: [],
+      willingToRelocate: false,
+      completionPercentage: 60,
+      bio: '',
+      aadhaarLastFour: '',
+      apaarId: '',
+      dpdpConsentGiven: true,
+      isOnboardingComplete: false,
+    };
+
+    const callState = () => {
+      hookState.stateIndex = 0;
+      return useSeekerProfileFormState(savedProfile);
+    };
+
+    const initial = callState();
+    expect(initial.formData.formCity).toBe('Indore');
+    expect(initial.formData.formSkillsInput).toBe('');
+
+    initial.updateField('formCity', 'Bhopal');
+    initial.updateField('formSkillsInput', 'Welding, CNC');
+    initial.updateField('formAadhaarLastFour', '1234');
+
+    const edited = callState();
+    expect(edited.formData.formCity).toBe('Bhopal');
+    expect(edited.formData.formSkillsInput).toBe('Welding, CNC');
+    expect(edited.formData.formAadhaarLastFour).toBe('1234');
+
+    // Confirmed discard calls resetFromProfile(profile), resetting even previously empty fields
+    edited.resetFromProfile(savedProfile);
+    const reset = callState();
+    expect(reset.formData.formCity).toBe('Indore');
+    expect(reset.formData.formSkillsInput).toBe('');
+    expect(reset.formData.formAadhaarLastFour).toBe('');
+
+    // Step Next & Back inside SeekerProfileForm keeps the draft (does not invoke onCancel)
+    hookState.states = [];
+    hookState.refs = [];
+    const onCancel = vi.fn();
+    const step0 = renderTree(edited.formData, onCancel);
+    (step0.props['onSubmit'] as (e: { preventDefault: () => void }) => void)({ preventDefault: vi.fn() });
+    const step1 = renderTree(edited.formData, onCancel);
+    const backBtn = findElements(
+      step1,
+      (el) =>
+        typeof el.props['onClick'] === 'function' &&
+        flattenText(el.props['children'] as React.ReactNode).includes('SeekerWorkspace.profileBack'),
+    )[0];
+    expect(backBtn).toBeDefined();
+    (backBtn!.props['onClick'] as () => void)();
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(edited.formData.formCity).toBe('Bhopal');
   });
 });
