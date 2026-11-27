@@ -18,6 +18,15 @@ interface SeekerProfileFormProps {
   isDownloadingPdf?: boolean;
 }
 
+export function hasSeekerFormChanges(
+  initial: SeekerFormData,
+  current: SeekerFormData,
+): boolean {
+  return (Object.keys(initial) as Array<keyof SeekerFormData>).some(
+    (key) => initial[key] !== current[key],
+  );
+}
+
 export function SeekerProfileForm({
   formData,
   updateField,
@@ -28,6 +37,12 @@ export function SeekerProfileForm({
 }: SeekerProfileFormProps) {
   const t = useTranslations('SeekerWorkspace');
   const [step, setStep] = useState(0);
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
+  const initialFormDataRef = useRef<SeekerFormData | null>(null);
+  if (initialFormDataRef.current === null) {
+    initialFormDataRef.current = { ...formData };
+  }
+  const isDirty = hasSeekerFormChanges(initialFormDataRef.current, formData);
   const stepHeading = useRef<HTMLHeadingElement>(null);
   const focusStep = useRef(false);
   const lastStep = 2;
@@ -67,6 +82,40 @@ export function SeekerProfileForm({
         {step === 2 && <SeekerSkillsAndPrefsFields formData={formData} updateField={updateField} />}
       </div>
 
+      {confirmingDiscard && (
+        <div
+          role="alertdialog"
+          aria-labelledby="seeker-discard-title"
+          aria-describedby="seeker-discard-desc"
+          className="space-y-3 rounded-xl border border-amber-300 bg-amber-50 p-4"
+        >
+          <div>
+            <h4 id="seeker-discard-title" className="text-base font-bold text-charcoal">
+              {t('discardChangesTitle')}
+            </h4>
+            <p id="seeker-discard-desc" className="mt-1 text-base text-gray-text">
+              {t('discardChangesDesc')}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setConfirmingDiscard(false)}
+            >
+              {t('keepEditing')}
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={onCancel}
+            >
+              {t('discardChangesConfirm')}
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-3 border-t border-gray-light pt-4">
         {onDownloadPdf && (
           <Button
@@ -80,7 +129,19 @@ export function SeekerProfileForm({
             {t('downloadPdf')}
           </Button>
         )}
-        <Button type="button" variant="ghost" onClick={onCancel}>{t('cancel')}</Button>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => {
+            if (isDirty) {
+              setConfirmingDiscard(true);
+            } else {
+              onCancel();
+            }
+          }}
+        >
+          {t('cancel')}
+        </Button>
         {step > 0 && (
           <Button type="button" variant="outline" onClick={() => goToStep(step - 1)}>
             <ArrowLeft aria-hidden="true" className="h-5 w-5" />{t('profileBack')}
