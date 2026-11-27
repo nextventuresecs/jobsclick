@@ -366,6 +366,13 @@ jobs:
         with:
           version: ${{ env.SUPABASE_CLI_VERSION }}
 
+      - name: Preview pending production migrations (dry run, no writes)
+        env:
+          PRODUCTION_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          PRODUCTION_PROJECT_REF: ${{ secrets.PRODUCTION_PROJECT_REF }}
+          STAGING_PROJECT_REF: ${{ vars.STAGING_PROJECT_REF }}
+        run: pnpm db:bootstrap:production -- --dry-run --confirm-project-ref "$PRODUCTION_PROJECT_REF"
+
       # Schema-only snapshot (no user data) as a cheap extra rollback aid.
       # Primary data safety net = Supabase PITR enabled on the prod project.
       - name: Snapshot production schema before migration
@@ -384,6 +391,7 @@ jobs:
         env:
           PRODUCTION_DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
           PRODUCTION_PROJECT_REF: ${{ secrets.PRODUCTION_PROJECT_REF }}
+          STAGING_PROJECT_REF: ${{ vars.STAGING_PROJECT_REF }}
         run: pnpm db:bootstrap:production -- --confirm-project-ref "$PRODUCTION_PROJECT_REF"
 
       - name: Install Railway CLI
