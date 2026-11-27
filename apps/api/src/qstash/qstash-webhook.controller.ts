@@ -1,6 +1,7 @@
-import { Controller, Post, Body, UseGuards, Inject } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, UseInterceptors, Inject } from '@nestjs/common';
 import { SkipThrottle } from '@nestjs/throttler';
 import { QstashSignatureGuard } from './qstash-signature.guard.js';
+import { QstashIdempotencyInterceptor } from './qstash-idempotency.interceptor.js';
 import { PdfTaskService, GeneratePdfPayload } from './pdf-task.service.js';
 import { Public } from '../auth/decorators/public.decorator.js';
 
@@ -12,6 +13,7 @@ export class QstashWebhookController {
 
   @Post('ping')
   @UseGuards(QstashSignatureGuard)
+  @UseInterceptors(QstashIdempotencyInterceptor)
   async ping(@Body() body: Record<string, unknown>) {
     return {
       pong: true,
@@ -20,9 +22,10 @@ export class QstashWebhookController {
     };
   }
 
-  // Ticket 4: Async PDF Generation Webhook
+  // Ticket 4: Async PDF Generation Webhook (delegates to BullMQ worker in production)
   @Post('generate-pdf')
   @UseGuards(QstashSignatureGuard)
+  @UseInterceptors(QstashIdempotencyInterceptor)
   async handleGeneratePdfWebhook(@Body() payload: GeneratePdfPayload) {
     return this.pdfTaskService.processPdfGenerationWebhook(payload);
   }

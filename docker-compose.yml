@@ -54,6 +54,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    stop_grace_period: 30s
 
   worker:
     build:
@@ -72,6 +73,7 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    stop_grace_period: 30s
 
   web:
     build:
@@ -91,7 +93,8 @@ services:
       PORT: 3000
       API_URL: ${API_URL:-http://api:3001}
     depends_on:
-      - api
+      api:
+        condition: service_healthy
 
 volumes:
   postgres_data:

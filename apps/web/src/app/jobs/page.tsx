@@ -25,13 +25,13 @@ import { SaveSearchAlertModal } from '../../components/jobs/SaveSearchAlertModal
 export const revalidate = 30;
 
 interface JobsPageProps {
-  readonly searchParams?: {
+  readonly searchParams?: Promise<{
     readonly keyword?: string;
     readonly city?: string;
     readonly category?: string;
     readonly employmentType?: string;
     readonly minPay?: string;
-  };
+  }>;
 }
 
 const CATEGORY_TABS: readonly {
@@ -48,11 +48,12 @@ const CATEGORY_TABS: readonly {
 ] as const;
 
 export default async function JobsListPage({ searchParams }: JobsPageProps) {
-  const keyword = searchParams?.keyword?.trim() || '';
-  const city = searchParams?.city?.trim() || '';
-  const category = searchParams?.category?.trim() || '';
-  const employmentType = searchParams?.employmentType?.trim() || '';
-  const minPay = searchParams?.minPay ? Number(searchParams.minPay) : 0;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const keyword = resolvedSearchParams?.keyword?.trim() || '';
+  const city = resolvedSearchParams?.city?.trim() || '';
+  const category = resolvedSearchParams?.category?.trim() || '';
+  const employmentType = resolvedSearchParams?.employmentType?.trim() || '';
+  const minPay = resolvedSearchParams?.minPay ? Number(resolvedSearchParams.minPay) : 0;
   const apiUrl = process.env['API_URL'] || 'http://localhost:3001';
 
   let liveJobs: JobItem[] = [];

@@ -37,7 +37,7 @@ export class EmailOtpService {
   constructor(
     @Inject(EmailService) private readonly emailService: EmailService,
     @Optional() @Inject(OtpRedisService) private readonly otpRedisService?: OtpRedisService,
-    customRedisClient?: EmailOtpRedisClient,
+    @Optional() @Inject('EMAIL_OTP_REDIS_CLIENT') customRedisClient?: EmailOtpRedisClient,
   ) {
     this.redisClient = customRedisClient || (this.otpRedisService?.client as unknown as EmailOtpRedisClient);
   }

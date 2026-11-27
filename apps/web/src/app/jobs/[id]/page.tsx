@@ -30,13 +30,13 @@ import {
 export const revalidate = 30;
 
 interface JobDetailPageProps {
-  readonly params: {
+  readonly params: Promise<{
     readonly id: string;
-  };
+  }>;
 }
 
 export default async function JobDetailPage({ params }: JobDetailPageProps) {
-  const jobSlug = params.id;
+  const { id: jobSlug } = await params;
   // ID-02: Old UUID URLs return 404, not a redirect, to avoid confirming internal IDs.
   if (isUuid(jobSlug)) {
     notFound();

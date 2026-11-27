@@ -1,8 +1,14 @@
-import { Injectable, Inject, Optional, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, Inject, Optional, InternalServerErrorException, ForbiddenException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { isTestEnv, isStrictEnv } from '@indian-job-portal/validation';
 import type { Database, InstitutionInquiryRow } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
+import {
+  type AuthorizationContext,
+  requireAuthorizationContext,
+  assertTenantMatchOrAdmin,
+  isPlatformAdminContext,
+} from '../../auth/authorization-context.js';
 
 @Injectable()
 export class InquiryRepository {
@@ -96,5 +102,56 @@ export class InquiryRepository {
     };
 
     return this.saveInquiry(updated);
+  }
+
+  async findInquiriesForInstitution(
+    ctx: AuthorizationContext,
+    institutionId: string,
+  ): Promise<InstitutionInquiryRow[]> {
+    const verified = requireAuthorizationContext(ctx);
+    assertTenantMatchOrAdmin(verified, institutionId);
+    return this.findInquiriesByInstitutionId(institutionId);
+  }
+
+  async updateInquiryStatusScoped(
+    ctx: AuthorizationContext,
+    institutionId: string,
+    inquiryId: string,
+    status: string,
+  ): Promise<InstitutionInquiryRow | null> {
+    const verified = requireAuthorizationContext(ctx);
+    assertTenantMatchOrAdmin(verified, institutionId);
+
+    const existing = await this.findInquiryById(inquiryId);
+    if (!existing) return null;
+    if (!isPlatformAdminContext(verified) && existing.institution_id !== institutionId) {
+      throw new ForbiddenException('Unauthorized to modify inquiries of other institutions');
+    }
+
+    const updated: InstitutionInquiryRow = {
+      ...existing,
+      status,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (this.isTestMode) {
+      this.persistentStore.setRow('institution_inquiries', inquiryId, updated);
+      return updated;
+    }
+
+    let query = this.supabase
+      .from('institution_inquiries')
+      .update({ status, updated_at: updated.updated_at })
+      .eq('id', inquiryId);
+    if (!isPlatformAdminContext(verified)) {
+      query = query.eq('institution_id', institutionId);
+    }
+
+    const { error } = await query;
+    if (error) {
+      throw new InternalServerErrorException(`DATABASE_ERROR: ${error.message}`);
+    }
+
+    return updated;
   }
 }

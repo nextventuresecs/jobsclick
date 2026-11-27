@@ -20,7 +20,7 @@ function isValidOrigin(req: NextRequest): boolean {
  * Returns ONLY sanitized user identity metadata. NEVER exposes the raw JWT accessToken to client JS.
  */
 export async function GET() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
   const session = verifyToken(token);
 

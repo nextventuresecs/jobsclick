@@ -13,6 +13,12 @@ import { randomUUID } from 'node:crypto';
 import { generatePublicSlug, isTestEnv, isStrictEnv } from '@indian-job-portal/validation';
 import type { Database, JobRow, JobAlertRow, AlertDeliveryRow, CreditLedgerRow, PromoteJobRpcResult, SearchJobsRpcResult } from '@indian-job-portal/database';
 import { SUPABASE_CLIENT, PersistentDatabaseStore } from '../supabase.provider.js';
+import {
+  type AuthorizationContext,
+  requireAuthorizationContext,
+  requirePermission,
+  assertTenantMatchOrAdmin,
+} from '../../auth/authorization-context.js';
 
 export interface JobFilterParams {
   keyword?: string;
@@ -298,6 +304,52 @@ export class JobRepository {
 
     await this.update(id, { is_active: false });
     return true;
+  }
+
+  async findByIdForTenant(ctx: AuthorizationContext, id: string): Promise<JobRow | null> {
+    const verified = requireAuthorizationContext(ctx);
+    requirePermission(verified, 'jobs:read');
+    const existing = await this.findById(id);
+    if (!existing) return null;
+    assertTenantMatchOrAdmin(verified, existing.employer_id);
+    return existing;
+  }
+
+  async updateForTenant(ctx: AuthorizationContext, id: string, updates: Partial<JobRow>): Promise<JobRow | null> {
+    const verified = requireAuthorizationContext(ctx);
+    requirePermission(verified, 'jobs:write');
+    const existing = await this.findById(id);
+    if (!existing) return null;
+    assertTenantMatchOrAdmin(verified, existing.employer_id);
+
+    const updated: JobRow = {
+      ...existing,
+      ...updates,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (this.isTestMode) {
+      this.persistentStore.setRow('jobs', id, updated);
+      return updated;
+    }
+
+    let query = this.supabase.from('jobs').update(updates).eq('id', id);
+    if (verified.role !== 'admin') {
+      query = query.eq('employer_id', verified.tenant.id);
+    }
+
+    const { error } = await query;
+    if (error) {
+      this.logger.error(`Failed to update scoped job ${id} in Supabase: ${error.message}`, error.details);
+      throw new InternalServerErrorException(`Failed to update job: ${error.message}`);
+    }
+
+    return updated;
+  }
+
+  async softDeleteForTenant(ctx: AuthorizationContext, id: string): Promise<boolean> {
+    const res = await this.updateForTenant(ctx, id, { is_active: false });
+    return Boolean(res);
   }
 
   async promoteJobAtomically(params: {

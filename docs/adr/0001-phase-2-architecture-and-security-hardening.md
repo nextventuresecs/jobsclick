@@ -1,6 +1,6 @@
 # ADR 0001: Phase 2 Architecture, Ledger Invariant, and Security Hardening
 
-- **Status:** Approved / Architecture Specification
+- **Status:** Approved / Architecture Specification *(§2 item 4 and §6.1 amended by [ADR 0002](./0002-authorization-model-api-enforced-deny-all-rls.md) — #131)*
 - **Date:** 2026-10-26
 - **Context:** Indian Job Portal Platform (JobsClick) — Phase 2 FinTech Ledger, Razorpay Gateway, Featured Promotions Engine, and Institutional Placement Multi-Tenancy
 - **Requirement IDs:** PRN-06, WAL-01, WAL-02, WAL-03, WAL-04, WAL-05, INT-04, JOB-05, Hard Invariants #1, #5, #6, #7, #8
@@ -25,7 +25,7 @@ We formalize an end-to-end architectural control framework comprising:
 1. **Configurable Blast-Radius Feature Flags** (`ENABLE_P2_*`) with a global NestJS `FeatureFlagGuard`.
 2. **Four-Stage FinTech State Machine** with a 3-tier distributed idempotency lock (HMAC SHA-256 + Redis Atomic Lock + PostgreSQL Transactional Advisory Lock).
 3. **Deterministic Hybrid Ranking Algorithm** utilizing GIN indexes (`idx_jobs_fts`) and composite ranking indexes (`idx_jobs_active_ranking`) delivering 0.065 ms latency.
-4. **Zero-Trust Multi-Tenancy & DPDP Student Privacy Model** enforced via PostgreSQL Row-Level Security (RLS).
+4. **Zero-Trust Multi-Tenancy & DPDP Student Privacy Model** *(amended by [ADR 0002](./0002-authorization-model-api-enforced-deny-all-rls.md): multi-tenancy is enforced in API guards and repository scoping; base tables stay deny-all to `anon`/`authenticated`)*.
 
 ```mermaid
 flowchart TD
@@ -184,7 +184,7 @@ Execution Time: 0.065 ms
 
 ### 6.1 Tenant Boundary Isolation Model
 
-Institutions operate as distinct tenants. Isolation is enforced at the database layer via PostgreSQL Row-Level Security:
+Institutions operate as distinct tenants. *(Amended by [ADR 0002](./0002-authorization-model-api-enforced-deny-all-rls.md), #127: isolation is enforced at the API guard and repository scoping layers with deny-all RLS as database backstop rather than `auth.uid()`-scoped RLS policies.)* Originally modeled at the database layer via PostgreSQL Row-Level Security:
 
 1. **`corporate_tie_ups` Isolation:**
    - Policy: `institution_id IN (SELECT id FROM institution_profiles WHERE user_id = auth.uid())`.

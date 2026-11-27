@@ -26,13 +26,13 @@ import {
 } from 'lucide-react';
 
 interface CompanyPageProps {
-  readonly params: {
+  readonly params: Promise<{
     readonly id: string;
-  };
+  }>;
 }
 
 export default async function PublicCompanyPage({ params }: CompanyPageProps) {
-  const companySlug = params.id;
+  const { id: companySlug } = await params;
   // ID-02: Old UUID URLs return 404, not a redirect, to avoid confirming internal IDs.
   if (isUuid(companySlug)) {
     notFound();

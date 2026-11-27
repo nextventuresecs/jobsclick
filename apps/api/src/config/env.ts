@@ -79,6 +79,7 @@ const baseSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   // Authentication & Administrative Security
   JWT_SECRET: z.string().optional(),
+  JWT_PREVIOUS_SECRET: z.string().optional(),
   JWT_ACCESS_TOKEN_TTL_MINUTES: z.coerce.number().min(1).max(60).default(30),
   OTP_PEPPER: z.string().optional(),
   ADMIN_DASHBOARD_SECRET: z.string().optional(),
@@ -280,6 +281,18 @@ export function validateEnv(overrides?: Record<string, string | undefined>): Env
       errors.push(jwtErr);
     }
 
+    // JWT_PREVIOUS_SECRET: optional zero-downtime key rotation secret (verified only, never used for signing)
+    const prevJwt = rawSource['JWT_PREVIOUS_SECRET'];
+    if (prevJwt !== undefined && prevJwt !== '') {
+      const prevJwtErr = validateProductionJwtKey('JWT_PREVIOUS_SECRET', prevJwt);
+      if (prevJwtErr) {
+        errors.push(prevJwtErr);
+      }
+      if (jwt && prevJwt === jwt) {
+        errors.push('JWT_PREVIOUS_SECRET must not be identical to JWT_SECRET');
+      }
+    }
+
     // OTP_PEPPER: minimum 32 chars, no placeholders (general secret key requirement)
     const pepper = rawSource['OTP_PEPPER'];
     const pepperErr = validateSecretKey('OTP_PEPPER', pepper, 32);
@@ -287,12 +300,17 @@ export function validateEnv(overrides?: Record<string, string | undefined>): Env
       errors.push(pepperErr);
     }
 
-    // ADMIN_DASHBOARD_SECRET: if set, minimum 32 chars, no placeholders
-    if (rawSource['ADMIN_DASHBOARD_SECRET']) {
-      const adminErr = validateSecretKey('ADMIN_DASHBOARD_SECRET', rawSource['ADMIN_DASHBOARD_SECRET'], 32);
-      if (adminErr) {
-        errors.push(adminErr);
-      }
+    // ADMIN_DASHBOARD_SECRET: mandatory dedicated secret in production/staging (min 32 chars, no placeholders)
+    const adminDashboardSecret = rawSource['ADMIN_DASHBOARD_SECRET'];
+    const adminErr = validateSecretKey('ADMIN_DASHBOARD_SECRET', adminDashboardSecret, 32);
+    if (adminErr) {
+      errors.push(adminErr);
+    }
+    if (adminDashboardSecret && jwt && adminDashboardSecret === jwt) {
+      errors.push('ADMIN_DASHBOARD_SECRET must not be identical to JWT_SECRET');
+    }
+    if (adminDashboardSecret && pepper && adminDashboardSecret === pepper) {
+      errors.push('ADMIN_DASHBOARD_SECRET must not be identical to OTP_PEPPER');
     }
 
     // CF_ORIGIN_LOCKED: mandatory in production/staging. Cannot be missing, empty, or malformed.
@@ -398,6 +416,27 @@ export function validateEnv(overrides?: Record<string, string | undefined>): Env
       errors.push(`API_URL must use HTTPS in production. Got: ${apiUrl}`);
     }
 
+    // QStash consistency check: if enabled or partially configured in production/staging,
+    // require complete non-placeholder signing & publish configuration + HTTPS API_URL.
+    const qstashToken = rawSource['QSTASH_TOKEN']?.trim();
+    const qstashCurrKey = rawSource['QSTASH_CURRENT_SIGNING_KEY']?.trim();
+    const qstashNextKey = rawSource['QSTASH_NEXT_SIGNING_KEY']?.trim();
+    const qstashEnabled = rawSource['ENABLE_QSTASH'] === 'true' || Boolean(qstashToken) || Boolean(qstashCurrKey);
+    if (qstashEnabled) {
+      if (!qstashToken || PLACEHOLDER_REGEX.test(qstashToken)) {
+        errors.push('QSTASH_TOKEN must be set and not a placeholder in production/staging when QStash is configured');
+      }
+      if (!qstashCurrKey || PLACEHOLDER_REGEX.test(qstashCurrKey)) {
+        errors.push('QSTASH_CURRENT_SIGNING_KEY must be set and not a placeholder in production/staging when QStash is configured');
+      }
+      if (qstashNextKey && PLACEHOLDER_REGEX.test(qstashNextKey)) {
+        errors.push('QSTASH_NEXT_SIGNING_KEY must not be a placeholder in production/staging');
+      }
+      if (!apiUrl || !apiUrl.startsWith('https://')) {
+        errors.push('API_URL must be set to an HTTPS origin when QStash is configured');
+      }
+    }
+
     // TRUSTED_PROXY_CIDRS: required in production/staging; must be valid CIDRs and reject 0.0.0.0/0 & ::/0
     const trustedProxiesRaw = rawSource['TRUSTED_PROXY_CIDRS'];
     if (!trustedProxiesRaw || !trustedProxiesRaw.trim()) {
@@ -414,6 +453,12 @@ export function validateEnv(overrides?: Record<string, string | undefined>): Env
           errors.push(`TRUSTED_PROXY_CIDRS contains invalid CIDR or IP: "${entry}" in production/staging`);
         }
       }
+    }
+
+    // TRUST_PROXY_HOPS must be explicitly configured in production/staging (#133)
+    const rawHops = rawSource['TRUST_PROXY_HOPS'];
+    if (rawHops === undefined || rawHops === null || String(rawHops).trim() === '') {
+      errors.push('TRUST_PROXY_HOPS must be explicitly set (0-5) in production/staging');
     }
 
     // Razorpay Payment Configuration (WAL-03)
