@@ -36,7 +36,7 @@ Workflow and evidence records are in the [agent workflow](agentic-workflow.md), 
 
 Disposable Supabase and Redis used ports 56321, 56322 and 56379. The test preload blocked outbound service hosts and the existing default local ports. The disposable project and Redis container were removed after the run.
 
-Local evidence is in the [public browser and screenshot folder](../../.scratch/jobsclick-public-ux) and the [disposable service logs](../../.scratch/jobsclick-services-ux-7f2a).
+Local browser screenshots and disposable service logs were kept in untracked local scratch folders outside the repository.
 
 ## Needs your input
 
