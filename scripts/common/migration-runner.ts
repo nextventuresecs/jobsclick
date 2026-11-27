@@ -44,8 +44,24 @@ export interface MigrationRunSummary {
   dryRun: boolean;
 }
 
+export function normalizeLineEndings(content: string): string {
+  return content.replace(/\r\n?/g, '\n');
+}
+
 export function computeSha256(content: string): string {
-  return crypto.createHash('sha256').update(content, 'utf8').digest('hex');
+  return crypto.createHash('sha256').update(normalizeLineEndings(content), 'utf8').digest('hex');
+}
+
+/**
+ * Whitespace-, comment- and semicolon-insensitive fingerprint. Used ONLY to verify
+ * history rows that the Supabase CLI / MCP stored as several split statements, where
+ * the original file text cannot be reconstructed byte-for-byte.
+ */
+export function sqlFingerprint(sql: string): string {
+  return sql
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/--[^\r\n]*/g, '')
+    .replace(/[\s;]+/g, '');
 }
 
 export function stripSqlCommentsAndStrings(sql: string): string {
@@ -268,9 +284,15 @@ export async function runMigrationRunner(options: MigrationRunnerOptions): Promi
               `MIGRATION CHECKSUM MISMATCH: Applied migration ${local.filename} was modified (checksum mismatch).`,
             );
           }
-        } else if (Array.isArray(row.statements) && row.statements.length === 1 && typeof row.statements[0] === 'string') {
-          const recordedChecksum = computeSha256(row.statements[0]);
-          if (recordedChecksum !== local.checksum) {
+        } else if (
+          Array.isArray(row.statements) &&
+          row.statements.length >= 1 &&
+          row.statements.every((st) => typeof st === 'string')
+        ) {
+          const stored = row.statements;
+          const exact = stored.length === 1 && computeSha256(stored[0]) === local.checksum;
+          const equivalent = exact || sqlFingerprint(stored.join(';\n')) === sqlFingerprint(local.sql);
+          if (!equivalent) {
             throw new Error(
               `MIGRATION CHECKSUM MISMATCH: Applied migration ${local.filename} was modified (statements checksum mismatch).`,
             );

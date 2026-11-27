@@ -18,8 +18,7 @@ BEGIN
             ARRAY[
                 'text/csv',
                 'application/vnd.ms-excel',
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'application/pdf'
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             ]
         )
         ON CONFLICT (id) DO UPDATE SET
@@ -28,8 +27,7 @@ BEGIN
             allowed_mime_types = ARRAY[
                 'text/csv',
                 'application/vnd.ms-excel',
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'application/pdf'
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
             ];
     END IF;
 END $$;

@@ -124,6 +124,50 @@ describe('Migration Runner Safety & Integrity', () => {
     ).rejects.toThrow(/MIGRATION HISTORY DRIFT/);
   });
 
+  it('accepts history rows stored with CRLF line endings (Windows-applied migrations)', async () => {
+    const sqlLf = 'CREATE TABLE public.test_t (\n  id int\n);\n';
+    fs.writeFileSync(path.join(tempDir, '20261008000000_init.sql'), sqlLf);
+    const client = createMockClient({
+      appliedRows: [
+        { version: '20261008000000', name: 'init', statements: [sqlLf.replace(/\n/g, '\r\n')], checksum: null },
+      ],
+    });
+    const summary = await runMigrationRunner({ client, migrationsDir: tempDir, dryRun: true });
+    expect(summary.pendingCount).toBe(0);
+  });
+
+  it('accepts CLI-split multi-statement history rows only when SQL is equivalent', async () => {
+    fs.writeFileSync(
+      path.join(tempDir, '20261008000000_init.sql'),
+      '-- c\nALTER VIEW a RESET (x);\nALTER VIEW b RESET (x);\n',
+    );
+    const ok = createMockClient({
+      appliedRows: [
+        { version: '20261008000000', name: 'init', statements: ['-- c\nALTER VIEW a RESET (x)', 'ALTER VIEW b RESET (x)'], checksum: null },
+      ],
+    });
+    await expect(runMigrationRunner({ client: ok, migrationsDir: tempDir, dryRun: true })).resolves.toBeDefined();
+
+    const drifted = createMockClient({
+      appliedRows: [
+        { version: '20261008000000', name: 'init', statements: ['-- c\nALTER VIEW a RESET (x)', 'ALTER VIEW b RESET (y)'], checksum: null },
+      ],
+    });
+    await expect(
+      runMigrationRunner({ client: drifted, migrationsDir: tempDir, dryRun: true }),
+    ).rejects.toThrow(/MIGRATION CHECKSUM MISMATCH/);
+  });
+
+  it('still rejects genuinely modified content even with CRLF normalization', async () => {
+    fs.writeFileSync(path.join(tempDir, '20261008000000_init.sql'), 'SELECT 2;\n');
+    const client = createMockClient({
+      appliedRows: [{ version: '20261008000000', name: 'init', statements: ['SELECT 1;\r\n'], checksum: null }],
+    });
+    await expect(
+      runMigrationRunner({ client, migrationsDir: tempDir, dryRun: true }),
+    ).rejects.toThrow(/MIGRATION CHECKSUM MISMATCH/);
+  });
+
   it('supports explicit non-destructive checksum baseline and refuses silent baseline', async () => {
     const sql = 'CREATE TABLE public.test_t (id int);';
     fs.writeFileSync(path.join(tempDir, '20261008000000_init.sql'), sql);
