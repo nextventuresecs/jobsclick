@@ -31,6 +31,14 @@ export interface JobFilterParams {
   offset?: number;
 }
 
+/**
+ * T2: strips PostgREST filter grammar (`,()*\\{}"`) and ILIKE wildcards (`%_`) so user
+ * input is matched literally and cannot add filters to `.or()` / `.ilike()`.
+ */
+export function toLiteralSearchTerm(input: string): string {
+  return input.replace(/[,()*\\%_{}"]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 100);
+}
+
 @Injectable()
 export class JobRepository {
   private readonly logger = new Logger(JobRepository.name);
@@ -133,7 +141,12 @@ export class JobRepository {
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   }
 
-  async findMany(filters: JobFilterParams): Promise<{ jobs: JobRow[]; total: number }> {
+  async findMany(rawFilters: JobFilterParams): Promise<{ jobs: JobRow[]; total: number }> {
+    const filters: JobFilterParams = {
+      ...rawFilters,
+      keyword: rawFilters.keyword ? toLiteralSearchTerm(rawFilters.keyword) || undefined : undefined,
+      city: rawFilters.city ? toLiteralSearchTerm(rawFilters.city) || undefined : undefined,
+    };
     const offset = filters.offset ?? 0;
     const limit = filters.limit ?? 20;
 
