@@ -1,8 +1,7 @@
 # Multi-stage Dockerfile for Next.js Web App
-FROM node:22-alpine AS base
+FROM node:22-alpine@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-ENV PNPM_CONFIG_MINIMUM_RELEASE_AGE=0
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
 FROM base AS builder
@@ -43,7 +42,7 @@ ENV NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN=$NEXT_PUBLIC_ENABLE_GOOGLE_LOGIN
 ENV NEXT_OUTPUT_STANDALONE=1
 RUN pnpm --filter @indian-job-portal/web... build
 
-FROM node:22-alpine AS runner
+FROM node:22-alpine@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs \

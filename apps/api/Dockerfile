@@ -1,8 +1,7 @@
 # Multi-stage Dockerfile for API
-FROM node:22-alpine AS base
+FROM node:22-alpine@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-ENV PNPM_CONFIG_MINIMUM_RELEASE_AGE=0
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
 FROM base AS builder
@@ -22,7 +21,7 @@ RUN pnpm --filter @indian-job-portal/api --prod deploy /prod/api \
   && cp -r /app/apps/api/dist /prod/api/dist \
   && rm -rf /prod/api/src /prod/api/Dockerfile /prod/api/tsconfig*.json
 
-FROM node:22-alpine AS runner
+FROM node:22-alpine@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 RUN addgroup --system --gid 1001 nodejs \
