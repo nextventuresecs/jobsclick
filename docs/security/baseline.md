@@ -143,3 +143,19 @@ Across all 74 test suites in the repository, exactly 1 file contains skipped tes
   2. `"handles concurrent job execution across multi-instance worker processes"`
   3. `"handles worker SIGTERM and cleans up queue listeners without dropping jobs"`
 - **Reason for Skip:** Worker cluster multi-process concurrency harness requires dedicated BullMQ background worker threads with explicit `RUN_LIVE_REDIS=true` environment flag. Default unit test runs omit this to avoid worker contention with live background queues.
+
+## Dependency residual risk (T3, 28 Nov 2026)
+
+`pnpm audit --prod`: 13 findings (5 high) reduced to 3 (1 high, 2 moderate).
+
+Fixed: `@fastify/static` (removed unused `@bull-board/*` from worker), `postcss` and `follow-redirects` (pnpm overrides), `next-intl` 3 -> 4.9.2, `csv-parse` 5 -> 7.0.3 (api, worker, validation).
+
+Residual, accepted for launch:
+
+| Advisory | Package | Severity | Why not fixed | Mitigation | Owner/next step |
+|---|---|---|---|---|---|
+| GHSA-mrhx-c7xc-m3w5 | zod 3.25 | high | Fix needs zod >=4.6.6: major migration across validation, nestjs-zod, errorMap usages | Fastify `bodyLimit` 1 MiB; string inputs bounded with `.max()` at API boundary | Schedule zod 4 + nestjs-zod upgrade post-launch |
+| GHSA-3g3m-2fjr-6pw4 | glob 13 (via @sentry/nextjs bundler plugins) | moderate | Build-time only; fix is a major bump inside Sentry tooling | Not shipped in runtime bundles | Upgrade when @sentry/nextjs ships glob >=14.0.2 |
+| GHSA-g3hv-75wg-m249 | minimatch 10 (same path) | moderate | As above | As above | As above |
+
+`scripts/ci/audit-allowlist.json` now waives only the zod advisory; all stale Next 14 / Fastify 4 / postcss / follow-redirects / @fastify/static waivers were removed so regressions fail CI.
