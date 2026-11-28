@@ -86,14 +86,14 @@ export const updateJobSchema = createJobSchema.partial().extend({
 });
 
 export const jobFilterSchema = z.object({
-  keyword: z.string().optional(),
-  city: z.string().optional(),
+  keyword: z.string().trim().max(100).optional(),
+  city: z.string().trim().max(100).optional(),
   category: jobCategorySchema.optional(),
   employmentType: employmentTypeSchema.optional(),
   experienceLevel: experienceLevelSchema.optional(),
   minPay: z.coerce.number().optional(),
   companyId: z.string().optional(),
-  limit: z.coerce.number().int().positive().default(20),
+  limit: z.coerce.number().int().positive().max(100).default(20),
   offset: z.coerce.number().int().min(0).default(0),
 });
 
