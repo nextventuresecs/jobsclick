@@ -15,7 +15,7 @@ export const auditLogSchema = z.object({
 });
 
 export const privacyRequestSchema = z.object({
-  reason: z.string().optional(),
+  reason: z.string().trim().max(500).optional(),
   confirmDeletion: z.literal(true, {
     errorMap: () => ({ message: 'You must confirm account deletion request' }),
   }),

@@ -1,4 +1,6 @@
-import { Injectable, BadRequestException, NotFoundException, UnauthorizedException, Inject, Optional, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, UnauthorizedException, ServiceUnavailableException, Inject, Optional, Logger } from '@nestjs/common';
+import { PrivacyErasureRepository } from '../database/repositories/privacy-erasure.repository.js';
+import { QueueService } from '../queue/queue.service.js';
 import { randomUUID } from 'node:crypto';
 import { OtpRedisService } from '../auth/otp-redis.service.js';
 import { AdminUserStatusInput, AdminUserRoleInput, GenerateResumeInput, AdminExportQueryInput } from '@indian-job-portal/validation';
@@ -26,10 +28,8 @@ export interface NotificationRecord {
 
 export interface PrivacyDeletionRequestRecord {
   id: string;
-  userId: string;
-  reason: string;
+  status: string;
   requestedAt: string;
-  status: 'pending_processing' | 'completed';
 }
 
 function convertToCsv(data: Record<string, unknown>[]): string {
@@ -52,7 +52,6 @@ function convertToCsv(data: Record<string, unknown>[]): string {
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
   private notifications = new Map<string, NotificationRecord[]>();
-  private privacyRequests: PrivacyDeletionRequestRecord[] = [];
 
   constructor(
     @Inject(AuditLogRepository) private readonly auditLogRepo: AuditLogRepository,
@@ -60,6 +59,8 @@ export class AdminService {
     @Optional() @Inject(JobRepository) private readonly jobRepo?: JobRepository,
     @Optional() @Inject(ApplicationRepository) private readonly applicationRepo?: ApplicationRepository,
     @Optional() @Inject(OtpRedisService) private readonly otpRedisService?: OtpRedisService,
+    @Optional() @Inject(PrivacyErasureRepository) private readonly privacyErasureRepo?: PrivacyErasureRepository,
+    @Optional() @Inject(QueueService) private readonly queueService?: QueueService,
   ) {}
 
   // Issue #21: Admin User Management (Persisted directly to users table, eliminating in-memory Map)
@@ -343,16 +344,19 @@ export class AdminService {
 
   // Issue #24: DPDP Privacy Deletion Request
   async requestAccountDeletion(userId: string, reason?: string): Promise<PrivacyDeletionRequestRecord> {
-    const reqRecord: PrivacyDeletionRequestRecord = {
-      id: randomUUID(),
-      userId,
-      reason: reason || 'User requested account deletion under DPDP principles',
-      requestedAt: new Date().toISOString(),
-      status: 'pending_processing',
-    };
-    this.privacyRequests.push(reqRecord);
-    await this.recordAuditLog(userId, 'PRIVACY_DELETION_REQUESTED', { reason });
-    return reqRecord;
+    if (!this.privacyErasureRepo || !this.queueService) {
+      throw new ServiceUnavailableException({ code: 'ERASURE_UNAVAILABLE' });
+    }
+    const { request, created } = await this.privacyErasureRepo.createOrGetActive(userId, reason || null);
+    if (created) {
+      // Reason is free text and may contain PII; keep it out of the audit log.
+      await this.recordAuditLog(userId, 'PRIVACY_DELETION_REQUESTED', { requestId: request.id });
+    }
+    // Re-publishing a pending request is safe: the queue deduplicates per request id.
+    if (request.status === 'pending') {
+      await this.queueService.publishPrivacyErasureJob({ requestId: request.id, userId });
+    }
+    return { id: request.id, status: request.status, requestedAt: request.requested_at };
   }
 
   // Issue #30: Resume Builder

@@ -14,6 +14,7 @@ export const QUEUE_NAMES = {
   PAYMENTS_EXPIRE: 'payments-expire',
   PAYMENTS_REFUND: 'payments-refund',
   PAYMENTS_INVOICE_OUTBOX: 'payments-invoice-outbox',
+  PRIVACY_ERASURE: 'privacy-erasure',
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];

@@ -686,7 +686,7 @@ describe('AdminController RBAC & Authentication (STF-02)', () => {
       });
       expect(res.statusCode).toBe(201);
       const data = JSON.parse(res.payload);
-      expect(data.status).toBe('pending_processing');
+      expect(data.status).toBe('pending');
     });
 
     it('allows employer with 201', async () => {
@@ -698,7 +698,7 @@ describe('AdminController RBAC & Authentication (STF-02)', () => {
       });
       expect(res.statusCode).toBe(201);
       const data = JSON.parse(res.payload);
-      expect(data.status).toBe('pending_processing');
+      expect(data.status).toBe('pending');
     });
   });
 
