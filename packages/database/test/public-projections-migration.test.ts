@@ -25,12 +25,21 @@ describe('Public Projection Reads Migration (20261118085644)', () => {
     expect(sql).toContain('TO service_role');
   });
 
-  it('allows application/pdf in private storage bucket MIME types', () => {
-    const bucketMigration = readFileSync(
+  it('allows application/pdf in private storage bucket MIME types via a forward migration', () => {
+    // Applied migrations are immutable (checksum-verified), so PDF support lives in a
+    // forward migration instead of an in-place edit of 20261110000000.
+    const forwardMigration = readFileSync(
+      resolve(__dirname, '../../../supabase/migrations/20261128000000_private_bucket_allow_pdf.sql'),
+      'utf-8'
+    );
+    expect(forwardMigration).toContain("'application/pdf'");
+    expect(forwardMigration).toContain("WHERE id = 'private'");
+
+    const originalBucketMigration = readFileSync(
       resolve(__dirname, '../../../supabase/migrations/20261110000000_private_storage_bucket.sql'),
       'utf-8'
     );
-    expect(bucketMigration).toContain("'application/pdf'");
+    expect(originalBucketMigration).not.toContain("'application/pdf'");
   });
 
   it('defines is_published on institution_profiles with DEFAULT true prior to projection views', () => {

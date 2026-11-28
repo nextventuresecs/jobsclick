@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -10,6 +9,7 @@ import {
   resolveSupabaseCaCert,
 } from './db-tls.ts';
 import { parseAndValidateDbUrl } from './db-url.ts';
+import { runOpenssl, SKIP_WITHOUT_OPENSSL } from './test-openssl.ts';
 
 function generateTestPki(dir: string) {
   const caKey = path.join(dir, 'ca.key');
@@ -21,23 +21,23 @@ function generateTestPki(dir: string) {
   const srvCert = path.join(dir, 'srv.crt');
   const extFile = path.join(dir, 'srv.ext');
 
-  execFileSync('openssl', [
+  runOpenssl([
     'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
     '-keyout', caKey, '-out', caCert, '-days', '1',
     '-subj', '/CN=Test-Supabase-CA',
   ]);
-  execFileSync('openssl', [
+  runOpenssl([
     'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
     '-keyout', otherCaKey, '-out', otherCaCert, '-days', '1',
     '-subj', '/CN=Untrusted-CA',
   ]);
-  execFileSync('openssl', [
+  runOpenssl([
     'req', '-newkey', 'rsa:2048', '-nodes',
     '-keyout', srvKey, '-out', srvCsr,
     '-subj', '/CN=db.testref123.supabase.co',
   ]);
   fs.writeFileSync(extFile, 'subjectAltName=DNS:db.testref123.supabase.co\n');
-  execFileSync('openssl', [
+  runOpenssl([
     'x509', '-req', '-in', srvCsr, '-CA', caCert, '-CAkey', caKey,
     '-CAcreateserial', '-out', srvCert, '-days', '1', '-extfile', extFile,
   ]);
@@ -51,7 +51,7 @@ function generateTestPki(dir: string) {
   };
 }
 
-describe('DB TLS & Connection-String Security', () => {
+describe.skipIf(SKIP_WITHOUT_OPENSSL)('DB TLS & Connection-String Security', () => {
   let tmpDir: string;
   let pki: ReturnType<typeof generateTestPki>;
 

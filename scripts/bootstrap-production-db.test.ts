@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -12,8 +11,9 @@ import {
   TARGET_STAGING_PROJECT_REF,
 } from './bootstrap-staging-db.ts';
 import { snapshotProductionSchema } from './snapshot-production-schema.ts';
+import { runOpenssl, SKIP_WITHOUT_OPENSSL } from './common/test-openssl.ts';
 
-describe('bootstrap-production-db safeguards', () => {
+describe.skipIf(SKIP_WITHOUT_OPENSSL)('bootstrap-production-db safeguards', () => {
   const originalEnv = process.env;
   const prodRef = 'prodprojref123456789';
   const sessionPoolerUrl = `postgresql://postgres.${prodRef}:secretpass@aws-0-ap-south-1.pooler.supabase.com:5432/postgres`;
@@ -24,7 +24,7 @@ describe('bootstrap-production-db safeguards', () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'prod-bootstrap-test-'));
     const key = path.join(tmpDir, 'ca.key');
     const crt = path.join(tmpDir, 'ca.crt');
-    execFileSync('openssl', [
+    runOpenssl([
       'req', '-x509', '-newkey', 'rsa:2048', '-nodes',
       '-keyout', key, '-out', crt, '-days', '1', '-subj', '/CN=Test-Prod-CA',
     ]);
