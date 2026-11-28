@@ -1699,6 +1699,40 @@ export type Database = {
           },
         ]
       }
+      privacy_erasure_requests: {
+        Row: {
+          error_code: string | null
+          id: string
+          processed_at: string | null
+          reason: string | null
+          requested_at: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        ComputedFields: never
+        Insert: {
+          error_code?: string | null
+          id?: string
+          processed_at?: string | null
+          reason?: string | null
+          requested_at?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          error_code?: string | null
+          id?: string
+          processed_at?: string | null
+          reason?: string | null
+          requested_at?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       placement_applications: {
         Row: {
           created_at: string

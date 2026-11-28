@@ -65,6 +65,7 @@ export class QueueService implements OnModuleDestroy {
   public readonly pdfGeneratorQueue: Queue;
   public readonly broadcastQueue: Queue;
   public readonly alertsQueue: Queue;
+  public readonly privacyErasureQueue: Queue;
   public readonly reconcileQueue?: Queue;
   public readonly expireQueue?: Queue;
   public readonly refundQueue?: Queue;
@@ -78,6 +79,7 @@ export class QueueService implements OnModuleDestroy {
     [QUEUE_NAMES.PDF_GENERATOR]: { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 },
     [QUEUE_NAMES.BROADCAST]: { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 },
     [QUEUE_NAMES.ALERTS]: { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 },
+    [QUEUE_NAMES.PRIVACY_ERASURE]: { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0 },
   };
 
   private incrementMockWaiting(queueName: string): void {
@@ -148,12 +150,18 @@ export class QueueService implements OnModuleDestroy {
       defaultJobOptions: DEFAULT_JOB_OPTIONS,
     });
 
+    this.privacyErasureQueue = new Queue(QUEUE_NAMES.PRIVACY_ERASURE, {
+      connection: connOptions,
+      defaultJobOptions: DEFAULT_JOB_OPTIONS,
+    });
+
     this.managedQueues = [
       { name: QUEUE_NAMES.BULK_IMPORT, instance: this.bulkImportQueue },
       { name: QUEUE_NAMES.INVITE_WAVE, instance: this.inviteWaveQueue },
       { name: QUEUE_NAMES.PDF_GENERATOR, instance: this.pdfGeneratorQueue },
       { name: QUEUE_NAMES.BROADCAST, instance: this.broadcastQueue },
       { name: QUEUE_NAMES.ALERTS, instance: this.alertsQueue },
+      { name: QUEUE_NAMES.PRIVACY_ERASURE, instance: this.privacyErasureQueue },
     ];
 
     if (process.env['ENABLE_P2_PAYMENTS'] === 'true') {
@@ -325,6 +333,17 @@ export class QueueService implements OnModuleDestroy {
       ...DEFAULT_JOB_OPTIONS,
       // All requests for a seeker write the same private object. BullMQ releases this key at terminal state.
       deduplication: { id: `resume-${data.seekerId}` },
+    });
+  }
+
+  async publishPrivacyErasureJob(data: { requestId: string; userId: string }) {
+    if (this.isMock) {
+      this.incrementMockWaiting(QUEUE_NAMES.PRIVACY_ERASURE);
+      return { id: randomUUID(), name: 'erase-user', data } as unknown as Job;
+    }
+    return this.enqueue(this.privacyErasureQueue, 'erase-user', data, {
+      ...DEFAULT_JOB_OPTIONS,
+      deduplication: { id: `erasure-${data.requestId}` },
     });
   }
 

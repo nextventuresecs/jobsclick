@@ -1118,5 +1118,19 @@
     "description": "An unexpected error occurred. Our engineering team has been notified.",
     "sectionError": "We encountered an issue loading this section.",
     "tryAgain": "Try again"
+  },
+  "Privacy": {
+    "erasureTitle": "4. Request Data Deletion",
+    "erasureBody": "Under DPDP guidelines, you have the right to request erasure of your account and personal data at any time. Payment and invoice records are kept in anonymised form for 8 years as required by GST law.",
+    "erasureButton": "Submit Account Erasure Request",
+    "confirmTitle": "Delete your account permanently?",
+    "confirmBody": "Your profile, contact details and resumes will be erased and you will be signed out. This cannot be undone.",
+    "confirmButton": "Yes, erase my account",
+    "cancelButton": "Cancel",
+    "submitting": "Submitting…",
+    "success": "Your erasure request has been received. We will process it shortly.",
+    "errorUnauthenticated": "Please sign in to request account erasure.",
+    "errorGeneric": "We could not submit your request. Please try again.",
+    "retry": "Try again"
   }
 }

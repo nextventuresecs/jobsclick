@@ -126,6 +126,6 @@ describe('AdminController (e2e) - Epic 5 (Issues #21, #22, #23, #24)', () => {
     expect(res.statusCode).toBe(201);
     const body = JSON.parse(res.payload);
     expect(body.id).toBeDefined();
-    expect(body.status).toBe('pending_processing');
+    expect(body.status).toBe('pending');
   });
 });

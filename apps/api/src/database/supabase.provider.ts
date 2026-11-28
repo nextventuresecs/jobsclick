@@ -27,6 +27,7 @@ export interface DatabasePersistenceState {
   states: Record<string, unknown>;
   districts: Record<string, unknown>;
   pincodes: Record<string, unknown>;
+  privacy_erasure_requests: Record<string, unknown>;
 }
 
 export class PersistentDatabaseStore {
@@ -54,6 +55,7 @@ export class PersistentDatabaseStore {
     states: {},
     districts: {},
     pincodes: {},
+    privacy_erasure_requests: {},
   };
 
   private constructor() {
@@ -130,6 +132,7 @@ export class PersistentDatabaseStore {
           states: parsed.states || {},
           districts: parsed.districts || {},
           pincodes: parsed.pincodes || {},
+          privacy_erasure_requests: parsed.privacy_erasure_requests || {},
         };
       }
     } catch {

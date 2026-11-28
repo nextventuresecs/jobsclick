@@ -45,6 +45,11 @@ import {
   AlertsJobResult,
 } from './processors/alerts.processor.js';
 import {
+  privacyErasureProcessor,
+  PrivacyErasureJobData,
+  PrivacyErasureJobResult,
+} from './processors/privacy-erasure.processor.js';
+import {
   reconcileProcessor,
   ReconcileJobData,
   ReconcileJobResult,
@@ -328,10 +333,23 @@ export function startWorkerCluster(
     },
   ) : undefined;
 
+  // DPDP erasure: anonymise user + delete resume PDFs (always on; not a P2 feature)
+  const erasureWorker = new Worker<PrivacyErasureJobData, PrivacyErasureJobResult>(
+    QUEUE_NAMES.PRIVACY_ERASURE,
+    wrapBullMQProcessor(QUEUE_NAMES.PRIVACY_ERASURE, async (job) => privacyErasureProcessor(job)),
+    {
+      connection: connOptions,
+      ...prefixOpt,
+      autorun,
+      concurrency: 2,
+    },
+  );
+
   const workers = [
     { name: QUEUE_NAMES.BULK_IMPORT, instance: importWorker },
     { name: QUEUE_NAMES.INVITE_WAVE, instance: inviteWorker },
     { name: QUEUE_NAMES.PDF_GENERATOR, instance: pdfWorker },
+    { name: QUEUE_NAMES.PRIVACY_ERASURE, instance: erasureWorker },
     { name: QUEUE_NAMES.BROADCAST, instance: broadcastWorker },
     { name: QUEUE_NAMES.ALERTS, instance: alertsWorker },
     { name: QUEUE_NAMES.PAYMENTS_RECONCILE, instance: reconcileWorker },
